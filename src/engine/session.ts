@@ -20,11 +20,18 @@
  */
 import type { Dataset, IngestOptions, LargeFileAssessment, ParseReport } from "@/engine/core/types";
 import { isoDate, isoDateTime, isoTime, todayWallClock, type TimeGrain } from "@/engine/core/dates";
-import { currencySymbol, formatPlain, type FormatOptions, type NumberLocale } from "@/engine/core/format";
+import {
+  currencySymbol,
+  formatPlain,
+  formatValue,
+  type FormatOptions,
+  type NumberLocale,
+} from "@/engine/core/format";
 import { ingestFile, workbookSheets, type IngestProgress } from "@/engine/parse";
 import { fileKindFromName } from "@/engine/parse";
 import { profileDataset } from "@/engine/profile/profile";
 import { assessHealth, type HealthReport } from "@/engine/profile/quality";
+import { DataCheck, type CheckedRow, type CheckView } from "@/engine/profile/dataCheck";
 import { applyRoleOverride } from "@/engine/profile/roles";
 import type {
   Additivity,
@@ -52,8 +59,17 @@ import { kpiQuery, quoteIdent } from "@/engine/compile/sql";
 import { exprDax } from "@/engine/compile/dax";
 import type { Resolver } from "@/engine/query/evaluate";
 import { type Filter, selectRowsCached } from "@/engine/query/filter";
-import { recommendCharts, type SkippedChart } from "@/engine/charts/recommend";
+import { customSpec, recommendCharts, type SkippedChart } from "@/engine/charts/recommend";
 import { computeChartData, type DrillState } from "@/engine/charts/data";
+import {
+  askMeasure,
+  axisFor,
+  phrase,
+  type AskContext,
+  type AskOrder,
+  type ChartAsk,
+} from "@/engine/charts/ask";
+import { questionSql, type QuestionKey } from "@/engine/compile/questionSql";
 import type { ChartData, ChartKind, ChartSpec } from "@/engine/charts/types";
 import { generateInsights, type Insight, type InsightKpi } from "@/engine/insights/insights";
 import { generateSample, SAMPLES } from "@/engine/samples";
@@ -184,6 +200,41 @@ export interface DomainSummary {
   subDomains: SubDomainDef[];
   pitfalls: string[];
   generic: boolean;
+}
+
+/** A business question to answer (step 5); `id` is chosen by the caller. */
+export interface QuestionRequest {
+  id: string;
+  question: string;
+  /** How it was read, e.g. "Average Customer Rating by City". */
+  understood: string;
+  notes: string[];
+  ask: ChartAsk;
+  order: AskOrder;
+  filters: Filter[];
+}
+
+/** The answer: rows computed by the engine, a headline, and the SQL returning the same rows. */
+export interface QuestionAnswer {
+  id: string;
+  question: string;
+  understood: string;
+  notes: string[];
+  order: AskOrder;
+  ask: ChartAsk;
+  filters: Filter[];
+  measures: Array<{ id: string; label: string; format: KpiFormat }>;
+  /** Heading of the group column (a column name, "Weekday", "Hour of day"); null for one overall row. */
+  keyLabel: string | null;
+  /** One row per group: its label, raw key (as in ChartCategory) and a value per measure. */
+  rows: Array<{ label: string; raw: string | number | null; values: Array<number | null> }>;
+  /** Groups ranked below the top N, not listed. */
+  more: number;
+  headline: string;
+  /** "" when no measure has SQL (see `skipped`). */
+  sql: string;
+  skipped: Array<{ label: string; reason: string }>;
+  error?: string;
 }
 
 /** Result of configure(): the resolved analysis context the dashboard is built from. */
@@ -465,6 +516,8 @@ export class Session {
   /** baseProfile with the current role overrides applied. */
   private profile: DatasetProfile | null = null;
   private health: HealthReport | null = null;
+  /** The data check, tied to the dataset it was built for (a new load or unpivot builds a new one). */
+  private checker: { ds: Dataset; check: DataCheck } | null = null;
   private ctx: ActiveContext | null = null;
   // Results of the most recent dashboard computation. insights() reads these
   // instead of recomputing, and chartCsv() exports exactly what is on screen.
@@ -1065,32 +1118,219 @@ export class Session {
     const ds = this.requireDs();
     const out: Array<Array<string | null>> = [];
     const end = Math.min(ds.rowCount, start + count);
-    for (let r = start; r < end; r++) {
-      out.push(
-        ds.columns.map((c) => {
-          switch (c.kind) {
-            case "string": {
-              const k = c.codes[r] as number;
-              return k < 0 ? null : (c.dict[k] as string);
-            }
-            case "boolean": {
-              const v = c.values[r] as number;
-              return v < 0 ? null : v === 1 ? c.trueLabel : c.falseLabel;
-            }
-            case "date": {
-              const v = c.values[r] as number;
-              // `v === v` is false only for NaN, the blank sentinel.
-              return v === v ? (c.timeOnly ? isoTime(v) : c.hasTime ? isoDateTime(v) : isoDate(v)) : null;
-            }
-            case "number": {
-              const v = c.values[r] as number;
-              return v === v ? formatPlain(v, Math.min(c.format.decimals, 4), "INTL") : null;
-            }
-          }
-        }),
-      );
-    }
+    for (let r = start; r < end; r++) out.push(ds.columns.map((_, j) => this.cellText(j, r)));
     return out;
+  }
+
+  /** One cell as display text (the preview's format), null for blank. */
+  private cellText(column: number, r: number): string | null {
+    const c = this.requireDs().columns[column];
+    switch (c?.kind) {
+      case "string": {
+        const k = c.codes[r] as number;
+        return k < 0 ? null : (c.dict[k] as string);
+      }
+      case "boolean": {
+        const v = c.values[r] as number;
+        return v < 0 ? null : v === 1 ? c.trueLabel : c.falseLabel;
+      }
+      case "date": {
+        const v = c.values[r] as number;
+        // `v === v` is false only for NaN, the blank sentinel.
+        return v === v ? (c.timeOnly ? isoTime(v) : c.hasTime ? isoDateTime(v) : isoDate(v)) : null;
+      }
+      case "number": {
+        const v = c.values[r] as number;
+        return v === v ? formatPlain(v, Math.min(c.format.decimals, 4), "INTL") : null;
+      }
+      default:
+        return null;
+    }
+  }
+
+  /** The data check of the loaded file (step 3), built on first use. */
+  private dataCheck(): DataCheck {
+    const ds = this.requireDs();
+    if (!this.checker || this.checker.ds !== ds)
+      this.checker = {
+        ds,
+        check: new DataCheck(ds, this.baseProfile as DatasetProfile, this.health as HealthReport, (c, r) =>
+          this.cellText(c, r),
+        ),
+      };
+    return this.checker.check;
+  }
+
+  /** Views of the data check (all rows, rows to check, one per issue, blanks per column) with row counts. */
+  checkViews(): CheckView[] {
+    return this.dataCheck().views();
+  }
+
+  /** A window of a data-check view: each row's cells as display text, its marked cells and any duplicate. */
+  checkRows(viewId: string, start: number, count: number): { total: number; rows: CheckedRow[] } {
+    return this.dataCheck().rows(viewId, start, count);
+  }
+
+  /**
+   * What the question reader and chart designer need: the view's KPIs (with
+   * the user's names), the columns, and the template's vocabulary. The same
+   * shape as the ContextResult the UI holds, minus the internal column fields.
+   */
+  private askContext(): AskContext {
+    const ctx = this.requireCtx();
+    return {
+      kpis: [...ctx.res.values()].map((r) => ({
+        id: r.def.id,
+        name: displayName(ctx.kpiRenames, r.def.id, r.def.name),
+        short: r.def.short,
+        format: r.def.format,
+        direction: r.def.direction,
+        available: r.available,
+        hidden: Boolean(r.def.hidden || r.dependencyOnly),
+      })),
+      profile: this.profile as DatasetProfile,
+      domain: { fields: ctx.domain.fields.filter((f) => !isColumnId(f.id)) },
+      mapping: {
+        fields: Object.fromEntries(Object.entries(ctx.mapping.fields).filter(([f]) => !isColumnId(f))),
+      },
+      dateColumn: ctx.dateColumn,
+    };
+  }
+
+  /**
+   * A business question (step 5): the answer computed by the engine, a
+   * one-line headline built from it, and the SQL that returns the same rows
+   * (compile/questionSql.ts). Category answers are ranked by the first
+   * measure (highest or lowest first) and cut to the ask's top N (10 by
+   * default); time and date-part answers keep every period in order.
+   */
+  answerQuestion(req: QuestionRequest, numberLocale: NumberLocale): QuestionAnswer {
+    const ds = this.requireDs();
+    const ctx = this.requireCtx();
+    const actx = this.askContext();
+    const fmt = this.fmt(numberLocale);
+    const measures = req.ask.measures
+      .map((m) => askMeasure(m, actx))
+      .filter((m): m is NonNullable<typeof m> => Boolean(m))
+      .slice(0, 4);
+    const base = {
+      id: req.id,
+      question: req.question,
+      understood: req.understood,
+      notes: req.notes,
+      order: req.order,
+      ask: req.ask,
+      filters: req.filters,
+      measures: measures.map((m) => ({ id: m.id, label: m.label, format: m.format })),
+    };
+    if (!measures.length)
+      return {
+        ...base,
+        keyLabel: null,
+        rows: [],
+        more: 0,
+        headline: "",
+        sql: "",
+        skipped: [],
+        error: "Nothing in your file matches what to measure.",
+      };
+    const exprs = measures.map((m) => ({ id: m.id, label: m.label, expr: ctx.resolver.kpi(m.id) }));
+    const show = (v: number | null, i: number) =>
+      formatValue(v, measures[i]?.format ?? "number", { ...fmt, compact: false });
+    let key: QuestionKey = { kind: "none" };
+    let keyLabel: string | null = null;
+    let rows: QuestionAnswer["rows"] = [];
+    let more = 0;
+    let headline = "";
+    const by = req.ask.by;
+    if (by.kind === "none") {
+      const ev = evaluateMany(ds, ctx.resolver, exprs, req.filters, ctx.dateColumn);
+      const values = measures.map((m) => {
+        const v = ev.values.get(m.id);
+        return v !== undefined && Number.isFinite(v) ? v : null;
+      });
+      rows = [{ label: "All rows", raw: null, values }];
+      headline = measures.map((m, i) => `${m.label}: ${show(values[i] ?? null, i)}`).join(" · ");
+    } else {
+      // Every group as a table (no top N, no Others), sorted by the first measure; ranked and cut below.
+      const x = axisFor(by);
+      const spec = customSpec({
+        id: `question_${req.id}`,
+        title: req.understood,
+        kind: "table",
+        x,
+        measures,
+        others: false,
+      });
+      const data = computeChartData({
+        ds,
+        resolver: ctx.resolver,
+        spec,
+        filters: req.filters,
+        dateColumn: ctx.dateColumn,
+        fmt,
+        kind: "table",
+      });
+      keyLabel = x.kind === "part" ? x.label : x.kind === "column" || x.kind === "time" ? x.column : null;
+      const all = data.categories.map((c, i) => ({
+        label: c.label,
+        raw: c.raw,
+        values: data.series.map((s) => s.values[i] ?? null),
+      }));
+      if (by.kind === "column") {
+        const first = (r: (typeof all)[number]) => r.values[0] ?? null;
+        all.sort((a, b) => {
+          const x1 = first(a);
+          const y1 = first(b);
+          if (x1 === null) return y1 === null ? 0 : 1;
+          if (y1 === null) return -1;
+          return req.order === "asc" ? x1 - y1 : y1 - x1;
+        });
+        const limit = req.ask.topN ?? 10;
+        rows = all.slice(0, limit);
+        more = Math.max(0, all.length - limit);
+        key = { kind: "column", column: by.column };
+        const [a, b] = rows;
+        if (a)
+          headline = `${a.label} has the ${req.order === "asc" ? "lowest" : "highest"} ${phrase(measures[0]?.label ?? "")}: ${show(a.values[0] ?? null, 0)}${b ? `, then ${b.label} (${show(b.values[0] ?? null, 0)})` : ""}.`;
+      } else {
+        rows = all;
+        key =
+          by.kind === "time"
+            ? {
+                kind: "time",
+                column: by.column,
+                grain: data.grain ?? (by.grain === "auto" ? "month" : by.grain),
+              }
+            : { kind: "part", column: by.column, part: by.part };
+        const withValue = rows.filter((r) => r.values[0] !== null);
+        const peak = [...withValue].sort((p, q) => (q.values[0] as number) - (p.values[0] as number))[0];
+        const last = withValue[withValue.length - 1];
+        const m0 = measures[0]?.label ?? "";
+        if (by.kind === "time" && last && peak)
+          headline = `${m0}: ${show(last.values[0] ?? null, 0)} in ${last.label}, the latest period; highest was ${peak.label} (${show(peak.values[0] ?? null, 0)}).`;
+        else if (peak) headline = `${m0} is highest at ${peak.label} (${show(peak.values[0] ?? null, 0)}).`;
+      }
+    }
+    const sqlCtx = makeSqlContext(ds, ctx.mapping, ctx.res, {
+      ...ctx.names,
+      table: ctx.names.table.toLowerCase(),
+    });
+    const q = questionSql(
+      {
+        question: req.question,
+        understood: req.understood,
+        measures: exprs,
+        key,
+        keyLabel: keyLabel ?? "Value",
+        filters: req.filters,
+        order: req.order,
+        limit: key.kind === "column" ? (req.ask.topN ?? 10) : undefined,
+      },
+      ds,
+      sqlCtx,
+    );
+    return { ...base, keyLabel, rows, more, headline, sql: q.sql, skipped: q.skipped };
   }
 
   /**
@@ -1193,6 +1433,11 @@ export class Session {
     const ec = this.exportContext(noNewColumns);
     ec.specs = this.orderedSpecs(ec.specs, visibleSpecIds);
     return buildPowerBiPackage(ec, configJson);
+  }
+
+  /** The table name the SQL exports and business-question queries read (lower-case, unquoted). */
+  sqlTableName(): string {
+    return this.requireCtx().names.table.toLowerCase();
   }
 
   exportSql(): string {

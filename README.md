@@ -4,6 +4,16 @@
 
 Drop in a clean CSV, Excel or JSON file. Loupe profiles every column, recognises the industry (16 built in, plus a generic fallback), computes the KPIs that matter and lays them out the way an analyst reads a dashboard. Columns the industry template doesn't know still get their own KPIs and charts, and **Ask for a chart** designs a chart from a request in your own words ("average customer rating by city"). Every KPI shows its definition, formula, SQL and DAX. You can export a Power BI package, SQL, a PDF report or PNG images.
 
+The workspace runs in seven steps:
+
+1. **Upload** a clean CSV, TSV, Excel or JSON file.
+2. **Detect** what kind of data it is, with every column header and the kind of values it holds.
+3. **Check & map**: the whole file with any problem marked (unreadable cells, impossible values, repeated rows), then how the columns were mapped.
+4. **Dashboard**: KPIs and charts, plus your own charts from **Ask for a chart**.
+5. **Questions & SQL**: business questions (suggested, or in your own words), each answered from the data with the SQL query that returns the same answer, checkable in the browser.
+6. **Insights**: ranked, quantified findings.
+7. **Export**: the dashboard as a PDF or image, the SQL queries as a PDF, the insights as a PDF, then the Power BI package, SQL file, data and settings.
+
 **Your data never leaves your browser.** Loupe is a static web app with no backend, no database and no accounts. Parsing and analysis run in a Web Worker in your tab, and the Content-Security-Policy blocks network access except for two opt-in features: SQL verification (downloads DuckDB-WASM from jsDelivr) and the AI layer (sends a previewed, anonymised summary to Anthropic using your own key).
 
 - Live demo data: six synthetic datasets, including a 49k-row Indian D2C e-commerce file.
@@ -71,7 +81,7 @@ More detail is in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and [docs/DESIGN.
 ## Known limitations
 
 - **No .pbix file.** A .pbix is a proprietary binary that only Power BI Desktop writes. Loupe exports a Power BI _package_ instead; its README walks through two paths (about five minutes in any Power BI Desktop). The PBIP/TMDL path follows Microsoft's published format but has not been opened in every Power BI Desktop release. If Desktop reports a schema error, the manual path always works.
-- **PDF reports are images.** Pages are rendered to high-resolution images, so the text isn't selectable or searchable.
+- **The dashboard PDF is made of images.** Its pages are rendered to high-resolution images, so its text isn't selectable or searchable. The SQL and insights PDFs are real text, with the Geist typeface embedded (SIL Open Font Licence, `public/fonts/OFL.txt`).
 - **SQL verification needs the internet once.** "Verify in browser" downloads DuckDB-WASM (a 34–39 MB WebAssembly file, compressed in transit) from jsDelivr the first time. On networks that block it, the SQL can still be downloaded and run elsewhere.
 - **Size limits depend on the device's memory.** CSV is comfortable to about 2.1 million rows or 700 MB, beyond which Loupe offers sampling. Excel is limited to 150 MB and JSON to 250 MB.
 - **Dates are wall-clock.** Times are read exactly as written and never shifted between time zones.
@@ -83,7 +93,7 @@ More detail is in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and [docs/DESIGN.
 ## Next steps
 
 - Open the PBIP/TMDL output in current Power BI Desktop releases and keep a reference project in the repo.
-- Selectable-text (vector) PDF reports.
+- Selectable text in the dashboard PDF report as well.
 - Optional local persistence of workspaces (IndexedDB), still without any server.
 - Multi-file models (fact plus dimension tables) and more industry packs and locales.
 

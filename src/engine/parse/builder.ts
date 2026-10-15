@@ -359,7 +359,7 @@ abstract class TypedAccumulator implements Accumulator {
     }
   }
 
-  private rememberInvalid(row: number, text: string): void {
+  protected rememberInvalid(row: number, text: string): void {
     let code = this.invalidIndex.get(text);
     if (code === undefined) {
       code = this.invalidTexts.length;
@@ -419,6 +419,22 @@ abstract class TypedAccumulator implements Accumulator {
       };
     }
     const res = this.finishTyped(name);
+    // The column stayed typed, so its unreadable cells are blanks now: keep where they are and
+    // what the file said, for the data check. Sorted because late invalidations append out of order.
+    if (this.invalidRows.len > 0) {
+      const m = this.invalidRows.len;
+      const order = Array.from({ length: m }, (_, i) => i).sort(
+        (a, b) => (this.invalidRows.buf[a] as number) - (this.invalidRows.buf[b] as number),
+      );
+      res.column = {
+        ...res.column,
+        unreadable: {
+          rows: Int32Array.from(order, (i) => this.invalidRows.buf[i] as number),
+          codes: Int32Array.from(order, (i) => this.invalidCodes.buf[i] as number),
+          texts: [...this.invalidTexts],
+        },
+      };
+    }
     if (this.invalidCount > 0) {
       res.note = {
         column: name,
@@ -858,10 +874,14 @@ export class DateAccumulator extends TypedAccumulator {
         dayFirst,
       );
       out[i] = t;
-      if (t !== t) invalidAfter++;
+      if (t !== t) {
+        invalidAfter++;
+        // Only real in the other day/month order: remembered so the data check can show it.
+        this.rememberInvalid(i, this.textAt(i) ?? "");
+      }
     }
     // Rows that exist only in the other order become invalid here, after finish() has decided whether
-    // to degrade, so they show in the note's count (without examples) but never turn the column into text.
+    // to degrade, so they show in the note's count but never turn the column into text.
     if (invalidAfter > 0) this.invalidCount += invalidAfter;
     const label = describeKind("nn-nn-y", dayFirst, this.hasTime);
     const column: DateColumn = { kind: "date", name, values: out, hasTime: this.hasTime, format: label };

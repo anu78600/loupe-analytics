@@ -31,8 +31,38 @@ export interface NumberFormatInfo {
   decimals: number;
 }
 
+/**
+ * Cells the parser could not read as the column's type ("12,5x" in a number
+ * column). They are stored as blank like any missing value, and kept here so
+ * the data check (profile/dataCheck.ts) can point at each one and show what
+ * the file said. `rows` ascend; `codes[i]` indexes `texts`, the distinct
+ * original texts.
+ */
+export interface UnreadableCells {
+  readonly rows: Int32Array;
+  readonly codes: Int32Array;
+  readonly texts: readonly string[];
+}
+
+/** Original text of an unreadable cell at `row`, or undefined when the cell was read fine. */
+export function unreadableAt(u: UnreadableCells | undefined, row: number): string | undefined {
+  if (!u) return undefined;
+  let lo = 0;
+  let hi = u.rows.length - 1;
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    const r = u.rows[mid] as number;
+    if (r === row) return u.texts[u.codes[mid] as number];
+    if (r < row) lo = mid + 1;
+    else hi = mid - 1;
+  }
+  return undefined;
+}
+
 interface ColumnBase {
   readonly name: string;
+  /** Typed columns only: cells that couldn't be read and are stored as blank. */
+  readonly unreadable?: UnreadableCells;
 }
 
 export interface NumberColumn extends ColumnBase {

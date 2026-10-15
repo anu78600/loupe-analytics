@@ -1,11 +1,14 @@
 "use client";
 
 /**
- * Step 3, Map columns. Edit which column fills each domain field, what
- * category values mean (value classes, e.g. which order statuses count as
- * RTO), each column's role and additivity, and KPI names, and see which KPIs
- * are available or what they still need. Every change reconfigures the
- * session in the worker and regenerates the dashboard.
+ * Step 3, Check & map. First the whole file ("Your data", DataCheckPanel),
+ * so the user can confirm the upload is right, with every problem marked.
+ * Then the mapping: which column fills each domain field, what category
+ * values mean (value classes, e.g. which order statuses count as RTO), each
+ * column's role and additivity, and KPI names, with which KPIs are available
+ * or what they still need. "File report" says how the file was read and its
+ * health score. Every mapping change reconfigures the session in the worker
+ * and regenerates the dashboard.
  *
  * The "Your columns" tab lists every column of the file with what it feeds
  * (KPIs, charts, filters), so it is visible that the dashboard is built from
@@ -22,11 +25,10 @@ import {
   RotateCcw,
   Tags,
 } from "lucide-react";
-import { useWorkspace } from "@/store/workspace";
+import { stepNumber, useWorkspace } from "@/store/workspace";
 import { useSettings } from "@/store/settings";
-import { formatCount, formatPlain } from "@/engine/core/format";
-import { formatDay } from "@/engine/core/dates";
-import { ROLE_LABEL, type Additivity, type ColumnProfile, type SemanticRole } from "@/engine/profile/types";
+import { formatCount } from "@/engine/core/format";
+import { ROLE_LABEL, type Additivity, type SemanticRole } from "@/engine/profile/types";
 import { cn } from "@/lib/utils";
 import { Button } from "@/ui/primitives/button";
 import { Badge } from "@/ui/primitives/badge";
@@ -46,6 +48,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/primitives/tabs";
 import { Tooltip } from "@/ui/primitives/tooltip";
 import type { ColumnUse } from "@/engine/charts/columnUsage";
 import { useColumnUsage } from "./useColumnUsage";
+import { dataSummary } from "./columnSummary";
+import { DataCheckPanel } from "./DataCheckPanel";
+import { HealthPanel, ParseReportPanel } from "./HealthPanel";
 
 const ROLES: SemanticRole[] = [
   "identifier",
@@ -86,10 +91,13 @@ export function MapStep() {
     <div className="mx-auto w-full max-w-[1400px] px-4 py-8 md:px-6">
       <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <Eyebrow>Step 3 · Map columns</Eyebrow>
-          <h1 className="mt-2 font-display text-display-sm text-fg">Check how your columns were read.</h1>
+          <Eyebrow>Step {stepNumber("map")} · Check & map</Eyebrow>
+          <h1 className="mt-2 font-display text-display-sm text-fg">
+            Is this your data? Check it, then map it.
+          </h1>
           <p className="mt-2 max-w-2xl text-ui text-fg-muted">
-            Change any mapping, value meaning or role; KPIs, SQL, DAX and charts regenerate instantly.
+            Scroll the whole file to confirm it is right; anything that looks wrong is marked. Then check how
+            the columns were read: change any mapping, value meaning or role and everything regenerates.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
@@ -125,15 +133,20 @@ export function MapStep() {
           </Button>
         </div>
       </div>
-      <Tabs defaultValue={context.domain.generic ? "roles" : "fields"}>
+      <Tabs defaultValue="data">
         <TabsList className="mb-5">
+          <TabsTrigger value="data">Your data</TabsTrigger>
           {!context.domain.generic ? <TabsTrigger value="fields">Field mapping</TabsTrigger> : null}
           {!context.domain.generic && Object.keys(context.domain.valueClasses).length ? (
             <TabsTrigger value="values">Value meanings</TabsTrigger>
           ) : null}
           <TabsTrigger value="roles">Your columns</TabsTrigger>
           <TabsTrigger value="kpis">KPI availability</TabsTrigger>
+          <TabsTrigger value="file">File report</TabsTrigger>
         </TabsList>
+        <TabsContent value="data">
+          <DataCheckPanel />
+        </TabsContent>
         <TabsContent value="fields">
           <FieldMapping />
         </TabsContent>
@@ -147,7 +160,23 @@ export function MapStep() {
         <TabsContent value="kpis">
           <KpiAvailability />
         </TabsContent>
+        <TabsContent value="file">
+          <FileReport />
+        </TabsContent>
       </Tabs>
+    </div>
+  );
+}
+
+/** How the file was read (encoding, header, date order, notes) and its data-health score and checks. */
+function FileReport() {
+  const health = useWorkspace((s) => s.health);
+  const report = useWorkspace((s) => s.report);
+  const timings = useWorkspace((s) => s.timings);
+  return (
+    <div className="grid gap-5 lg:grid-cols-2">
+      <Card className="p-6">{health ? <HealthPanel health={health} /> : null}</Card>
+      <Card className="p-6">{report ? <ParseReportPanel report={report} timings={timings} /> : null}</Card>
     </div>
   );
 }
@@ -360,27 +389,6 @@ function ColumnsNote({ used, total, derived }: { used: number; total: number; de
       </span>
     </p>
   );
-}
-
-/**
- * What the column actually holds, read from the profile: the range of a
- * number or date column, or the most common values of a text column, plus
- * how many values are distinct and how many cells are blank.
- */
-function dataSummary(c: ColumnProfile): string {
-  const parts: string[] = [];
-  if (c.numeric) {
-    const d = c.numeric.integer ? 0 : 2;
-    parts.push(`${formatPlain(c.numeric.min, d, "INTL")} to ${formatPlain(c.numeric.max, d, "INTL")}`);
-  } else if (c.temporal) {
-    parts.push(`${formatDay(c.temporal.min)} to ${formatDay(c.temporal.max)}`);
-  } else if (c.categorical?.top.length) {
-    const top = c.categorical.top.slice(0, 3).map((v) => v.value);
-    parts.push(`${top.join(", ")}${c.distinct > 3 ? "…" : ""}`);
-  } else if (c.examples.length) parts.push(c.examples.slice(0, 3).join(", "));
-  parts.push(`${c.distinct.toLocaleString("en-US")} distinct`);
-  if (c.nullPct >= 0.005) parts.push(`${Math.round(c.nullPct * 100)}% blank`);
-  return parts.join(" · ");
 }
 
 /** "Used by" cell: counts with the names in a tooltip, or "Not used". */

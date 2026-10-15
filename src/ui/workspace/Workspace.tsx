@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Client shell for /app. Switches between the six steps with a short fade,
+ * Client shell for /app. Switches between the steps (STEPS) with a short fade,
  * binds Ctrl/⌘+K, opens a demo from /app?sample=<id>, turns errors after the
  * upload step into toasts, and reconfigures the session when the number
  * format or currency changes (worker-side text such as chart descriptions and
@@ -18,6 +18,7 @@ import { DetectStep } from "./DetectStep";
 import { MapStep } from "./MapStep";
 import { DashboardStep } from "./dashboard/DashboardStep";
 import { InsightsStep } from "./InsightsStep";
+import { QuestionsStep } from "./QuestionsStep";
 import { ExportStep } from "./ExportStep";
 import { CommandPalette } from "./CommandPalette";
 import { SettingsSheet } from "./SettingsSheet";
@@ -89,6 +90,8 @@ export function Workspace({ version }: { version: string }) {
       ) : (
         <UploadStep />
       )
+    ) : step === "questions" ? (
+      <QuestionsStep />
     ) : step === "insights" ? (
       <InsightsStep />
     ) : (

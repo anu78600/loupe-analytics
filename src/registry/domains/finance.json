@@ -144,7 +144,7 @@
     "Subtotal rows (gross profit, EBITDA, total expenses, net income) must be removed; summed with the detail lines they double count.",
     "Margins and ratios are recomputed from totals for each period and cost centre; averaging monthly margins overweights small months.",
     "A budget variance means different things by line: actual above budget is good for revenue and bad for costs. Revenue vs budget and Cost vs budget carry the sign; read the raw variance with an account-type filter.",
-    "Account types not recognised as revenue or other income are treated as expenses in net income; check Value meanings in Map columns so every type is assigned.",
+    "Account types not recognised as revenue or other income are treated as expenses in net income; check Value meanings in Check & map so every type is assigned.",
     "Balance-sheet items (cash, receivables, payables, loans) are point-in-time balances and must never be summed across months; this template covers P&L flows and invoice-level receivables and payables."
   ]
 }

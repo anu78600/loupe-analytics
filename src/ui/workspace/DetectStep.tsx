@@ -1,29 +1,32 @@
 "use client";
 
 /**
- * Step 2, Detect & confirm. Shows the top industries with confidence, the
- * evidence (which column matched which field) and the structure (grain, time
- * axis), with tabs for the data preview, data health and the parse report.
- * BusinessForm lets the user set industry, data shape (sub-domain), business
- * model, goal, reporting period and currency: the user's choice always
- * overrides detection and the dashboard regenerates instantly. Also hosts the
- * optional AI second opinion, and the wide-format banner, whose unpivot adds
- * two columns and so asks first (useColumnConsent).
+ * Step 2, Detect. Shows what kind of data was uploaded (the top industries
+ * with confidence, the evidence of which column matched which field, the
+ * structure) and every column header in the file with the kind of values it
+ * holds and what is in it. BusinessForm lets the user set industry, data
+ * shape (sub-domain), business model, goal, reporting period and currency:
+ * the user's choice always overrides detection. "Next: check your data"
+ * confirms and opens step 3 (Check & map), where the whole file is shown
+ * with its problems marked. Also hosts the optional AI second opinion, and
+ * the wide-format banner, whose unpivot adds two columns and so asks first
+ * (useColumnConsent).
  */
 import * as React from "react";
 import { motion } from "framer-motion";
 import {
   AlertTriangle,
   ArrowRight,
+  Calendar,
+  Clock,
   Columns3,
-  Fingerprint,
-  Gauge,
-  ListChecks,
+  Hash,
   Sparkles,
-  Table2,
+  ToggleLeft,
+  Type,
   Waypoints,
 } from "lucide-react";
-import { useWorkspace } from "@/store/workspace";
+import { stepNumber, useWorkspace } from "@/store/workspace";
 import { useSettings } from "@/store/settings";
 import { SUPPORTED_CURRENCIES, currencySymbol, formatCount } from "@/engine/core/format";
 import { cn } from "@/lib/utils";
@@ -42,15 +45,14 @@ import {
   SelectValue,
 } from "@/ui/primitives/select";
 import { Segmented } from "@/ui/primitives/segmented";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/primitives/tabs";
 import { Eyebrow } from "@/ui/primitives/misc";
 import { Tooltip } from "@/ui/primitives/tooltip";
 import { DomainIcon } from "@/ui/common/domain-icon";
 import { ConfidenceRing } from "./ConfidenceRing";
-import { VirtualGrid } from "./VirtualGrid";
-import { HealthPanel, ParseReportPanel } from "./HealthPanel";
+import { dataSummary, kindLabel } from "./columnSummary";
 import { useColumnConsent } from "./NewColumnsDialog";
 import { unpivotColumnNames } from "@/engine/parse/unpivot";
+import { ROLE_LABEL } from "@/engine/profile/types";
 import { AiDomainCheck } from "./AiSummary";
 
 const MODELS = ["D2C brand", "Marketplace seller", "B2B", "Subscription", "Retail / offline", "Other"];
@@ -65,9 +67,6 @@ export function DetectStep() {
   const detection = useWorkspace((s) => s.detection);
   const profile = useWorkspace((s) => s.profile);
   const summary = useWorkspace((s) => s.summary);
-  const health = useWorkspace((s) => s.health);
-  const report = useWorkspace((s) => s.report);
-  const timings = useWorkspace((s) => s.timings);
   const unpivot = useWorkspace((s) => s.unpivot);
   const locale = useSettings((s) => s.numberLocale);
   const consent = useColumnConsent();
@@ -102,7 +101,7 @@ export function DetectStep() {
     <div className="mx-auto w-full max-w-[1400px] px-4 py-8 md:px-6">
       <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <Eyebrow>Step 2 · Detect & confirm</Eyebrow>
+          <Eyebrow>Step {stepNumber("detect")} · Detect</Eyebrow>
           <h1 className="mt-2 font-display text-display-sm text-fg">What kind of data is this?</h1>
         </div>
         <p className="font-figures text-ui text-fg-muted">
@@ -121,48 +120,11 @@ export function DetectStep() {
           {consent.dialog}
         </div>
       ) : null}
-      <Tabs defaultValue="detect">
-        <TabsList className="mb-5">
-          <TabsTrigger value="detect">
-            <Fingerprint aria-hidden /> Detection
-          </TabsTrigger>
-          <TabsTrigger value="preview">
-            <Table2 aria-hidden /> Data preview
-          </TabsTrigger>
-          <TabsTrigger value="health">
-            <Gauge aria-hidden /> Data health
-            {health ? (
-              <Badge className="ml-1" tone={health.score >= 90 ? "success" : "warning"}>
-                {health.score}
-              </Badge>
-            ) : null}
-          </TabsTrigger>
-          <TabsTrigger value="parse">
-            <ListChecks aria-hidden /> Parse report
-          </TabsTrigger>
-        </TabsList>
-        <TabsContent value="detect">
-          <div className="grid gap-5 lg:grid-cols-12">
-            <DetectionCard />
-            <BusinessForm />
-          </div>
-        </TabsContent>
-        <TabsContent value="preview">
-          <VirtualGrid
-            columns={profile.columns}
-            rowCount={summary.rowCount}
-            className="h-[min(640px,70vh)]"
-          />
-        </TabsContent>
-        <TabsContent value="health">
-          <Card className="p-6">{health ? <HealthPanel health={health} /> : null}</Card>
-        </TabsContent>
-        <TabsContent value="parse">
-          <Card className="p-6">
-            {report ? <ParseReportPanel report={report} timings={timings} /> : null}
-          </Card>
-        </TabsContent>
-      </Tabs>
+      <div className="grid gap-5 lg:grid-cols-12">
+        <DetectionCard />
+        <BusinessForm />
+      </div>
+      <ColumnsInFile />
     </div>
   );
 }
@@ -337,7 +299,7 @@ function BusinessForm() {
         className="mt-5 grid gap-4"
         onSubmit={(e) => {
           e.preventDefault();
-          if (domainId) void confirm(domainId, subDomainId);
+          if (domainId) void confirm(domainId, subDomainId, { goTo: "map" });
         }}
       >
         <div className="grid gap-1.5">
@@ -473,20 +435,82 @@ function BusinessForm() {
             className="flex-1"
             disabled={!domainId || Boolean(loading)}
           >
-            Confirm & build dashboard <ArrowRight aria-hidden />
+            Next: check your data <ArrowRight aria-hidden />
           </Button>
           <Button
             type="button"
             variant="secondary"
             size="lg"
             disabled={!domainId || Boolean(loading)}
-            onClick={() => domainId && void confirm(domainId, subDomainId, { goTo: "map" })}
+            onClick={() => domainId && void confirm(domainId, subDomainId, { goTo: "dashboard" })}
           >
-            Review mapping
+            Skip to dashboard
           </Button>
         </div>
       </form>
       <AiDomainCheck />
+    </Card>
+  );
+}
+
+const KIND_ICON = { number: Hash, date: Calendar, string: Type, boolean: ToggleLeft } as const;
+
+/** Every column header of the file, with the kind of values it holds and what is in it (step 2). */
+function ColumnsInFile() {
+  const profile = useWorkspace((s) => s.profile);
+  if (!profile) return null;
+  return (
+    <Card className="mt-5 overflow-hidden">
+      <div className="flex flex-wrap items-end justify-between gap-2 px-6 pt-5 pb-3">
+        <div>
+          <h2 className="flex items-center gap-2 text-base font-medium text-fg">
+            <Columns3 className="size-4 text-accent" aria-hidden /> Columns in your file
+          </h2>
+          <p className="mt-1 text-ui text-fg-muted">
+            {profile.columns.length} column headers, each read from its values. Next, check the data itself
+            row by row.
+          </p>
+        </div>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[720px] border-separate border-spacing-0 text-ui">
+          <thead className="bg-surface-2 text-left text-fg-muted">
+            <tr>
+              {["#", "Column header", "Holds", "Read as", "In your data"].map((h) => (
+                <th key={h} scope="col" className="border-y border-border px-4 py-2 font-medium">
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {profile.columns.map((c, i) => {
+              const Icon = c.role === "time" ? Clock : KIND_ICON[c.storage];
+              return (
+                <tr key={c.name} className="hover:bg-surface-2/60">
+                  <td className="font-figures border-b border-border px-4 py-2 text-2xs text-fg-subtle">
+                    {i + 1}
+                  </td>
+                  <td className="border-b border-border px-4 py-2 font-medium text-fg">{c.name}</td>
+                  <td className="border-b border-border px-4 py-2 text-fg-muted">
+                    <span className="inline-flex items-center gap-1.5">
+                      <Icon className="size-3.5 text-fg-subtle" aria-hidden /> {kindLabel(c)}
+                    </span>
+                  </td>
+                  <td className="border-b border-border px-4 py-2">
+                    <Tooltip content={c.roleReason}>
+                      <span className="cursor-default text-fg">{ROLE_LABEL[c.role]}</span>
+                    </Tooltip>
+                  </td>
+                  <td className="max-w-[420px] border-b border-border px-4 py-2 text-2xs leading-relaxed text-fg-muted">
+                    {dataSummary(c)}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </Card>
   );
 }

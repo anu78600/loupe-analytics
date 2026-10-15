@@ -133,7 +133,7 @@
       "pitfalls": ["Long lead times give more room to price well but usually cancel more often."] },
     { "id": "direct_share", "name": "Direct booking share", "definition": "Share of bookings made through direct channels (website, phone, walk-in) rather than OTAs or agents.", "formula": "Direct bookings ÷ bookings", "format": "percent", "direction": "higher", "tier": "supporting", "priority": 12, "group": "Distribution", "subDomains": ["bookings", "demand"],
       "variants": [{ "id": "class", "label": "Direct channel ÷ bookings", "expr": { "op": "div", "args": [{ "calc": { "ref": "bookings" }, "where": { "field": "channel", "class": "direct" } }, { "ref": "bookings" }] } }],
-      "pitfalls": ["Check which values count as direct in Map columns › Value meanings; metasearch bookings that land on the hotel website are direct."] },
+      "pitfalls": ["Check which values count as direct in Check & map › Value meanings; metasearch bookings that land on the hotel website are direct."] },
     { "id": "avg_guest_rating", "name": "Average guest rating", "definition": "Average review or rating score left by guests.", "formula": "Average of guest rating over rated stays", "format": "decimal", "direction": "higher", "tier": "supporting", "priority": 13, "group": "Guests", "subDomains": ["bookings", "demand"],
       "variants": [{ "id": "avg", "label": "Average rating", "expr": { "agg": "avg", "of": { "field": "guest_rating" } } }],
       "pitfalls": ["Check the scale (out of 5 or 10) before comparing properties or benchmarks."] },

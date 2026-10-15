@@ -210,7 +210,7 @@ const PART_WORDS: Array<[RegExp, DatePart]> = [
 
 // Words that carry no meaning for the chart ("show me a chart of …").
 const FILLER =
-  /\b(please|show|me|i|want|wanna|need|would|like|to|see|give|get|make|create|build|draw|plot|display|view|a|an|the|my|our|chart|charts|graph|graphs|visual|visuals|visualise|visualize|diagram|for|of|what|is|are|was|were|all|data|wise)\b/g;
+  /\b(please|show|me|i|want|wanna|need|would|like|to|see|give|get|make|create|build|draw|plot|display|view|a|an|the|my|our|chart|charts|graph|graphs|visual|visuals|visualise|visualize|diagram|for|of|what|is|are|was|were|all|data|wise|trend|trends)\b/g;
 
 const clean = (s: string) => s.replace(FILLER, " ").replace(/\s+/g, " ").trim();
 
@@ -228,7 +228,7 @@ interface Match {
  * total is asked, a KPI that is a rate only wins if nothing that adds up
  * matches: "total discount" is the discount amount, not the discount rate.
  */
-function matchMeasure(term: string, ctx: AskContext, asked?: AskAgg): Match | null {
+function matchMeasureOnce(term: string, ctx: AskContext, asked?: AskAgg): Match | null {
   const termTokens = tokenize(term);
   if (!termTokens.length) return null;
   const found: Match[] = [];
@@ -265,7 +265,7 @@ function matchMeasure(term: string, ctx: AskContext, asked?: AskAgg): Match | nu
 }
 
 /** Best column for a "by …" phrase, or a time grain / date part. */
-function matchBy(term: string, ctx: AskContext): { by: AskBy; label: string } | null {
+function matchByOnce(term: string, ctx: AskContext): { by: AskBy; label: string } | null {
   const t = term.trim();
   const date = ctx.dateColumn;
   for (const [re, part] of PART_WORDS) {
@@ -307,6 +307,29 @@ function matchBy(term: string, ctx: AskContext): { by: AskBy; label: string } | 
   if (found.storage === "date")
     return { by: { kind: "time", column: found.name, grain: "auto" }, label: found.name };
   return { by: { kind: "column", column: found.name }, label: found.name };
+}
+
+/**
+ * The phrase with plural words made singular ("sales reps" → "sales rep"),
+ * for a second try when the first finds nothing: column names are mostly
+ * singular and the name matcher doesn't fold every plural.
+ */
+function singular(term: string): string {
+  return term
+    .split(" ")
+    .map((w) => (w.length > 3 && w.endsWith("s") && !w.endsWith("ss") ? w.slice(0, -1) : w))
+    .join(" ");
+}
+
+function matchMeasure(term: string, ctx: AskContext, asked?: AskAgg): Match | null {
+  return (
+    matchMeasureOnce(term, ctx, asked) ??
+    (singular(term) !== term ? matchMeasureOnce(singular(term), ctx, asked) : null)
+  );
+}
+
+function matchBy(term: string, ctx: AskContext): { by: AskBy; label: string } | null {
+  return matchByOnce(term, ctx) ?? (singular(term) !== term ? matchByOnce(singular(term), ctx) : null);
 }
 
 /**
@@ -358,7 +381,8 @@ export function readAsk(text: string, ctx: AskContext): AskReading {
     // "monthly sales", "sales trend", "sales over time" without "by".
     const timeWord = /\b(daily|weekly|monthly|quarterly|yearly|annual|trend|over time)\b/.exec(s);
     if (timeWord) {
-      byPart = timeWord[1] as string;
+      // "trend" means over time; it is also a filler word elsewhere, so it is translated here.
+      byPart = timeWord[1] === "trend" ? "over time" : (timeWord[1] as string);
       measurePart = s.replace(timeWord[0], " ");
     }
   }
@@ -523,7 +547,7 @@ function defaultCategory(ctx: AskContext): ColumnProfile | undefined {
     .sort((a, b) => (b.distinct >= 3 ? 1 : 0) - (a.distinct >= 3 ? 1 : 0) || a.distinct - b.distinct)[0];
 }
 
-function axisFor(by: AskBy): ResolvedAxis {
+export function axisFor(by: AskBy): ResolvedAxis {
   switch (by.kind) {
     case "time":
       return { kind: "time", column: by.column, grain: by.grain, label: by.column };
@@ -777,4 +801,163 @@ export function askExamples(ctx: AskContext): string[] {
     out.push(`${kpi.name.toLowerCase()} by hour of day`);
   else if (kpi && ctx.dateColumn) out.push(`${kpi.name.toLowerCase()} by weekday`);
   return [...new Set(out)].slice(0, 4);
+}
+
+// ---------------------------------------------------------------- business questions (step 5)
+
+/** "highest first" or "lowest first" for a ranking question. */
+export type AskOrder = "desc" | "asc";
+
+export interface QuestionReading extends AskReading {
+  order: AskOrder;
+}
+
+const HIGH = /\b(highest|most|largest|biggest|best|top|maximum|max|greatest|leading)\b/;
+const LOW = /\b(lowest|least|smallest|worst|fewest|bottom|minimum|min)\b/;
+
+/**
+ * Reads a business question by turning its phrasing into the request
+ * grammar of readAsk:
+ * - "Which city has the highest average rating?" → "average rating by city",
+ *   highest first;
+ * - "Which 5 products sold the most?" → top 5 products by the view's first
+ *   KPI;
+ * - "What is / What are / Show me …" are dropped; "How many X by Y" counts X;
+ * - "lowest", "least", "bottom 5" sort lowest first.
+ * Without any "by", the question is about the whole selection (one row).
+ */
+export function readQuestion(text: string, ctx: AskContext): QuestionReading {
+  let s = ` ${text.toLowerCase().replace(/[?!]/g, " ").replace(/\s+/g, " ")} `;
+  const order: AskOrder = LOW.test(s) && !HIGH.test(s) ? "asc" : "desc";
+  let topN: number | undefined;
+  // "which 5 products …" / "top 5 …" / "bottom 3 …"
+  const n = /\b(?:which|top|bottom|best|worst|first)\s+(\d{1,3})\b/.exec(s);
+  if (n) topN = Math.min(50, Math.max(1, Number(n[1])));
+  // "which <category> has the highest <measure>"
+  const which =
+    /\b(?:which|what|who)\s+(?:\d{1,3}\s+)?([a-z][a-z0-9 _/-]*?)\s+(?:has|have|had|is|are|was|were|got|gets|get|made|makes|make|sold|sells|sell|brings|brought|generated|generates|generate|did|does|do|with|shows?)\s+(?:the\s+)?(?:highest|most|largest|biggest|best|top|maximum|max|greatest|leading|lowest|least|smallest|worst|fewest|bottom|minimum|min)\b\s*(.*)$/.exec(
+      s,
+    );
+  if (which) {
+    const category = (which[1] as string).trim();
+    let measure = (which[2] as string).trim();
+    // "sold the most" / "makes the most" with no measure: the view's first KPI.
+    if (!measure) measure = ctx.kpis.find((k) => k.available && !k.hidden)?.name.toLowerCase() ?? "rows";
+    s = ` ${measure} by ${category} `;
+  } else {
+    s = s
+      .replace(/^\s*(?:what|how)\s+(?:is|are|was|were|has|have|did)\s+(?:the\s+)?/, " ")
+      .replace(/\b(?:are there|do we have|did we get|were there|have we got)\b/g, " ")
+      // "bottom 5 X by Y" is read like "top 5 X by Y" (readAsk's grammar), sorted lowest first.
+      .replace(/\b(?:bottom|worst)\s+(\d{1,3})\b/g, "top $1")
+      .replace(/\b(?:highest|lowest|most|least)\b/g, " ");
+  }
+  const reading = readAsk(s, ctx);
+  const ask: ChartAsk = { ...reading.ask, ...(topN ? { topN } : {}) };
+  // A question with no "by" asks about the whole selection, not a trend.
+  return { ...reading, ask, order };
+}
+
+/** A KPI or column name inside a sentence: each word lower-case, except acronyms (AOV, GMV, MRR, GST). */
+export function phrase(name: string): string {
+  return name
+    .split(" ")
+    .map((w) => (/^[A-Z0-9%]{2,}$/.test(w) ? w : w.toLowerCase()))
+    .join(" ");
+}
+
+/** Plural of a lower-case noun phrase's last word: category → categories, region → regions, box → boxes. */
+function plural(noun: string): string {
+  if (/[^aeiou]y$/.test(noun)) return `${noun.slice(0, -1)}ies`;
+  if (/(s|x|z|ch|sh)$/.test(noun)) return `${noun}es`;
+  return `${noun}s`;
+}
+
+/** A suggested business question, with the ask that answers it. */
+export interface SuggestedQuestion {
+  text: string;
+  ask: ChartAsk;
+  order: AskOrder;
+}
+
+/**
+ * Business questions about this file, built only from its own KPIs and
+ * columns so every one can be answered: a trend, a ranking by the main
+ * category, a comparison, top items, a weekday or hour pattern, the lowest
+ * average of a score, and the overall totals. At most eight.
+ */
+export function suggestQuestions(ctx: AskContext): SuggestedQuestion[] {
+  const out: SuggestedQuestion[] = [];
+  const kpis = ctx.kpis.filter((k) => k.available && !k.hidden);
+  const [k1, k2] = kpis;
+  const cats = ctx.profile.columns
+    .filter(
+      (c) =>
+        (c.role === "dimension" || c.role === "geo") &&
+        c.storage === "string" &&
+        c.distinct >= 3 &&
+        c.distinct <= 30 &&
+        c.nullPct < 0.5 &&
+        c.geoLevel !== "postal",
+    )
+    .sort((a, b) => a.distinct - b.distinct);
+  const items = ctx.profile.columns.find(
+    (c) => c.role === "dimension" && c.storage === "string" && c.distinct > 30 && c.distinct <= 5000,
+  );
+  const date = ctx.dateColumn;
+  const time = ctx.profile.columns.find((c) => c.role === "time");
+  const hourCol = time?.name ?? (date && col(ctx, date)?.temporal?.hasTime ? date : undefined);
+  const score = ctx.profile.columns.find((c) => c.role === "rate" && c.storage === "number");
+  const kpi = (k: { id: string }): AskMeasure => ({ kind: "kpi", id: k.id });
+  const add = (text: string, ask: ChartAsk, order: AskOrder = "desc") => out.push({ text, ask, order });
+
+  if (k1 && date)
+    add(`How has ${phrase(k1.name)} changed month by month?`, {
+      measures: [kpi(k1)],
+      by: { kind: "time", column: date, grain: "month" },
+    });
+  if (k1 && cats[0])
+    add(`Which ${phrase(cats[0].name)} has the highest ${phrase(k1.name)}?`, {
+      measures: [kpi(k1)],
+      by: { kind: "column", column: cats[0].name },
+      topN: 10,
+    });
+  if (k2 && (cats[1] ?? cats[0]))
+    add(`How do ${plural(phrase((cats[1] ?? cats[0])?.name ?? ""))} compare on ${phrase(k2.name)}?`, {
+      measures: [kpi(k2)],
+      by: { kind: "column", column: (cats[1] ?? cats[0])?.name ?? "" },
+      topN: 10,
+    });
+  if (k1 && items)
+    add(`What are the top 10 ${plural(phrase(items.name))} by ${phrase(k1.name)}?`, {
+      measures: [kpi(k1)],
+      by: { kind: "column", column: items.name },
+      topN: 10,
+    });
+  if (k1 && date)
+    add(`Which day of the week has the most ${phrase(k1.name)}?`, {
+      measures: [kpi(k1)],
+      by: { kind: "part", column: date, part: "dow" },
+    });
+  if (k1 && hourCol)
+    add(`At what hour of the day is ${phrase(k1.name)} highest?`, {
+      measures: [kpi(k1)],
+      by: { kind: "part", column: hourCol, part: "hour" },
+    });
+  if (score && cats[0])
+    add(
+      `Which ${phrase(cats[0].name)} has the lowest average ${phrase(score.name)}?`,
+      {
+        measures: [{ kind: "column", column: score.name, agg: "avg" }],
+        by: { kind: "column", column: cats[0].name },
+        topN: 10,
+      },
+      "asc",
+    );
+  if (k1 && k2)
+    add(`What are the overall ${phrase(k1.name)} and ${phrase(k2.name)}?`, {
+      measures: [kpi(k1), kpi(k2)],
+      by: { kind: "none" },
+    });
+  return out.slice(0, 8);
 }

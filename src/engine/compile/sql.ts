@@ -173,7 +173,17 @@ export interface PeriodSpec {
   /** Quoted date column used for bucketing. */
   dateCol: string;
   grain: "day" | "week" | "month" | "quarter" | "year";
+  /**
+   * Group by this SQL expression instead of a date bucket (a category column,
+   * an hour of day…), for business questions (questionSql.ts). Blank keys
+   * form their own group, matched null-safely. Not supported for newEntities,
+   * whose first-date semantics are per period.
+   */
+  keySql?: string;
 }
+
+/** Thrown when an expression can't be compiled for the requested grouping. */
+export class UnsupportedGroupingError extends Error {}
 
 /** State while compiling a complex KPI: leaf CTEs emitted so far and the simple aggregates destined for `base`. */
 interface Builder {
@@ -185,7 +195,7 @@ interface Builder {
 }
 
 /** DATE_TRUNC bucket for the period grain (DuckDB and PostgreSQL spelling). */
-const periodExpr = (p: PeriodSpec, col = p.dateCol): string => `DATE_TRUNC('${p.grain}', ${col})`;
+const periodExpr = (p: PeriodSpec, col = p.dateCol): string => p.keySql ?? `DATE_TRUNC('${p.grain}', ${col})`;
 
 /**
  * Simple aggregate → SQL aggregate expression (with CASE for conditions).
@@ -300,6 +310,10 @@ function buildExpr(e: Expr, conds: string[], b: Builder): string {
     return leafValue(leaf, e, ctx);
   }
   if ("newEntities" in e) {
+    if (period?.keySql)
+      throw new UnsupportedGroupingError(
+        "It counts each entity once, in the period of its first date, so it has no per-category SQL.",
+      );
     // first_seen: each entity's first date among the rows passing the
     // conditions. Trended, an entity counts in the period of its first date;
     // overall there is no date filter, so every entity counts. COALESCE (via
@@ -324,6 +338,12 @@ function buildExpr(e: Expr, conds: string[], b: Builder): string {
   );
   return leafValue(leaf, e, ctx);
 }
+
+/** True when `e` (following refs) needs CTEs: per-entity, first-date or latest-date parts. */
+export const isComplexExpr = (e: Expr, ctx: SqlContext): boolean => isComplex(e, ctx);
+
+/** A simple expression as one SELECT-list SQL expression (throws on per, newEntities and atLatest). */
+export const simpleExprSql = (e: Expr, ctx: SqlContext): string => simpleOrThrow(e, ctx);
 
 /** Compiles a sub-expression that must be simple: a per's inner/having or an atLatest's expr. */
 function simpleOrThrow(e: Expr, ctx: SqlContext, conds: string[] = []): string {
@@ -362,8 +382,10 @@ export function kpiQuery(e: Expr, ctx: SqlContext, period: PeriodSpec | null = n
       : "";
   const base = `base AS (\n  SELECT ${baseSel.join(",\n         ")}${baseFrom}\n)`;
   // Trended, LEFT JOIN keeps periods that have no leaf row; overall, each leaf is a single row.
+  // A category key can be blank, so its groups are matched null-safely.
+  const eq = period?.keySql ? "IS NOT DISTINCT FROM" : "=";
   const joins = leaves
-    .map((l) => (period ? `LEFT JOIN ${l} ON ${l}.period = base.period` : `CROSS JOIN ${l}`))
+    .map((l) => (period ? `LEFT JOIN ${l} ON ${l}.period ${eq} base.period` : `CROSS JOIN ${l}`))
     .join("\n");
   return `WITH ${[base, ...b.ctes].join(",\n")}\nSELECT ${period ? "base.period, " : ""}${value} AS value\nFROM base\n${joins}${period && orderBy ? "\nORDER BY 1" : ""}`;
 }

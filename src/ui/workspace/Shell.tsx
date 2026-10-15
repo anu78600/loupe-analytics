@@ -1,10 +1,10 @@
 "use client";
 
 /**
- * Workspace chrome: the top bar (wordmark, dataset summary, the six-step
- * Stepper, command palette and settings buttons) and step gating. Detect needs
- * a dataset; map, dashboard, insights and export also need a confirmed
- * domain.
+ * Workspace chrome: the top bar (wordmark, dataset summary, the step
+ * Stepper, command palette and settings buttons) and step gating. Every step
+ * after Upload needs a dataset; opening Check & map or a later step first
+ * builds the analysis for the chosen industry (the store's setStep).
  */
 import * as React from "react";
 import Link from "next/link";

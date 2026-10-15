@@ -1,8 +1,9 @@
 "use client";
 
 /**
- * The workspace state machine (Zustand, main thread, not persisted): the six
- * steps Upload → Detect & confirm → Map → Dashboard → Insights → Export, the
+ * The workspace state machine (Zustand, main thread, not persisted): the
+ * steps in STEPS (Upload → Detect → Check & map → Dashboard → Questions &
+ * SQL → Insights → Export), the
  * user's overrides, the dashboard layout and filters, and the latest results
  * streamed back from the engine worker.
  *
@@ -27,7 +28,14 @@ import type { IngestOptions, LargeFileAssessment, ParseReport } from "@/engine/c
 import type { HealthReport } from "@/engine/profile/quality";
 import type { DatasetProfile, SemanticRole, Additivity } from "@/engine/profile/types";
 import type { DetectionResult } from "@/engine/detect/detect";
-import type { ContextResult, DatasetSummary, DomainListItem, LoadResult } from "@/engine/session";
+import type {
+  ContextResult,
+  DatasetSummary,
+  DomainListItem,
+  LoadResult,
+  QuestionAnswer,
+} from "@/engine/session";
+import type { AskOrder, ChartAsk } from "@/engine/charts/ask";
 import type { KpiBatch } from "@/engine/kpi/compute";
 import type { ChartData, ChartKind, ChartSpec, LayoutMode } from "@/engine/charts/types";
 import type { Filter } from "@/engine/query/filter";
@@ -37,15 +45,19 @@ import type { LoupeConfig } from "@/engine/export/config";
 import { defaultPreset, presetRange, type DatePreset } from "@/engine/core/periods";
 import { useSettings } from "./settings";
 
-export type Step = "upload" | "detect" | "map" | "dashboard" | "insights" | "export";
+export type Step = "upload" | "detect" | "map" | "dashboard" | "questions" | "insights" | "export";
 export const STEPS: Array<{ id: Step; label: string }> = [
   { id: "upload", label: "Upload" },
-  { id: "detect", label: "Detect & confirm" },
-  { id: "map", label: "Map columns" },
+  { id: "detect", label: "Detect" },
+  { id: "map", label: "Check & map" },
   { id: "dashboard", label: "Dashboard" },
+  { id: "questions", label: "Questions & SQL" },
   { id: "insights", label: "Insights" },
   { id: "export", label: "Export" },
 ];
+
+/** 1-based position of a step, for the "Step N" headings (they follow STEPS, so adding a step renumbers them). */
+export const stepNumber = (id: Step): number => STEPS.findIndex((s) => s.id === id) + 1;
 
 /**
  * Optional context the user gives about the business. `period` doubles as
@@ -160,6 +172,13 @@ interface WorkspaceState {
   /** null = not computed for the current filters; cleared whenever filters change. */
   insights: Insight[] | null;
   insightsLoading: boolean;
+  /**
+   * Business questions asked in step 5, newest first, each with its answer,
+   * SQL and the filters it was answered with. Cleared when the data or the
+   * analysis is rebuilt, so an answer never outlives the definitions it used.
+   */
+  questions: QuestionAnswer[];
+  questionsLoading: boolean;
   /** What the inspector panel is editing. */
   selected: { type: "chart" | "kpi"; id: string } | null;
   /** Spec id briefly outlined after focusChart(). */
@@ -180,6 +199,20 @@ interface WorkspaceState {
   unpivot: () => Promise<void>;
   /** Terminates the worker (freeing the dataset), forgets the last file and returns the whole store to its initial state. */
   startOver: () => void;
+  /**
+   * Answers a business question in the worker and adds it to `questions`.
+   * "dashboard" uses the dashboard's date and filter selections (not a
+   * chart's click-to-filter); "file" uses every row.
+   */
+  askQuestion: (q: {
+    question: string;
+    understood: string;
+    notes: string[];
+    ask: ChartAsk;
+    order: AskOrder;
+    scope: "dashboard" | "file";
+  }) => Promise<void>;
+  removeQuestion: (id: string) => void;
   /** Configures the domain, resets filters, drill and mode, then refreshes. Errors land in `error`; it does not throw. */
   confirmDomain: (domainId: string, subDomainId?: string | null, opts?: { goTo?: Step }) => Promise<void>;
   /** Refreshes only when `period` (the trend grain) is part of the patch. */
@@ -277,6 +310,8 @@ function initialData(): WorkspaceData {
     lastCompute: null,
     insights: null,
     insightsLoading: false,
+    questions: [],
+    questionsLoading: false,
     selected: null,
     highlight: null,
   };
@@ -361,6 +396,7 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
       charts: {},
       kpiBatch: null,
       insights: null,
+      questions: [],
       dimFilters: [],
       crossFilter: null,
       drill: {},
@@ -442,7 +478,16 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
 
     setStep: (step) => {
       const s = get();
-      if ((step === "dashboard" || step === "insights" || step === "export") && !s.context && s.domainId) {
+      // Every step after Detect works on the confirmed analysis, so it is built first when missing.
+      if (
+        (step === "map" ||
+          step === "dashboard" ||
+          step === "questions" ||
+          step === "insights" ||
+          step === "export") &&
+        !s.context &&
+        s.domainId
+      ) {
         void get().confirmDomain(s.domainId, s.subDomainId, { goTo: step });
         return;
       }
@@ -555,6 +600,7 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
           crossFilter: null,
           drill: {},
           insights: null,
+          questions: [],
           mode: "analyst",
         });
         get().refresh();
@@ -613,7 +659,8 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
       try {
         await configureNow(s.domainId, s.subDomainId);
         get().refresh();
-        set({ insights: null });
+        // Mapping, roles and names changed, so earlier answers may no longer hold.
+        set({ insights: null, questions: [] });
       } catch {
         /* error already in state */
       }
@@ -827,6 +874,38 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
       }, 90);
     },
 
+    askQuestion: async (q) => {
+      if (!get().context) return;
+      // The dashboard's own selections, without a chart's click-to-filter (tagged with its source).
+      const filters: Filter[] =
+        q.scope === "dashboard"
+          ? get()
+              .filters()
+              .filter((f) => !("sourceId" in f))
+          : [];
+      set({ questionsLoading: true });
+      try {
+        const id = `q_${Date.now().toString(36)}_${get().questions.length}`;
+        const answer = await engine().answerQuestion(
+          {
+            id,
+            question: q.question,
+            understood: q.understood,
+            notes: q.notes,
+            ask: q.ask,
+            order: q.order,
+            filters,
+          },
+          useSettings.getState().numberLocale,
+        );
+        set((s) => ({ questions: [answer, ...s.questions], questionsLoading: false }));
+      } catch (e) {
+        set({ questionsLoading: false, error: toError(e) });
+      }
+    },
+
+    removeQuestion: (id) => set((s) => ({ questions: s.questions.filter((q) => q.id !== id) })),
+
     loadInsights: async () => {
       if (!get().context) return;
       set({ insightsLoading: true });
@@ -912,9 +991,10 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
             : null,
         dimFilters: savedFilters.filter((f) => f.kind !== "dateRange" && f !== cross).map(plainFilter),
         crossFilter,
-        // The config does not record drill paths, and the old insights describe other filters.
+        // The config does not record drill paths, and the old insights and answers describe other settings.
         drill: {},
         insights: null,
+        questions: [],
         step: "dashboard",
       });
       get().refresh();

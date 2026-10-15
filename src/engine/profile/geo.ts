@@ -149,6 +149,12 @@ const norm = (s: string): string =>
     .replace(/\s+/g, " ")
     .trim();
 
+/**
+ * A place name never contains a digit. Without this check norm() would turn
+ * codes such as "OD1003" or "KA-01" into "od" or "ka" and match a state.
+ */
+const hasDigit = (s: string): boolean => /\d/.test(s);
+
 /** A short single-word alias such as "or" or "dnh": an old code, not a name. */
 const isCodeAlias = (normalised: string): boolean => /^[a-z]{2,3}$/.test(normalised);
 
@@ -173,11 +179,13 @@ const US_NAME_LOOKUP = buildLookup(US_STATES, false);
 
 /** Matches a name or long alias, or (when allowCodes) a code or short alias such as "ut", "ct", "or". */
 export function matchIndianState(value: string, allowCodes = true): StateDef | undefined {
+  if (hasDigit(value)) return undefined;
   return (allowCodes ? INDIA_LOOKUP : INDIA_NAME_LOOKUP).get(norm(value));
 }
 
 /** Matches a full name or (when allowCodes) a USPS code. */
 export function matchUsState(value: string, allowCodes = true): StateDef | undefined {
+  if (hasDigit(value)) return undefined;
   return (allowCodes ? US_LOOKUP : US_NAME_LOOKUP).get(norm(value));
 }
 
@@ -368,7 +376,7 @@ export const COUNTRIES = [
 const COUNTRY_SET = new Set(COUNTRIES);
 
 export function isCountry(value: string): boolean {
-  return COUNTRY_SET.has(norm(value));
+  return !hasDigit(value) && COUNTRY_SET.has(norm(value));
 }
 
 /** Major cities, lower-case, including old and alternate names (bangalore/bengaluru, gurgaon/gurugram). */
@@ -602,7 +610,7 @@ const CITY_SET = new Set([...INDIAN_CITIES, ...WORLD_CITIES]);
 
 /** Membership in either city list; some entries are also states or countries (Delhi, Goa, Singapore). */
 export function isKnownCity(value: string): boolean {
-  return CITY_SET.has(norm(value));
+  return !hasDigit(value) && CITY_SET.has(norm(value));
 }
 
 /** Canonical Indian state name for display/joins; returns the input when unknown. */

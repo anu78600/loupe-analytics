@@ -1,11 +1,15 @@
 "use client";
 
 /**
- * Step 6, Export. Power BI package (zip), PDF report and dashboard PNG, the
- * SQL file with in-browser verification against DuckDB-WASM plus a small SQL
- * lab, the data dictionary, a cleaned CSV (formula-injection guard) and the
- * shareable config. buildConfig() captures the dashboard (domain, mapping,
- * overrides, layout, filters) without any data rows.
+ * Step 7, Export. The three reports first, in this order: 1 the dashboard
+ * (PDF report or PNG image), 2 the SQL queries (a text PDF of the business
+ * questions with their answers and SQL, then each KPI's SQL), 3 the insights
+ * (a text PDF with the headline KPIs and every insight with its chart). Then
+ * "More exports": the Power BI package (zip), the SQL file with in-browser
+ * verification against DuckDB-WASM plus a small SQL lab, the data
+ * dictionary, a cleaned CSV (formula-injection guard) and the shareable
+ * config. buildConfig() captures the dashboard (domain, mapping, overrides,
+ * layout, filters) without any data rows.
  *
  * The Power BI package and the DAX file are built from the file's own
  * columns. When one would add a column (a date-only copy of a datetime, or a
@@ -25,6 +29,7 @@ import {
   FileJson,
   FileSpreadsheet,
   FileText,
+  Lightbulb,
   Loader2,
   Play,
   Upload,
@@ -37,7 +42,7 @@ import { PRESET_LABEL } from "@/engine/core/periods";
 import { describeFilter } from "@/engine/query/filter";
 import { compareFingerprints, fingerprintOf, parseConfig, type LoupeConfig } from "@/engine/export/config";
 import type { PackageManifest } from "@/engine/export/powerbi";
-import { allSpecs, useWorkspace } from "@/store/workspace";
+import { allSpecs, stepNumber, useWorkspace } from "@/store/workspace";
 import { useSettings } from "@/store/settings";
 import { engine } from "@/lib/engine-client";
 import { downloadBlob, downloadDataUrl, slugify } from "@/lib/utils";
@@ -51,6 +56,7 @@ import { Label, Textarea } from "@/ui/primitives/input";
 import { useFmt } from "@/ui/common/hooks";
 import { CodeBlock } from "./dashboard/KpiDetails";
 import { exportDashboardPng, exportPdf, type ReportInput } from "./export/report";
+import { exportInsightsPdf, exportSqlPdf } from "./export/documents";
 import { useColumnConsent, type ColumnRequest, type ProposedColumn } from "./NewColumnsDialog";
 
 /**
@@ -187,20 +193,35 @@ export function ExportStep() {
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-8 md:px-6">
       <div className="mb-6">
-        <Eyebrow>Step 6 · Export</Eyebrow>
+        <Eyebrow>Step {stepNumber("export")} · Export</Eyebrow>
         <h1 className="mt-2 font-display text-display-sm text-fg">Take it anywhere.</h1>
         <p className="mt-2 max-w-2xl text-ui text-fg-muted">
           Every export is generated in this tab from the same definitions as the dashboard, so the numbers
           match everywhere.
         </p>
       </div>
-      <div className="grid gap-4 lg:grid-cols-2">
-        <PowerBiCard />
-        <ReportCard />
-        <SqlCard />
-        <MiscCard />
-        <ConfigCard />
-      </div>
+      <section aria-labelledby="export-reports">
+        <h2 id="export-reports" className="mb-3 text-sm font-medium text-fg">
+          Your reports <span className="font-normal text-fg-subtle">· in this order</span>
+        </h2>
+        <div className="grid gap-4 lg:grid-cols-3">
+          <ReportCard />
+          <SqlPdfCard />
+          <InsightsPdfCard />
+        </div>
+      </section>
+      <section aria-labelledby="export-more" className="mt-9">
+        <h2 id="export-more" className="mb-3 text-sm font-medium text-fg">
+          More exports{" "}
+          <span className="font-normal text-fg-subtle">· Power BI, SQL file, data and settings</span>
+        </h2>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <PowerBiCard />
+          <SqlCard />
+          <MiscCard />
+          <ConfigCard />
+        </div>
+      </section>
     </div>
   );
 }
@@ -362,8 +383,8 @@ function ReportCard() {
   return (
     <ExportCard
       icon={FileText}
-      title="PDF report & PNG"
-      description="A multi-page, print-safe report (light theme, A4): KPI summary, every visible chart with its reason, top findings, and a data-health appendix. Or the whole dashboard as one high-resolution image. Single charts export from each chart's menu."
+      title="1 · Dashboard"
+      description="As a PDF report (A4, light theme): KPI summary, every visible chart with its reason, top findings and a data-health appendix. Or the whole dashboard as one high-resolution image. Single charts export from each chart's menu."
     >
       <div className="flex flex-wrap gap-2">
         <Button variant="secondary" onClick={() => void pdf()} disabled={Boolean(busy)}>
@@ -386,6 +407,149 @@ function ReportCard() {
           <Loader2 className="size-4 animate-spin" aria-hidden /> {busy}
         </p>
       ) : null}
+    </ExportCard>
+  );
+}
+
+/** 2 · SQL queries: the business questions of step 5 with their answers and SQL, then each KPI's SQL, as a text PDF. */
+function SqlPdfCard() {
+  const context = useWorkspace((s) => s.context);
+  const summary = useWorkspace((s) => s.summary);
+  const questions = useWorkspace((s) => s.questions);
+  const setStep = useWorkspace((s) => s.setStep);
+  const fmt = useFmt();
+  const [busy, setBusy] = React.useState(false);
+  if (!context || !summary) return null;
+  const sub = context.domain.subDomains.find((x) => x.id === context.subDomainId)?.name ?? "";
+  const download = async () => {
+    setBusy(true);
+    try {
+      const { hero, supporting, columns } = context.selection;
+      const order = [...hero, ...supporting, ...columns];
+      const kpis = order
+        .map((id) => context.kpis.find((k) => k.id === id))
+        .filter((k): k is NonNullable<typeof k> => Boolean(k?.available && k.sql));
+      await exportSqlPdf(
+        {
+          title: context.domain.name,
+          subtitle: `${sub ? `${sub} · ` : ""}${summary.fileName}`,
+          fileName: summary.fileName,
+          isDemo: summary.isDemo,
+          fmt,
+          table: await engine().sqlTableName(),
+          questions,
+          kpis,
+          describe: (f) => describeFilter(f, formatDay),
+        },
+        `${slugify(summary.name)}-sql-queries.pdf`,
+      );
+      toast.success("SQL queries PDF downloaded");
+    } catch (e) {
+      toast.error(`SQL PDF failed: ${(e as Error).message}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <ExportCard
+      icon={FileCode2}
+      title="2 · SQL queries"
+      description="A PDF of your business questions from step 5, each with its answer and the SQL query that returns it, then the SQL of every KPI on the dashboard. Real text, so any query can be copied."
+    >
+      <div className="flex flex-wrap gap-2">
+        <Button variant="secondary" onClick={() => void download()} disabled={busy}>
+          {busy ? <Loader2 className="animate-spin" aria-hidden /> : <Download aria-hidden />} SQL queries PDF
+        </Button>
+      </div>
+      <p className="mt-3 text-2xs text-fg-muted">
+        {questions.length ? (
+          `${questions.length} business question${questions.length === 1 ? "" : "s"} included.`
+        ) : (
+          <>
+            No business questions yet, so only the KPI queries are included.{" "}
+            <Button
+              variant="link"
+              size="xs"
+              className="h-auto p-0 text-2xs"
+              onClick={() => setStep("questions")}
+            >
+              Ask questions in step {stepNumber("questions")}
+            </Button>
+          </>
+        )}
+      </p>
+    </ExportCard>
+  );
+}
+
+/** 3 · Insights: the headline KPIs and every insight with its basis and chart, as a text PDF. */
+function InsightsPdfCard() {
+  const build = useReportInput();
+  const summary = useWorkspace((s) => s.summary);
+  const insights = useWorkspace((s) => s.insights);
+  const loadInsights = useWorkspace((s) => s.loadInsights);
+  const [busy, setBusy] = React.useState<string | null>(null);
+  const download = async () => {
+    setBusy("Finding insights…");
+    try {
+      if (!useWorkspace.getState().insights) await loadInsights();
+      const input = build();
+      if (!input) return;
+      const s = useWorkspace.getState();
+      // Every computed chart, so an insight can show its chart even when it is hidden in this layout.
+      const charts = new Map(
+        allSpecs(s)
+          .filter((sp) => s.charts[sp.id])
+          .map((sp) => [
+            sp.id,
+            {
+              spec: sp,
+              data: s.charts[sp.id] as NonNullable<(typeof s.charts)[string]>,
+              kind: s.widgets.find((w) => w.id === sp.id)?.kind ?? sp.kind,
+            },
+          ]),
+      );
+      await exportInsightsPdf(
+        {
+          title: input.title,
+          subtitle: input.subtitle,
+          fileName: input.fileName,
+          isDemo: input.isDemo,
+          fmt: input.fmt,
+          period: input.period,
+          filters: input.filters,
+          rows: input.rows,
+          hero: input.hero,
+          insights: input.insights,
+          charts,
+        },
+        `${slugify(summary?.name ?? "loupe")}-insights.pdf`,
+        setBusy,
+      );
+      toast.success("Insights PDF downloaded");
+    } catch (e) {
+      toast.error(`Insights PDF failed: ${(e as Error).message}`);
+    } finally {
+      setBusy(null);
+    }
+  };
+  return (
+    <ExportCard
+      icon={Lightbulb}
+      title="3 · Insights"
+      description="A PDF of what the data says for the dashboard's current period and filters: the headline KPIs, then every insight in order of importance with how it was worked out and its chart."
+    >
+      <div className="flex flex-wrap gap-2">
+        <Button variant="secondary" onClick={() => void download()} disabled={Boolean(busy)}>
+          {busy ? <Loader2 className="animate-spin" aria-hidden /> : <Download aria-hidden />} Insights PDF
+        </Button>
+      </div>
+      <p className="mt-3 text-2xs text-fg-muted" role="status">
+        {busy ??
+          (insights
+            ? `${insights.length} insights for the current filters.`
+            : "Insights are found when you download.")}
+      </p>
     </ExportCard>
   );
 }

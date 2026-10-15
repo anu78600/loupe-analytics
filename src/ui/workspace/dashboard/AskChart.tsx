@@ -37,6 +37,7 @@ import {
   type ChartAsk,
 } from "@/engine/charts/ask";
 import type { ChartData, ChartKind, ChartSpec } from "@/engine/charts/types";
+import type { Filter } from "@/engine/query/filter";
 import type { ColumnProfile } from "@/engine/profile/types";
 import { allSpecs, useWorkspace } from "@/store/workspace";
 import { engine } from "@/lib/engine-client";
@@ -559,15 +560,16 @@ function AskEditor({
 }
 
 /** One designed chart computed with the dashboard's filters, drawn small, with the reason for its type. */
-function ChartPreview({ spec, why }: { spec: ChartSpec; why: string }) {
+export function ChartPreview({ spec, why, filters }: { spec: ChartSpec; why?: string; filters?: Filter[] }) {
   const fmt = useFmt();
   const themeKey = useThemeKey();
   const [data, setData] = React.useState<ChartData | null | undefined>(undefined);
   React.useEffect(() => {
     let live = true;
-    const filters = useWorkspace.getState().filters();
+    // A question's own filters when given (step 5), else the dashboard's.
+    const use = filters ?? useWorkspace.getState().filters();
     engine()
-      .previewChart(filters, { specId: spec.id, spec }, fmt.locale)
+      .previewChart(use, { specId: spec.id, spec }, fmt.locale)
       .then((d) => {
         if (live) setData(d);
       })
@@ -577,7 +579,7 @@ function ChartPreview({ spec, why }: { spec: ChartSpec; why: string }) {
     return () => {
       live = false;
     };
-  }, [spec, fmt.locale]);
+  }, [spec, fmt.locale, filters]);
   const option = React.useMemo(() => {
     void themeKey;
     if (!data || data.empty || !rendersWithECharts(spec.kind, data)) return null;
@@ -605,7 +607,7 @@ function ChartPreview({ spec, why }: { spec: ChartSpec; why: string }) {
       ) : (
         <DataTable spec={spec} data={data} fmt={fmt} maxRows={8} className="max-h-52 overflow-auto" />
       )}
-      <p className="text-2xs leading-relaxed text-fg-muted">{why}</p>
+      {why ? <p className="text-2xs leading-relaxed text-fg-muted">{why}</p> : null}
       {data?.notes.map((n) => (
         <p key={n} className="text-2xs leading-relaxed text-fg-subtle">
           {n}

@@ -24,18 +24,18 @@ npm run changelog    # regenerate CHANGELOG.md from src/content/changelog.ts
 
 ## Architecture (pipeline order)
 
-| Stage    | Where                                                      | Notes                                                                                                                            |
-| -------- | ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| Parse    | `src/engine/parse`                                         | Streaming CSV (encoding, delimiter, header sniffing), Excel, JSON. Columnar typed storage. Whole-column DD/MM vs MM/DD decision. |
-| Profile  | `src/engine/profile`                                       | Types, semantic roles, stats, patterns, keys/grain, hierarchies, gaps, additivity, wide format; `quality.ts` = health score.     |
-| Detect   | `src/engine/detect`                                        | Field matching (synonyms, abbreviations, Jaro-Winkler, value hints), domain confidence, generic fallback.                        |
-| KPIs     | `src/engine/kpi`, `src/engine/query`, `src/engine/compile` | One expression AST (`query/expr.ts`) → TS evaluator, SQL, DAX. `kpi/columnKpis.ts` covers columns the template doesn't read.     |
-| Charts   | `src/engine/charts`                                        | Template adaptation with reasons/alternatives; RFM, cohorts, basket, Pareto; `ask.ts` reads requests in words into charts.       |
-| Insights | `src/engine/insights`                                      | Ranked, quantified, chart-linked; never invents numbers.                                                                         |
-| Export   | `src/engine/export`                                        | Power BI package (TMDL + DAX + CSV + README), SQL, dictionary, CSV (formula-injection guard), config.                            |
-| Session  | `src/engine/session.ts` + `src/workers/engine.worker.ts`   | Stateful session inside a Web Worker (Comlink); UI gets small results only.                                                      |
-| Registry | `src/registry`                                             | One JSON per industry, validated by Zod (`schema.ts`) and `validate.ts`.                                                         |
-| UI       | `src/app`, `src/ui`                                        | `/` landing (prerendered from real engine output), `/app` workspace, `/changelog`. State: `src/store`.                           |
+| Stage    | Where                                                      | Notes                                                                                                                                                                                     |
+| -------- | ---------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Parse    | `src/engine/parse`                                         | Streaming CSV (encoding, delimiter, header sniffing), Excel, JSON. Columnar typed storage. Whole-column DD/MM vs MM/DD decision.                                                          |
+| Profile  | `src/engine/profile`                                       | Types, semantic roles, stats, patterns, keys/grain, hierarchies, gaps, additivity, wide format; `quality.ts` = health score.                                                              |
+| Detect   | `src/engine/detect`                                        | Field matching (synonyms, abbreviations, Jaro-Winkler, value hints), domain confidence, generic fallback.                                                                                 |
+| KPIs     | `src/engine/kpi`, `src/engine/query`, `src/engine/compile` | One expression AST (`query/expr.ts`) → TS evaluator, SQL, DAX. `kpi/columnKpis.ts` covers columns the template doesn't read.                                                              |
+| Charts   | `src/engine/charts`                                        | Template adaptation with reasons/alternatives; RFM, cohorts, basket, Pareto; `ask.ts` reads requests in words into charts.                                                                |
+| Insights | `src/engine/insights`                                      | Ranked, quantified, chart-linked; never invents numbers.                                                                                                                                  |
+| Export   | `src/engine/export`, `src/ui/workspace/export`             | Power BI package (TMDL + DAX + CSV + README), SQL, dictionary, CSV, config; PDFs: dashboard as images (`report.tsx`), SQL and insights as text (`textPdf.ts`, Geist from `public/fonts`). |
+| Session  | `src/engine/session.ts` + `src/workers/engine.worker.ts`   | Stateful session inside a Web Worker (Comlink); UI gets small results only.                                                                                                               |
+| Registry | `src/registry`                                             | One JSON per industry, validated by Zod (`schema.ts`) and `validate.ts`.                                                                                                                  |
+| UI       | `src/app`, `src/ui`                                        | `/` landing (prerendered from real engine output), `/app` workspace, `/changelog`. State: `src/store`.                                                                                    |
 
 ## Invariants: do not break these
 

@@ -141,7 +141,7 @@ export function resolveKpis(domain: DomainDef, mapping: Mapping, subDomain?: str
           alternatives && alternatives.missing.length
             ? `Or map ${alternatives.missing.map((f) => labels.get(f) ?? f).join(" + ")} to use "${alternatives.v.label}".`
             : b.missingClasses.length
-              ? "Assign the matching values in Map columns › Value meanings."
+              ? "Assign the matching values in Check & map › Value meanings."
               : undefined,
       };
     }

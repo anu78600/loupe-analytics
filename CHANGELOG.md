@@ -10,6 +10,59 @@ Every step of building Loupe, newest first. Generated from `src/content/changelo
 1. **Brand themes.** Design the dashboard's colours from your company's brand colours (typed as hex codes or picked from your logo), and ask which style you want: one colour with a gradient, a multi-colour combination, or brand accent with neutral charts.
 2. **Theme everywhere.** Apply the chosen theme to the dashboard, charts, PDF and PNG reports, and a matching Power BI theme file.
 
+## 28.0 · Export in order: dashboard, SQL, insights
+
+*Major · 2026-10-15 18:37 UTC · Feature, Design*
+
+The Export step now offers your three reports first, in this order: the dashboard as a PDF or image, your SQL queries as a PDF, and the insights as a PDF. The SQL and insights PDFs are new and are real text, so any query or sentence can be copied. Power BI, the SQL file, the data and the settings follow under More exports.
+
+- Export starts with "Your reports, in this order": 1 · Dashboard (PDF report or PNG image), 2 · SQL queries, 3 · Insights.
+- New SQL queries PDF: every business question from step 5 with how it was read, the rows used, the headline answer, the answer table and its SQL, then the SQL of every KPI on the dashboard.
+- New insights PDF: the period and filters, the headline KPIs with their change, then every insight in order of importance, with how it was worked out and its chart.
+- Both are real text, so you can select, search and copy them. They use the app's own typeface, Geist, embedded in the file (served by this site under its open licence), so ₹ and other symbols print correctly and no font is downloaded from anywhere else.
+- The Power BI package, the SQL file with its check against your data, the measures, the data dictionary, the cleaned data and the saved settings are under More exports.
+- With this, the workspace follows your seven steps: Upload, Detect, Check & map, Dashboard, Questions & SQL, Insights, Export. The README lists them.
+- Question reading: "revenue trend by month" no longer leaves a note about the word "trend".
+
+Files: `src/ui/workspace/export/textPdf.ts`, `src/ui/workspace/export/documents.ts`, `src/ui/workspace/ExportStep.tsx`, `src/engine/session.ts`, `src/workers/engine.worker.ts`, `src/engine/charts/ask.ts`, `public/fonts/OFL.txt`, `README.md`
+
+## 27.0 · Business questions in SQL
+
+*Major · 2026-10-15 18:26 UTC · Feature, Data, Tests*
+
+A new step after the dashboard, Questions & SQL. Loupe suggests business questions about your data and you can type your own. For each one it answers from your data and writes the SQL query that returns the same answer, which you can check in your browser.
+
+- New step 5, Questions & SQL, between Dashboard and Insights. Insights and Export are now steps 6 and 7.
+- Suggested questions are built from your own KPIs and columns: how a KPI changed month by month, which category is highest, how categories compare, the top 10 items, the busiest weekday or hour, the lowest average score, and the overall totals.
+- Type your own, such as "Which region has the highest revenue?", "How many invoices by region?", "Which 5 products sold the most?" or "Show me the bottom 3 sales reps by revenue". Loupe shows how it reads the question as you type.
+- Each answer has a one-line headline, the answer table, a chart, and the SQL query for DuckDB and PostgreSQL, with your question and how it was read as comments at the top.
+- "Check this SQL on your data" runs the query in DuckDB inside your browser and compares every value with the answer.
+- Answers use the dashboard's date range and filters, or the whole file, as you choose.
+- The SQL uses each KPI's own definition, including per-customer KPIs such as the repeat customer rate and balances taken on the latest date such as MRR. A KPI that counts each customer once, in the period of their first purchase (new customers), can't be written exactly per category, so the answer says so instead of approximating.
+- "Add chart to dashboard" turns an answer into a chart.
+- New tests prove in DuckDB that the SQL returns exactly the same rows as the answer: rankings, months, weekdays, hours, with filters, for per-customer and latest-balance KPIs, and for every suggested question.
+
+Files: `src/engine/compile/questionSql.ts`, `src/engine/compile/sql.ts`, `src/engine/charts/ask.ts`, `src/engine/session.ts`, `src/workers/engine.worker.ts`, `src/store/workspace.ts`, `src/ui/workspace/QuestionsStep.tsx`, `src/ui/workspace/Workspace.tsx`, `src/ui/workspace/dashboard/AskChart.tsx`, `tests/questions.test.ts`
+
+## 26.0 · Check your data before the dashboard
+
+*Major · 2026-10-15 18:08 UTC · Feature, Fix, Data, Tests*
+
+Steps 2 and 3 now follow your format. Detect shows what kind of data you uploaded and every column header in it. Check & map shows the whole file with every problem marked, so you can confirm the upload is right before the dashboard is built, and then check how the columns were mapped.
+
+- Step 2 is now called Detect. Next to the industry match there is a new "Columns in your file" table: every column header, the kind of values it holds (whole number, date, time of day, text…), how Loupe reads it, and what is in it.
+- "Next: check your data" opens step 3, now called Check & map. Its first tab, "Your data", shows every row of your file; cells with a problem are tinted, with the reason when you hover.
+- Cells that couldn't be read as a number or a date now keep what the file said ("3x", "2025-13-45") and show it in the grid, instead of silently turning blank. They still count as blank in calculations.
+- Marked problems: unreadable cells, negative quantities or prices, percentages out of range, impossible ages or coordinates, dates after today, 1 Jan 1900 placeholder dates, different spellings of the same value, discounts larger than the price, blanks in a column that is otherwise filled, and rows that repeat an earlier row.
+- "What to check" lists each problem with its number of rows. Click one to see only those rows, with each row keeping its own number from your file. "Rows to check" shows all of them at once.
+- The data health score and how the file was read (encoding, header row, date order) are in a "File report" tab in step 3.
+- Fix: codes made of letters and digits, such as order IDs like "OD1003", were read as Indian states (OD is Odisha's code). A value with a digit is never read as a state, country or city now.
+- Data health messages now say "1 row" rather than "1 rows".
+- Step numbers follow the step list, so the new SQL step will renumber the later steps automatically.
+- New tests: every problem is marked on the right cell, each problem's row count matches the data health check, unreadable cells keep their text (also through an unpivot), and order IDs are read as identifiers.
+
+Files: `src/engine/profile/dataCheck.ts`, `src/engine/profile/quality.ts`, `src/engine/profile/geo.ts`, `src/engine/core/types.ts`, `src/engine/parse/builder.ts`, `src/engine/parse/unpivot.ts`, `src/engine/session.ts`, `src/workers/engine.worker.ts`, `src/store/workspace.ts`, `src/ui/workspace/DetectStep.tsx`, `src/ui/workspace/MapStep.tsx`, `src/ui/workspace/DataCheckPanel.tsx`, `src/ui/workspace/VirtualGrid.tsx`, `src/ui/workspace/columnSummary.ts`, `tests/data-check.test.ts`
+
 ## 25.0 · Ask for a chart
 
 *Major · 2026-10-15 17:27 UTC · Feature, Design, Tests*

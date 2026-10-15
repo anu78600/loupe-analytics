@@ -13,7 +13,13 @@
  * computeDashboard() yields between charts.
  */
 import * as Comlink from "comlink";
-import { Session, type ChartRequest, type ContextRequest, type DashboardRequest } from "@/engine/session";
+import {
+  Session,
+  type ChartRequest,
+  type ContextRequest,
+  type DashboardRequest,
+  type QuestionRequest,
+} from "@/engine/session";
 import type { IngestOptions } from "@/engine/core/types";
 import type { IngestProgress } from "@/engine/parse";
 import type { ChartData } from "@/engine/charts/types";
@@ -82,6 +88,15 @@ const api = {
   timeIntel: (kpiId: string, filters: Filter[]) => session.timeIntel(kpiId, filters),
 
   rows: (start: number, count: number) => session.rows(start, count),
+
+  /** Data check (step 3): the views with row counts, and a window of one view's rows with marked cells. */
+  checkViews: () => session.checkViews(),
+  checkRows: (viewId: string, start: number, count: number) => session.checkRows(viewId, start, count),
+
+  sqlTableName: () => session.sqlTableName(),
+
+  /** A business question (step 5): the engine's answer and the SQL that returns the same rows. */
+  answerQuestion: (req: QuestionRequest, locale: NumberLocale) => session.answerQuestion(req, locale),
 
   columnValues: (column: string, limit?: number, search?: string) =>
     session.columnValues(column, limit, search),

@@ -8,6 +8,10 @@
  * (OPTIONAL, REFUNDISH, FUTURE_OK) keep expected patterns, such as blank
  * coupon codes or negative refunds, from being penalised. Checks currently
  * emit only "info" and "warning"; "critical" is not produced.
+ *
+ * The row-level rules behind the issues (duplicateRowsOf, issueCellTest,
+ * isOptionalColumn) are exported for the data check (dataCheck.ts), which
+ * marks the exact cells, so its counts always match the issues here.
  */
 import type { Column, Dataset, ParseReport } from "@/engine/core/types";
 import { DAY_MS, formatDay, todayWallClock } from "@/engine/core/dates";
@@ -41,6 +45,8 @@ export interface HealthReport {
 }
 
 const fmt = (n: number) => formatPlain(n, 0, "INTL");
+/** "1 row has" / "3 rows have": a count with the noun and verb that agree with it. */
+const n_ = (n: number, one: string, many: string) => `${fmt(n)} ${n === 1 ? one : many}`;
 /** Fraction → "12.3%", with two decimals below 1%. */
 const pct = (x: number) => `${(x * 100).toFixed(x < 0.01 ? 2 : 1)}%`;
 
@@ -77,25 +83,38 @@ function rowHashes(ds: Dataset): Float64Array {
 }
 
 /**
- * Rows whose hash matches an earlier row's (a row present three times counts
- * twice); firstExample is the 0-based index of the first repeat. Equal hashes
- * are not re-verified: for a million rows the chance of a false match is
- * about 1 in 18,000.
+ * For every row, the 0-based index of the first earlier row identical in
+ * every column, or -1. Equal hashes are not re-verified: for a million rows
+ * the chance of a false match is about 1 in 18,000.
  */
-function countDuplicateRows(ds: Dataset): { count: number; firstExample: number } {
-  if (ds.rowCount < 2 || ds.columns.length === 0) return { count: 0, firstExample: -1 };
+export function duplicateRowsOf(ds: Dataset): Int32Array {
+  const out = new Int32Array(ds.rowCount).fill(-1);
+  if (ds.rowCount < 2 || ds.columns.length === 0) return out;
   const hashes = rowHashes(ds);
-  const seen = new Set<number>();
-  let dups = 0;
-  let firstExample = -1;
+  const first = new Map<number, number>();
   for (let i = 0; i < hashes.length; i++) {
     const h = hashes[i] as number;
-    if (seen.has(h)) {
-      dups++;
-      if (firstExample < 0) firstExample = i;
-    } else seen.add(h);
+    const f = first.get(h);
+    if (f === undefined) first.set(h, i);
+    else out[i] = f;
   }
-  return { count: dups, firstExample };
+  return out;
+}
+
+/**
+ * Rows that repeat an earlier row (a row present three times counts twice);
+ * firstExample is the 0-based index of the first repeat.
+ */
+function countDuplicateRows(ds: Dataset): { count: number; firstExample: number } {
+  const of = duplicateRowsOf(ds);
+  let count = 0;
+  let firstExample = -1;
+  for (let i = 0; i < of.length; i++)
+    if ((of[i] as number) >= 0) {
+      count++;
+      if (firstExample < 0) firstExample = i;
+    }
+  return { count, firstExample };
 }
 
 /** Name tokens of counts that cannot be negative. */
@@ -227,6 +246,151 @@ function normalizeCategory(s: string): string {
     .trim();
 }
 
+/** True when the column's name marks a field that only applies to some rows (OPTIONAL), so blanks are expected. */
+export function isOptionalColumn(p: ColumnProfile): boolean {
+  return p.tokens.some((t) => OPTIONAL.includes(t));
+}
+
+/** Units per year for an age column, from its name ("Account Age (days)"); years when none is given. */
+function ageUnit(p: ColumnProfile): { perYear: number; label: string } {
+  return AGE_UNITS.get(p.tokens.find((t) => AGE_UNITS.has(t)) ?? "year") ?? { perYear: 1, label: "years" };
+}
+
+/** The coordinate limit a column's name or geo level implies (90 or 180), or 0. */
+function coordinateLimit(p: ColumnProfile): number {
+  const isLatitude = p.geoLevel === "latitude" || p.tokens.some((t) => LATITUDE.includes(t));
+  const isLongitude = p.geoLevel === "longitude" || p.tokens.some((t) => LONGITUDE.includes(t));
+  return isLatitude ? 90 : isLongitude ? 180 : 0;
+}
+
+/** The first currency "discount" column and the first gross/subtotal/total currency column, if both exist. */
+function discountPricePair(cols: ColumnProfile[]): { disc: ColumnProfile; gross: ColumnProfile } | null {
+  const disc = cols.find(
+    (c) => c.storage === "number" && c.tokens.includes("discount") && c.role === "currency",
+  );
+  const gross = cols.find(
+    (c) =>
+      c.storage === "number" &&
+      c.role === "currency" &&
+      (c.tokens.includes("gross") ||
+        c.tokens.includes("subtotal") ||
+        (c.tokens.includes("total") && !c.tokens.includes("discount"))),
+  );
+  return disc && gross ? { disc, gross } : null;
+}
+
+/** Start of 2 Jan 1900: anything earlier is a placeholder date (01/01/1900, Excel's serials 0 and 1). */
+const PLACEHOLDER_END = Date.UTC(1900, 0, 2);
+
+/**
+ * The row-level rule behind a value issue: which cell of which column it
+ * flags, and a short note for that cell. The same tests as assessHealth, so
+ * a data check's count for an issue equals the issue's count. Null for
+ * issues that aren't about values in a column (duplicates, blanks, unreadable
+ * cells, gaps), which the data check handles itself.
+ */
+export function issueCellTest(
+  issue: HealthIssue,
+  ds: Dataset,
+  profile: DatasetProfile,
+): { column: string; test: (row: number) => boolean; note: (row: number) => string } | null {
+  const byName = (name: string | undefined) => profile.columns.find((c) => c.name === name);
+  const values = (p: ColumnProfile | undefined): Float64Array | null => {
+    const col = p ? ds.columns[p.index] : undefined;
+    return col && (col.kind === "number" || col.kind === "date") ? col.values : null;
+  };
+  const prefix = issue.id.slice(0, issue.id.indexOf("-") + 1);
+  if (issue.id === "discount-over-price") {
+    const pair = discountPricePair(profile.columns);
+    const d = values(pair?.disc);
+    const g = values(pair?.gross);
+    if (!pair || !d || !g) return null;
+    return {
+      column: pair.disc.name,
+      test: (r) => {
+        const dv = d[r] as number;
+        const gv = g[r] as number;
+        return dv === dv && gv === gv && gv >= 0 && dv > gv + 1e-9;
+      },
+      note: () => `Larger than "${pair.gross.name}" on this row, which means a negative selling price.`,
+    };
+  }
+  const p = byName(issue.column);
+  if (!p) return null;
+  const v = values(p);
+  switch (prefix) {
+    case "negative-":
+      return v ? { column: p.name, test: (r) => (v[r] as number) < 0, note: () => "Below zero." } : null;
+    case "pct-": {
+      const limit = p.percentScale === 100 ? 100 : 1;
+      return v
+        ? {
+            column: p.name,
+            test: (r) => (v[r] as number) > limit || (v[r] as number) < -limit,
+            note: () => `Outside ${limit === 1 ? "−100% to 100%" : "−100 to 100"}.`,
+          }
+        : null;
+    }
+    case "age-": {
+      const max = 120 * ageUnit(p).perYear;
+      return v
+        ? {
+            column: p.name,
+            test: (r) => (v[r] as number) < 0 || (v[r] as number) > max,
+            note: () => "An age below 0 or above 120 years.",
+          }
+        : null;
+    }
+    case "geo-": {
+      const lim = coordinateLimit(p);
+      return v && lim
+        ? { column: p.name, test: (r) => Math.abs(v[r] as number) > lim, note: () => `Beyond ±${lim}.` }
+        : null;
+    }
+    case "future-": {
+      const today = todayWallClock() + DAY_MS;
+      return v
+        ? { column: p.name, test: (r) => (v[r] as number) >= today, note: () => "Dated after today." }
+        : null;
+    }
+    case "ancient-":
+      return v
+        ? {
+            column: p.name,
+            test: (r) => (v[r] as number) < PLACEHOLDER_END,
+            note: () => "On or before 1 Jan 1900, often a placeholder for a missing date.",
+          }
+        : null;
+    case "variants-": {
+      // The most common spelling of each group is taken as the right one; the others are flagged.
+      const col = ds.columns[p.index];
+      if (!col || col.kind !== "string" || !p.categorical?.all) return null;
+      const count = new Map(p.categorical.all.map((x) => [x.value, x.count]));
+      const best = new Map<string, string>();
+      for (const x of p.categorical.all) {
+        const k = normalizeCategory(x.value);
+        if (!k) continue;
+        const cur = best.get(k);
+        if (cur === undefined || x.count > (count.get(cur) ?? 0)) best.set(k, x.value);
+      }
+      const canonical = new Map<number, string>();
+      col.dict.forEach((value, code) => {
+        const k = normalizeCategory(value);
+        const b = best.get(k);
+        if (k && b !== undefined && b !== value) canonical.set(code, b);
+      });
+      return {
+        column: p.name,
+        test: (r) => canonical.has(col.codes[r] as number),
+        note: (r) =>
+          `Spelled differently from "${canonical.get(col.codes[r] as number) ?? ""}", the usual spelling.`,
+      };
+    }
+    default:
+      return null;
+  }
+}
+
 /** Runs every health check. `report`, when given, adds the parser's mixed-type notes. */
 export function assessHealth(ds: Dataset, profile: DatasetProfile, report?: ParseReport): HealthReport {
   const issues: HealthIssue[] = [];
@@ -241,7 +405,7 @@ export function assessHealth(ds: Dataset, profile: DatasetProfile, report?: Pars
     issues.push({
       id: "duplicates",
       severity: rate > 0.01 ? "warning" : "info",
-      title: `${fmt(dup.count)} exact duplicate rows`,
+      title: n_(dup.count, "exact duplicate row", "exact duplicate rows"),
       detail: `${pct(rate)} of rows are identical in every column to an earlier row (first at row ${fmt(dup.firstExample + 1)}). If they are double-loaded records, totals such as revenue and units are overstated by roughly the same share.`,
       count: dup.count,
       penalty: Math.min(15, rate > 0.01 ? 6 + rate * 100 : 2),
@@ -280,7 +444,7 @@ export function assessHealth(ds: Dataset, profile: DatasetProfile, report?: Pars
           id: `negative-${p.name}`,
           severity: "warning",
           title: `Negative ${isQty ? "quantities" : "prices"} in "${p.name}"`,
-          detail: `${fmt(neg.count)} rows have values below zero (e.g. ${formatPlain(neg.example, 2, "INTL")}). ${isQty ? "Quantities" : "Unit prices"} can't be negative; if these are returns, record them in a separate column so sales totals stay correct.`,
+          detail: `${n_(neg.count, "row has a value", "rows have values")} below zero (e.g. ${formatPlain(neg.example, 2, "INTL")}). ${isQty ? "Quantities" : "Unit prices"} can't be negative; if these are returns, record them in a separate column so sales totals stay correct.`,
           column: p.name,
           count: neg.count,
           penalty: 5,
@@ -295,7 +459,7 @@ export function assessHealth(ds: Dataset, profile: DatasetProfile, report?: Pars
           id: `negative-${p.name}`,
           severity: "info",
           title: `Negative amounts in "${p.name}"`,
-          detail: `${fmt(p.numeric.negatives)} rows are below zero. These are often refunds or adjustments; totals will net them off. Check this is intended.`,
+          detail: `${n_(p.numeric.negatives, "row is", "rows are")} below zero. These are often refunds or adjustments; totals will net them off. Check this is intended.`,
           column: p.name,
           count: p.numeric.negatives,
           penalty: 1,
@@ -310,7 +474,7 @@ export function assessHealth(ds: Dataset, profile: DatasetProfile, report?: Pars
             id: `pct-range-${p.name}`,
             severity: "warning",
             title: `Percentages above 100% in "${p.name}"`,
-            detail: `${fmt(over.count)} values exceed ${limit === 1 ? "1.0 (100%)" : "100"}, e.g. ${formatPlain(over.example, 2, "INTL")}. ${p.tokens.includes("discount") ? "A discount above 100% means the item was paid for by the store." : "Check the unit (fraction vs points)."}`,
+            detail: `${n_(over.count, "value exceeds", "values exceed")} ${limit === 1 ? "1.0 (100%)" : "100"}, e.g. ${formatPlain(over.example, 2, "INTL")}. ${p.tokens.includes("discount") ? "A discount above 100% means the item was paid for by the store." : "Check the unit (fraction vs points)."}`,
             column: p.name,
             count: over.count,
             penalty: 5,
@@ -320,10 +484,7 @@ export function assessHealth(ds: Dataset, profile: DatasetProfile, report?: Pars
       // Ages: below 0 or above 120 years, in the unit the name gives ("Account Age (days)" may reach 43,830);
       // no unit token means years.
       if (p.tokens.includes("age")) {
-        const unit = AGE_UNITS.get(p.tokens.find((t) => AGE_UNITS.has(t)) ?? "year") ?? {
-          perYear: 1,
-          label: "years",
-        };
+        const unit = ageUnit(p);
         const max = 120 * unit.perYear;
         const bad = countWhere(col, (v) => v < 0 || v > max);
         if (bad.count > 0)
@@ -331,7 +492,7 @@ export function assessHealth(ds: Dataset, profile: DatasetProfile, report?: Pars
             id: `age-${p.name}`,
             severity: "warning",
             title: `Impossible ages in "${p.name}"`,
-            detail: `${fmt(bad.count)} values are below 0 or above 120 years${unit.perYear === 1 ? "" : ` (${fmt(max)} ${unit.label})`}.`,
+            detail: `${n_(bad.count, "value is", "values are")} below 0 or above 120 years${unit.perYear === 1 ? "" : ` (${fmt(max)} ${unit.label})`}.`,
             column: p.name,
             count: bad.count,
             penalty: 4,
@@ -339,9 +500,7 @@ export function assessHealth(ds: Dataset, profile: DatasetProfile, report?: Pars
       }
       // Coordinates, judged by name: roles.ts only gives the latitude/longitude roles when every value is in
       // range, so a column named like a coordinate that holds impossible values is a plain measure by now.
-      const isLatitude = p.geoLevel === "latitude" || p.tokens.some((t) => LATITUDE.includes(t));
-      const isLongitude = p.geoLevel === "longitude" || p.tokens.some((t) => LONGITUDE.includes(t));
-      const lim = isLatitude ? 90 : isLongitude ? 180 : 0;
+      const lim = coordinateLimit(p);
       if (lim) {
         const bad = countWhere(col, (v) => Math.abs(v) > lim);
         if (bad.count > 0)
@@ -349,7 +508,7 @@ export function assessHealth(ds: Dataset, profile: DatasetProfile, report?: Pars
             id: `geo-${p.name}`,
             severity: "warning",
             title: `Out-of-range coordinates in "${p.name}"`,
-            detail: `${fmt(bad.count)} values exceed ±${lim}.`,
+            detail: `${n_(bad.count, "value exceeds", "values exceed")} ±${lim}.`,
             column: p.name,
             count: bad.count,
             penalty: 3,
@@ -384,7 +543,7 @@ export function assessHealth(ds: Dataset, profile: DatasetProfile, report?: Pars
           id: `future-${p.name}`,
           severity: "warning",
           title: `Future dates in "${p.name}"`,
-          detail: `${fmt(fut.count)} rows are dated after today (latest ${formatDay(p.temporal.max)}). They may be data-entry errors and will inflate recent-period KPIs.`,
+          detail: `${n_(fut.count, "row is", "rows are")} dated after today (latest ${formatDay(p.temporal.max)}). They may be data-entry errors and will inflate recent-period KPIs.`,
           column: p.name,
           count: fut.count,
           penalty: 6,
@@ -392,14 +551,13 @@ export function assessHealth(ds: Dataset, profile: DatasetProfile, report?: Pars
       }
       // On or before 1 Jan 1900 (any time that day), so a literal 1900-01-01 placeholder counts, as do
       // Excel's serials 0 and 1 (30 and 31 Dec 1899).
-      const placeholderEnd = Date.UTC(1900, 0, 2);
-      if (p.temporal.min < placeholderEnd) {
-        const old = countWhere(col, (v) => v < placeholderEnd);
+      if (p.temporal.min < PLACEHOLDER_END) {
+        const old = countWhere(col, (v) => v < PLACEHOLDER_END);
         issues.push({
           id: `ancient-${p.name}`,
           severity: "warning",
           title: `Dates on or before 1 Jan 1900 in "${p.name}"`,
-          detail: `${fmt(old.count)} rows, often a placeholder such as 01/01/1900.`,
+          detail: `${n_(old.count, "row", "rows")}, often a placeholder such as 01/01/1900.`,
           column: p.name,
           count: old.count,
           penalty: 3,
@@ -427,7 +585,7 @@ export function assessHealth(ds: Dataset, profile: DatasetProfile, report?: Pars
         penalty: 0.5,
       });
     } else if (p.nullPct > 0.5) {
-      const optional = p.tokens.some((t) => OPTIONAL.includes(t));
+      const optional = isOptionalColumn(p);
       issues.push({
         id: `nulls-${p.name}`,
         severity: optional ? "info" : "warning",
@@ -470,18 +628,9 @@ export function assessHealth(ds: Dataset, profile: DatasetProfile, report?: Pars
 
   // 6. Discount larger than price on the same row: the first currency "discount" column against the
   // first gross/subtotal/total currency column.
-  const disc = cols.find(
-    (c) => c.storage === "number" && c.tokens.includes("discount") && c.role === "currency",
-  );
-  const gross = cols.find(
-    (c) =>
-      c.storage === "number" &&
-      c.role === "currency" &&
-      (c.tokens.includes("gross") ||
-        c.tokens.includes("subtotal") ||
-        (c.tokens.includes("total") && !c.tokens.includes("discount"))),
-  );
-  if (disc && gross) {
+  const pair = discountPricePair(cols);
+  if (pair) {
+    const { disc, gross } = pair;
     const d = colOf(disc);
     const g = colOf(gross);
     if (d.kind === "number" && g.kind === "number") {
@@ -496,7 +645,8 @@ export function assessHealth(ds: Dataset, profile: DatasetProfile, report?: Pars
           id: "discount-over-price",
           severity: "warning",
           title: `Discount larger than the price`,
-          detail: `${fmt(c)} rows have "${disc.name}" greater than "${gross.name}", which implies a negative selling price.`,
+          detail: `${n_(c, "row has", "rows have")} "${disc.name}" greater than "${gross.name}", which implies a negative selling price.`,
+          column: disc.name,
           count: c,
           penalty: 5,
         });

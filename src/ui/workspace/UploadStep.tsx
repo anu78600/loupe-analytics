@@ -18,7 +18,7 @@ import {
   Sparkles,
   UploadCloud,
 } from "lucide-react";
-import { useWorkspace } from "@/store/workspace";
+import { stepNumber, useWorkspace } from "@/store/workspace";
 import { useSettings } from "@/store/settings";
 import { SAMPLES } from "@/engine/samples/catalog";
 import { formatBytes, formatCount } from "@/engine/core/format";
@@ -64,7 +64,7 @@ export function UploadStep() {
             transition={{ duration: 0.25 }}
           >
             <div className="mb-8 max-w-2xl">
-              <Eyebrow>Step 1 · Upload</Eyebrow>
+              <Eyebrow>Step {stepNumber("upload")} · Upload</Eyebrow>
               <h1 className="mt-3 font-display text-display-sm text-fg md:text-display">
                 Bring a clean table.
               </h1>

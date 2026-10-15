@@ -7,7 +7,14 @@
  * repeated. The result is a new "derived" dataset with k times the rows, so
  * memory grows accordingly.
  */
-import type { Column, Dataset, DateColumn, NumberColumn, StringColumn } from "@/engine/core/types";
+import type {
+  Column,
+  Dataset,
+  DateColumn,
+  NumberColumn,
+  StringColumn,
+  UnreadableCells,
+} from "@/engine/core/types";
 import { MONTHS_SHORT, utc } from "@/engine/core/dates";
 import type { WideFormatInfo } from "@/engine/profile/types";
 import { uniqueName } from "./builder";
@@ -69,6 +76,47 @@ export function unpivotColumnNames(
   };
 }
 
+/**
+ * Unreadable cells of a kept column after unpivoting: each one repeats on the
+ * k rows its source row became.
+ */
+function repeatUnreadable(u: UnreadableCells | undefined, k: number): UnreadableCells | undefined {
+  if (!u || !u.rows.length) return undefined;
+  const rows = new Int32Array(u.rows.length * k);
+  const codes = new Int32Array(u.rows.length * k);
+  for (let i = 0; i < u.rows.length; i++)
+    for (let j = 0; j < k; j++) {
+      rows[i * k + j] = (u.rows[i] as number) * k + j;
+      codes[i * k + j] = u.codes[i] as number;
+    }
+  return { rows, codes, texts: u.texts };
+}
+
+/** Unreadable cells of the Value column: wide column j's row r lands on row r*k + j. */
+function mergeUnreadable(cols: NumberColumn[], k: number): UnreadableCells | undefined {
+  const cells: Array<{ row: number; text: string }> = [];
+  cols.forEach((c, j) => {
+    const u = c.unreadable;
+    if (u)
+      for (let i = 0; i < u.rows.length; i++)
+        cells.push({ row: (u.rows[i] as number) * k + j, text: u.texts[u.codes[i] as number] as string });
+  });
+  if (!cells.length) return undefined;
+  cells.sort((a, b) => a.row - b.row);
+  const texts: string[] = [];
+  const index = new Map<string, number>();
+  const codes = Int32Array.from(cells, (c) => {
+    let code = index.get(c.text);
+    if (code === undefined) {
+      code = texts.length;
+      index.set(c.text, code);
+      texts.push(c.text);
+    }
+    return code;
+  });
+  return { rows: Int32Array.from(cells, (c) => c.row), codes, texts };
+}
+
 export function unpivotDataset(ds: Dataset, wide: WideFormatInfo): Dataset {
   const wideCols = wide.columns
     .map((n) => ds.columns.find((c) => c.name === n))
@@ -78,19 +126,20 @@ export function unpivotDataset(ds: Dataset, wide: WideFormatInfo): Dataset {
   const n = ds.rowCount * k;
   const out: Column[] = [];
   for (const c of idCols) {
+    const unreadable = repeatUnreadable(c.unreadable, k);
     switch (c.kind) {
       case "string": {
         const codes = new Int32Array(n);
         for (let r = 0; r < ds.rowCount; r++)
           for (let j = 0; j < k; j++) codes[r * k + j] = c.codes[r] as number;
-        out.push({ ...c, codes });
+        out.push({ ...c, codes, unreadable });
         break;
       }
       case "boolean": {
         const values = new Int8Array(n);
         for (let r = 0; r < ds.rowCount; r++)
           for (let j = 0; j < k; j++) values[r * k + j] = c.values[r] as number;
-        out.push({ ...c, values });
+        out.push({ ...c, values, unreadable });
         break;
       }
       default: {
@@ -98,7 +147,7 @@ export function unpivotDataset(ds: Dataset, wide: WideFormatInfo): Dataset {
         const values = new Float64Array(n);
         for (let r = 0; r < ds.rowCount; r++)
           for (let j = 0; j < k; j++) values[r * k + j] = c.values[r] as number;
-        out.push({ ...c, values } as Column);
+        out.push({ ...c, values, unreadable } as Column);
       }
     }
   }
@@ -128,7 +177,13 @@ export function unpivotDataset(ds: Dataset, wide: WideFormatInfo): Dataset {
   for (let r = 0; r < ds.rowCount; r++)
     for (let j = 0; j < k; j++) values[r * k + j] = (wideCols[j] as NumberColumn).values[r] as number;
   const fmt = wideCols[0]?.format ?? { integer: false, decimals: 2 };
-  out.push({ kind: "number", name: valueName, values, format: fmt });
+  out.push({
+    kind: "number",
+    name: valueName,
+    values,
+    format: fmt,
+    unreadable: mergeUnreadable(wideCols, k),
+  });
   return {
     id: newDatasetId(),
     name: `${ds.name} (unpivoted)`,

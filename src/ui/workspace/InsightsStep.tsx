@@ -27,7 +27,7 @@ import {
 import type { Insight, InsightKind } from "@/engine/insights/insights";
 import { PRESET_LABEL } from "@/engine/core/periods";
 import { formatRange } from "@/engine/core/dates";
-import { useWorkspace } from "@/store/workspace";
+import { stepNumber, useWorkspace } from "@/store/workspace";
 import { useSettings } from "@/store/settings";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/ui/primitives/badge";
@@ -72,7 +72,7 @@ export function InsightsStep() {
     <div className="mx-auto w-full max-w-5xl px-4 py-8 md:px-6">
       <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <Eyebrow>Step 5 · Insights</Eyebrow>
+          <Eyebrow>Step {stepNumber("insights")} · Insights</Eyebrow>
           <h1 className="mt-2 font-display text-display-sm text-fg">What the data says</h1>
           <p className="mt-2 max-w-2xl text-ui text-fg-muted">
             Ranked by impact. Every number below was computed from your data for{" "}
