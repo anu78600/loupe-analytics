@@ -1,0 +1,134 @@
+"use client";
+
+/**
+ * Client shell for /app. Switches between the six steps with a short fade,
+ * binds Ctrl/⌘+K, opens a demo from /app?sample=<id>, turns errors after the
+ * upload step into toasts, and reconfigures the session when the number
+ * format or currency changes (worker-side text such as chart descriptions and
+ * exports depends on them).
+ */
+import * as React from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import { toast } from "sonner";
+import { useWorkspace } from "@/store/workspace";
+import { useSettings } from "@/store/settings";
+import { WorkspaceTopBar } from "./Shell";
+import { UploadStep } from "./UploadStep";
+import { DetectStep } from "./DetectStep";
+import { MapStep } from "./MapStep";
+import { DashboardStep } from "./dashboard/DashboardStep";
+import { InsightsStep } from "./InsightsStep";
+import { ExportStep } from "./ExportStep";
+import { CommandPalette } from "./CommandPalette";
+import { SettingsSheet } from "./SettingsSheet";
+
+export function Workspace({ version }: { version: string }) {
+  const step = useWorkspace((s) => s.step);
+  const error = useWorkspace((s) => s.error);
+  const loading = useWorkspace((s) => s.loading);
+  const hasContext = useWorkspace((s) => Boolean(s.context));
+  const [commandOpen, setCommandOpen] = React.useState(false);
+  const [settingsOpen, setSettingsOpen] = React.useState(false);
+
+  // Each step starts at the top (confirming on Detect used to land mid-dashboard).
+  React.useEffect(() => {
+    window.scrollTo({ top: 0 });
+  }, [step]);
+
+  // Cmd/Ctrl+K command palette
+  React.useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setCommandOpen((o) => !o);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  // Deep link: /app?sample=ecommerce opens a demo dataset straight away.
+  React.useEffect(() => {
+    const sample = new URLSearchParams(window.location.search).get("sample");
+    if (sample && !useWorkspace.getState().summary) {
+      void useWorkspace.getState().loadSample(sample);
+      window.history.replaceState(null, "", window.location.pathname);
+    }
+  }, []);
+
+  // Errors after the upload step surface as toasts (the upload step shows them inline).
+  React.useEffect(() => {
+    if (error && step !== "upload") {
+      toast.error(error);
+      useWorkspace.setState({ error: null });
+    }
+  }, [error, step]);
+
+  // Number format and currency also affect worker-side text (alt text, insights, exports).
+  const locale = useSettings((s) => s.numberLocale);
+  const currency = useSettings((s) => s.currencyOverride);
+  const first = React.useRef(true);
+  React.useEffect(() => {
+    if (first.current) {
+      first.current = false;
+      return;
+    }
+    if (useWorkspace.getState().context) void useWorkspace.getState().reconfigure();
+  }, [locale, currency]);
+
+  const view =
+    step === "upload" || !useWorkspace.getState().summary ? (
+      <UploadStep />
+    ) : step === "detect" ? (
+      <DetectStep />
+    ) : step === "map" ? (
+      <MapStep />
+    ) : step === "dashboard" ? (
+      hasContext ? (
+        <DashboardStep />
+      ) : (
+        <UploadStep />
+      )
+    ) : step === "insights" ? (
+      <InsightsStep />
+    ) : (
+      <ExportStep />
+    );
+
+  return (
+    <div className="min-h-dvh bg-bg">
+      <WorkspaceTopBar
+        onOpenCommand={() => setCommandOpen(true)}
+        onOpenSettings={() => setSettingsOpen(true)}
+      />
+      {/* One main landmark for every step (the skip link targets #main). */}
+      <main id="main">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={loading && step === "upload" ? "upload" : step}
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+          >
+            {view}
+          </motion.div>
+        </AnimatePresence>
+      </main>
+      {loading && step !== "upload" ? (
+        <div role="status" aria-live="polite" className="fixed inset-x-0 top-14 z-50 flex justify-center">
+          <div className="mt-3 flex items-center gap-2.5 rounded-full border border-border-strong bg-surface-2 px-4 py-2 text-ui text-fg shadow-pop">
+            <span className="size-2 animate-pulse rounded-full bg-accent" aria-hidden />
+            {loading.title}
+          </div>
+        </div>
+      ) : null}
+      <CommandPalette
+        open={commandOpen}
+        onOpenChange={setCommandOpen}
+        onOpenSettings={() => setSettingsOpen(true)}
+      />
+      <SettingsSheet open={settingsOpen} onOpenChange={setSettingsOpen} version={version} />
+    </div>
+  );
+}

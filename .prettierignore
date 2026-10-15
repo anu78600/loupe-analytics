@@ -1,0 +1,13 @@
+.next
+node_modules
+coverage
+public
+src/app/fonts
+# Hand-laid-out data: one sub-domain/field per line by design.
+src/registry/domains/*.json
+tests/fixtures
+# Generated or managed by tools.
+CHANGELOG.md
+AGENTS.md
+package-lock.json
+tsconfig.tsbuildinfo

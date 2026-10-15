@@ -1,0 +1,186 @@
+/*
+ * Loupe design tokens: "quiet luxury meets precision instrument".
+ *
+ * Dark is the primary theme. Every value below is a semantic role, never a
+ * raw colour in components. Chart palettes were validated with an OKLab
+ * colour-vision-deficiency checker (protan/deutan, Machado 2009):
+ *   dark  worst adjacent CVD ΔE 17.7, normal ΔE 18.3, all marks ≥ 3:1 on --surface-1
+ *   light worst adjacent CVD ΔE 18.0, normal ΔE 20.2, all marks ≥ 3:1 on --surface-1
+ * The first three slots also pass the all-pairs test (scatter, maps).
+ */
+
+:root,
+:root[data-theme="dark"],
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  /* Planes */
+  --bg: #0b0c0e;
+  --bg-subtle: #0e0f12;
+  --surface-1: #121418;
+  --surface-2: #171a1f;
+  --surface-3: #1e2228;
+  --surface-glass: rgb(18 20 24 / 0.72);
+  --overlay: rgb(5 6 8 / 0.66);
+
+  /* Lines */
+  --border: rgb(255 255 255 / 0.07);
+  --border-strong: rgb(255 255 255 / 0.12);
+  --border-accent: rgb(214 180 122 / 0.38);
+
+  /* Ink (contrast on --bg: 16.9 / 7.5 / 5.1) */
+  --fg: #edeef0;
+  --fg-muted: #9ba1a9;
+  --fg-subtle: #7d838c;
+  --fg-inverse: #0b0c0e;
+
+  /* Signature accent: brass */
+  --accent: #d6b47a;
+  --accent-strong: #ecd3a3;
+  --accent-deep: #a8854a;
+  --accent-fg: #15110a;
+  --accent-soft: rgb(214 180 122 / 0.11);
+  --accent-ring: rgb(214 180 122 / 0.5);
+
+  /* Status (always paired with icon + label) */
+  --success: #3fb68b;
+  --success-soft: rgb(63 182 139 / 0.12);
+  --warning: #e8833a;
+  --warning-soft: rgb(232 131 58 / 0.12);
+  /* Lifted from #e5484d so small text on the danger tint keeps ≥ 4.5:1 (WCAG AA). */
+  --danger: #f06a6d;
+  --danger-soft: rgb(240 106 109 / 0.12);
+  --info: #6c9ef8;
+  --info-soft: rgb(108 158 248 / 0.12);
+
+  /* Categorical chart palette (fixed order, never cycled) */
+  --chart-1: #b98b3d;
+  --chart-2: #3c79d1;
+  --chart-3: #33a998;
+  --chart-4: #7057ba;
+  --chart-5: #317f38;
+  --chart-6: #35a0cc;
+  --chart-7: #bf5914;
+  --chart-8: #934b98;
+  --chart-other: #4a4f57;
+
+  /* Sequential (brass, low → high; dark anchors low values near the surface) */
+  --seq-1: #3a2a10;
+  --seq-2: #4f3912;
+  --seq-3: #6c4c10;
+  --seq-4: #866222;
+  --seq-5: #a17833;
+  --seq-6: #bd8f44;
+  --seq-7: #d9a755;
+  --seq-8: #f6c16b;
+
+  /* Diverging (blue ← neutral → brass) */
+  --div-1: #86b6ef;
+  --div-2: #4d84d6;
+  --div-3: #2b4f80;
+  --div-4: #30343b;
+  --div-5: #7a5a25;
+  --div-6: #b88a3e;
+  --div-7: #e9c27e;
+
+  /* Chart chrome */
+  --chart-grid: #1f2329;
+  --chart-axis: #2e333a;
+  --chart-label: #8a9099;
+  --chart-tooltip: #1a1d22;
+
+  /* Depth */
+  --shadow-card:
+    0 1px 0 0 rgb(255 255 255 / 0.03) inset, 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px -12px rgb(0 0 0 / 0.5);
+  --shadow-pop:
+    0 1px 0 0 rgb(255 255 255 / 0.05) inset, 0 12px 32px -8px rgb(0 0 0 / 0.6), 0 2px 6px rgb(0 0 0 / 0.4);
+  --shadow-lift:
+    0 1px 0 0 rgb(255 255 255 / 0.04) inset, 0 24px 64px -16px rgb(0 0 0 / 0.7), 0 4px 12px rgb(0 0 0 / 0.35);
+
+  --grain-opacity: 0.06;
+  --mesh-1: rgb(214 180 122 / 0.16);
+  --mesh-2: rgb(60 121 209 / 0.12);
+  --mesh-3: rgb(51 169 152 / 0.08);
+}
+
+:root[data-theme="light"],
+[data-theme="light"] {
+  color-scheme: light;
+
+  --bg: #f7f6f2;
+  --bg-subtle: #f1efea;
+  --surface-1: #ffffff;
+  --surface-2: #faf9f6;
+  --surface-3: #f1efea;
+  --surface-glass: rgb(255 255 255 / 0.74);
+  --overlay: rgb(20 18 14 / 0.32);
+
+  --border: rgb(18 20 23 / 0.08);
+  --border-strong: rgb(18 20 23 / 0.14);
+  --border-accent: rgb(129 98 38 / 0.4);
+
+  /* contrast on --bg: 17.1 / 6.1 / 5.3 */
+  --fg: #121417;
+  --fg-muted: #575d66;
+  --fg-subtle: #61676f;
+  --fg-inverse: #f7f6f2;
+
+  /* bronze: 4.6:1 on --bg, white text on it 5.0:1 */
+  /* Darkened from #8a6a2e so accent text on the accent tint keeps ≥ 4.5:1. */
+  --accent: #816226;
+  --accent-strong: #6f5422;
+  --accent-deep: #5c451b;
+  --accent-fg: #ffffff;
+  --accent-soft: rgb(129 98 38 / 0.09);
+  --accent-ring: rgb(129 98 38 / 0.45);
+
+  --success: #16774d;
+  --success-soft: rgb(22 119 77 / 0.09);
+  --warning: #a94e08;
+  --warning-soft: rgb(169 78 8 / 0.09);
+  --danger: #b93127;
+  --danger-soft: rgb(185 49 39 / 0.08);
+  --info: #2f6fdb;
+  --info-soft: rgb(47 111 219 / 0.08);
+
+  --chart-1: #ac7c26;
+  --chart-2: #4a91f8;
+  --chart-3: #008879;
+  --chart-4: #9778f5;
+  --chart-5: #1e7729;
+  --chart-6: #299fcd;
+  --chart-7: #c95b0a;
+  --chart-8: #8c3f91;
+  --chart-other: #b9bcc2;
+
+  --seq-1: #fbf1e0;
+  --seq-2: #f0dcbb;
+  --seq-3: #dfc293;
+  --seq-4: #cba66d;
+  --seq-5: #b38a48;
+  --seq-6: #9b6e1d;
+  --seq-7: #835405;
+  --seq-8: #6a4000;
+
+  --div-1: #1c5cab;
+  --div-2: #4f8fe0;
+  --div-3: #a9c9f2;
+  --div-4: #eeede9;
+  --div-5: #e3c89a;
+  --div-6: #c08f3c;
+  --div-7: #8a5c0e;
+
+  --chart-grid: #ecebe6;
+  --chart-axis: #d6d4cc;
+  --chart-label: #6b7078;
+  --chart-tooltip: #ffffff;
+
+  --shadow-card: 0 1px 2px rgb(18 20 23 / 0.04), 0 4px 16px -8px rgb(18 20 23 / 0.08);
+  --shadow-pop: 0 12px 32px -8px rgb(18 20 23 / 0.16), 0 2px 6px rgb(18 20 23 / 0.06);
+  --shadow-lift: 0 24px 64px -20px rgb(18 20 23 / 0.22), 0 4px 12px rgb(18 20 23 / 0.06);
+
+  --grain-opacity: 0.04;
+  --mesh-1: rgb(172 124 38 / 0.14);
+  --mesh-2: rgb(74 145 248 / 0.1);
+  --mesh-3: rgb(0 136 121 / 0.06);
+}

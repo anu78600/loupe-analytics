@@ -1,0 +1,85 @@
+/**
+ * Maps the icon names used in the domain registry (lucide kebab-case) to a
+ * curated set of imported icons. Importing a fixed set keeps the bundle small;
+ * several names share the nearest icon, and unknown names fall back to
+ * Briefcase. Icons are decorative (aria-hidden).
+ */
+import {
+  BarChart3,
+  BedDouble,
+  Briefcase,
+  Building2,
+  Factory,
+  GraduationCap,
+  Headphones,
+  HeartPulse,
+  Landmark,
+  LifeBuoy,
+  Megaphone,
+  Plane,
+  RefreshCw,
+  Shield,
+  ShoppingBag,
+  Signal,
+  Smartphone,
+  Stethoscope,
+  Table,
+  TrendingUp,
+  Truck,
+  Users,
+  Wallet,
+  type LucideIcon,
+} from "lucide-react";
+
+const ICONS: Record<string, LucideIcon> = {
+  "shopping-bag": ShoppingBag,
+  "shopping-cart": ShoppingBag,
+  store: ShoppingBag,
+  "trending-up": TrendingUp,
+  "bar-chart": BarChart3,
+  "line-chart": TrendingUp,
+  megaphone: Megaphone,
+  repeat: RefreshCw,
+  "refresh-cw": RefreshCw,
+  "rotate-cw": RefreshCw,
+  landmark: Landmark,
+  wallet: Wallet,
+  calculator: Wallet,
+  "book-open": Wallet,
+  users: Users,
+  "user-round": Users,
+  "heart-pulse": HeartPulse,
+  stethoscope: Stethoscope,
+  hospital: HeartPulse,
+  truck: Truck,
+  package: Truck,
+  factory: Factory,
+  cog: Factory,
+  banknote: Landmark,
+  "piggy-bank": Landmark,
+  "graduation-cap": GraduationCap,
+  school: GraduationCap,
+  building: Building2,
+  "building-2": Building2,
+  home: Building2,
+  hotel: BedDouble,
+  bed: BedDouble,
+  "bed-double": BedDouble,
+  plane: Plane,
+  signal: Signal,
+  "radio-tower": Signal,
+  smartphone: Smartphone,
+  shield: Shield,
+  "shield-check": Shield,
+  headphones: Headphones,
+  headset: Headphones,
+  "life-buoy": LifeBuoy,
+  "message-circle": Headphones,
+  table: Table,
+};
+
+/** Icon for a registry icon name; always renders something (Briefcase fallback). */
+export function DomainIcon({ name, className }: { name: string; className?: string }) {
+  const Icon = ICONS[name] ?? Briefcase;
+  return <Icon className={className} aria-hidden />;
+}

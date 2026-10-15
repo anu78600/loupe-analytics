@@ -1,0 +1,1110 @@
+{
+  "description": "Realistic file layouts for tests/detect.test.ts: each fixture is a real tool's export header with a handful of sample rows, the industry Loupe should rank first (several ids when any is acceptable, null when none fits) and whether the guided 'please confirm' flow should open. The test expands the samples to rowCount rows: 'unique' columns get a new value per row, 'ids' columns repeat from a pool, numbers and dates are drawn within the sampled range in the sampled format, and other columns are redrawn from the samples. Demo fixtures name a bundled sample generator instead.",
+  "rowCount": 240,
+  "fixtures": [
+    {
+      "id": "shopify-orders",
+      "source": "Shopify admin: Orders > Export (one row per line item)",
+      "expect": "ecommerce",
+      "confirm": false,
+      "ids": ["Name", "Email", "Lineitem sku", "Id"],
+      "headers": ["Name", "Email", "Financial Status", "Paid at", "Fulfillment Status", "Fulfilled at", "Accepts Marketing", "Currency", "Subtotal", "Shipping", "Taxes", "Total", "Discount Code", "Discount Amount", "Shipping Method", "Created at", "Lineitem quantity", "Lineitem name", "Lineitem price", "Lineitem compare at price", "Lineitem sku", "Lineitem requires shipping", "Lineitem taxable", "Lineitem fulfillment status", "Billing Name", "Billing City", "Billing Zip", "Billing Province", "Billing Country", "Shipping City", "Shipping Zip", "Shipping Province", "Shipping Country", "Payment Method", "Refunded Amount", "Vendor", "Id", "Source"],
+      "rows": [
+        ["#1001", "priya.sharma@gmail.com", "paid", "2024-03-02 10:14:22 +0530", "fulfilled", "2024-03-03 09:12:40 +0530", "yes", "INR", "1499.00", "0.00", "228.66", "1499.00", "", "0.00", "Standard Shipping", "2024-03-02 10:14:20 +0530", "1", "Cotton Kurta - Blue / M", "1499.00", "1999.00", "KUR-BLU-M", "true", "true", "fulfilled", "Priya Sharma", "Pune", "411001", "Maharashtra", "IN", "Pune", "411001", "Maharashtra", "IN", "Razorpay Secure", "0.00", "Vastra", "5512345678901", "web"],
+        ["#1002", "rahul.v@yahoo.com", "pending", "", "unfulfilled", "", "no", "INR", "2598.00", "99.00", "396.31", "2697.00", "WELCOME10", "259.80", "Express", "2024-03-02 18:40:05 +0530", "2", "Linen Shirt - White / L", "1299.00", "1599.00", "LIN-WHT-L", "true", "true", "pending", "Rahul Verma", "Bengaluru", "560034", "Karnataka", "IN", "Bengaluru", "560034", "Karnataka", "IN", "Cash on Delivery (COD)", "0.00", "Vastra", "5512345678902", "web"],
+        ["#1003", "ananya.k@outlook.com", "refunded", "2024-03-04 12:01:33 +0530", "fulfilled", "2024-03-05 10:20:11 +0530", "yes", "INR", "899.00", "49.00", "137.14", "948.00", "", "0.00", "Standard Shipping", "2024-03-04 12:01:30 +0530", "1", "Printed Dupatta", "899.00", "1199.00", "DUP-PRT-01", "true", "true", "fulfilled", "Ananya Krishnan", "Chennai", "600028", "Tamil Nadu", "IN", "Chennai", "600028", "Tamil Nadu", "IN", "Razorpay Secure", "948.00", "Vastra", "5512345678903", "shopify_draft_order"],
+        ["#1004", "mohit.jain@gmail.com", "paid", "2024-03-06 09:22:48 +0530", "partial", "", "no", "INR", "4497.00", "0.00", "686.00", "4047.30", "FESTIVE10", "449.70", "Standard Shipping", "2024-03-06 09:22:45 +0530", "3", "Silk Saree - Maroon", "1499.00", "2499.00", "SAR-MRN-01", "true", "true", "fulfilled", "Mohit Jain", "Jaipur", "302017", "Rajasthan", "IN", "Jaipur", "302017", "Rajasthan", "IN", "Shopify Payments", "0.00", "Vastra", "5512345678904", "web"],
+        ["#1005", "sneha.p@gmail.com", "partially_refunded", "2024-03-07 21:05:10 +0530", "fulfilled", "2024-03-08 11:45:00 +0530", "yes", "INR", "1798.00", "49.00", "274.27", "1847.00", "", "0.00", "Standard Shipping", "2024-03-07 21:05:07 +0530", "2", "Cotton Kurta - Green / S", "899.00", "1199.00", "KUR-GRN-S", "true", "true", "fulfilled", "Sneha Patil", "Mumbai", "400053", "Maharashtra", "IN", "Mumbai", "400053", "Maharashtra", "IN", "Razorpay Secure", "899.00", "Vastra", "5512345678905", "android"],
+        ["#1006", "arjun.m@gmail.com", "voided", "", "unfulfilled", "", "no", "INR", "1299.00", "99.00", "198.15", "1398.00", "", "0.00", "Express", "2024-03-09 14:30:55 +0530", "1", "Linen Shirt - Blue / M", "1299.00", "1599.00", "LIN-BLU-M", "true", "true", "pending", "Arjun Mehta", "Delhi", "110017", "Delhi", "IN", "Delhi", "110017", "Delhi", "IN", "Cash on Delivery (COD)", "0.00", "Vastra", "5512345678906", "ios"]
+      ]
+    },
+    {
+      "id": "woocommerce-orders",
+      "source": "WooCommerce: Order Export (Advanced Order Export plugin defaults)",
+      "expect": "ecommerce",
+      "confirm": false,
+      "ids": ["Order ID", "Order Number", "Email (Billing)", "Phone (Billing)", "SKU"],
+      "headers": ["Order ID", "Order Number", "Order Status", "Order Date", "First Name (Billing)", "Last Name (Billing)", "City (Billing)", "State Code (Billing)", "Postcode (Billing)", "Country Code (Billing)", "Email (Billing)", "Phone (Billing)", "Payment Method Title", "Cart Discount Amount", "Order Subtotal Amount", "Shipping Method Title", "Order Shipping Amount", "Order Refund Amount", "Order Total Amount", "Order Total Tax Amount", "SKU", "Item #", "Item Name", "Quantity (- Refund)", "Item Cost", "Coupon Code"],
+      "rows": [
+        ["10452", "10452", "Completed", "2024-02-11 14:32", "Kavya", "Iyer", "Kochi", "KL", "682016", "IN", "kavya.iyer@gmail.com", "9847012345", "UPI", "0", "1250", "Flat rate", "60", "0", "1310", "190.68", "TEA-ASSAM-250", "1", "Assam Tea 250g", "2", "625", ""],
+        ["10453", "10453", "Processing", "2024-02-11 16:05", "Vikram", "Singh", "Lucknow", "UP", "226010", "IN", "vikram.s@gmail.com", "9935012345", "Cash on delivery", "100", "1800", "Flat rate", "60", "0", "1760", "268.47", "TEA-DARJ-100", "1", "Darjeeling First Flush 100g", "3", "600", "SAVE100"],
+        ["10454", "10454", "Cancelled", "2024-02-12 09:15", "Meera", "Nair", "Bengaluru", "KA", "560076", "IN", "meera.n@hotmail.com", "9880012345", "Credit Card/Debit Card/NetBanking", "0", "499", "Free shipping", "0", "0", "499", "76.12", "MUG-CER-01", "1", "Ceramic Tea Mug", "1", "499", ""],
+        ["10455", "10455", "Refunded", "2024-02-13 19:47", "Arif", "Khan", "Hyderabad", "TG", "500034", "IN", "arif.khan@gmail.com", "9849012345", "UPI", "150", "1500", "Flat rate", "60", "1410", "1410", "215.08", "TEA-GREEN-100", "1", "Green Tea 100g", "3", "500", "WELCOME150"],
+        ["10456", "10456", "Completed", "2024-02-14 08:20", "Ishita", "Ghosh", "Kolkata", "WB", "700019", "IN", "ishita.g@gmail.com", "9830012345", "Cash on delivery", "0", "2400", "Free shipping", "0", "0", "2400", "366.10", "TEA-GIFT-BOX", "1", "Tea Gift Box", "1", "2400", ""],
+        ["10457", "10457", "On hold", "2024-02-15 22:10", "Rohan", "Desai", "Ahmedabad", "GJ", "380015", "IN", "rohan.d@gmail.com", "9825012345", "UPI", "0", "750", "Flat rate", "60", "0", "810", "123.56", "TEA-MASALA-250", "1", "Masala Chai 250g", "2", "375", ""]
+      ]
+    },
+    {
+      "id": "amazon-seller-orders",
+      "source": "Amazon Seller Central: All Orders report (flat file)",
+      "expect": "ecommerce",
+      "confirm": false,
+      "unique": ["amazon-order-id"],
+      "ids": ["sku", "asin"],
+      "headers": ["amazon-order-id", "merchant-order-id", "purchase-date", "last-updated-date", "order-status", "fulfillment-channel", "sales-channel", "ship-service-level", "product-name", "sku", "asin", "item-status", "quantity", "currency", "item-price", "item-tax", "shipping-price", "shipping-tax", "item-promotion-discount", "ship-city", "ship-state", "ship-postal-code", "ship-country", "promotion-ids", "is-business-order"],
+      "rows": [
+        ["404-1234567-1234567", "", "2024-04-01T10:12:45+00:00", "2024-04-03T08:01:12+00:00", "Shipped", "Amazon", "Amazon.in", "Expedited", "Stainless Steel Water Bottle 1L", "BTL-SS-1000", "B0CXYZ1234", "Shipped", "1", "INR", "599.00", "91.37", "0.00", "0.00", "0.00", "MUMBAI", "MAHARASHTRA", "400070", "IN", "", "false"],
+        ["404-1234567-1234568", "", "2024-04-01T12:40:02+00:00", "2024-04-01T13:05:44+00:00", "Cancelled", "Merchant", "Amazon.in", "Standard", "Insulated Lunch Box 3 Tier", "LBX-3T-BLK", "B0CXYZ5678", "Cancelled", "1", "INR", "899.00", "137.14", "40.00", "7.20", "0.00", "PUNE", "MAHARASHTRA", "411057", "IN", "", "false"],
+        ["404-1234567-1234569", "", "2024-04-02T07:15:30+00:00", "2024-04-06T19:22:10+00:00", "Shipped - Delivered to Buyer", "Amazon", "Amazon.in", "Expedited", "Stainless Steel Water Bottle 750ml", "BTL-SS-750", "B0CXYZ1235", "Shipped", "2", "INR", "998.00", "152.24", "0.00", "0.00", "100.00", "BENGALURU", "KARNATAKA", "560103", "IN", "Coupon 10% off", "false"],
+        ["404-1234567-1234570", "", "2024-04-02T15:55:18+00:00", "2024-04-02T15:58:01+00:00", "Pending", "Amazon", "Amazon.in", "Standard", "Glass Food Container Set", "GFC-SET-4", "B0CXYZ9012", "Unshipped", "1", "INR", "1299.00", "198.15", "0.00", "0.00", "0.00", "NEW DELHI", "DELHI", "110024", "IN", "", "true"],
+        ["404-1234567-1234571", "", "2024-04-03T09:05:51+00:00", "2024-04-09T11:30:00+00:00", "Shipped - Returned to Seller", "Merchant", "Amazon.in", "Standard", "Insulated Lunch Box 2 Tier", "LBX-2T-BLU", "B0CXYZ5679", "Shipped", "1", "INR", "699.00", "106.63", "40.00", "7.20", "0.00", "HYDERABAD", "TELANGANA", "500081", "IN", "", "false"],
+        ["404-1234567-1234572", "", "2024-04-04T18:21:09+00:00", "2024-04-07T10:10:10+00:00", "Shipped", "Amazon", "Amazon.in", "Expedited", "Stainless Steel Water Bottle 1L", "BTL-SS-1000", "B0CXYZ1234", "Shipped", "3", "INR", "1797.00", "274.12", "0.00", "0.00", "180.00", "CHENNAI", "TAMIL NADU", "600042", "IN", "Coupon 10% off", "false"]
+      ]
+    },
+    {
+      "id": "unicommerce-sale-orders",
+      "source": "Unicommerce: Sale Orders export (multi-marketplace D2C)",
+      "expect": "ecommerce",
+      "confirm": false,
+      "unique": ["Sale Order Item Code"],
+      "ids": ["Display Order Code", "Item SKU Code", "Tracking Number", "Invoice Code"],
+      "headers": ["Sale Order Item Code", "Display Order Code", "Channel Name", "Order Date as dd/mm/yyyy hh:MM:ss", "Sale Order Status", "Sale Order Item Status", "Item SKU Code", "Item Type Name", "Category", "Brand", "MRP", "Selling Price", "Discount", "Shipping Charges", "COD Service Charges", "Total Price", "COD", "Shipping Provider", "Tracking Number", "Shipping Address City", "Shipping Address State", "Shipping Address Pincode", "Facility", "Return Reason", "Invoice Code", "CGST", "SGST", "IGST"],
+      "rows": [
+        ["SOI-889101", "MYN-778812", "MYNTRA", "05/01/2024 11:22:31", "COMPLETE", "DELIVERED", "HRX-TS-BLK-M", "HRX Men Black T-shirt", "Apparel", "HRX", "999", "599", "400", "0", "0", "599", "0", "Ekart", "FMPP1234567890", "Kolkata", "West Bengal", "700091", "BLR-WH1", "", "INV/23-24/10021", "0", "0", "28.52"],
+        ["SOI-889102", "FK-OD3301", "FLIPKART", "05/01/2024 13:05:10", "COMPLETE", "RETURNED", "RDS-SHOE-WHT-8", "Roadster White Sneakers", "Footwear", "Roadster", "2499", "1249", "1250", "0", "0", "1249", "1", "Ekart", "FMPP1234567891", "Patna", "Bihar", "800001", "BLR-WH1", "Size issue", "INV/23-24/10022", "0", "0", "133.82"],
+        ["SOI-889103", "AMZ-402-77", "AMAZON_IN", "06/01/2024 09:40:55", "CANCELLED", "CANCELLED", "HRX-TS-WHT-L", "HRX Men White T-shirt", "Apparel", "HRX", "999", "649", "350", "40", "0", "689", "0", "", "", "Pune", "Maharashtra", "411014", "BLR-WH1", "", "", "0", "0", "0"],
+        ["SOI-889104", "SHP-10045", "SHOPIFY", "07/01/2024 18:12:04", "COMPLETE", "DELIVERED", "MSC-JKT-OLV-XL", "Mast & Harbour Olive Jacket", "Apparel", "Mast & Harbour", "3999", "1999", "2000", "0", "49", "2048", "1", "Delhivery", "1490811234567", "Bengaluru", "Karnataka", "560037", "BLR-WH1", "", "INV/23-24/10023", "119.94", "119.94", "0"],
+        ["SOI-889105", "MYN-778844", "MYNTRA", "08/01/2024 21:30:45", "COMPLETE", "RTO", "RDS-SHOE-BLK-9", "Roadster Black Sneakers", "Footwear", "Roadster", "2499", "1299", "1200", "0", "0", "1299", "1", "Delhivery", "1490811234568", "Guwahati", "Assam", "781005", "BLR-WH1", "Customer not available", "INV/23-24/10024", "0", "0", "139.18"],
+        ["SOI-889106", "FK-OD3355", "FLIPKART", "13/01/2024 10:02:18", "PROCESSING", "PACKED", "HRX-TRK-GRY-M", "HRX Grey Track Pants", "Apparel", "HRX", "1499", "799", "700", "0", "0", "799", "0", "Ekart", "FMPP1234567899", "Jaipur", "Rajasthan", "302020", "BLR-WH1", "", "INV/23-24/10025", "0", "0", "38.05"]
+      ]
+    },
+    {
+      "id": "marketplace-returns",
+      "source": "Flipkart / Myntra seller panel: returns report",
+      "expect": "ecommerce",
+      "confirm": false,
+      "unique": ["Return ID"],
+      "ids": ["Order ID", "Order Item ID", "SKU", "Tracking ID"],
+      "headers": ["Return ID", "Order ID", "Order Item ID", "Order Date", "Return Requested Date", "Return Completed Date", "SKU", "Product Title", "Category", "Quantity", "Return Type", "Return Reason", "Return Sub Reason", "Return Status", "Refund Amount", "Customer City", "Customer State", "Courier", "Tracking ID"],
+      "rows": [
+        ["RT1102233", "OD330012345678901", "OI41002", "2024-05-02", "2024-05-09", "2024-05-15", "KRT-CTN-BLU-M", "Cotton Kurta Blue", "Kurtas", "1", "refund", "SIZE_ISSUE", "Too small", "completed", "799", "Pune", "Maharashtra", "Ekart", "FMPR0012345678"],
+        ["RT1102234", "OD330012345678902", "OI41003", "2024-05-03", "2024-05-10", "", "SHR-LIN-WHT-L", "Linen Shirt White", "Shirts", "1", "replacement", "DAMAGED", "Torn at seam", "in_transit", "0", "Indore", "Madhya Pradesh", "Ekart", "FMPR0012345679"],
+        ["RT1102235", "OD330012345678903", "OI41004", "2024-05-03", "2024-05-07", "2024-05-12", "DRS-FLR-RED-S", "Floral Dress Red", "Dresses", "1", "refund", "QUALITY_ISSUE", "Colour faded", "completed", "1199", "Kochi", "Kerala", "Delhivery", "1490812345678"],
+        ["RT1102236", "OD330012345678904", "OI41005", "2024-05-05", "2024-05-11", "2024-05-18", "JNS-SLM-BLK-32", "Slim Jeans Black", "Jeans", "2", "refund", "WRONG_PRODUCT", "Received different item", "completed", "2598", "Lucknow", "Uttar Pradesh", "Ekart", "FMPR0012345680"],
+        ["RT1102237", "OD330012345678905", "OI41006", "2024-05-06", "2024-05-13", "", "KRT-CTN-GRN-L", "Cotton Kurta Green", "Kurtas", "1", "refund", "NOT_AS_DESCRIBED", "Fabric different", "approved", "0", "Surat", "Gujarat", "Shadowfax", "SF123456789IN"],
+        ["RT1102238", "OD330012345678906", "OI41007", "2024-05-08", "2024-05-14", "2024-05-20", "SHR-LIN-BLU-M", "Linen Shirt Blue", "Shirts", "1", "exchange", "SIZE_ISSUE", "Too large", "completed", "0", "Mysuru", "Karnataka", "Ekart", "FMPR0012345681"]
+      ]
+    },
+    { "id": "demo-ecommerce", "source": "Bundled demo: D2C e-commerce orders (flagship)", "demo": "ecommerce", "expect": "ecommerce", "confirm": false },
+    {
+      "id": "shiprocket-shipments",
+      "source": "Shiprocket: Shipments export",
+      "expect": "logistics",
+      "confirm": false,
+      "unique": ["Order ID", "AWB Code"],
+      "headers": ["Order ID", "Shiprocket Created At", "Channel", "Status", "AWB Code", "Courier Company", "Pickup Location", "Payment Method", "Product Name", "Product Quantity", "Order Total", "Customer Name", "Address City", "Address State", "Address Pincode", "Weight (KG)", "Charged Weight", "Freight Total Amount", "COD Charges", "Zone", "Order Picked Up Date", "EDD", "Order Delivered Date", "RTO Initiated Date", "Latest NDR Reason", "Delivery Attempts"],
+      "rows": [
+        ["SR-55120", "2024-06-01 10:11:12", "Shopify", "DELIVERED", "1490822233344", "Delhivery Surface", "Bhiwandi WH", "Prepaid", "Cotton Bedsheet Double", "1", "1299", "Anita Rao", "Hyderabad", "Telangana", "500081", "0.8", "1.0", "78.50", "0", "D", "2024-06-02 14:20:00", "2024-06-06", "2024-06-05 16:44:00", "", "", "1"],
+        ["SR-55121", "2024-06-01 11:42:05", "Custom", "RTO DELIVERED", "1490822233345", "Delhivery Surface", "Bhiwandi WH", "COD", "Pillow Cover Set", "2", "798", "Rakesh Yadav", "Varanasi", "Uttar Pradesh", "221005", "0.5", "0.5", "65.00", "35.00", "E", "2024-06-02 14:20:00", "2024-06-08", "", "2024-06-10 09:00:00", "Customer refused delivery", "3"],
+        ["SR-55122", "2024-06-02 09:05:44", "Amazon", "IN TRANSIT", "77812345678", "Blue Dart", "Bhiwandi WH", "Prepaid", "Cotton Bedsheet King", "1", "1799", "Neha Kapoor", "Chandigarh", "Chandigarh", "160022", "1.2", "1.5", "112.00", "0", "C", "2024-06-03 12:10:00", "2024-06-07", "", "", "", "0"],
+        ["SR-55123", "2024-06-02 15:33:21", "Shopify", "UNDELIVERED", "SF9988776655", "Shadowfax", "Bhiwandi WH", "COD", "Bath Towel Pack", "3", "1197", "Imran Shaikh", "Nagpur", "Maharashtra", "440010", "1.5", "1.5", "70.00", "35.00", "B", "2024-06-03 12:10:00", "2024-06-05", "", "", "Address incomplete", "2"],
+        ["SR-55124", "2024-06-03 08:12:09", "Shopify", "DELIVERED", "1490822233346", "Delhivery Air", "Bhiwandi WH", "Prepaid", "Cushion Cover", "4", "956", "Pooja Menon", "Thrissur", "Kerala", "680001", "0.6", "1.0", "96.00", "0", "E", "2024-06-04 11:00:00", "2024-06-09", "2024-06-08 13:05:00", "", "", "1"],
+        ["SR-55125", "2024-06-04 19:48:30", "Custom", "LOST", "EX445566778", "Ecom Express", "Bhiwandi WH", "COD", "Quilt Single", "1", "1499", "Sanjay Gupta", "Ranchi", "Jharkhand", "834001", "2.1", "2.5", "145.00", "35.00", "D", "2024-06-05 13:30:00", "2024-06-10", "", "", "", "1"]
+      ]
+    },
+    {
+      "id": "tms-shipments",
+      "source": "Transport management system: shipment register (US LTL/FTL)",
+      "expect": "logistics",
+      "confirm": false,
+      "unique": ["Shipment ID", "PO Number"],
+      "headers": ["Shipment ID", "PO Number", "Customer", "Ship Date", "Promised Date", "Delivery Date", "Origin City", "Origin State", "Destination City", "Destination State", "Carrier", "Mode", "Service Level", "Pallets", "Weight (lbs)", "Freight Cost", "Accessorial Charges", "Status", "On Time"],
+      "rows": [
+        ["SHP-240101", "PO-88123", "Acme Retail", "2024-01-03", "2024-01-08", "2024-01-07", "Dallas", "TX", "Atlanta", "GA", "XPO Logistics", "LTL", "Standard", "4", "3820", "612.40", "35.00", "Delivered", "Yes"],
+        ["SHP-240102", "PO-88124", "Globex Foods", "2024-01-03", "2024-01-05", "2024-01-06", "Chicago", "IL", "Columbus", "OH", "J.B. Hunt", "FTL", "Expedited", "22", "38500", "1850.00", "0.00", "Delivered", "No"],
+        ["SHP-240103", "PO-88125", "Acme Retail", "2024-01-04", "2024-01-10", "", "Los Angeles", "CA", "Phoenix", "AZ", "Old Dominion", "LTL", "Standard", "6", "5120", "744.90", "75.00", "In Transit", "No"],
+        ["SHP-240104", "PO-88126", "Initech Supply", "2024-01-05", "2024-01-09", "2024-01-09", "Memphis", "TN", "Denver", "CO", "Schneider", "FTL", "Standard", "20", "41200", "2310.00", "150.00", "Delivered", "Yes"],
+        ["SHP-240105", "PO-88127", "Globex Foods", "2024-01-06", "2024-01-08", "2024-01-12", "Newark", "NJ", "Boston", "MA", "Estes Express", "LTL", "Guaranteed", "3", "2450", "488.10", "60.00", "Delivered", "No"],
+        ["SHP-240106", "PO-88128", "Umbrella Health", "2024-01-08", "2024-01-11", "", "Seattle", "WA", "Portland", "OR", "FedEx Freight", "LTL", "Standard", "2", "1400", "356.75", "0.00", "Exception", "No"]
+      ]
+    },
+    {
+      "id": "courier-mis",
+      "source": "Indian B2C courier MIS (Delhivery / Blue Dart style)",
+      "expect": "logistics",
+      "confirm": false,
+      "unique": ["AWB No"],
+      "headers": ["AWB No", "Booking Date", "Pickup Date", "EDD", "Delivered Date", "Courier", "Origin City", "Destination City", "Destination State", "Destination Pincode", "Status", "Weight (kg)", "Freight Charges", "COD Amount", "Attempts", "NDR Reason"],
+      "rows": [
+        ["AWB60010001", "2024-07-01", "2024-07-01", "2024-07-05", "2024-07-04", "Delhivery", "Mumbai", "Jaipur", "Rajasthan", "302001", "Delivered", "0.5", "48", "0", "1", ""],
+        ["AWB60010002", "2024-07-01", "2024-07-02", "2024-07-06", "", "Blue Dart", "Mumbai", "Lucknow", "Uttar Pradesh", "226001", "RTO Delivered", "1.2", "96", "1499", "3", "Customer not available"],
+        ["AWB60010003", "2024-07-02", "2024-07-02", "2024-07-07", "2024-07-08", "DTDC", "Delhi", "Patna", "Bihar", "800001", "Delivered", "0.8", "62", "899", "2", "Address incomplete"],
+        ["AWB60010004", "2024-07-02", "2024-07-03", "2024-07-06", "", "Xpressbees", "Bengaluru", "Indore", "Madhya Pradesh", "452001", "In Transit", "2.5", "145", "0", "0", ""],
+        ["AWB60010005", "2024-07-03", "2024-07-03", "2024-07-08", "", "Ecom Express", "Delhi", "Kochi", "Kerala", "682001", "Out for Delivery", "0.3", "55", "499", "1", ""],
+        ["AWB60010006", "2024-07-04", "2024-07-05", "2024-07-09", "", "Delhivery", "Pune", "Guwahati", "Assam", "781001", "Lost", "1.0", "88", "0", "0", ""]
+      ]
+    },
+    {
+      "id": "fleet-trips",
+      "source": "Fleet management: trip sheet",
+      "expect": "logistics",
+      "confirm": false,
+      "unique": ["Trip ID"],
+      "headers": ["Trip ID", "Vehicle No", "Vehicle Type", "Driver", "Trip Date", "From", "To", "Distance (km)", "Load (kg)", "Capacity (kg)", "Fuel (L)", "Trip Cost", "Trip Status", "Customer"],
+      "rows": [
+        ["TRP-30001", "MH12AB1234", "32 ft MXL", "Ramesh Patil", "2024-02-01", "Pune", "Indore", "590", "8200", "9000", "145", "38500", "Completed", "Bajaj Auto"],
+        ["TRP-30002", "KA01CD5678", "20 ft SXL", "Suresh Kumar", "2024-02-01", "Bengaluru", "Chennai", "350", "4100", "6000", "82", "19800", "Completed", "TVS Motor"],
+        ["TRP-30003", "DL3CEF9012", "32 ft MXL", "Mahesh Yadav", "2024-02-02", "Delhi", "Jaipur", "280", "8800", "9000", "70", "17600", "Delayed", "Hero MotoCorp"],
+        ["TRP-30004", "TN09GH3456", "Trailer 40 ft", "Murugan S", "2024-02-03", "Chennai", "Hyderabad", "630", "21000", "25000", "190", "52400", "Completed", "Ashok Leyland"],
+        ["TRP-30005", "GJ05JK7890", "20 ft SXL", "Kiran Desai", "2024-02-04", "Surat", "Mumbai", "285", "3500", "6000", "66", "15200", "In Transit", "Arvind Mills"],
+        ["TRP-30006", "MH04LM2468", "32 ft MXL", "Ganesh Shinde", "2024-02-05", "Nagpur", "Raipur", "290", "7600", "9000", "74", "18900", "Completed", "Bajaj Auto"]
+      ]
+    },
+    {
+      "id": "warehouse-dispatch",
+      "source": "Warehouse management system: sales order dispatch register (FMCG distributor)",
+      "expect": "logistics",
+      "confirm": false,
+      "unique": ["Order No"],
+      "ids": ["SKU", "LR No"],
+      "headers": ["Order No", "Order Date", "Warehouse", "Customer", "SKU", "Item Description", "Ordered Qty", "Shipped Qty", "Pending Qty", "Dispatch Date", "Delivered Date", "Transporter", "LR No", "Status"],
+      "rows": [
+        ["SO-24-0101", "2024-03-01", "Bhiwandi DC", "Reliance Retail", "FMCG-1001", "Detergent Powder 1kg", "500", "500", "0", "2024-03-02", "2024-03-04", "Safexpress", "LR778801", "Delivered"],
+        ["SO-24-0102", "2024-03-01", "Gurgaon DC", "DMart", "FMCG-1002", "Dishwash Bar 200g", "1200", "1000", "200", "2024-03-03", "2024-03-06", "Gati", "LR778802", "Partially Delivered"],
+        ["SO-24-0103", "2024-03-02", "Hosur DC", "Spencer's", "FMCG-1003", "Toilet Cleaner 500ml", "300", "300", "0", "2024-03-03", "", "TCI Freight", "LR778803", "In Transit"],
+        ["SO-24-0104", "2024-03-02", "Bhiwandi DC", "More Retail", "FMCG-1004", "Floor Cleaner 1L", "800", "0", "800", "", "", "", "", "Pending"],
+        ["SO-24-0105", "2024-03-03", "Kolkata DC", "Big Bazaar", "FMCG-1001", "Detergent Powder 1kg", "650", "650", "0", "2024-03-04", "2024-03-07", "VRL Logistics", "LR778805", "Delivered"],
+        ["SO-24-0106", "2024-03-04", "Gurgaon DC", "Reliance Retail", "FMCG-1005", "Hand Wash 250ml", "1500", "1500", "0", "2024-03-05", "2024-03-08", "Safexpress", "LR778806", "Delivered"]
+      ]
+    },
+    {
+      "id": "dataco-supply-chain",
+      "source": "DataCo smart supply chain dataset (Kaggle): order lines with shipping performance",
+      "expect": ["logistics", "ecommerce"],
+      "confirm": true,
+      "ids": ["Order Id"],
+      "headers": ["Type", "Days for shipping (real)", "Days for shipment (scheduled)", "Benefit per order", "Sales per customer", "Delivery Status", "Late_delivery_risk", "Category Name", "Customer City", "Customer Country", "Customer Segment", "Department Name", "Market", "Order City", "Order Country", "order date (DateOrders)", "Order Id", "Order Item Discount", "Order Item Product Price", "Order Item Quantity", "Sales", "Order Item Total", "Order Profit Per Order", "Order Region", "Order Status", "Product Name", "Product Price", "shipping date (DateOrders)", "Shipping Mode"],
+      "rows": [
+        ["DEBIT", "3", "4", "91.25", "314.64", "Advance shipping", "0", "Sporting Goods", "Caguas", "Puerto Rico", "Consumer", "Fitness", "Pacific Asia", "Bekasi", "Indonesia", "1/31/2018 22:56", "77202", "13.11", "327.75", "1", "327.75", "314.64", "91.25", "Southeast Asia", "COMPLETE", "Smart watch", "327.75", "2/3/2018 22:56", "Standard Class"],
+        ["TRANSFER", "5", "4", "-249.09", "311.36", "Late delivery", "1", "Sporting Goods", "Caguas", "Puerto Rico", "Consumer", "Fitness", "Pacific Asia", "Bikaner", "India", "1/13/2018 12:27", "75939", "16.39", "327.75", "1", "327.75", "311.36", "-249.09", "South Asia", "PENDING", "Smart watch", "327.75", "1/18/2018 12:27", "Standard Class"],
+        ["CASH", "4", "4", "-247.78", "309.72", "Shipping on time", "0", "Sporting Goods", "San Jose", "EE. UU.", "Consumer", "Fitness", "Pacific Asia", "Bikaner", "India", "1/13/2018 12:06", "75938", "18.03", "327.75", "1", "327.75", "309.72", "-247.78", "South Asia", "CLOSED", "Smart watch", "327.75", "1/17/2018 12:06", "Standard Class"],
+        ["DEBIT", "3", "4", "22.86", "304.81", "Advance shipping", "0", "Sporting Goods", "Los Angeles", "EE. UU.", "Home Office", "Fitness", "Pacific Asia", "Townsville", "Australia", "1/13/2018 11:45", "75937", "22.94", "327.75", "1", "327.75", "304.81", "22.86", "Oceania", "COMPLETE", "Smart watch", "327.75", "1/16/2018 11:45", "Standard Class"],
+        ["PAYMENT", "2", "4", "134.21", "298.25", "Advance shipping", "0", "Sporting Goods", "Caguas", "Puerto Rico", "Corporate", "Fitness", "Pacific Asia", "Townsville", "Australia", "1/13/2018 11:24", "75936", "29.5", "327.75", "1", "327.75", "298.25", "134.21", "Oceania", "PENDING_PAYMENT", "Smart watch", "327.75", "1/15/2018 11:24", "Standard Class"],
+        ["TRANSFER", "6", "2", "18.58", "294.98", "Shipping canceled", "1", "Cleats", "Tonawanda", "EE. UU.", "Consumer", "Apparel", "LATAM", "Guarulhos", "Brasil", "1/13/2018 11:03", "75935", "32.78", "59.99", "5", "299.95", "294.98", "18.58", "South America", "CANCELED", "Perfect Fitness Perfect Rip Deck", "59.99", "1/19/2018 11:03", "Second Class"]
+      ]
+    },
+    {
+      "id": "salesforce-opportunities",
+      "source": "Salesforce: Opportunities report export",
+      "expect": "sales",
+      "confirm": false,
+      "headers": ["Opportunity Name", "Account Name", "Opportunity Owner", "Stage", "Amount", "Probability (%)", "Expected Revenue", "Close Date", "Created Date", "Lead Source", "Type", "Next Step", "Fiscal Period", "Age"],
+      "rows": [
+        ["Acme - 200 Licenses", "Acme Corp", "Asha Rao", "Prospecting", "45000", "10", "4500", "2024-09-30", "2024-06-12", "Web", "New Business", "Discovery call", "Q3-2024", "34"],
+        ["Globex - Renewal FY25", "Globex Inc", "Vikram Singh", "Negotiation/Review", "120000", "90", "108000", "2024-07-31", "2024-04-02", "Partner", "Existing Business", "Send contract", "Q3-2024", "105"],
+        ["Initech - Pilot", "Initech", "Neha Gupta", "Closed Won", "18000", "100", "18000", "2024-05-15", "2024-03-20", "Referral", "New Business", "", "Q2-2024", "56"],
+        ["Umbrella - Expansion", "Umbrella Health", "Rahul Mehta", "Closed Lost", "64000", "0", "0", "2024-06-10", "2024-02-14", "Trade Show", "Existing Business", "", "Q2-2024", "117"],
+        ["Stark - Platform Deal", "Stark Industries", "Asha Rao", "Proposal/Price Quote", "250000", "75", "187500", "2024-10-15", "2024-07-01", "Inbound Call", "New Business", "Pricing review", "Q4-2024", "21"],
+        ["Wayne - Add-on Seats", "Wayne Enterprises", "Priya Nair", "Qualification", "32000", "20", "6400", "2024-11-20", "2024-07-10", "Web", "Existing Business", "Demo", "Q4-2024", "12"]
+      ]
+    },
+    {
+      "id": "hubspot-deals",
+      "source": "HubSpot CRM: Deals export",
+      "expect": "sales",
+      "confirm": false,
+      "unique": ["Record ID"],
+      "headers": ["Record ID", "Deal Name", "Deal Stage", "Pipeline", "Amount", "Close Date", "Create Date", "Deal owner", "Deal Type", "Associated Company", "Forecast category", "Last Activity Date", "Number of Contacts"],
+      "rows": [
+        ["18234567901", "Bluebird Logistics - Annual", "Closed won", "Sales Pipeline", "24000", "2024-03-28", "2024-01-15", "Karan Malhotra", "newbusiness", "Bluebird Logistics", "Closed won", "2024-03-27", "3"],
+        ["18234567902", "Sunrise Foods - Pilot", "Contract sent", "Sales Pipeline", "8500", "2024-05-10", "2024-03-02", "Divya Menon", "newbusiness", "Sunrise Foods", "Commit", "2024-04-22", "2"],
+        ["18234567903", "Metro Clinics - Upsell", "Presentation scheduled", "Sales Pipeline", "12000", "2024-06-30", "2024-04-11", "Karan Malhotra", "existingbusiness", "Metro Clinics", "Best case", "2024-05-02", "4"],
+        ["18234567904", "Orbit Fintech - Platform", "Closed lost", "Sales Pipeline", "56000", "2024-04-18", "2024-02-01", "Sameer Joshi", "newbusiness", "Orbit Fintech", "Omitted", "2024-04-16", "5"],
+        ["18234567905", "Green Valley Schools", "Qualified to buy", "Sales Pipeline", "15000", "2024-08-15", "2024-05-20", "Divya Menon", "newbusiness", "Green Valley Schools", "Pipeline", "2024-06-01", "1"],
+        ["18234567906", "Apex Realty - Renewal", "Appointment scheduled", "Renewals", "9800", "2024-09-01", "2024-06-03", "Sameer Joshi", "existingbusiness", "Apex Realty", "Pipeline", "2024-06-05", "2"]
+      ]
+    },
+    {
+      "id": "superstore-orders",
+      "source": "Tableau Sample - Superstore (retail order lines)",
+      "expect": "sales",
+      "confirm": false,
+      "unique": ["Row ID"],
+      "ids": ["Order ID", "Customer ID", "Product ID"],
+      "headers": ["Row ID", "Order ID", "Order Date", "Ship Date", "Ship Mode", "Customer ID", "Customer Name", "Segment", "Country", "City", "State", "Postal Code", "Region", "Product ID", "Category", "Sub-Category", "Product Name", "Sales", "Quantity", "Discount", "Profit"],
+      "rows": [
+        ["1", "CA-2016-152156", "11/8/2016", "11/11/2016", "Second Class", "CG-12520", "Claire Gute", "Consumer", "United States", "Henderson", "Kentucky", "42420", "South", "FUR-BO-10001798", "Furniture", "Bookcases", "Bush Somerset Collection Bookcase", "261.96", "2", "0", "41.9136"],
+        ["2", "CA-2016-152156", "11/8/2016", "11/11/2016", "Second Class", "CG-12520", "Claire Gute", "Consumer", "United States", "Henderson", "Kentucky", "42420", "South", "FUR-CH-10000454", "Furniture", "Chairs", "Hon Deluxe Fabric Upholstered Stacking Chairs", "731.94", "3", "0", "219.582"],
+        ["3", "CA-2016-138688", "6/22/2016", "6/26/2016", "Second Class", "DV-13045", "Darrin Van Huff", "Corporate", "United States", "Los Angeles", "California", "90036", "West", "OFF-LA-10000240", "Office Supplies", "Labels", "Self-Adhesive Address Labels for Typewriters", "14.62", "2", "0", "6.8714"],
+        ["4", "US-2015-108966", "10/11/2015", "10/18/2015", "Standard Class", "SO-20335", "Sean O'Donnell", "Consumer", "United States", "Fort Lauderdale", "Florida", "33311", "South", "FUR-TA-10000577", "Furniture", "Tables", "Bretford CR4500 Series Slim Rectangular Table", "957.5775", "5", "0.45", "-383.031"],
+        ["5", "US-2015-108966", "10/11/2015", "10/18/2015", "Standard Class", "SO-20335", "Sean O'Donnell", "Consumer", "United States", "Fort Lauderdale", "Florida", "33311", "South", "OFF-ST-10000760", "Office Supplies", "Storage", "Eldon Fold 'N Roll Cart System", "22.368", "2", "0.2", "2.5164"],
+        ["6", "CA-2014-115812", "6/9/2014", "6/14/2014", "Standard Class", "BH-11710", "Brosina Hoffman", "Home Office", "United States", "Los Angeles", "California", "90032", "West", "TEC-PH-10002033", "Technology", "Phones", "Konftel 250 Conference phone - Charcoal black", "911.424", "4", "0.2", "68.3568"]
+      ]
+    },
+    {
+      "id": "tally-sales-register",
+      "source": "Tally ERP: Sales Register (voucher-wise) export",
+      "expect": "sales",
+      "confirm": false,
+      "unique": ["Voucher No."],
+      "headers": ["Date", "Particulars", "Voucher Type", "Voucher No.", "GSTIN/UIN", "Quantity", "Rate", "Value", "Gross Total", "Sales @18%", "CGST", "SGST", "IGST", "Round Off"],
+      "rows": [
+        ["1-Apr-24", "Shree Ganesh Traders", "Sales", "SI/24-25/001", "27AABCS1234F1Z5", "120", "450.00", "54000.00", "63720.00", "54000.00", "4860.00", "4860.00", "0.00", "0.00"],
+        ["2-Apr-24", "Mahalaxmi Enterprises", "Sales", "SI/24-25/002", "27AACCM5678G1Z2", "40", "1250.00", "50000.00", "59000.00", "50000.00", "4500.00", "4500.00", "0.00", "0.00"],
+        ["3-Apr-24", "Om Sai Distributors", "Sales", "SI/24-25/003", "24AAFCO9012H1Z8", "300", "95.00", "28500.00", "33630.00", "28500.00", "0.00", "0.00", "5130.00", "0.00"],
+        ["5-Apr-24", "Cash", "Sales", "SI/24-25/004", "", "12", "650.00", "7800.00", "9204.00", "7800.00", "702.00", "702.00", "0.00", "0.00"],
+        ["8-Apr-24", "Shree Ganesh Traders", "Sales", "SI/24-25/005", "27AABCS1234F1Z5", "85", "450.00", "38250.00", "45135.00", "38250.00", "3442.50", "3442.50", "0.00", "0.00"],
+        ["10-Apr-24", "Balaji Hardware", "Sales", "SI/24-25/006", "29AAGCB3456J1Z1", "60", "780.00", "46800.00", "55224.00", "46800.00", "0.00", "0.00", "8424.00", "0.00"]
+      ]
+    },
+    {
+      "id": "kaggle-sample-sales",
+      "source": "Kaggle sample sales data (B2B order lines, all-caps headers): order lines that e-commerce and sales both describe",
+      "expect": ["sales", "ecommerce"],
+      "confirm": true,
+      "ids": ["ORDERNUMBER", "PRODUCTCODE"],
+      "headers": ["ORDERNUMBER", "QUANTITYORDERED", "PRICEEACH", "ORDERLINENUMBER", "SALES", "ORDERDATE", "STATUS", "QTR_ID", "MONTH_ID", "YEAR_ID", "PRODUCTLINE", "MSRP", "PRODUCTCODE", "CUSTOMERNAME", "CITY", "COUNTRY", "TERRITORY", "DEALSIZE"],
+      "rows": [
+        ["10107", "30", "95.7", "2", "2871", "2/24/2003 0:00", "Shipped", "1", "2", "2003", "Motorcycles", "95", "S10_1678", "Land of Toys Inc.", "NYC", "USA", "NA", "Small"],
+        ["10121", "34", "81.35", "5", "2765.9", "5/7/2003 0:00", "Shipped", "2", "5", "2003", "Motorcycles", "95", "S10_1678", "Reims Collectables", "Reims", "France", "EMEA", "Small"],
+        ["10134", "41", "94.74", "2", "3884.34", "7/1/2003 0:00", "Shipped", "3", "7", "2003", "Motorcycles", "95", "S10_1678", "Lyon Souveniers", "Paris", "France", "EMEA", "Medium"],
+        ["10145", "45", "83.26", "6", "3746.7", "8/25/2003 0:00", "Shipped", "3", "8", "2003", "Motorcycles", "95", "S10_1678", "Toys4GrownUps.com", "Pasadena", "USA", "NA", "Medium"],
+        ["10159", "49", "100", "14", "5205.27", "10/10/2003 0:00", "Cancelled", "4", "10", "2003", "Classic Cars", "214", "S10_1949", "Corporate Gift Ideas Co.", "San Francisco", "USA", "NA", "Medium"],
+        ["10168", "36", "96.66", "1", "3479.76", "10/28/2003 0:00", "On Hold", "4", "10", "2003", "Vintage Cars", "118", "S10_4757", "Technics Stores Inc.", "Burlingame", "USA", "NA", "Medium"]
+      ]
+    },
+    { "id": "demo-sales", "source": "Bundled demo: B2B sales invoices", "demo": "sales", "expect": "sales", "confirm": false },
+    {
+      "id": "google-ads-campaigns",
+      "source": "Google Ads: Campaigns report, segmented by day",
+      "expect": "marketing",
+      "confirm": false,
+      "headers": ["Day", "Campaign", "Campaign type", "Campaign status", "Currency code", "Impr.", "Clicks", "CTR", "Avg. CPC", "Cost", "Conversions", "Conv. rate", "Cost / conv.", "Conv. value", "Conv. value / cost"],
+      "rows": [
+        ["2024-08-01", "Brand - Exact", "Search", "Enabled", "INR", "1840", "412", "22.39%", "6.12", "2521.44", "38.00", "9.22%", "66.35", "45600.00", "18.08"],
+        ["2024-08-01", "Generic - Phrase", "Search", "Enabled", "INR", "9620", "388", "4.03%", "14.85", "5761.80", "11.50", "2.96%", "501.03", "13800.00", "2.40"],
+        ["2024-08-01", "PMax - All Products", "Performance Max", "Enabled", "INR", "48210", "905", "1.88%", "9.40", "8507.00", "24.00", "2.65%", "354.46", "31200.00", "3.67"],
+        ["2024-08-02", "Remarketing - Display", "Display", "Paused", "INR", "120450", "610", "0.51%", "3.25", "1982.50", "4.00", "0.66%", "495.63", "5200.00", "2.62"],
+        ["2024-08-02", "Brand - Exact", "Search", "Enabled", "INR", "1755", "398", "22.68%", "6.30", "2507.40", "35.00", "8.79%", "71.64", "42000.00", "16.75"],
+        ["2024-08-03", "YouTube - Awareness", "Video", "Enabled", "INR", "86300", "240", "0.28%", "4.10", "984.00", "1.00", "0.42%", "984.00", "1500.00", "1.52"]
+      ]
+    },
+    {
+      "id": "meta-ads-manager",
+      "source": "Meta Ads Manager: ad-level export, daily breakdown",
+      "expect": "marketing",
+      "confirm": false,
+      "headers": ["Reporting starts", "Reporting ends", "Campaign name", "Ad set name", "Ad name", "Delivery status", "Attribution setting", "Results", "Result indicator", "Reach", "Frequency", "Cost per result", "Amount spent (INR)", "Impressions", "CPM (cost per 1,000 impressions) (INR)", "Link clicks", "CPC (cost per link click) (INR)", "CTR (link click-through rate)", "Purchases conversion value", "Purchase ROAS (return on ad spend)"],
+      "rows": [
+        ["2024-09-01", "2024-09-01", "Diwali Sale - Conversions", "Women 25-44 Metro", "Carousel - Kurtas", "active", "7-day click or 1-day view", "42", "actions:offsite_conversion.fb_pixel_purchase", "38210", "1.31", "142.86", "6000.12", "50055", "119.87", "1210", "4.96", "2.42", "98400.00", "16.40"],
+        ["2024-09-01", "2024-09-01", "Diwali Sale - Conversions", "Lookalike 1% Buyers", "Video - Festive", "active", "7-day click or 1-day view", "18", "actions:offsite_conversion.fb_pixel_purchase", "22140", "1.18", "211.11", "3800.00", "26125", "145.45", "540", "7.04", "2.07", "40100.00", "10.55"],
+        ["2024-09-01", "2024-09-01", "Retargeting - Cart", "Cart Abandoners 7d", "Static - Offer", "active", "7-day click or 1-day view", "27", "actions:offsite_conversion.fb_pixel_purchase", "9840", "2.05", "66.67", "1800.00", "20172", "89.23", "466", "3.86", "2.31", "51300.00", "28.50"],
+        ["2024-09-02", "2024-09-02", "Lead Gen - Bridal", "Women 22-32 Engaged", "Lead Form - Catalogue", "inactive", "7-day click", "65", "actions:lead", "31020", "1.22", "38.46", "2500.00", "37844", "66.06", "702", "3.56", "1.85", "0.00", "0.00"],
+        ["2024-09-02", "2024-09-02", "Diwali Sale - Conversions", "Women 25-44 Metro", "Carousel - Kurtas", "active", "7-day click or 1-day view", "39", "actions:offsite_conversion.fb_pixel_purchase", "36900", "1.29", "150.00", "5850.00", "47601", "122.90", "1160", "5.04", "2.44", "91200.00", "15.59"],
+        ["2024-09-03", "2024-09-03", "Brand Awareness - Reels", "Broad 18-45", "Reel - Brand Film", "not_delivering", "1-day view", "185000", "reach", "185000", "1.10", "5.41", "1000.00", "203500", "4.91", "310", "3.23", "0.15", "0.00", "0.00"]
+      ]
+    },
+    {
+      "id": "hubspot-contacts",
+      "source": "HubSpot CRM: Contacts export with lifecycle dates",
+      "expect": "marketing",
+      "confirm": false,
+      "unique": ["Record ID", "Email"],
+      "headers": ["Record ID", "First Name", "Last Name", "Email", "Phone Number", "Contact owner", "Create Date", "Lifecycle Stage", "Lead Status", "Original Source", "Original Source Drill-Down 1", "Became a Marketing Qualified Lead Date", "Became a Sales Qualified Lead Date", "Became a Customer Date", "Number of Sessions", "Recent Conversion"],
+      "rows": [
+        ["51234567801", "Aditi", "Sharma", "aditi.sharma@zenhealth.in", "+91 98200 12345", "Karan Malhotra", "2024-04-02 10:15", "Customer", "Connected", "Organic Search", "google", "2024-04-05 09:00", "2024-04-12 15:30", "2024-05-03 11:20", "14", "Demo Request Form"],
+        ["51234567802", "Rohit", "Bansal", "rohit@quickcart.io", "+91 99100 23456", "Divya Menon", "2024-04-03 14:42", "Marketing Qualified Lead", "New", "Paid Social", "linkedin", "2024-04-03 15:00", "", "", "3", "Ebook: Retail Analytics"],
+        ["51234567803", "Fatima", "Sheikh", "fatima.s@learnly.in", "", "", "2024-04-04 09:05", "Subscriber", "", "Email Marketing", "newsletter", "", "", "", "1", "Newsletter Signup"],
+        ["51234567804", "Joseph", "Mathew", "joseph@bluebirdlogistics.com", "+91 98450 34567", "Sameer Joshi", "2024-04-05 17:20", "Sales Qualified Lead", "In Progress", "Direct Traffic", "", "2024-04-06 10:00", "2024-04-15 12:45", "", "7", "Pricing Page Form"],
+        ["51234567805", "Lakshmi", "Raman", "lakshmi.r@greenvalley.edu", "+91 97890 45678", "Karan Malhotra", "2024-04-06 11:11", "Lead", "Open", "Paid Search", "google ads", "", "", "", "2", "Webinar Registration"],
+        ["51234567806", "Nikhil", "Arora", "nikhil@orbitfin.com", "+91 98110 56789", "Divya Menon", "2024-04-08 08:50", "Opportunity", "Connected", "Referrals", "partner", "2024-04-09 09:30", "2024-04-20 16:00", "", "9", "Contact Us"]
+      ]
+    },
+    {
+      "id": "linkedin-campaign-manager",
+      "source": "LinkedIn Campaign Manager: campaign performance export, weekly",
+      "expect": "marketing",
+      "confirm": false,
+      "headers": ["Start Date (in UTC)", "Account Name", "Campaign Group Name", "Campaign Name", "Campaign Type", "Campaign Status", "Total Spent", "Impressions", "Clicks", "Click Through Rate", "Average CPC", "Conversions", "Leads", "Cost per Lead"],
+      "rows": [
+        ["9/2/2024", "Loupe Analytics", "Q3 Demand Gen", "CFO Persona - Lead Gen Form", "Sponsored Content", "Active", "18450.20", "64210", "402", "0.63%", "45.90", "0", "31", "595.17"],
+        ["9/2/2024", "Loupe Analytics", "Q3 Demand Gen", "Retail Ops - Conversation Ads", "Sponsored Messaging", "Active", "9320.00", "12040", "286", "2.38%", "32.59", "4", "12", "776.67"],
+        ["9/9/2024", "Loupe Analytics", "Brand", "Thought Leadership - Video", "Video Ads", "Paused", "6100.75", "88300", "215", "0.24%", "28.38", "0", "0", "0.00"],
+        ["9/9/2024", "Loupe Analytics", "Q3 Demand Gen", "CFO Persona - Lead Gen Form", "Sponsored Content", "Active", "17220.40", "59870", "377", "0.63%", "45.68", "0", "28", "615.01"],
+        ["9/16/2024", "Loupe Analytics", "Retargeting", "Website Visitors 30d", "Text Ads", "Active", "2400.00", "152000", "180", "0.12%", "13.33", "3", "5", "480.00"],
+        ["9/23/2024", "Loupe Analytics", "Q3 Demand Gen", "Retail Ops - Conversation Ads", "Sponsored Messaging", "Completed", "8950.10", "11510", "270", "2.35%", "33.15", "2", "10", "895.01"]
+      ]
+    },
+    {
+      "id": "marketing-mis-ad-spend",
+      "source": "In-house marketing MIS (Google Sheets): daily spend by channel, spend values in the Excel-serial range",
+      "expect": "marketing",
+      "confirm": false,
+      "headers": ["Date", "Channel", "Campaign", "Ad Spend", "Impressions", "Clicks", "Leads", "Conversions", "Revenue"],
+      "rows": [
+        ["2024-10-01", "Google Ads", "Diwali Brand Search", "21450.50", "48210", "2105", "184", "41", "312400"],
+        ["2024-10-01", "Meta", "Diwali Prospecting", "34800.00", "212400", "3890", "265", "38", "268100"],
+        ["2024-10-02", "Google Ads", "Performance Max", "78900.25", "301250", "6120", "402", "97", "741800"],
+        ["2024-10-02", "YouTube", "Brand Film", "45210.75", "520300", "1980", "61", "9", "48200"],
+        ["2024-10-03", "Meta", "Retargeting 7d", "29999.00", "98400", "2760", "233", "71", "455900"],
+        ["2024-10-03", "LinkedIn", "B2B Gifting", "61230.40", "40120", "690", "118", "12", "196000"]
+      ]
+    },
+    { "id": "demo-marketing", "source": "Bundled demo: campaign performance", "demo": "marketing", "expect": "marketing", "confirm": false },
+    {
+      "id": "stripe-subscriptions",
+      "source": "Stripe dashboard: Subscriptions export",
+      "expect": "saas",
+      "confirm": false,
+      "unique": ["id", "Customer ID", "Customer Email"],
+      "headers": ["id", "Customer ID", "Customer Email", "Customer Name", "Plan", "Product", "Quantity", "Interval", "Amount", "Currency", "Status", "Created (UTC)", "Start Date (UTC)", "Current Period Start (UTC)", "Current Period End (UTC)", "Canceled At (UTC)", "Ended At (UTC)", "Trial Start (UTC)", "Trial End (UTC)", "Cancel At Period End"],
+      "rows": [
+        ["sub_1OaB2cD3eF4gH501", "cus_PQr1sT2uV3wX01", "ops@brightcart.io", "BrightCart", "price_1OaPro", "Loupe Pro", "5", "month", "49.00", "usd", "active", "2024-01-03 09:14", "2024-01-03 09:14", "2024-06-03 09:14", "2024-07-03 09:14", "", "", "", "", "false"],
+        ["sub_1OaB2cD3eF4gH502", "cus_PQr1sT2uV3wX02", "finance@orbitfin.com", "Orbit Fintech", "price_1OaTeam", "Loupe Team", "12", "month", "29.00", "usd", "active", "2024-01-10 15:40", "2024-01-24 15:40", "2024-06-24 15:40", "2024-07-24 15:40", "", "", "2024-01-10 15:40", "2024-01-24 15:40", "false"],
+        ["sub_1OaB2cD3eF4gH503", "cus_PQr1sT2uV3wX03", "hello@metroclinics.in", "Metro Clinics", "price_1OaProY", "Loupe Pro", "3", "year", "490.00", "usd", "canceled", "2023-11-18 08:05", "2023-11-18 08:05", "2023-11-18 08:05", "2024-11-18 08:05", "2024-03-02 12:00", "2024-03-02 12:00", "", "", "false"],
+        ["sub_1OaB2cD3eF4gH504", "cus_PQr1sT2uV3wX04", "admin@greenvalley.edu", "Green Valley Schools", "price_1OaTeam", "Loupe Team", "25", "month", "29.00", "usd", "past_due", "2024-02-05 11:22", "2024-02-05 11:22", "2024-06-05 11:22", "2024-07-05 11:22", "", "", "", "", "false"],
+        ["sub_1OaB2cD3eF4gH505", "cus_PQr1sT2uV3wX05", "it@apexrealty.com", "Apex Realty", "price_1OaPro", "Loupe Pro", "8", "month", "49.00", "usd", "trialing", "2024-06-20 17:30", "2024-06-20 17:30", "2024-06-20 17:30", "2024-07-04 17:30", "", "", "2024-06-20 17:30", "2024-07-04 17:30", "true"],
+        ["sub_1OaB2cD3eF4gH506", "cus_PQr1sT2uV3wX06", "team@quickcart.io", "QuickCart", "price_1OaEnt", "Loupe Enterprise", "40", "year", "2990.00", "usd", "active", "2023-09-01 10:00", "2023-09-01 10:00", "2023-09-01 10:00", "2024-09-01 10:00", "", "", "", "", "false"]
+      ]
+    },
+    {
+      "id": "chartmogul-mrr",
+      "source": "ChartMogul: customer MRR breakdown by month",
+      "expect": "saas",
+      "confirm": false,
+      "ids": ["Customer External ID"],
+      "headers": ["Month", "Customer", "Customer External ID", "Plan", "Billing Cycle", "Starting MRR", "New Business MRR", "Expansion MRR", "Contraction MRR", "Churned MRR", "Reactivation MRR", "Ending MRR", "Country"],
+      "rows": [
+        ["2024-01-01", "BrightCart", "cus_001", "Pro", "Monthly", "0", "245", "0", "0", "0", "0", "245", "India"],
+        ["2024-01-01", "Orbit Fintech", "cus_002", "Team", "Monthly", "348", "0", "58", "0", "0", "0", "406", "United States"],
+        ["2024-02-01", "Metro Clinics", "cus_003", "Pro", "Annual", "123", "0", "0", "0", "-123", "0", "0", "India"],
+        ["2024-02-01", "Green Valley Schools", "cus_004", "Team", "Monthly", "725", "0", "0", "-58", "0", "0", "667", "United Kingdom"],
+        ["2024-03-01", "Apex Realty", "cus_005", "Pro", "Monthly", "0", "0", "0", "0", "0", "392", "392", "Germany"],
+        ["2024-03-01", "QuickCart", "cus_006", "Enterprise", "Annual", "2492", "0", "249", "0", "0", "0", "2741", "Singapore"]
+      ]
+    },
+    {
+      "id": "saas-subscription-list",
+      "source": "Chargebee / Recurly style subscription list",
+      "expect": "saas",
+      "confirm": false,
+      "unique": ["Customer ID"],
+      "headers": ["Customer ID", "Company", "Plan", "Billing Cycle", "Seats", "MRR", "Status", "Start Date", "Churn Date", "Churned", "Segment", "Country"],
+      "rows": [
+        ["C-1001", "BrightCart", "Growth", "Monthly", "12", "540", "Active", "2023-02-14", "", "No", "SMB", "India"],
+        ["C-1002", "Orbit Fintech", "Enterprise", "Annual", "80", "7200", "Active", "2022-11-01", "", "No", "Enterprise", "United States"],
+        ["C-1003", "Metro Clinics", "Starter", "Monthly", "4", "80", "Cancelled", "2023-05-20", "2024-03-31", "Yes", "SMB", "India"],
+        ["C-1004", "Green Valley Schools", "Growth", "Annual", "25", "1125", "Active", "2023-08-09", "", "No", "Mid-Market", "United Kingdom"],
+        ["C-1005", "Apex Realty", "Starter", "Monthly", "6", "120", "Cancelled", "2023-01-11", "2023-12-31", "Yes", "SMB", "Australia"],
+        ["C-1006", "QuickCart", "Growth", "Monthly", "18", "810", "Active", "2024-01-05", "", "No", "Mid-Market", "Singapore"]
+      ]
+    },
+    { "id": "demo-saas", "source": "Bundled demo: SaaS MRR movements", "demo": "saas", "expect": "saas", "confirm": false },
+    {
+      "id": "tally-day-book",
+      "source": "Tally ERP: Day Book export (journal lines with split debit and credit, no account classification)",
+      "expect": ["finance"],
+      "confirm": true,
+      "unique": ["Vch No."],
+      "headers": ["Date", "Particulars", "Vch Type", "Vch No.", "Debit Amount", "Credit Amount"],
+      "rows": [
+        ["1-Apr-24", "HDFC Bank A/c", "Receipt", "R/001", "", "118000.00"],
+        ["1-Apr-24", "Office Rent", "Payment", "P/001", "45000.00", ""],
+        ["2-Apr-24", "Shree Ganesh Traders", "Sales", "S/001", "63720.00", ""],
+        ["3-Apr-24", "Electricity Charges", "Payment", "P/002", "8640.00", ""],
+        ["4-Apr-24", "Om Sai Distributors", "Purchase", "PU/001", "", "33630.00"],
+        ["5-Apr-24", "Depreciation", "Journal", "J/001", "12500.00", ""]
+      ]
+    },
+    {
+      "id": "quickbooks-general-ledger",
+      "source": "QuickBooks Online: General Ledger / Transaction Detail by Account (journal lines without account types)",
+      "expect": ["finance"],
+      "confirm": true,
+      "headers": ["Date", "Transaction Type", "Num", "Name", "Memo/Description", "Account", "Split", "Amount", "Balance"],
+      "rows": [
+        ["01/04/2024", "Invoice", "1001", "Bluebird Logistics", "Consulting - March", "Accounts Receivable (A/R)", "Services", "5400.00", "5400.00"],
+        ["01/05/2024", "Expense", "", "Amazon Web Services", "Cloud hosting", "Software & Subscriptions", "Checking", "-1240.50", "4159.50"],
+        ["01/09/2024", "Payment", "", "Bluebird Logistics", "", "Checking", "Accounts Receivable (A/R)", "5400.00", "9559.50"],
+        ["01/15/2024", "Bill", "B-204", "WeWork", "Office rent - January", "Rent or Lease", "Accounts Payable (A/P)", "-3200.00", "6359.50"],
+        ["01/22/2024", "Journal Entry", "JE-12", "", "Monthly depreciation", "Depreciation", "Accumulated Depreciation", "-850.00", "5509.50"],
+        ["01/31/2024", "Deposit", "", "Stripe", "Card sales", "Checking", "Sales", "12890.40", "18399.90"]
+      ]
+    },
+    {
+      "id": "xero-invoices",
+      "source": "Xero: Sales invoices export (receivables)",
+      "expect": "finance",
+      "confirm": false,
+      "unique": ["Invoice Number"],
+      "headers": ["Contact", "Invoice Number", "Reference", "Invoice Date", "Due Date", "Paid Date", "Total", "Tax", "Amount Paid", "Amount Due", "Status", "Currency"],
+      "rows": [
+        ["Bluebird Logistics", "INV-0101", "PO 7781", "2024-02-01", "2024-03-02", "2024-02-28", "118000.00", "18000.00", "118000.00", "0.00", "PAID", "INR"],
+        ["Sunrise Foods", "INV-0102", "", "2024-02-05", "2024-03-06", "", "59000.00", "9000.00", "20000.00", "39000.00", "OVERDUE", "INR"],
+        ["Metro Clinics", "INV-0103", "AMC 2024", "2024-02-10", "2024-03-11", "2024-03-20", "35400.00", "5400.00", "35400.00", "0.00", "PAID", "INR"],
+        ["Orbit Fintech", "INV-0104", "", "2024-02-15", "2024-03-16", "", "236000.00", "36000.00", "0.00", "236000.00", "AUTHORISED", "INR"],
+        ["Green Valley Schools", "INV-0105", "Term 2", "2024-02-20", "2024-03-21", "2024-03-05", "47200.00", "7200.00", "47200.00", "0.00", "PAID", "INR"],
+        ["Apex Realty", "INV-0106", "", "2024-02-25", "2024-03-26", "", "82600.00", "12600.00", "40000.00", "42600.00", "PARTIALLY PAID", "INR"]
+      ]
+    },
+    {
+      "id": "mgmt-pnl-budget",
+      "source": "Management accounts: monthly P&L actual vs budget by GL account",
+      "expect": "finance",
+      "confirm": false,
+      "headers": ["Period", "Entity", "GL Account", "Account Code", "Category", "Department", "Actual", "Budget", "Variance", "Variance %"],
+      "rows": [
+        ["2024-04", "Loupe India Pvt Ltd", "Product Revenue", "4000", "Revenue", "Sales", "1820000", "1750000", "70000", "4.0%"],
+        ["2024-04", "Loupe India Pvt Ltd", "Cloud Hosting", "5100", "Cost of Sales", "Engineering", "212000", "200000", "-12000", "-6.0%"],
+        ["2024-04", "Loupe India Pvt Ltd", "Salaries", "6100", "Operating Expenses", "Engineering", "940000", "960000", "20000", "2.1%"],
+        ["2024-05", "Loupe India Pvt Ltd", "Product Revenue", "4000", "Revenue", "Sales", "1905000", "1800000", "105000", "5.8%"],
+        ["2024-05", "Loupe India Pvt Ltd", "Marketing Spend", "6400", "Operating Expenses", "Marketing", "185000", "150000", "-35000", "-23.3%"],
+        ["2024-05", "Loupe India Pvt Ltd", "Depreciation", "6900", "Depreciation", "Finance", "64000", "64000", "0", "0.0%"]
+      ]
+    },
+    { "id": "demo-finance", "source": "Bundled demo: P&L ledger vs budget", "demo": "finance", "expect": "finance", "confirm": false },
+    {
+      "id": "ibm-hr-attrition",
+      "source": "IBM HR Analytics employee attrition dataset (Kaggle)",
+      "expect": "hr",
+      "confirm": false,
+      "unique": ["EmployeeNumber"],
+      "headers": ["Age", "Attrition", "BusinessTravel", "DailyRate", "Department", "DistanceFromHome", "Education", "EducationField", "EmployeeCount", "EmployeeNumber", "EnvironmentSatisfaction", "Gender", "HourlyRate", "JobInvolvement", "JobLevel", "JobRole", "JobSatisfaction", "MaritalStatus", "MonthlyIncome", "MonthlyRate", "NumCompaniesWorked", "Over18", "OverTime", "PercentSalaryHike", "PerformanceRating", "RelationshipSatisfaction", "StandardHours", "StockOptionLevel", "TotalWorkingYears", "TrainingTimesLastYear", "WorkLifeBalance", "YearsAtCompany", "YearsInCurrentRole", "YearsSinceLastPromotion", "YearsWithCurrManager"],
+      "rows": [
+        ["41", "Yes", "Travel_Rarely", "1102", "Sales", "1", "2", "Life Sciences", "1", "1", "2", "Female", "94", "3", "2", "Sales Executive", "4", "Single", "5993", "19479", "8", "Y", "Yes", "11", "3", "1", "80", "0", "8", "0", "1", "6", "4", "0", "5"],
+        ["49", "No", "Travel_Frequently", "279", "Research & Development", "8", "1", "Life Sciences", "1", "2", "3", "Male", "61", "2", "2", "Research Scientist", "2", "Married", "5130", "24907", "1", "Y", "No", "23", "4", "4", "80", "1", "10", "3", "3", "10", "7", "1", "7"],
+        ["37", "Yes", "Travel_Rarely", "1373", "Research & Development", "2", "2", "Other", "1", "4", "4", "Male", "92", "2", "1", "Laboratory Technician", "3", "Single", "2090", "2396", "6", "Y", "Yes", "15", "3", "2", "80", "0", "7", "3", "3", "0", "0", "0", "0"],
+        ["33", "No", "Travel_Frequently", "1392", "Research & Development", "3", "4", "Life Sciences", "1", "5", "4", "Female", "56", "3", "1", "Research Scientist", "3", "Married", "2909", "23159", "1", "Y", "Yes", "11", "3", "3", "80", "0", "8", "3", "3", "8", "7", "3", "0"],
+        ["27", "No", "Travel_Rarely", "591", "Research & Development", "2", "1", "Medical", "1", "7", "1", "Male", "40", "3", "1", "Laboratory Technician", "2", "Married", "3468", "16632", "9", "Y", "No", "12", "3", "4", "80", "1", "6", "3", "3", "2", "2", "2", "2"],
+        ["32", "No", "Travel_Frequently", "1005", "Research & Development", "2", "2", "Life Sciences", "1", "8", "4", "Male", "79", "3", "1", "Laboratory Technician", "4", "Single", "3068", "11864", "0", "Y", "No", "13", "3", "3", "80", "0", "8", "2", "2", "7", "7", "3", "6"]
+      ]
+    },
+    {
+      "id": "bamboohr-employees",
+      "source": "BambooHR: employee directory report",
+      "expect": "hr",
+      "confirm": false,
+      "unique": ["Employee #", "Work Email"],
+      "headers": ["Employee #", "First Name", "Last Name", "Status", "Hire Date", "Termination Date", "Employment Status", "Job Title", "Department", "Division", "Location", "Reporting to", "Pay Rate", "Pay Type", "Gender", "Date of Birth", "Work Email"],
+      "rows": [
+        ["1042", "Emily", "Carter", "Active", "2019-03-11", "", "Full-Time", "Senior Accountant", "Finance", "Corporate", "Austin, TX", "Karen Lee", "82000", "Salary", "Female", "1988-07-22", "emily.carter@acme.com"],
+        ["1043", "Michael", "Brown", "Inactive", "2020-06-01", "2023-09-15", "Full-Time", "Account Executive", "Sales", "North America", "Chicago, IL", "David Kim", "68000", "Salary", "Male", "1991-02-03", "michael.brown@acme.com"],
+        ["1044", "Sofia", "Martinez", "Active", "2021-01-18", "", "Part-Time", "Customer Support Specialist", "Customer Success", "North America", "Remote", "Linda Park", "24.50", "Hourly", "Female", "1996-11-30", "sofia.martinez@acme.com"],
+        ["1045", "James", "Wilson", "Active", "2017-09-05", "", "Full-Time", "Engineering Manager", "Engineering", "Product", "Austin, TX", "Karen Lee", "145000", "Salary", "Male", "1984-04-14", "james.wilson@acme.com"],
+        ["1046", "Priya", "Natarajan", "Inactive", "2022-02-14", "2024-01-31", "Contractor", "Data Analyst", "Engineering", "Product", "Remote", "James Wilson", "55.00", "Hourly", "Female", "1994-08-09", "priya.n@acme.com"],
+        ["1047", "Daniel", "Okafor", "Active", "2023-05-22", "", "Full-Time", "Warehouse Associate", "Operations", "Fulfillment", "Reno, NV", "Mark Evans", "19.75", "Hourly", "Male", "1999-12-01", "daniel.okafor@acme.com"]
+      ]
+    },
+    {
+      "id": "indian-hrms-roster",
+      "source": "Keka / greytHR: employee master export",
+      "expect": "hr",
+      "confirm": false,
+      "unique": ["Emp Code"],
+      "headers": ["Emp Code", "Employee Name", "Date of Joining", "Date of Leaving", "Department", "Designation", "Grade", "Location", "Annual CTC", "Gender", "Employee Status", "Reason for Leaving", "Reporting Manager", "Employment Type"],
+      "rows": [
+        ["EMP0101", "Aarav Sharma", "15-06-2019", "", "Engineering", "Senior Software Engineer", "L3", "Bengaluru", "1850000", "Male", "Active", "", "Neha Kulkarni", "Permanent"],
+        ["EMP0102", "Diya Patel", "03-01-2020", "28-02-2023", "Sales", "Sales Manager", "L4", "Mumbai", "2200000", "Female", "Resigned", "Better opportunity", "Rohit Bose", "Permanent"],
+        ["EMP0103", "Kabir Singh", "21-11-2021", "", "Operations", "Operations Executive", "L1", "Gurugram", "540000", "Male", "Active", "", "Anil Kapoor", "Permanent"],
+        ["EMP0104", "Meera Iyer", "09-08-2018", "30-06-2024", "Finance", "Finance Analyst", "L2", "Chennai", "960000", "Female", "Resigned", "Higher studies", "Sunita Rao", "Permanent"],
+        ["EMP0105", "Ishaan Gupta", "12-04-2023", "", "Engineering", "Software Engineer", "L2", "Pune", "1200000", "Male", "Probation", "", "Neha Kulkarni", "Permanent"],
+        ["EMP0106", "Ananya Reddy", "18-10-2022", "15-12-2023", "Customer Support", "Support Associate", "L1", "Hyderabad", "420000", "Female", "Terminated", "Performance", "Rakesh Nair", "Contract"]
+      ]
+    },
+    { "id": "demo-hr", "source": "Bundled demo: employee roster", "demo": "hr", "expect": "hr", "confirm": false },
+    {
+      "id": "hospital-admissions",
+      "source": "Kaggle healthcare dataset: hospital admissions with billing",
+      "expect": "healthcare",
+      "confirm": false,
+      "headers": ["Name", "Age", "Gender", "Blood Type", "Medical Condition", "Date of Admission", "Doctor", "Hospital", "Insurance Provider", "Billing Amount", "Room Number", "Admission Type", "Discharge Date", "Medication", "Test Results"],
+      "rows": [
+        ["Bobby JacksOn", "30", "Male", "B-", "Cancer", "2024-01-31", "Matthew Smith", "Sons and Miller", "Blue Cross", "18856.28", "328", "Urgent", "2024-02-02", "Paracetamol", "Normal"],
+        ["LesLie TErRy", "62", "Male", "A+", "Obesity", "2019-08-20", "Samantha Davies", "Kim Inc", "Medicare", "33643.33", "265", "Emergency", "2019-08-26", "Ibuprofen", "Inconclusive"],
+        ["DaNnY sMitH", "76", "Female", "A-", "Obesity", "2022-09-22", "Tiffany Mitchell", "Cook PLC", "Aetna", "27955.10", "205", "Emergency", "2022-10-07", "Aspirin", "Normal"],
+        ["andrEw waTtS", "28", "Female", "O+", "Diabetes", "2020-11-18", "Kevin Wells", "Hernandez Rogers and Vang", "Medicare", "37909.78", "450", "Elective", "2020-12-18", "Ibuprofen", "Abnormal"],
+        ["adrIENNE bEll", "43", "Female", "AB+", "Cancer", "2022-09-19", "Kathleen Hanna", "White-White", "Aetna", "14238.32", "458", "Urgent", "2022-10-09", "Penicillin", "Abnormal"],
+        ["EMILY JOHNSOn", "36", "Male", "A+", "Asthma", "2023-12-20", "Taylor Newton", "Nunez-Humphrey", "UnitedHealthcare", "48145.11", "389", "Urgent", "2023-12-24", "Ibuprofen", "Normal"]
+      ]
+    },
+    {
+      "id": "his-ipd-discharges",
+      "source": "Hospital information system: inpatient discharge register (India)",
+      "expect": "healthcare",
+      "confirm": false,
+      "unique": ["IP No"],
+      "ids": ["UHID"],
+      "headers": ["UHID", "IP No", "Patient Name", "Age", "Gender", "Admission Date", "Discharge Date", "Department", "Consultant", "Ward", "Bed No", "Diagnosis", "ICD Code", "Payer Type", "TPA", "Total Bill", "Discharge Status", "LOS (Days)"],
+      "rows": [
+        ["UH00012345", "IP24-00101", "Ramesh Kumar", "58", "Male", "2024-03-01 10:20", "2024-03-06 12:00", "Cardiology", "Dr. S. Rao", "ICU", "ICU-04", "Acute myocardial infarction", "I21.9", "TPA", "Medi Assist", "284500", "Discharged", "5"],
+        ["UH00012346", "IP24-00102", "Sunita Devi", "34", "Female", "2024-03-02 08:45", "2024-03-04 11:30", "Obstetrics", "Dr. M. Shah", "Maternity", "MAT-12", "Normal delivery", "O80", "Cash", "", "48200", "Discharged", "2"],
+        ["UH00012347", "IP24-00103", "Mohammed Irfan", "67", "Male", "2024-03-02 22:10", "2024-03-15 09:00", "General Medicine", "Dr. A. Iyer", "General Ward", "GW-33", "Pneumonia", "J18.9", "PMJAY", "", "62000", "Expired", "13"],
+        ["UH00012348", "IP24-00104", "Kavita Joshi", "45", "Female", "2024-03-03 14:30", "2024-03-07 16:15", "Orthopaedics", "Dr. R. Mehta", "Private", "PVT-07", "Fracture neck of femur", "S72.0", "Corporate", "Paramount", "176400", "Discharged", "4"],
+        ["UH00012349", "IP24-00105", "Arjun Nair", "29", "Male", "2024-03-04 03:15", "2024-03-05 18:40", "Emergency", "Dr. P. Menon", "Semi Private", "SP-18", "Dengue fever", "A90", "Cash", "", "35800", "LAMA", "1"],
+        ["UH00012350", "IP24-00106", "Lata Mangal", "72", "Female", "2024-03-05 11:00", "2024-03-12 10:30", "Nephrology", "Dr. K. Bose", "General Ward", "GW-08", "Chronic kidney disease", "N18.5", "CGHS", "", "94300", "Transferred", "7"]
+      ]
+    },
+    {
+      "id": "opd-appointments-noshow",
+      "source": "Medical appointment no-shows dataset (Kaggle): an appointment log only, without department, doctor or visit type",
+      "expect": ["healthcare"],
+      "confirm": true,
+      "unique": ["AppointmentID"],
+      "ids": ["PatientId"],
+      "headers": ["PatientId", "AppointmentID", "Gender", "ScheduledDay", "AppointmentDay", "Age", "Neighbourhood", "Scholarship", "Hipertension", "Diabetes", "Alcoholism", "Handcap", "SMS_received", "No-show"],
+      "rows": [
+        ["29872499824296", "5642903", "F", "2016-04-29T18:38:08Z", "2016-04-29T00:00:00Z", "62", "JARDIM DA PENHA", "0", "1", "0", "0", "0", "0", "No"],
+        ["558997776694438", "5642503", "M", "2016-04-29T16:08:27Z", "2016-05-02T00:00:00Z", "56", "JARDIM DA PENHA", "0", "0", "0", "0", "0", "0", "No"],
+        ["4262962299951", "5642549", "F", "2016-04-29T16:19:04Z", "2016-05-04T00:00:00Z", "62", "MATA DA PRAIA", "0", "0", "0", "0", "0", "0", "No"],
+        ["867951213174", "5642828", "F", "2016-04-29T17:29:31Z", "2016-05-10T00:00:00Z", "8", "PONTAL DE CAMBURI", "0", "0", "0", "0", "0", "0", "No"],
+        ["8841186448183", "5642494", "F", "2016-04-29T16:07:23Z", "2016-05-12T00:00:00Z", "56", "JARDIM DA PENHA", "0", "1", "1", "0", "0", "1", "No"],
+        ["95985133231274", "5626772", "F", "2016-04-27T08:36:51Z", "2016-05-20T00:00:00Z", "76", "REPÚBLICA", "0", "1", "0", "0", "0", "1", "Yes"]
+      ]
+    },
+    {
+      "id": "bed-census",
+      "source": "Hospital daily bed census by ward",
+      "expect": "healthcare",
+      "confirm": false,
+      "headers": ["Census Date", "Hospital", "Ward", "Total Beds", "Occupied Beds", "Admissions", "Discharges", "Transfers In", "Transfers Out", "Deaths"],
+      "rows": [
+        ["2024-05-01", "City General", "Medical Ward A", "40", "34", "6", "5", "1", "0", "0"],
+        ["2024-05-01", "City General", "Surgical Ward", "32", "25", "4", "6", "0", "1", "0"],
+        ["2024-05-01", "City General", "ICU", "12", "11", "2", "1", "1", "1", "1"],
+        ["2024-05-02", "City General", "Medical Ward A", "40", "36", "7", "5", "0", "1", "0"],
+        ["2024-05-02", "City General", "NICU", "10", "7", "1", "1", "0", "0", "0"],
+        ["2024-05-02", "City General", "Maternity", "24", "18", "5", "4", "0", "0", "0"]
+      ]
+    },
+    {
+      "id": "payer-medical-claims",
+      "source": "Health payer: professional and facility claims extract",
+      "expect": "healthcare",
+      "confirm": false,
+      "unique": ["Claim ID"],
+      "ids": ["Member ID"],
+      "headers": ["Claim ID", "Member ID", "Patient Name", "Provider", "Provider NPI", "Service Date", "Claim Date", "Paid Date", "CPT Code", "Diagnosis Code", "Billed Amount", "Allowed Amount", "Paid Amount", "Patient Responsibility", "Claim Status", "Denial Reason"],
+      "rows": [
+        ["CLM-7700101", "MBR-55012", "John Miller", "Valley Medical Group", "1427384950", "2024-02-03", "2024-02-06", "2024-02-27", "99213", "E11.9", "220.00", "142.50", "114.00", "28.50", "Paid", ""],
+        ["CLM-7700102", "MBR-55013", "Maria Lopez", "Sunrise Imaging", "1730496281", "2024-02-05", "2024-02-09", "", "72148", "M54.5", "1850.00", "0.00", "0.00", "0.00", "Denied", "Prior authorization required"],
+        ["CLM-7700103", "MBR-55014", "Wei Chen", "Valley Medical Group", "1427384950", "2024-02-07", "2024-02-08", "2024-03-01", "99214", "I10", "310.00", "198.40", "158.72", "39.68", "Paid", ""],
+        ["CLM-7700104", "MBR-55015", "Aisha Khan", "Lakeside Hospital", "1902837465", "2024-02-10", "2024-02-14", "", "27447", "M17.11", "42500.00", "18900.00", "0.00", "0.00", "Pending", ""],
+        ["CLM-7700105", "MBR-55016", "Robert Smith", "Northside Labs", "1548302917", "2024-02-12", "2024-02-13", "2024-02-29", "80053", "Z00.00", "96.00", "22.10", "22.10", "0.00", "Paid", ""],
+        ["CLM-7700106", "MBR-55017", "Linda Park", "Sunrise Imaging", "1730496281", "2024-02-15", "2024-02-20", "", "70553", "G43.909", "2400.00", "0.00", "0.00", "0.00", "Denied", "Not medically necessary"]
+      ]
+    },
+    {
+      "id": "mes-oee-log",
+      "source": "MES: OEE log per machine and shift",
+      "expect": "manufacturing",
+      "confirm": false,
+      "headers": ["Date", "Plant", "Line", "Machine", "Shift", "Planned Production Time (min)", "Run Time (min)", "Downtime (min)", "Ideal Cycle Time (sec)", "Total Count", "Good Count", "Reject Count", "Availability", "Performance", "Quality", "OEE"],
+      "rows": [
+        ["2024-04-01", "Chakan", "Line 1", "CNC-01", "A", "480", "432", "48", "30", "810", "792", "18", "0.90", "0.94", "0.98", "0.83"],
+        ["2024-04-01", "Chakan", "Line 1", "CNC-02", "A", "480", "401", "79", "30", "760", "731", "29", "0.84", "0.95", "0.96", "0.76"],
+        ["2024-04-01", "Chakan", "Line 2", "Press-03", "B", "480", "455", "25", "12", "2150", "2120", "30", "0.95", "0.94", "0.99", "0.88"],
+        ["2024-04-02", "Chakan", "Line 2", "Press-03", "C", "450", "390", "60", "12", "1820", "1772", "48", "0.87", "0.93", "0.97", "0.79"],
+        ["2024-04-02", "Hosur", "Line 3", "VMC-04", "A", "480", "420", "60", "45", "520", "509", "11", "0.88", "0.93", "0.98", "0.80"],
+        ["2024-04-02", "Hosur", "Line 3", "VMC-05", "B", "480", "468", "12", "45", "590", "585", "5", "0.98", "0.94", "0.99", "0.91"]
+      ]
+    },
+    {
+      "id": "daily-production-report",
+      "source": "Shop-floor daily production report (Excel template)",
+      "expect": "manufacturing",
+      "confirm": false,
+      "headers": ["Date", "Shift", "Line", "Machine", "Part No", "Operator", "Target Qty", "Actual Qty", "OK Qty", "Rejection Qty", "Downtime (min)", "Downtime Reason", "Remarks"],
+      "rows": [
+        ["2024-05-06", "A", "Line 1", "CNC-01", "PN-1001", "Ravi", "500", "472", "465", "7", "25", "Tool change", ""],
+        ["2024-05-06", "B", "Line 1", "CNC-02", "PN-1002", "Anil", "500", "430", "418", "12", "60", "Breakdown", "Spindle issue"],
+        ["2024-05-06", "C", "Line 2", "VMC-03", "PN-2001", "Sunil", "450", "448", "445", "3", "0", "", ""],
+        ["2024-05-07", "A", "Line 2", "Press-04", "PN-2002", "Ravi", "1200", "1105", "1090", "15", "40", "No material", "Coil delayed"],
+        ["2024-05-07", "B", "Line 1", "CNC-01", "PN-1001", "Anil", "500", "488", "481", "7", "10", "Setup", ""],
+        ["2024-05-07", "C", "Line 3", "Press-05", "PN-3001", "Sunil", "1000", "930", "902", "28", "35", "Power cut", ""]
+      ]
+    },
+    {
+      "id": "qc-inspection-log",
+      "source": "Quality: incoming and in-process inspection log",
+      "expect": "manufacturing",
+      "confirm": false,
+      "unique": ["Inspection Lot"],
+      "ids": ["Work Order"],
+      "headers": ["Inspection Date", "Inspection Lot", "Work Order", "Part Number", "Supplier", "Inspector", "Lot Size", "Sample Size", "Defects Found", "Defect Type", "Result", "Disposition"],
+      "rows": [
+        ["2024-06-03", "IL-24060301", "WO-55102", "BRK-2201", "In-house", "QA1", "1200", "80", "0", "", "Pass", "Accept"],
+        ["2024-06-03", "IL-24060302", "WO-55103", "HSG-3305", "Precision Castings", "QA2", "800", "50", "3", "Porosity", "Fail", "Rework"],
+        ["2024-06-04", "IL-24060401", "WO-55104", "SHF-1102", "In-house", "QA1", "1500", "80", "1", "Burr", "Pass", "Accept"],
+        ["2024-06-04", "IL-24060402", "WO-55105", "GR-4410", "Apex Gears", "QA3", "600", "50", "5", "Dimension out of tolerance", "Fail", "Scrap"],
+        ["2024-06-05", "IL-24060501", "WO-55106", "BRK-2201", "In-house", "QA2", "1000", "80", "0", "", "Pass", "Accept"],
+        ["2024-06-05", "IL-24060502", "WO-55107", "HSG-3305", "Precision Castings", "QA1", "700", "50", "2", "Crack", "Hold", "Use as is"]
+      ]
+    },
+    {
+      "id": "plant-production-mis",
+      "source": "Steel plant monthly production MIS",
+      "expect": "manufacturing",
+      "confirm": false,
+      "headers": ["Month", "Plant", "Product", "Production (MT)", "Installed Capacity (MT)", "Capacity Utilisation %", "Scrap (MT)", "Power (kWh)", "Production Cost", "Cost per MT"],
+      "rows": [
+        ["2024-01", "Pune", "TMT Bars", "8420", "10000", "84.2", "126", "2950000", "412500000", "48990"],
+        ["2024-01", "Raipur", "Billets", "12150", "15000", "81.0", "210", "5105000", "498200000", "41004"],
+        ["2024-02", "Pune", "TMT Bars", "8810", "10000", "88.1", "118", "3080000", "431000000", "48922"],
+        ["2024-02", "Raipur", "Billets", "11680", "15000", "77.9", "240", "4980000", "481400000", "41216"],
+        ["2024-03", "Pune", "Wire Rods", "6230", "8000", "77.9", "95", "2240000", "318900000", "51188"],
+        ["2024-03", "Raipur", "Billets", "13020", "15000", "86.8", "195", "5390000", "530800000", "40768"]
+      ]
+    },
+    {
+      "id": "machine-downtime-log",
+      "source": "Packaging line machine stoppage log (only stoppages, no output)",
+      "expect": ["manufacturing"],
+      "confirm": true,
+      "headers": ["Start Time", "End Time", "Machine", "Line", "Reason", "Category", "Duration (min)"],
+      "rows": [
+        ["2024-04-01 06:42", "2024-04-01 07:10", "Filler 1", "L1", "Jam", "Unplanned", "28"],
+        ["2024-04-01 09:15", "2024-04-01 09:55", "Capper 2", "L1", "Changeover", "Planned", "40"],
+        ["2024-04-01 13:02", "2024-04-01 13:20", "Labeller 3", "L2", "Electrical fault", "Unplanned", "18"],
+        ["2024-04-02 07:30", "2024-04-02 09:30", "Filler 1", "L1", "Planned maintenance", "Planned", "120"],
+        ["2024-04-02 12:00", "2024-04-02 12:30", "Capper 2", "L2", "Lunch", "Planned", "30"],
+        ["2024-04-03 16:45", "2024-04-03 17:05", "Labeller 3", "L2", "Material shortage", "Unplanned", "20"]
+      ]
+    },
+    {
+      "id": "lms-loan-book",
+      "source": "NBFC loan management system: monthly loan book",
+      "expect": "banking",
+      "confirm": false,
+      "unique": ["Loan Account No"],
+      "ids": ["CIF"],
+      "headers": ["Loan Account No", "CIF", "Customer Name", "Product", "Branch", "Region", "Disbursement Date", "Sanctioned Amount", "Disbursed Amount", "ROI", "Tenure", "EMI", "POS", "DPD", "Asset Classification", "Loan Status", "As on Date"],
+      "rows": [
+        ["LAN0010001", "C100245", "Suresh Patil", "Home Loan", "Andheri", "West", "2021-06-15", "4500000", "4500000", "8.65", "240", "39480", "4012500", "0", "Standard", "Active", "2024-06-30"],
+        ["LAN0010002", "C100246", "Fatima Begum", "Personal Loan", "Thane", "West", "2023-02-10", "500000", "500000", "13.50", "48", "13540", "312400", "35", "SMA-1", "Active", "2024-06-30"],
+        ["LAN0010003", "C100247", "Gurpreet Singh", "Two Wheeler", "Ludhiana", "North", "2022-11-01", "120000", "110000", "11.25", "36", "3615", "38200", "0", "Standard", "Active", "2024-06-30"],
+        ["LAN0010004", "C100248", "Lakshmi Narayan", "Gold Loan", "Madurai", "South", "2024-01-20", "250000", "250000", "9.90", "12", "21960", "145300", "95", "Sub-Standard", "NPA", "2024-06-30"],
+        ["LAN0010005", "C100249", "Ravi Teja", "Loan Against Property", "Hyderabad", "South", "2020-08-05", "3000000", "3000000", "10.40", "180", "32970", "2410000", "0", "Standard", "Active", "2024-06-30"],
+        ["LAN0010006", "C100250", "Anjali Das", "Personal Loan", "Kolkata", "East", "2021-03-12", "300000", "300000", "14.00", "36", "10250", "0", "0", "Standard", "Closed", "2024-06-30"]
+      ]
+    },
+    {
+      "id": "lending-club-loans",
+      "source": "LendingClub accepted loans dataset (Kaggle)",
+      "expect": "banking",
+      "confirm": false,
+      "unique": ["id"],
+      "headers": ["id", "loan_amnt", "funded_amnt", "term", "int_rate", "installment", "grade", "sub_grade", "emp_length", "home_ownership", "annual_inc", "verification_status", "issue_d", "loan_status", "purpose", "addr_state", "dti", "revol_util", "total_pymnt", "out_prncp"],
+      "rows": [
+        ["68407277", "3600", "3600", " 36 months", "13.99%", "123.03", "C", "C4", "10+ years", "MORTGAGE", "55000", "Not Verified", "Dec-2015", "Fully Paid", "debt_consolidation", "PA", "5.91", "29.7%", "4421.72", "0"],
+        ["68355089", "24700", "24700", " 36 months", "11.99%", "820.28", "C", "C1", "10+ years", "MORTGAGE", "65000", "Not Verified", "Nov-2015", "Fully Paid", "small_business", "SD", "16.06", "19.2%", "25679.66", "0"],
+        ["68341763", "20000", "20000", " 60 months", "10.78%", "432.66", "B", "B4", "10+ years", "MORTGAGE", "63000", "Not Verified", "Oct-2015", "Fully Paid", "home_improvement", "IL", "10.78", "56.2%", "22705.92", "0"],
+        ["66310712", "35000", "35000", " 60 months", "14.85%", "829.90", "C", "C5", "10+ years", "MORTGAGE", "110000", "Source Verified", "Dec-2015", "Current", "debt_consolidation", "NJ", "17.06", "11.6%", "31464.01", "15897.65"],
+        ["68476807", "10400", "10400", " 60 months", "22.45%", "289.91", "F", "F1", "3 years", "MORTGAGE", "104433", "Source Verified", "Sep-2015", "Charged Off", "major_purchase", "PA", "25.37", "64.5%", "10431.94", "0"],
+        ["68426831", "11950", "11950", " 36 months", "13.44%", "405.18", "C", "C3", "4 years", "RENT", "34000", "Source Verified", "Aug-2015", "Late (31-120 days)", "debt_consolidation", "GA", "10.2", "68.4%", "7652.08", "5213.18"]
+      ]
+    },
+    {
+      "id": "emi-collections",
+      "source": "Lender collections MIS: EMI demand vs collection",
+      "expect": "banking",
+      "confirm": false,
+      "ids": ["Loan No"],
+      "headers": ["Loan No", "Customer Name", "Branch", "Product", "EMI Due Date", "EMI Amount", "Amount Collected", "Collection Date", "Payment Mode", "DPD", "Bucket", "Collection Agent", "Bounce Reason"],
+      "rows": [
+        ["LN7700101", "Rajesh Kumar", "Andheri", "Personal Loan", "2024-07-05", "13540", "13540", "2024-07-05", "NACH", "0", "Current", "Ajay", ""],
+        ["LN7700102", "Sita Ram", "Thane", "Two Wheeler", "2024-07-05", "3615", "0", "", "NACH", "28", "1-30", "Vijay", "Insufficient funds"],
+        ["LN7700103", "Mohan Lal", "Pune Camp", "Personal Loan", "2024-07-10", "10250", "10250", "2024-07-14", "UPI", "4", "1-30", "Sanjay", "Insufficient funds"],
+        ["LN7700104", "Kiran Bedi", "Andheri", "Home Loan", "2024-07-10", "39480", "39480", "2024-07-10", "NACH", "0", "Current", "Ajay", ""],
+        ["LN7700105", "Abdul Rehman", "Nashik", "Gold Loan", "2024-07-15", "21960", "10000", "2024-07-28", "Cash", "64", "61-90", "Vijay", "Account closed"],
+        ["LN7700106", "Pooja Shetty", "Thane", "Personal Loan", "2024-07-15", "8900", "0", "", "NACH", "95", "90+", "Sanjay", "Mandate cancelled"]
+      ]
+    },
+    {
+      "id": "loan-applications",
+      "source": "Loan origination system: application funnel",
+      "expect": "banking",
+      "confirm": false,
+      "unique": ["Application ID"],
+      "headers": ["Application ID", "Application Date", "Applicant Name", "Product", "Loan Amount Requested", "Tenure (Months)", "CIBIL Score", "Monthly Income", "Employment Type", "Channel", "DSA Name", "Decision", "Decision Date", "Rejection Reason", "Sanctioned Amount"],
+      "rows": [
+        ["APP2400101", "2024-08-01", "Nitin Rao", "Personal Loan", "500000", "36", "742", "85000", "Salaried", "DSA", "FinServe Partners", "Approved", "2024-08-03", "", "450000"],
+        ["APP2400102", "2024-08-01", "Shabana Khan", "Business Loan", "2000000", "60", "681", "210000", "Self Employed", "Branch", "", "Rejected", "2024-08-06", "Low bureau score", ""],
+        ["APP2400103", "2024-08-02", "Varun Malhotra", "Credit Card", "150000", "12", "798", "120000", "Salaried", "Digital", "", "Approved", "2024-08-02", "", "150000"],
+        ["APP2400104", "2024-08-03", "Rekha Pillai", "Personal Loan", "300000", "24", "715", "45000", "Salaried", "DSA", "LoanKart", "Pending", "", "", ""],
+        ["APP2400105", "2024-08-03", "Harish Chandra", "Business Loan", "1200000", "48", "702", "175000", "Self Employed", "Branch", "", "Withdrawn", "2024-08-10", "Customer not interested", ""],
+        ["APP2400106", "2024-08-05", "Anita George", "Personal Loan", "800000", "60", "655", "60000", "Salaried", "Digital", "", "Rejected", "2024-08-07", "High FOIR", ""]
+      ]
+    },
+    {
+      "id": "school-marks-register",
+      "source": "School ERP: marks register by subject and exam",
+      "expect": "education",
+      "confirm": false,
+      "ids": ["Admission No"],
+      "headers": ["Admission No", "Roll No", "Student Name", "Class", "Section", "Subject", "Exam", "Exam Date", "Marks Obtained", "Max Marks", "Grade", "Result", "Teacher"],
+      "rows": [
+        ["ADM2021045", "12", "Aarav Mehta", "8", "A", "Mathematics", "Term 1", "2024-09-18", "78", "100", "B1", "Pass", "Mrs. Rao"],
+        ["ADM2021046", "13", "Diya Kapoor", "8", "A", "Science", "Term 1", "2024-09-20", "91", "100", "A1", "Pass", "Mr. Iyer"],
+        ["ADM2021047", "14", "Kabir Das", "8", "B", "English", "Term 1", "2024-09-21", "32", "100", "E", "Fail", "Ms. Das"],
+        ["ADM2020101", "5", "Meera Pillai", "9", "A", "Mathematics", "Unit Test 2", "2024-08-12", "22", "25", "A2", "Pass", "Mrs. Rao"],
+        ["ADM2020102", "6", "Ishaan Verma", "9", "C", "Social Studies", "Unit Test 2", "2024-08-13", "", "25", "", "Absent", "Mr. Khan"],
+        ["ADM2019077", "21", "Sara Thomas", "10", "B", "Hindi", "Half Yearly", "2024-10-03", "66", "80", "B2", "Pass", "Mrs. Sharma"]
+      ]
+    },
+    {
+      "id": "lms-course-enrolments",
+      "source": "Online learning platform: course enrolment export",
+      "expect": "education",
+      "confirm": false,
+      "unique": ["User ID", "Email"],
+      "headers": ["User ID", "Learner Name", "Email", "Course", "Course Category", "Instructor", "Enrolled At", "Status", "Progress %", "Completed At", "Certificate Issued", "Last Accessed", "Price Paid"],
+      "rows": [
+        ["U00451", "Rahul Bhat", "rahul.bhat@gmail.com", "Python for Data Analysis", "Data Science", "Asha Menon", "2024-01-05 10:22", "Completed", "100", "2024-02-11 18:40", "Yes", "2024-02-11 18:40", "2499"],
+        ["U00452", "Sneha Kulkarni", "sneha.k@gmail.com", "SQL Mastery", "Data Science", "Rahul Iyer", "2024-01-06 09:10", "In Progress", "45", "", "No", "2024-03-02 21:15", "1999"],
+        ["U00453", "Imran Qureshi", "imran.q@yahoo.com", "Excel for Business", "Productivity", "Neha Joshi", "2024-01-08 14:55", "Dropped", "12", "", "No", "2024-01-20 08:30", "999"],
+        ["U00454", "Tanvi Shah", "tanvi.shah@gmail.com", "Python for Data Analysis", "Data Science", "Asha Menon", "2024-01-10 20:05", "Completed", "100", "2024-03-01 11:00", "Yes", "2024-03-01 11:00", "2499"],
+        ["U00455", "Arjun Rao", "arjun.rao@outlook.com", "Digital Marketing 101", "Marketing", "Karan Gill", "2024-01-12 07:45", "In Progress", "68", "", "No", "2024-03-10 19:20", "1499"],
+        ["U00456", "Pallavi Nair", "pallavi.n@gmail.com", "SQL Mastery", "Data Science", "Rahul Iyer", "2024-01-15 16:30", "Not Started", "0", "", "No", "2024-01-15 16:30", "0"]
+      ]
+    },
+    {
+      "id": "attendance-register",
+      "source": "School ERP: period-wise attendance register",
+      "expect": "education",
+      "confirm": false,
+      "ids": ["Student ID"],
+      "headers": ["Date", "Student ID", "Student Name", "Class", "Section", "Period", "Subject", "Status", "Marked By"],
+      "rows": [
+        ["2024-07-01", "STU1001", "Aarav Mehta", "7", "A", "1", "Mathematics", "Present", "Mrs. Rao"],
+        ["2024-07-01", "STU1002", "Diya Kapoor", "7", "A", "1", "Mathematics", "Absent", "Mrs. Rao"],
+        ["2024-07-01", "STU1003", "Kabir Das", "7", "B", "2", "Science", "Present", "Mr. Iyer"],
+        ["2024-07-02", "STU1001", "Aarav Mehta", "7", "A", "1", "English", "Late", "Ms. Das"],
+        ["2024-07-02", "STU1004", "Meera Pillai", "7", "B", "3", "Hindi", "Present", "Mrs. Sharma"],
+        ["2024-07-03", "STU1005", "Ishaan Verma", "7", "C", "2", "Science", "Leave", "Mr. Iyer"]
+      ]
+    },
+    {
+      "id": "fee-collection-ledger",
+      "source": "School ERP: fee collection receipts",
+      "expect": "education",
+      "confirm": false,
+      "unique": ["Receipt No"],
+      "ids": ["Admission No"],
+      "headers": ["Receipt No", "Admission No", "Student Name", "Class", "Fee Head", "Term", "Total Fee", "Concession", "Amount Paid", "Balance", "Payment Date", "Payment Mode"],
+      "rows": [
+        ["RCP-24-0001", "ADM2021045", "Aarav Mehta", "8", "Tuition Fee", "Term 1", "42000", "0", "42000", "0", "2024-04-05", "UPI"],
+        ["RCP-24-0002", "ADM2021046", "Diya Kapoor", "8", "Tuition Fee", "Term 1", "42000", "4200", "20000", "17800", "2024-04-07", "Cheque"],
+        ["RCP-24-0003", "ADM2020101", "Meera Pillai", "9", "Transport Fee", "Term 1", "9000", "0", "9000", "0", "2024-04-08", "Cash"],
+        ["RCP-24-0004", "ADM2020102", "Ishaan Verma", "9", "Tuition Fee", "Term 1", "45000", "9000", "36000", "0", "2024-04-10", "Net Banking"],
+        ["RCP-24-0005", "ADM2019077", "Sara Thomas", "10", "Exam Fee", "Term 1", "2500", "0", "2500", "0", "2024-04-12", "UPI"],
+        ["RCP-24-0006", "ADM2021047", "Kabir Das", "8", "Tuition Fee", "Term 1", "42000", "0", "15000", "27000", "2024-04-15", "Card"]
+      ]
+    },
+    {
+      "id": "mls-listings",
+      "source": "MLS: residential listings export",
+      "expect": "real_estate",
+      "confirm": false,
+      "unique": ["MLS #"],
+      "headers": ["MLS #", "Status", "List Date", "Close Date", "List Price", "Close Price", "Property Type", "Beds", "Baths", "Sq Ft", "Lot Size (Acres)", "Year Built", "Address", "City", "Zip", "Subdivision", "Listing Agent", "DOM"],
+      "rows": [
+        ["ML24010101", "Sold", "2024-01-08", "2024-02-20", "525000", "515000", "Single Family", "3", "2", "1850", "0.21", "1998", "1204 Oak Hollow Dr", "Austin", "78745", "Oak Hill", "A. Shah", "22"],
+        ["ML24010102", "Active", "2024-03-02", "", "389900", "", "Condo", "2", "2", "1120", "0", "2008", "500 E 5th St #1204", "Austin", "78701", "Downtown", "B. Lee", "45"],
+        ["ML24010103", "Pending", "2024-02-14", "", "649000", "", "Single Family", "4", "3", "2640", "0.25", "2015", "8812 Brushy Creek Rd", "Round Rock", "78681", "Brushy Creek", "C. Gomez", "18"],
+        ["ML24010104", "Sold", "2023-12-01", "2024-01-19", "299000", "292500", "Townhouse", "2", "3", "1380", "0.05", "2012", "2205 Mueller Ln", "Austin", "78723", "Mueller", "D. Patel", "31"],
+        ["ML24010105", "Expired", "2023-10-10", "", "799000", "", "Single Family", "5", "4", "3520", "0.42", "2001", "14 Avery Ranch Blvd", "Cedar Park", "78613", "Avery Ranch", "A. Shah", "120"],
+        ["ML24010106", "Withdrawn", "2024-01-22", "", "455000", "", "Single Family", "3", "2", "1640", "0.18", "1987", "3301 Sunset Trl", "Austin", "78745", "Oak Hill", "B. Lee", "60"]
+      ]
+    },
+    {
+      "id": "india-property-portal",
+      "source": "Property portal listings scrape (MagicBricks / 99acres style)",
+      "expect": "real_estate",
+      "confirm": false,
+      "unique": ["Property ID"],
+      "headers": ["Property ID", "Project Name", "Locality", "City", "Property Type", "BHK", "Carpet Area (sqft)", "Price", "Price per sqft", "Furnishing", "Possession Status", "Builder", "Posted On", "Listing Type"],
+      "rows": [
+        ["PID9012345", "Lodha Palava City", "Dombivli East", "Mumbai", "Apartment", "2", "650", "6800000", "10462", "Semi-Furnished", "Ready to Move", "Lodha Group", "2024-05-02", "Resale"],
+        ["PID9012346", "Prestige Lakeside Habitat", "Whitefield", "Bengaluru", "Apartment", "3", "1420", "18500000", "13028", "Unfurnished", "Ready to Move", "Prestige Group", "2024-05-03", "Resale"],
+        ["PID9012347", "Godrej Woods", "Sector 43", "Noida", "Apartment", "3", "1250", "21000000", "16800", "Unfurnished", "Under Construction", "Godrej Properties", "2024-05-03", "New Launch"],
+        ["PID9012348", "Independent House", "Gachibowli", "Hyderabad", "Independent House", "4", "2400", "32000000", "13333", "Furnished", "Ready to Move", "", "2024-05-05", "Resale"],
+        ["PID9012349", "DLF The Crest", "Sector 54", "Gurgaon", "Apartment", "4", "2750", "68000000", "24727", "Semi-Furnished", "Ready to Move", "DLF", "2024-05-06", "Resale"],
+        ["PID9012350", "Builder Floor", "Sector 45", "Gurgaon", "Builder Floor", "3", "1500", "19500000", "13000", "Unfurnished", "Ready to Move", "", "2024-05-08", "Resale"]
+      ]
+    },
+    {
+      "id": "rent-roll",
+      "source": "Property management (Yardi / AppFolio): rent roll",
+      "expect": "real_estate",
+      "confirm": false,
+      "unique": ["Unit"],
+      "headers": ["Property", "Unit", "Unit Type", "Sq Ft", "Tenant", "Status", "Market Rent", "Rent", "Deposit", "Lease From", "Lease To", "Move-in", "Move-out", "Past Due", "Balance"],
+      "rows": [
+        ["Maple Court", "101", "1x1", "720", "Jordan Ellis", "Current", "1450", "1395", "1395", "2023-08-01", "2024-07-31", "2023-08-01", "", "0", "0"],
+        ["Maple Court", "102", "2x2", "1040", "", "Vacant-Unrented", "1850", "0", "0", "", "", "", "", "0", "0"],
+        ["Maple Court", "103", "2x1", "960", "Priya Raman", "Notice-Unrented", "1700", "1650", "1650", "2023-03-01", "2024-02-29", "2023-03-01", "2024-02-29", "1650", "1650"],
+        ["Elm Towers", "1204", "Studio", "540", "Marcus Hill", "Current", "1250", "1225", "1225", "2023-11-15", "2024-11-14", "2023-11-15", "", "150", "150"],
+        ["Elm Towers", "1205", "1x1", "690", "Hannah Brooks", "Current", "1400", "1380", "1380", "2024-01-01", "2024-12-31", "2024-01-01", "", "0", "0"],
+        ["Cedar Point", "8B", "3x2", "1310", "Luis Ortega", "Eviction", "2150", "2100", "2100", "2022-06-01", "2023-05-31", "2022-06-01", "", "4200", "4200"]
+      ]
+    },
+    {
+      "id": "hotel-pms-reservations",
+      "source": "Hotel PMS: reservations report",
+      "expect": "hospitality",
+      "confirm": false,
+      "unique": ["Reservation No"],
+      "headers": ["Reservation No", "Guest Name", "Booking Date", "Arrival Date", "Departure Date", "Nights", "Room Type", "Rate Plan", "Adults", "Children", "Source", "Market Segment", "Status", "Room Revenue", "Total Amount", "Paid Amount", "Balance Due", "Country"],
+      "rows": [
+        ["RSV2400101", "Amit Verma", "2024-05-02", "2024-06-14", "2024-06-17", "3", "Deluxe King", "Bed and Breakfast", "2", "0", "Booking.com", "Leisure", "Checked Out", "18600", "21948", "21948", "0", "India"],
+        ["RSV2400102", "Emma Wilson", "2024-05-03", "2024-05-20", "2024-05-22", "2", "Superior Twin", "Room Only", "2", "1", "Expedia", "Leisure", "Cancelled", "0", "0", "0", "0", "United Kingdom"],
+        ["RSV2400103", "Rohan Shah", "2024-05-05", "2024-05-06", "2024-05-07", "1", "Executive Suite", "Corporate Rate", "1", "0", "Direct", "Corporate", "No Show", "9500", "11210", "5000", "6210", "India"],
+        ["RSV2400104", "Hans Müller", "2024-05-08", "2024-06-01", "2024-06-06", "5", "Deluxe King", "Bed and Breakfast", "2", "0", "MakeMyTrip", "Leisure", "Confirmed", "31000", "36580", "10000", "26580", "Germany"],
+        ["RSV2400105", "Ayesha Siddiqui", "2024-05-10", "2024-05-15", "2024-05-18", "3", "Club Room", "Half Board", "2", "2", "Website", "Leisure", "Checked In", "27600", "32568", "32568", "0", "India"],
+        ["RSV2400106", "Takeshi Sato", "2024-05-12", "2024-05-25", "2024-05-27", "2", "Superior Twin", "Non Refundable", "1", "0", "Agoda", "Leisure", "Checked Out", "10800", "12744", "12744", "0", "Japan"]
+      ]
+    },
+    {
+      "id": "hotel-booking-demand",
+      "source": "Hotel booking demand dataset (Kaggle)",
+      "expect": "hospitality",
+      "confirm": false,
+      "headers": ["hotel", "is_canceled", "lead_time", "arrival_date_year", "arrival_date_month", "arrival_date_week_number", "arrival_date_day_of_month", "stays_in_weekend_nights", "stays_in_week_nights", "adults", "children", "babies", "meal", "country", "market_segment", "distribution_channel", "is_repeated_guest", "previous_cancellations", "reserved_room_type", "assigned_room_type", "booking_changes", "deposit_type", "customer_type", "adr", "required_car_parking_spaces", "total_of_special_requests", "reservation_status", "reservation_status_date"],
+      "rows": [
+        ["Resort Hotel", "0", "342", "2015", "July", "27", "1", "0", "0", "2", "0", "0", "BB", "PRT", "Direct", "Direct", "0", "0", "C", "C", "3", "No Deposit", "Transient", "0", "0", "0", "Check-Out", "2015-07-01"],
+        ["Resort Hotel", "0", "7", "2015", "July", "27", "1", "0", "1", "1", "0", "0", "BB", "GBR", "Direct", "Direct", "0", "0", "A", "C", "0", "No Deposit", "Transient", "75", "0", "0", "Check-Out", "2015-07-02"],
+        ["City Hotel", "1", "88", "2015", "July", "27", "1", "0", "4", "2", "0", "0", "BB", "PRT", "Online TA", "TA/TO", "0", "0", "A", "A", "0", "No Deposit", "Transient", "76.5", "0", "1", "Canceled", "2015-07-01"],
+        ["City Hotel", "1", "65", "2016", "August", "32", "3", "0", "4", "1", "0", "0", "BB", "PRT", "Online TA", "TA/TO", "0", "0", "A", "A", "0", "No Deposit", "Transient", "68", "0", "1", "Canceled", "2016-04-30"],
+        ["Resort Hotel", "0", "14", "2016", "August", "33", "10", "0", "2", "2", "0", "0", "HB", "ESP", "Online TA", "TA/TO", "0", "0", "A", "A", "0", "No Deposit", "Transient", "98", "0", "1", "Check-Out", "2016-08-12"],
+        ["City Hotel", "1", "1", "2017", "May", "20", "14", "0", "1", "1", "0", "0", "SC", "PRT", "Corporate", "Corporate", "1", "1", "A", "A", "0", "Non Refund", "Transient-Party", "99", "0", "0", "No-Show", "2017-05-14"]
+      ]
+    },
+    {
+      "id": "night-audit-occupancy",
+      "source": "Hotel night audit: daily occupancy and revenue",
+      "expect": "hospitality",
+      "confirm": false,
+      "headers": ["Business Date", "Hotel", "Total Rooms", "Out of Order", "Rooms Available", "Rooms Sold", "Occupancy %", "ADR", "RevPAR", "Room Revenue", "F&B Revenue", "Total Revenue"],
+      "rows": [
+        ["2024-06-01", "Taj Lands End", "493", "4", "489", "402", "82.2%", "14250", "11714", "5728500", "2140000", "8125000"],
+        ["2024-06-02", "Taj Lands End", "493", "4", "489", "388", "79.3%", "13980", "11094", "5424240", "1985000", "7710000"],
+        ["2024-06-03", "Taj Lands End", "493", "2", "491", "351", "71.5%", "12800", "9150", "4492800", "1640000", "6380000"],
+        ["2024-06-04", "Taj Lands End", "493", "2", "491", "365", "74.3%", "12950", "9627", "4726750", "1702000", "6690000"],
+        ["2024-06-05", "Taj Lands End", "493", "0", "493", "421", "85.4%", "14600", "12468", "6146600", "2290000", "8740000"],
+        ["2024-06-06", "Taj Lands End", "493", "0", "493", "448", "90.9%", "15200", "13813", "6809600", "2480000", "9620000"]
+      ]
+    },
+    {
+      "id": "telco-customer-churn",
+      "source": "IBM Telco customer churn dataset (Kaggle)",
+      "expect": "telecom",
+      "confirm": false,
+      "unique": ["customerID"],
+      "headers": ["customerID", "gender", "SeniorCitizen", "Partner", "Dependents", "tenure", "PhoneService", "MultipleLines", "InternetService", "OnlineSecurity", "OnlineBackup", "DeviceProtection", "TechSupport", "StreamingTV", "StreamingMovies", "Contract", "PaperlessBilling", "PaymentMethod", "MonthlyCharges", "TotalCharges", "Churn"],
+      "rows": [
+        ["7590-VHVEG", "Female", "0", "Yes", "No", "1", "No", "No phone service", "DSL", "No", "Yes", "No", "No", "No", "No", "Month-to-month", "Yes", "Electronic check", "29.85", "29.85", "No"],
+        ["5575-GNVDE", "Male", "0", "No", "No", "34", "Yes", "No", "DSL", "Yes", "No", "Yes", "No", "No", "No", "One year", "No", "Mailed check", "56.95", "1889.5", "No"],
+        ["3668-QPYBK", "Male", "0", "No", "No", "2", "Yes", "No", "DSL", "Yes", "Yes", "No", "No", "No", "No", "Month-to-month", "Yes", "Mailed check", "53.85", "108.15", "Yes"],
+        ["7795-CFOCW", "Male", "0", "No", "No", "45", "No", "No phone service", "DSL", "Yes", "No", "Yes", "Yes", "No", "No", "One year", "No", "Bank transfer (automatic)", "42.3", "1840.75", "No"],
+        ["9237-HQITU", "Female", "0", "No", "No", "2", "Yes", "No", "Fiber optic", "No", "No", "No", "No", "No", "No", "Month-to-month", "Yes", "Electronic check", "70.7", "151.65", "Yes"],
+        ["9305-CDSKC", "Female", "1", "No", "No", "8", "Yes", "Yes", "Fiber optic", "No", "No", "Yes", "No", "Yes", "Yes", "Month-to-month", "Yes", "Electronic check", "99.65", "820.5", "Yes"]
+      ]
+    },
+    {
+      "id": "prepaid-subscriber-usage",
+      "source": "Mobile operator: monthly subscriber usage and recharge extract (India)",
+      "expect": "telecom",
+      "confirm": false,
+      "ids": ["MSISDN"],
+      "headers": ["MSISDN", "Month", "Circle", "Plan Type", "Pack Name", "Recharge Amount", "Recharge Count", "ARPU", "Data Usage (GB)", "Voice MOU", "SMS Count", "Handset", "Network Type", "Tenure (Months)", "Churn Flag"],
+      "rows": [
+        ["919812340001", "2024-01-01", "Mumbai", "Prepaid", "Unlimited 299", "299", "1", "299", "48.2", "1240", "12", "Samsung", "4G", "38", "0"],
+        ["919812340002", "2024-01-01", "UP East", "Prepaid", "Unlimited 239", "478", "2", "239", "22.5", "860", "4", "Xiaomi", "4G", "14", "0"],
+        ["919812340003", "2024-01-01", "Karnataka", "Postpaid", "Family 999", "0", "0", "1180", "95.4", "2100", "30", "Apple", "5G", "72", "0"],
+        ["919812340004", "2024-02-01", "Delhi", "Prepaid", "Data 19", "19", "1", "19", "1.0", "35", "0", "Vivo", "4G", "3", "1"],
+        ["919812340005", "2024-02-01", "Kolkata", "Prepaid", "Unlimited 719", "719", "1", "240", "35.8", "1530", "8", "Oppo", "4G", "25", "0"],
+        ["919812340006", "2024-02-01", "Kerala", "Postpaid", "Plan 399", "0", "0", "472", "18.1", "640", "15", "Samsung", "5G", "51", "0"]
+      ]
+    },
+    {
+      "id": "network-site-kpis",
+      "source": "RAN performance management: daily cell KPIs",
+      "expect": "telecom",
+      "confirm": false,
+      "ids": ["Site ID", "Cell Name"],
+      "headers": ["Date", "Site ID", "Cell Name", "Circle", "Technology", "Call Attempts", "Dropped Calls", "Call Drop Rate %", "Data Traffic (GB)", "Availability %", "Avg Throughput (Mbps)", "PRB Utilisation %"],
+      "rows": [
+        ["2024-03-01", "MUM-BTS-0412", "MUM0412_A", "Mumbai", "4G", "18420", "96", "0.52", "812.4", "99.95", "24.8", "61.2"],
+        ["2024-03-01", "MUM-BTS-0412", "MUM0412_B", "Mumbai", "4G", "15210", "121", "0.80", "702.1", "99.80", "21.3", "72.5"],
+        ["2024-03-01", "DEL-BTS-1188", "DEL1188_A", "Delhi", "5G", "22150", "64", "0.29", "1904.6", "99.99", "118.2", "48.9"],
+        ["2024-03-02", "KOL-BTS-0077", "KOL0077_C", "Kolkata", "4G", "9870", "148", "1.50", "356.0", "98.20", "12.4", "88.1"],
+        ["2024-03-02", "MUM-BTS-0412", "MUM0412_A", "Mumbai", "4G", "18990", "88", "0.46", "845.9", "100.00", "25.1", "63.4"],
+        ["2024-03-02", "DEL-BTS-1188", "DEL1188_A", "Delhi", "5G", "23040", "71", "0.31", "1988.2", "99.97", "121.7", "50.3"]
+      ]
+    },
+    {
+      "id": "policy-register",
+      "source": "General insurer: policy register (bordereau)",
+      "expect": "insurance",
+      "confirm": false,
+      "unique": ["Policy Number"],
+      "headers": ["Policy Number", "Proposer Name", "Product", "Plan", "Policy Start Date", "Policy End Date", "Sum Insured", "Gross Premium", "GST", "Net Premium", "Channel", "Agent Code", "Policy Status", "Renewal Status", "State"],
+      "rows": [
+        ["P/2024/HL/000101", "Ramesh Iyer", "Health", "Family Floater Gold", "2024-01-01", "2024-12-31", "1000000", "28450", "5121", "23329", "Agency", "AG10021", "Active", "New", "Tamil Nadu"],
+        ["P/2024/MT/000102", "Neha Arora", "Motor", "Private Car Comprehensive", "2024-01-03", "2025-01-02", "650000", "14200", "2556", "11644", "Broker", "BR20077", "Active", "Renewed", "Delhi"],
+        ["P/2024/HL/000103", "Joseph Thomas", "Health", "Individual Silver", "2024-01-05", "2025-01-04", "500000", "12600", "2268", "10332", "Bancassurance", "BA30012", "Cancelled", "New", "Kerala"],
+        ["P/2024/TR/000104", "Farhan Ali", "Travel", "Overseas Single Trip", "2024-01-07", "2024-01-21", "5000000", "3400", "612", "2788", "Online", "WEB", "Expired", "New", "Maharashtra"],
+        ["P/2024/HM/000105", "Lakshmi Rao", "Home", "Home Shield", "2024-01-10", "2025-01-09", "4500000", "5600", "1008", "4592", "Agency", "AG10045", "Active", "Renewed", "Karnataka"],
+        ["P/2024/MT/000106", "Gaurav Jain", "Motor", "Two Wheeler TP", "2024-01-12", "2025-01-11", "80000", "1950", "351", "1599", "Online", "WEB", "Lapsed", "Not Renewed", "Rajasthan"]
+      ]
+    },
+    {
+      "id": "motor-claims-register",
+      "source": "Motor insurer: claims register",
+      "expect": "insurance",
+      "confirm": false,
+      "unique": ["Claim Number"],
+      "ids": ["Policy Number"],
+      "headers": ["Claim Number", "Policy Number", "Insured Name", "Date of Loss", "Claim Intimation Date", "Settlement Date", "Claim Type", "Cause of Loss", "Vehicle Make", "Claim Amount", "Surveyor Assessment", "Settled Amount", "Claim Status", "Fraud Suspected", "Garage"],
+      "rows": [
+        ["CLM/24/000501", "P/2023/MT/004512", "Neha Arora", "2024-02-11", "2024-02-12", "2024-03-05", "Own Damage", "Collision", "Maruti Suzuki", "85000", "72000", "68500", "Settled", "No", "Shree Motors"],
+        ["CLM/24/000502", "P/2023/MT/004678", "Vikas Gupta", "2024-02-14", "2024-02-20", "", "Theft", "Theft", "Hyundai", "650000", "", "", "Under Investigation", "Yes", ""],
+        ["CLM/24/000503", "P/2023/MT/004701", "Anu Mathew", "2024-02-18", "2024-02-18", "2024-03-01", "Own Damage", "Flood", "Honda", "120000", "98000", "95000", "Settled", "No", "Kerala Auto Care"],
+        ["CLM/24/000504", "P/2023/MT/004733", "Rohit Sen", "2024-02-22", "2024-02-23", "2024-03-10", "Third Party", "Collision", "Tata Motors", "300000", "", "0", "Repudiated", "No", ""],
+        ["CLM/24/000505", "P/2023/MT/004790", "Pankaj Mishra", "2024-02-25", "2024-02-26", "", "Own Damage", "Fire", "Mahindra", "210000", "185000", "", "Open", "No", "Mahindra First Choice"],
+        ["CLM/24/000506", "P/2023/MT/004802", "Sneha Kulkarni", "2024-03-01", "2024-03-02", "2024-03-18", "Own Damage", "Collision", "Kia", "64000", "58000", "55000", "Settled", "No", "Shree Motors"]
+      ]
+    },
+    {
+      "id": "auto-insurance-fraud",
+      "source": "Auto insurance claims fraud dataset (Kaggle)",
+      "expect": "insurance",
+      "confirm": false,
+      "unique": ["policy_number"],
+      "headers": ["months_as_customer", "age", "policy_number", "policy_bind_date", "policy_state", "policy_csl", "policy_deductable", "policy_annual_premium", "umbrella_limit", "insured_zip", "insured_sex", "insured_education_level", "insured_occupation", "incident_date", "incident_type", "collision_type", "incident_severity", "authorities_contacted", "incident_state", "incident_city", "incident_hour_of_the_day", "number_of_vehicles_involved", "bodily_injuries", "witnesses", "police_report_available", "total_claim_amount", "injury_claim", "property_claim", "vehicle_claim", "auto_make", "auto_year", "fraud_reported"],
+      "rows": [
+        ["328", "48", "521585", "2014-10-17", "OH", "250/500", "1000", "1406.91", "0", "466132", "MALE", "MD", "craft-repair", "2015-01-25", "Single Vehicle Collision", "Side Collision", "Major Damage", "Police", "SC", "Columbus", "5", "1", "1", "2", "YES", "71610", "6510", "13020", "52080", "Saab", "2004", "Y"],
+        ["228", "42", "342868", "2006-06-27", "IN", "250/500", "2000", "1197.22", "5000000", "468176", "MALE", "MD", "machine-op-inspct", "2015-01-21", "Vehicle Theft", "?", "Minor Damage", "Police", "VA", "Riverwood", "8", "1", "0", "0", "?", "5070", "780", "780", "3510", "Mercedes", "2007", "Y"],
+        ["134", "29", "687698", "2000-09-06", "OH", "100/300", "2000", "1413.14", "5000000", "430632", "FEMALE", "PhD", "sales", "2015-02-22", "Multi-vehicle Collision", "Rear Collision", "Minor Damage", "Police", "NY", "Columbus", "7", "3", "2", "3", "NO", "34650", "7700", "3850", "23100", "Dodge", "2007", "N"],
+        ["256", "41", "227811", "1990-05-25", "IL", "250/500", "2000", "1415.74", "6000000", "608117", "FEMALE", "PhD", "armed-forces", "2015-01-10", "Single Vehicle Collision", "Front Collision", "Major Damage", "Police", "OH", "Arlington", "5", "1", "1", "2", "NO", "63400", "6340", "6340", "50720", "Chevrolet", "2014", "Y"],
+        ["228", "44", "367455", "2014-06-06", "IL", "500/1000", "1000", "1583.91", "6000000", "610706", "MALE", "Associate", "sales", "2015-02-17", "Vehicle Theft", "?", "Minor Damage", "None", "NY", "Arlington", "20", "1", "0", "1", "NO", "6500", "1300", "650", "4550", "Accura", "2009", "N"],
+        ["256", "39", "104594", "2006-10-12", "OH", "250/500", "1000", "1351.1", "0", "478456", "FEMALE", "PhD", "tech-support", "2015-01-02", "Multi-vehicle Collision", "Rear Collision", "Major Damage", "Fire", "SC", "Arlington", "19", "3", "0", "2", "NO", "64100", "6410", "6410", "51280", "Saab", "2003", "N"]
+      ]
+    },
+    {
+      "id": "zendesk-tickets",
+      "source": "Zendesk Support: tickets export",
+      "expect": "support",
+      "confirm": false,
+      "unique": ["Id", "Requester id"],
+      "headers": ["Id", "Requester", "Requester id", "Assignee", "Group", "Subject", "Status", "Priority", "Ticket type", "Via", "Created at", "Updated at", "Solved at", "Satisfaction Score", "Tags", "First reply time in minutes", "Full resolution time in minutes", "Requester wait time in minutes", "Agent wait time in minutes", "Reopens", "Replies", "Organization"],
+      "rows": [
+        ["10421", "Ravi Kumar", "381245901", "Asha", "Tier 1", "Unable to reset password", "Solved", "Normal", "Incident", "Email", "2024-03-02 10:14:22", "2024-03-02 16:40:10", "2024-03-02 16:40:10", "Good", "login password", "42", "386", "386", "0", "0", "2", "Acme Retail"],
+        ["10422", "Meena Pillai", "381245902", "Ben", "Billing", "Charged twice for March", "Closed", "High", "Problem", "Web Form", "2024-03-02 11:05:47", "2024-03-05 09:12:00", "2024-03-04 18:20:31", "Bad", "billing refund", "195", "3315", "2900", "415", "1", "5", "Globex"],
+        ["10423", "Tom Becker", "381245903", "", "Tier 1", "How do I export to CSV?", "Open", "Low", "Question", "Chat", "2024-03-03 08:30:12", "2024-03-03 08:31:00", "", "Offered", "export", "1", "", "", "", "0", "1", "Initech"],
+        ["10424", "Lina Haddad", "381245904", "Chen", "Tier 2", "API returns 500 on bulk upload", "Pending", "Urgent", "Incident", "API", "2024-03-03 14:02:55", "2024-03-04 10:00:00", "", "Unoffered", "api bug", "18", "", "", "", "0", "3", "Acme Retail"],
+        ["10425", "Sanjay Rao", "381245905", "Dina", "Tier 1", "Change billing email", "Solved", "Low", "Task", "Email", "2024-03-04 09:45:00", "2024-03-04 10:10:00", "2024-03-04 10:10:00", "Good", "billing", "25", "25", "25", "0", "0", "1", "Umbrella Health"],
+        ["10426", "Grace Kim", "381245906", "Ben", "Billing", "Invoice missing GST number", "Solved", "Normal", "Question", "Phone", "2024-03-05 13:20:40", "2024-03-06 11:00:00", "2024-03-06 11:00:00", "Good", "billing invoice", "64", "1299", "1299", "0", "0", "2", "Globex"]
+      ]
+    },
+    {
+      "id": "freshdesk-tickets",
+      "source": "Freshdesk: tickets export (D2C brand helpdesk)",
+      "expect": "support",
+      "confirm": false,
+      "unique": ["Ticket ID", "Contact ID"],
+      "headers": ["Ticket ID", "Subject", "Status", "Priority", "Source", "Type", "Agent", "Group", "Created time", "Due by Time", "Resolved time", "Closed time", "Last update time", "Initial response time", "First response time (in hrs)", "Resolution time (in hrs)", "Resolution status", "First response status", "Agent interactions", "Customer interactions", "Tags", "Survey results", "Product", "Contact ID"],
+      "rows": [
+        ["5001", "Order not delivered", "Resolved", "Medium", "Email", "Delivery Issue", "Ravi", "Support", "2024-04-01 09:12:00", "2024-04-02 09:12:00", "2024-04-01 15:40:00", "2024-04-03 15:40:00", "2024-04-03 15:40:00", "2024-04-01 09:50:00", "0.63", "6.47", "Within SLA", "Within SLA", "3", "2", "delivery", "Extremely satisfied", "Mobile App", "CON-88101"],
+        ["5002", "Refund still pending", "Closed", "High", "Portal", "Refund", "Meera", "Billing", "2024-04-01 10:30:00", "2024-04-01 18:30:00", "2024-04-03 11:00:00", "2024-04-05 11:00:00", "2024-04-05 11:00:00", "2024-04-01 14:00:00", "3.5", "48.5", "SLA Violated", "Within SLA", "6", "5", "refund", "Not satisfied", "Website", "CON-88102"],
+        ["5003", "Cannot apply coupon", "Open", "Low", "Chat", "Question", "John", "Support", "2024-04-02 12:00:00", "2024-04-03 12:00:00", "", "", "2024-04-02 12:05:00", "2024-04-02 12:05:00", "0.08", "", "", "Within SLA", "1", "1", "coupon", "", "Website", "CON-88103"],
+        ["5004", "App crashes on checkout", "Pending", "Urgent", "Phone", "Incident", "Ravi", "Tech", "2024-04-02 16:45:00", "2024-04-02 20:45:00", "", "", "2024-04-03 09:00:00", "2024-04-02 18:10:00", "1.42", "", "", "SLA Violated", "4", "3", "bug app", "", "Mobile App", "CON-88104"],
+        ["5005", "Wrong size delivered", "Resolved", "Medium", "Email", "Return", "Meera", "Support", "2024-04-03 08:20:00", "2024-04-04 08:20:00", "2024-04-03 17:00:00", "2024-04-05 17:00:00", "2024-04-05 17:00:00", "2024-04-03 09:00:00", "0.67", "8.67", "Within SLA", "Within SLA", "2", "2", "return size", "Satisfied", "Website", "CON-88105"],
+        ["5006", "Update phone number", "Closed", "Low", "Portal", "Account", "John", "Support", "2024-04-04 11:11:00", "2024-04-05 11:11:00", "2024-04-04 11:40:00", "2024-04-06 11:40:00", "2024-04-06 11:40:00", "2024-04-04 11:20:00", "0.15", "0.48", "Within SLA", "Within SLA", "1", "1", "account", "Satisfied", "Website", "CON-88106"]
+      ]
+    },
+    {
+      "id": "customer-support-tickets",
+      "source": "Customer support ticket dataset (Kaggle)",
+      "expect": "support",
+      "confirm": false,
+      "unique": ["Ticket ID", "Customer Email"],
+      "headers": ["Ticket ID", "Customer Name", "Customer Email", "Customer Age", "Customer Gender", "Product Purchased", "Date of Purchase", "Ticket Type", "Ticket Subject", "Ticket Description", "Ticket Status", "Resolution", "Ticket Priority", "Ticket Channel", "First Response Time", "Time to Resolution", "Customer Satisfaction Rating"],
+      "rows": [
+        ["1", "Marisa Obrien", "carrollallison@example.com", "32", "Other", "GoPro Hero", "2021-03-22", "Technical issue", "Product setup", "I'm having an issue with the GoPro Hero. Please assist.", "Pending Customer Response", "", "Critical", "Social media", "2023-06-01 12:15:36", "", ""],
+        ["2", "Jessica Rios", "clarkeashley@example.com", "42", "Female", "LG Smart TV", "2021-05-22", "Technical issue", "Peripheral compatibility", "My LG Smart TV keeps disconnecting from Wi-Fi.", "Pending Customer Response", "", "Critical", "Chat", "2023-06-01 16:45:38", "", ""],
+        ["3", "Christopher Robbins", "gonzalestracy@example.com", "48", "Other", "Dell XPS", "2020-07-14", "Technical issue", "Network problem", "The Dell XPS cannot find any wireless networks.", "Closed", "Case maybe show recently my computer follow.", "Low", "Social media", "2023-06-01 11:14:38", "2023-06-01 18:05:38", "3"],
+        ["4", "Christina Dillon", "bradleyolson@example.org", "27", "Female", "Microsoft Office", "2020-11-13", "Billing inquiry", "Account access", "I was charged twice for my Microsoft Office subscription.", "Closed", "Try capital clearly never color toward story.", "Low", "Social media", "2023-06-01 07:29:40", "2023-06-01 21:57:40", "3"],
+        ["5", "Alexander Carroll", "bradleymark@example.com", "67", "Female", "Autodesk AutoCAD", "2020-02-04", "Billing inquiry", "Data loss", "My AutoCAD project files disappeared after the update.", "Closed", "West decision evidence bit.", "Low", "Email", "2023-06-01 00:12:42", "2023-06-01 19:53:42", "1"],
+        ["6", "Rebecca Fleming", "sheenasmith@example.com", "53", "Male", "Microsoft Office", "2020-07-28", "Cancellation request", "Payment issue", "Please cancel my subscription and refund the last payment.", "Open", "", "Low", "Social media", "", "", ""]
+      ]
+    },
+    {
+      "id": "weather-daily",
+      "source": "Daily weather observations (Kaggle weatherAUS)",
+      "expect": null,
+      "confirm": true,
+      "headers": ["Date", "Location", "MinTemp", "MaxTemp", "Rainfall", "Evaporation", "Sunshine", "WindGustDir", "WindGustSpeed", "Humidity9am", "Humidity3pm", "Pressure9am", "Pressure3pm", "Cloud9am", "Cloud3pm", "Temp9am", "Temp3pm", "RainToday", "RainTomorrow"],
+      "rows": [
+        ["2008-12-01", "Albury", "13.4", "22.9", "0.6", "", "", "W", "44", "71", "22", "1007.7", "1007.1", "8", "", "16.9", "21.8", "No", "No"],
+        ["2008-12-02", "Albury", "7.4", "25.1", "0", "", "", "WNW", "44", "44", "25", "1010.6", "1007.8", "", "", "17.2", "24.3", "No", "No"],
+        ["2008-12-03", "Albury", "12.9", "25.7", "0", "", "", "WSW", "46", "38", "30", "1007.6", "1008.7", "", "2", "21", "23.2", "No", "No"],
+        ["2008-12-04", "Albury", "9.2", "28", "0", "", "", "NE", "24", "45", "16", "1017.6", "1012.8", "", "", "18.1", "26.5", "No", "No"],
+        ["2008-12-05", "Albury", "17.5", "32.3", "1", "", "", "W", "41", "82", "33", "1010.8", "1006", "7", "8", "17.8", "29.7", "No", "No"],
+        ["2008-12-06", "Albury", "14.6", "29.7", "0.2", "", "", "WNW", "56", "55", "23", "1009.2", "1005.4", "", "", "20.6", "28.9", "No", "No"]
+      ]
+    },
+    {
+      "id": "customer-survey",
+      "source": "Google Forms customer feedback survey responses",
+      "expect": null,
+      "confirm": true,
+      "headers": ["Timestamp", "Age group", "City", "How did you hear about us?", "How satisfied are you with our service?", "How likely are you to recommend us? (0-10)", "What should we improve?", "Would you buy again?"],
+      "rows": [
+        ["5/2/2024 10:14:22", "25-34", "Pune", "Instagram", "4", "9", "Faster delivery", "Yes"],
+        ["5/2/2024 11:40:05", "35-44", "Mumbai", "Friend or family", "5", "10", "Nothing, keep it up", "Yes"],
+        ["5/3/2024 09:02:51", "18-24", "Delhi", "Google search", "3", "6", "More size options", "Maybe"],
+        ["5/4/2024 19:25:10", "45-54", "Bengaluru", "Facebook", "2", "3", "Customer support response time", "No"],
+        ["5/5/2024 08:13:44", "25-34", "Chennai", "Instagram", "4", "8", "Packaging", "Yes"],
+        ["5/14/2024 21:47:30", "35-44", "Hyderabad", "Newspaper", "5", "9", "", "Yes"]
+      ]
+    },
+    {
+      "id": "ml-training-table",
+      "source": "Generic machine-learning training table (anonymised features and a label)",
+      "expect": null,
+      "confirm": true,
+      "unique": ["id"],
+      "headers": ["id", "feature_1", "feature_2", "feature_3", "feature_4", "feature_5", "feature_6", "feature_7", "feature_8", "cat_a", "cat_b", "target"],
+      "rows": [
+        ["1", "0.482", "-1.203", "3.11", "0.0", "12", "0.77", "-0.35", "5.6", "A", "x", "1"],
+        ["2", "1.305", "0.448", "2.08", "1.0", "7", "0.12", "0.91", "4.2", "B", "y", "0"],
+        ["3", "-0.271", "-0.995", "4.75", "0.0", "15", "0.64", "-1.22", "6.1", "A", "z", "0"],
+        ["4", "0.886", "1.572", "1.96", "1.0", "3", "0.05", "0.33", "3.8", "C", "x", "1"],
+        ["5", "-1.144", "0.231", "3.47", "0.0", "9", "0.48", "-0.08", "5.0", "B", "y", "0"],
+        ["6", "0.059", "-0.612", "2.69", "1.0", "11", "0.93", "1.47", "4.9", "A", "x", "1"]
+      ]
+    },
+    {
+      "id": "titanic-passengers",
+      "source": "Titanic passenger list (Kaggle ML starter dataset)",
+      "expect": null,
+      "confirm": true,
+      "unique": ["PassengerId"],
+      "headers": ["PassengerId", "Survived", "Pclass", "Name", "Sex", "Age", "SibSp", "Parch", "Ticket", "Fare", "Cabin", "Embarked"],
+      "rows": [
+        ["1", "0", "3", "Braund, Mr. Owen Harris", "male", "22", "1", "0", "A/5 21171", "7.25", "", "S"],
+        ["2", "1", "1", "Cumings, Mrs. John Bradley (Florence Briggs Thayer)", "female", "38", "1", "0", "PC 17599", "71.2833", "C85", "C"],
+        ["3", "1", "3", "Heikkinen, Miss. Laina", "female", "26", "0", "0", "STON/O2. 3101282", "7.925", "", "S"],
+        ["4", "1", "1", "Futrelle, Mrs. Jacques Heath (Lily May Peel)", "female", "35", "1", "0", "113803", "53.1", "C123", "S"],
+        ["5", "0", "3", "Allen, Mr. William Henry", "male", "35", "0", "0", "373450", "8.05", "", "S"],
+        ["6", "0", "3", "Moran, Mr. James", "male", "", "0", "0", "330877", "8.4583", "", "Q"]
+      ]
+    },
+    {
+      "id": "stock-prices-daily",
+      "source": "Daily OHLC stock prices (Yahoo Finance download)",
+      "expect": null,
+      "confirm": true,
+      "headers": ["Date", "Open", "High", "Low", "Close", "Adj Close", "Volume"],
+      "rows": [
+        ["2024-01-02", "2475.05", "2497.80", "2461.10", "2490.35", "2471.62", "5482110"],
+        ["2024-01-03", "2491.00", "2505.45", "2470.20", "2478.90", "2460.26", "4921034"],
+        ["2024-01-04", "2480.15", "2528.00", "2479.55", "2521.70", "2502.74", "6830412"],
+        ["2024-01-05", "2522.00", "2540.95", "2510.30", "2533.15", "2514.11", "5128890"],
+        ["2024-01-08", "2530.40", "2532.85", "2488.00", "2495.60", "2476.84", "4602218"],
+        ["2024-01-09", "2498.10", "2519.75", "2490.05", "2512.45", "2493.56", "4377006"]
+      ]
+    }
+  ]
+}

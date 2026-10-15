@@ -1,0 +1,1392 @@
+/**
+ * Version log: the single source of truth for "what changed, step by step".
+ *
+ * Rendered at /changelog (src/app/changelog/page.tsx), shown as the current
+ * version in the site footer and settings, and mirrored to CHANGELOG.md by
+ * `npm run changelog` (scripts/write-changelog.mts).
+ *
+ * Convention (requested by the project owner; enforced by tests/changelog.test.ts):
+ *  - Every step of work gets an entry, newest first.
+ *  - MAJOR (x.0): a new capability, subsystem or page.
+ *  - MINOR (x.y): a refinement, fix or follow-up made after that major. Minors
+ *    count up from 1 without gaps; a new major resets them.
+ *  - `date` is the UTC time the step was completed. Dates never go backwards.
+ *  - `summary` and `changes` are written for a non-specialist reader; `files`
+ *    is the developer trail (paths relative to the repo root).
+ *
+ * Keep this file free of imports and non-erasable TypeScript syntax: the
+ * CHANGELOG.md script loads it directly with Node's built-in type stripping.
+ */
+
+export type ReleaseKind = "major" | "minor";
+
+export type ReleaseTag =
+  "Feature" | "Fix" | "Performance" | "Security" | "Design" | "Tests" | "Docs" | "Data";
+
+export interface Release {
+  /** "MAJOR.MINOR", e.g. "12.1". */
+  version: string;
+  kind: ReleaseKind;
+  /** ISO-8601 UTC timestamp of when the step was completed. */
+  date: string;
+  title: string;
+  /** One or two plain-language sentences: what changed and why it matters. */
+  summary: string;
+  /** Plain-language list of the individual changes. */
+  changes: string[];
+  tags: ReleaseTag[];
+  /** Main files created or changed (developer detail). */
+  files?: string[];
+}
+
+export const RELEASES: Release[] = [
+  {
+    version: "25.0",
+    kind: "major",
+    date: "2026-10-15T17:27:03Z",
+    title: "Ask for a chart",
+    summary:
+      'Say what you want to see and Loupe designs the chart: "average customer rating by city", "total sales and total profit by month", "revenue vs cost by sales rep". It reads your words against your own columns and KPIs, picks the right kind of chart, shows a live preview with the reason for its choices, and adds it to the dashboard only when you say so. You can also choose which charts to keep, hide or remove.',
+    changes: [
+      'New "Ask for a chart" button on the dashboard. Type a request, or click one of the examples built from your own columns.',
+      'It understands totals, averages, medians, highest/lowest and counts; "by", "per", "with" and "across"; time words (by month, weekly, by weekday, by hour of day); "top 5"; "split by"; "A vs B"; "region or city" (it uses the first one your file has); and a chart type ("as a pie", "line", "table").',
+      "Your words are matched to your columns and KPIs, including the template's vocabulary: \"sales\" finds your revenue column. Anything it can't find is quoted back to you, and nothing is made up.",
+      "Everything it understood stays editable: each measure and how it is combined, what it is shown by, a split, the chart type and top N, with a live preview using the dashboard's filters.",
+      'The charts follow the same rules as the rest of the dashboard: ratings, prices and percentages are averaged, never summed ("total discount" is the discount amount, not the rate); measures in different units are drawn as separate charts side by side, never on two axes; "A vs B" is a scatter; averages set aside groups of fewer than 5 rows; every choice is explained.',
+      '"Keep or remove charts" lists every chart with a switch to show or hide it, and Remove for charts you added.',
+      'Charts with several measures, or asked in words, open in Ask for a chart when you click "Change this chart". The side panel\'s chart builder now also reopens a column measure (such as "Average of Rating") correctly instead of showing an empty measure.',
+      "New tests: requests on the sales and HR demos are read correctly, charts are designed by the rules, every designed chart computes, totals agree whatever they are broken down by, and every chart reads back into the same picks.",
+    ],
+    tags: ["Feature", "Design", "Tests"],
+    files: [
+      "src/engine/charts/ask.ts",
+      "src/engine/charts/recommend.ts",
+      "src/workers/engine.worker.ts",
+      "src/ui/workspace/dashboard/AskChart.tsx",
+      "src/ui/workspace/dashboard/Inspector.tsx",
+      "src/ui/workspace/dashboard/DashboardStep.tsx",
+      "tests/ask.test.ts",
+      "README.md",
+    ],
+  },
+  {
+    version: "24.1",
+    kind: "minor",
+    date: "2026-10-15T17:09:06Z",
+    title: "Separate time columns",
+    summary:
+      'Files that keep the date and the time in separate columns are now read as they are. A time column such as "join_time" used to show as "1899-12-30 20:15" (Excel stores a time as a fraction of a day counted from 30 December 1899) and could be treated as a date. It is now a time of day: never merged with your date column, never used as the dashboard\'s date, and used for charts by hour of day.',
+    changes: [
+      'A column of times ("20:15", "8:30 PM", "20:15:30"), Excel time cells, and times written as "1899-12-30 20:15:00", "1899-12-31 …" or "1900-01-01 …" are read as times of day, with a new role, Time of day.',
+      "The data preview shows them as times (20:15:00), and Map columns lists them as Time of day.",
+      "A time column is never picked as the dashboard's date, never offered as a date filter, never mapped to a template's date field, and never flagged as an \"on or before 1 Jan 1900\" placeholder date.",
+      'Hour-of-day charts use your time column when the date column has no times (for example a weekday × hour heatmap reads the weekday from Order Date and the hour from Order Time). If the template has no hour chart, one is added under "From your other columns".',
+      "In the chart builder, choosing a time column groups by hour of day.",
+      "Exports keep it a time: HH:MM:SS in the cleaned CSV, TIME in the SQL file and the in-browser SQL check, and a time type in the Power BI model.",
+      "New tests cover text times, Excel time cells and 1899-12-30 values, the date and time staying separate, the hour chart adding up to its KPI, and the exports.",
+    ],
+    tags: ["Fix", "Data", "Tests"],
+    files: [
+      "src/engine/parse/dates.ts",
+      "src/engine/parse/builder.ts",
+      "src/engine/core/types.ts",
+      "src/engine/core/dates.ts",
+      "src/engine/profile/roles.ts",
+      "src/engine/profile/profile.ts",
+      "src/engine/profile/types.ts",
+      "src/engine/profile/quality.ts",
+      "src/engine/detect/match.ts",
+      "src/engine/detect/generic.ts",
+      "src/engine/charts/recommend.ts",
+      "src/engine/kpi/columnKpis.ts",
+      "src/engine/session.ts",
+      "src/engine/export/csv.ts",
+      "src/engine/export/sqlFile.ts",
+      "src/engine/export/tmdl.ts",
+      "src/engine/compile/sql.ts",
+      "src/ui/workspace/dashboard/Inspector.tsx",
+      "src/ui/workspace/VirtualGrid.tsx",
+      "src/ui/workspace/MapStep.tsx",
+      "tests/time-columns.test.ts",
+    ],
+  },
+  {
+    version: "24.0",
+    kind: "major",
+    date: "2026-10-15T16:53:13Z",
+    title: "Understand any column from its data",
+    summary:
+      'Loupe used to build the dashboard mainly from the columns its industry template expects by name, so columns with other names, or columns the template doesn\'t know (a rating, a fee, your own profit figure), fed nothing. Now every measure column in your file is analysed from its data and summarised the right way, with its own KPIs and charts in a new section, "From your other columns".',
+    changes: [
+      "Every number column that no KPI reads now gets a KPI computed straight from your data: amounts and quantities are totalled, balances are taken on the latest date, and prices, percentages, ratings and scores are averaged (never summed).",
+      'Each of them gets a trend over time and a breakdown by your most useful category (for example "Average Customer Rating by Region"), in a new dashboard section, "From your other columns". They never push the template\'s KPIs out of their places.',
+      'A column whose values form a rating scale (1–5, 0–10, half stars) is now recognised as a rating even when its name says nothing ("Q7", "Feedback"), so it is averaged instead of added up. The reason is shown, and you can change it.',
+      "When the template recognises a column but computes its KPI another way (for example gross profit as revenue minus cost), your own column still gets its plain total, and its definition says why.",
+      "Map columns › Your columns now shows what each column holds: its range, its most common values, how many values are distinct and how much is blank.",
+      "These KPIs go everywhere the others do: SQL and DAX, the Power BI package, the SQL check in your browser and the insights. Each one reads exactly one of your columns, and nothing is estimated.",
+      "New tests: on a sales file with a rating, an unnamed 1–5 score, a fee and a profit column, each is read correctly, summarised the right way, charted, and its SQL gives the same number in DuckDB as on screen.",
+    ],
+    tags: ["Feature", "Data", "Tests"],
+    files: [
+      "src/engine/kpi/columnKpis.ts",
+      "src/engine/kpi/resolve.ts",
+      "src/engine/session.ts",
+      "src/engine/profile/roles.ts",
+      "src/engine/profile/profile.ts",
+      "src/engine/profile/types.ts",
+      "src/engine/charts/types.ts",
+      "src/engine/charts/recommend.ts",
+      "src/engine/export/context.ts",
+      "src/engine/export/daxFile.ts",
+      "src/registry/schema.ts",
+      "src/store/workspace.ts",
+      "src/ui/workspace/dashboard/DashboardStep.tsx",
+      "src/ui/workspace/dashboard/KpiCards.tsx",
+      "src/ui/workspace/dashboard/KpiDetails.tsx",
+      "src/ui/workspace/MapStep.tsx",
+      "tests/column-kpis.test.ts",
+    ],
+  },
+  {
+    version: "23.0",
+    kind: "major",
+    date: "2026-10-15T16:36:27Z",
+    title: "Your columns only",
+    summary:
+      "The dashboard is built strictly from the columns in your file, and you can now see it: every column shows which KPIs, charts and filters use it. Loupe never adds a column on its own. The two places that could (unpivoting a wide sheet, and a few Power BI helpers) now show exactly which columns they would add and wait for your yes; if you say no, nothing is added.",
+    changes: [
+      'Map columns has a "Your columns" tab: every column of your file with what it feeds (for example "17 KPIs, 14 charts" or "Not used"); hover to see the names. The header says "23 of 28 columns used · none added".',
+      "The dashboard header says how many of your columns it uses and that no columns were added.",
+      'Unpivoting a wide sheet now asks first, listing the two columns it would add and the period columns it would replace. "Keep my columns" leaves your data exactly as it is.',
+      "The Power BI package and the DAX file ask before adding a column: a date-only copy of a date-time column (for Power BI's Date table) or an hour column for a chart. Saying no builds the package from your columns only: no Date table or time intelligence when that needed the copy, Power BI's own date hierarchy for month and day charts, and hour or weekday charts clearly marked as not built.",
+      "The Power BI Date table now includes Day of Month, so day-of-month charts no longer ask you to add a calculated column.",
+      'New setting "New columns": Ask first (default) or Never add. With Never add, Loupe skips anything that needs a new column without asking. There is no "always add".',
+      "New tests check, on every demo, that every KPI, chart, drill path and filter reads a column that is in the file, that computing the dashboard adds no column, and that the Power BI package built without new columns contains none.",
+    ],
+    tags: ["Feature", "Data", "Tests"],
+    files: [
+      "src/engine/charts/columnUsage.ts",
+      "src/engine/export/readme.ts",
+      "src/engine/export/context.ts",
+      "src/engine/export/daxFile.ts",
+      "src/engine/export/tmdl.ts",
+      "src/engine/parse/unpivot.ts",
+      "src/engine/session.ts",
+      "src/workers/engine.worker.ts",
+      "src/store/settings.ts",
+      "src/ui/workspace/NewColumnsDialog.tsx",
+      "src/ui/workspace/useColumnUsage.ts",
+      "src/ui/workspace/MapStep.tsx",
+      "src/ui/workspace/DetectStep.tsx",
+      "src/ui/workspace/ExportStep.tsx",
+      "src/ui/workspace/SettingsSheet.tsx",
+      "src/ui/workspace/dashboard/DashboardStep.tsx",
+      "tests/columns.test.ts",
+      "tests/export.test.ts",
+      "tests/import-regressions.test.ts",
+    ],
+  },
+  {
+    version: "22.0",
+    kind: "major",
+    date: "2026-10-15T16:19:46Z",
+    title: "Every number agrees everywhere",
+    summary:
+      "An audit cross-checked every number the dashboard shows against every other place the same quantity appears, on all six demos. It found places where cards, insights and charts gave different results for what looked like the same thing. One comparison rule now drives both the KPI cards and the insights, and a permanent test keeps them in agreement.",
+    changes: [
+      'All time: a card showed the all-time total with a change that was really last month vs the month before ("₹5.37Cr +34.2%"), while the insight said +46.9%. Cards now show the month the change describes ("September 2026: ₹37.9L, +46.9% vs September 2025"), and the insight uses the same comparison.',
+      "Comparing with a period the data only partly covers (12 months against 9) inflated changes: the card said +57% while the insight said +25%. Both now compare like for like, only the months both periods cover, and say so.",
+      "Data with one row per month (MRR snapshots, P&L months) had its latest month treated as unfinished, so comparisons skipped it and it was greyed out on charts. Loupe now recognises monthly, quarterly and yearly records.",
+      'When there is no earlier data, the card and the insight both compare the latest complete month, instead of the card saying "no comparison" while an insight showed one.',
+      "Employee lists and other rosters no longer get period insights, matching their cards.",
+      "Orders counted under several return reasons now come with a note explaining why the bars add up to more than the total.",
+      'Insight titles say exactly what they compare: "vs the previous 12 months", "vs the same period a year earlier" or the month\'s name.',
+      'The sales demo wins new customers right up to its last month, so "New customers −100%" no longer appears.',
+      "A new test suite checks all of this on every demo: chart totals equal their KPI cards, every insight's change equals its card's, and time-intelligence figures equal the matching date filters.",
+    ],
+    tags: ["Fix", "Tests"],
+    files: [
+      "src/engine/kpi/compute.ts",
+      "src/engine/insights/insights.ts",
+      "src/engine/charts/data.ts",
+      "src/engine/session.ts",
+      "src/engine/samples/small.ts",
+      "src/ui/workspace/dashboard/KpiCards.tsx",
+      "src/ui/workspace/dashboard/KpiDetails.tsx",
+      "src/ui/workspace/export/report.tsx",
+      "src/ui/workspace/AiSummary.tsx",
+      "tests/consistency.test.ts",
+    ],
+  },
+  {
+    version: "21.23",
+    kind: "minor",
+    date: "2026-10-15T11:13:29Z",
+    title: "Final checks: formatted, tested, built and clicked through",
+    summary: "Closed this round of work with a full set of checks. Every one passes.",
+    changes: [
+      "All code is formatted consistently with Prettier, and `npm run format:check` keeps it that way.",
+      "Automated tests: 389 pass in 17 files, from KPI proofs and known answers to import, detection, charts, insights, exports, security, accessibility-relevant UI state and speed. A 1-million-row benchmark is available on request.",
+      "Type checking and linting report no errors, and the production build prerenders every page.",
+      "In Chrome, all six demos go through every step without errors, at desktop and phone widths and in both themes.",
+      "Accessibility: zero WCAG 2.1 AA violations on every page and workspace step, in both themes.",
+    ],
+    tags: ["Tests", "Docs"],
+    files: [
+      ".prettierrc.json",
+      ".prettierignore",
+      "package.json",
+      "docs/ARCHITECTURE.md",
+      "CLAUDE.md",
+      "README.md",
+    ],
+  },
+  {
+    version: "21.22",
+    kind: "minor",
+    date: "2026-10-15T11:13:29Z",
+    title: "Small polish after the final click-through",
+    summary: "Two details found in the last browser check.",
+    changes: [
+      'The current step\'s name (for example "Dashboard") is visible again in the step bar. It had slipped behind the highlight after the phone fix.',
+      'Roster KPI cards carry a short note, "All employees in the file · no period comparison", instead of a long sentence on every card. The filter panel still explains how a date range works.',
+    ],
+    tags: ["Design", "Fix"],
+    files: ["src/ui/workspace/Shell.tsx", "src/engine/session.ts", "tests/kpi.test.ts"],
+  },
+  {
+    version: "21.21",
+    kind: "minor",
+    date: "2026-10-15T11:06:59Z",
+    title: "Employee lists and other rosters are read correctly over time",
+    summary:
+      'In an employee list the only date is usually Hire Date, so the default "last 12 months" quietly turned Headcount into "people hired in the last year". Business areas whose rows are standing things (employees, customers, products, subscriptions, telecom subscribers) now open on the whole file and say why there is no period comparison.',
+    changes: [
+      'Each business area in the industry files can be marked as "events" (orders, tickets) or "roster" (employees, customers). Six are rosters: HR employee master and attrition snapshot, e-commerce customers and products, SaaS subscription lists and telecom churn tables.',
+      'For rosters the dashboard starts on All time, and instead of a misleading "vs last month" the KPI cards say: "Whole file: each row is an employee, so there is no earlier period to compare."',
+      "Picking a date range still works; the filter panel explains that it keeps the people whose hire date falls in the range.",
+      "Tests check that the HR demo's headcount covers everyone currently employed, and that event data such as orders keeps its period comparison.",
+    ],
+    tags: ["Fix", "Data", "Tests"],
+    files: [
+      "src/registry/schema.ts",
+      "src/registry/domains/hr.json",
+      "src/registry/domains/ecommerce.json",
+      "src/registry/domains/saas.json",
+      "src/registry/domains/telecom.json",
+      "src/engine/kpi/compute.ts",
+      "src/engine/session.ts",
+      "src/store/workspace.ts",
+      "src/ui/workspace/dashboard/FilterRail.tsx",
+      "tests/kpi.test.ts",
+    ],
+  },
+  {
+    version: "21.20",
+    kind: "minor",
+    date: "2026-10-15T11:06:59Z",
+    title: "Sharper industry detection and column understanding",
+    summary:
+      "Detection now weighs the columns that only one industry would have, and column matching needs real evidence. All 75 real-world file layouts in a new test suite are recognised correctly, and the e-commerce demo no longer asks you to confirm.",
+    changes: [
+      "The e-commerce demo scores e-commerce 99, with Sales and Logistics at 70. Logistics used to score 96 and force a confirmation. Google Ads exports go to Marketing (99 vs 55).",
+      "Distinctive columns (SKU, MRP, coupon for e-commerce; freight, lane, vehicle for logistics) count for more, and an industry loses points when a rival explains your distinctive columns better. Each candidate shows that deduction.",
+      'Column names need real evidence: "injury_claim" no longer maps to paid amount, "Market Rent" to property value, or "Updated at" to first response. About 60 wrong mappings across the test layouts disappeared.',
+      'Column roles: "Order Hour" is a time of day (not summed), "Leads" is a count (summed), "Margin %" in points is a percentage, a unique amount is never mistaken for an ID, and US state codes like OR, UT and CT are no longer read as Indian states.',
+      "A suite of 75 layouts from real tools (Shopify, Amazon, Salesforce, Google Ads, Stripe, Tally, HR systems, hospital, logistics, loan, telecom, insurance and helpdesk exports) runs on every test. Four genuinely ambiguous layouts are expected to ask you to confirm.",
+      "Detection is also about 6× faster on wide files.",
+    ],
+    tags: ["Fix", "Tests", "Performance"],
+    files: [
+      "src/engine/detect/detect.ts",
+      "src/engine/detect/match.ts",
+      "src/engine/detect/mapping.ts",
+      "src/engine/profile/names.ts",
+      "src/engine/profile/roles.ts",
+      "src/engine/profile/structure.ts",
+      "src/engine/profile/patterns.ts",
+      "src/engine/profile/geo.ts",
+      "src/registry/domains/*.json (11 files, synonyms only)",
+      "tests/detect.test.ts",
+      "tests/fixtures/detection.json",
+    ],
+  },
+  {
+    version: "21.19",
+    kind: "minor",
+    date: "2026-10-15T10:44:37Z",
+    title: "The workspace works properly on a phone",
+    summary:
+      "Clicking through the workspace at phone width found that the step buttons had no names for screen readers and could get lost off the edge of the screen. These and two smaller layout issues are fixed.",
+    changes: [
+      'On narrow screens the step buttons show only their number, but they now still announce "Map columns", "Insights" and so on to screen readers.',
+      "The top bar shows only the Loupe mark on phones, so all six steps fit.",
+      "Every step opens at the top of the page (confirming on Detect used to land halfway down the dashboard).",
+      "Supporting KPIs use two columns on phones instead of one long list.",
+      "The full flow was re-checked at phone width and in the light theme with no errors.",
+    ],
+    tags: ["Design", "Fix"],
+    files: [
+      "src/ui/workspace/Shell.tsx",
+      "src/ui/workspace/Workspace.tsx",
+      "src/ui/workspace/dashboard/KpiCards.tsx",
+    ],
+  },
+  {
+    version: "21.18",
+    kind: "minor",
+    date: "2026-10-15T10:41:52Z",
+    title: "The workspace passes an accessibility audit",
+    summary:
+      "Audited every workspace step (upload, detect, map, dashboard, insights, export) with axe-core against WCAG 2.1 AA in both themes and fixed everything it found. Every step now reports zero violations, as the home page and version log already did.",
+    changes: [
+      "Every step sits in one main region, so screen-reader users can jump straight to the content.",
+      'Buttons announce the text you can see: the command-palette button includes "Ctrl K", and KPI cards read their name, value and change.',
+      "The date presets are a proper radio group, insight titles follow the heading order, and scrollable code (SQL, DAX, the AI payload preview) can be scrolled with the keyboard.",
+    ],
+    tags: ["Design", "Fix"],
+    files: [
+      "src/ui/workspace/Workspace.tsx",
+      "src/ui/workspace/Shell.tsx",
+      "src/ui/workspace/dashboard/DashboardStep.tsx",
+      "src/ui/workspace/dashboard/KpiCards.tsx",
+      "src/ui/workspace/dashboard/FilterRail.tsx",
+      "src/ui/workspace/dashboard/KpiDetails.tsx",
+      "src/ui/workspace/InsightsStep.tsx",
+      "src/ui/workspace/AiSummary.tsx",
+    ],
+  },
+  {
+    version: "21.17",
+    kind: "minor",
+    date: "2026-10-15T10:37:10Z",
+    title: "Fair period comparisons and number formats that fit the data",
+    summary:
+      "Checking all six demo dashboards in a real browser found three things that looked fine but were subtly wrong. All three are fixed.",
+    changes: [
+      'Monthly data dated on the 1st (MRR snapshots, P&L months) compared the last 12 months with only 11 earlier months, which inflated changes such as "Churned accounts +334%". Comparisons now shift by whole calendar months, so 12 months always compare with 12.',
+      'The number format is now "Auto" by default: lakh/crore for rupee data and K/M/B for other currencies, so a dollar SaaS file shows $479K, not $4.79L. Choosing a format in Settings still overrides it.',
+      'The B2B sales demo now wins customers gradually over two years instead of having all 180 from day one, so "New customers" reads like a real ledger (60 in the last year) instead of 0.',
+      "The full click-through (detect, dashboard, map, insights, export) passes on all six demos in the production build with no errors. The e-commerce export check downloaded the Power BI package, SQL, PDF and PNG, and the in-browser SQL verification matched 33 of 33 KPIs.",
+    ],
+    tags: ["Fix", "Data", "Tests"],
+    files: [
+      "src/engine/kpi/compute.ts",
+      "src/store/settings.ts",
+      "src/store/workspace.ts",
+      "src/ui/workspace/SettingsSheet.tsx",
+      "src/engine/samples/small.ts",
+      "tests/kpi.test.ts",
+    ],
+  },
+  {
+    version: "21.16",
+    kind: "minor",
+    date: "2026-10-15T10:27:36Z",
+    title: "Space-grouped numbers and period-name headers",
+    summary: "Fixed two file-reading gaps the import review left open.",
+    changes: [
+      'Numbers grouped with spaces, as in French and many European exports ("12 500,00", "1 234 567.89"), are now read as numbers instead of text.',
+      'Wide tables whose header row is made of periods ("Region, Jan 2024, Feb 2024 …" or "Product, 2022, 2023, 2024") are recognised as having a header instead of treating it as a data row.',
+    ],
+    tags: ["Fix", "Data", "Tests"],
+    files: ["src/engine/parse/values.ts", "src/engine/parse/sniff.ts", "tests/parse.test.ts"],
+  },
+  {
+    version: "21.15",
+    kind: "minor",
+    date: "2026-10-15T10:27:36Z",
+    title: "Insights that lead with what matters, and stricter charts",
+    summary:
+      'Insights now open with the headline change and only compare segments on rates, and charts follow the design rules exactly. The demo\'s first insight is now "Net Revenue up 40.5% vs the previous 12 months", backed by a check that it rose in 12 of 12 months.',
+    changes: [
+      'Segment comparisons use rates only (RTO rate, return rate, AOV), never totals, so "COD 7.4× Net Banking" for revenue is gone.',
+      "One scoring rule ranks every insight by relevance, size and certainty. A month-by-month consistency test decides the certainty, and related totals that moved together are mentioned inside the headline instead of as separate cards.",
+      "A partial first month is left out, and the basis says so. Weekday patterns are skipped when data is dated once a month, and a weekday averaging zero no longer produces an absurd percentage.",
+      'Donuts never show more than six slices (top 5 plus a recalculated "Others"), and charts only offer alternative types that suit the data.',
+      'Treemap parents and stacked "Others" segments are calculated from the rows, not by adding up children (that would be wrong for distinct counts and rates). Small groups that are hidden or folded into Others get a note.',
+      "A cut-short first period is flagged like the last one. RFM with no dated customers shows a clear message instead of failing, and basket pairs show product values, not internal codes.",
+      "Renamed KPIs keep their new names in insight text, and insights never carry over from a previously loaded file.",
+    ],
+    tags: ["Fix", "Tests"],
+    files: [
+      "src/engine/insights/insights.ts",
+      "src/engine/charts/data.ts",
+      "src/engine/charts/recommend.ts",
+      "src/engine/charts/analyses.ts",
+      "src/engine/charts/types.ts",
+      "src/engine/session.ts",
+      "src/engine/kpi/compute.ts",
+      "tests/insights.test.ts",
+      "tests/charts-data.test.ts",
+      "tests/chart-rules.test.ts",
+    ],
+  },
+  {
+    version: "21.14",
+    kind: "minor",
+    date: "2026-10-15T10:27:36Z",
+    title: "Export and workspace fixes",
+    summary:
+      "Fixed the export files and a set of workspace details found in the code review and the browser walkthrough.",
+    changes: [
+      "SQL file: the header now says exactly what was checked. The RFM view and day differences use standard SQL, the MySQL table name is quoted, and the dialect notes cover MySQL, SQL Server and BigQuery precisely. Every generated view is now run in DuckDB by the tests.",
+      "Power BI package: valid DAX even with no headline KPIs, setup steps numbered without gaps, correct build steps for hour-of-day and day-of-month charts, and no clash for the helper date column.",
+      'Clicking a state on the tile map filters correctly even when the data uses codes like "MH". "Undo" restores your previous date range. Row counts follow your number-format setting.',
+      "Charts: no number on every bar of a time chart (only the peak and low are labelled), horizontal bar axes no longer crowd, and labels on coloured fills pick their ink by actual contrast.",
+      'Theme switching no longer flickers or mismatches on load, numbers count up smoothly from where they are, and screen readers hear "Loupe" once.',
+      "A saved config restores your currency and your cross-filter correctly, a new file resets the business context, and Start over really starts over.",
+      'The AI check no longer flags "12 Markets" as an unverified "12M", and the SQL lab limits rows inside the query.',
+    ],
+    tags: ["Fix", "Tests"],
+    files: [
+      "src/engine/export/sqlFile.ts",
+      "src/engine/export/daxFile.ts",
+      "src/engine/export/readme.ts",
+      "src/engine/export/config.ts",
+      "src/ui/charts/options.ts",
+      "src/ui/charts/ChartCard.tsx",
+      "src/ui/charts/tokens.ts",
+      "src/ui/common/theme-toggle.tsx",
+      "src/ui/common/hooks.ts",
+      "src/store/workspace.ts",
+      "src/lib/ai.ts",
+      "src/lib/duckdb.ts",
+      "tests/export.test.ts",
+      "tests/chart-options.test.ts",
+      "tests/lib.test.ts",
+      "tests/workspace-store.test.ts",
+    ],
+  },
+  {
+    version: "21.13",
+    kind: "minor",
+    date: "2026-10-15T10:27:36Z",
+    title: "Security and privacy hardening",
+    summary: "Closed a security hole in chart tooltips and made the optional AI payload far more anonymous.",
+    changes: [
+      "Chart tooltips are built as HTML. A crafted column name in an uploaded file could have run code in the page, where the optional API key is held. Every value that reaches a tooltip is now escaped, and the whole app was audited for similar risks; none remain.",
+      "A test feeds malicious names through every chart type and the real engine, and fails if anything gets through.",
+      "AI payload: IDs and people's names become stable pseudonyms (ID-1, ID-2 …). Emails, phone numbers, web addresses, long digit runs, street addresses, dates of birth, postal codes and coordinates are masked wherever they appear. Free text is masked. Only low-cardinality categories, numbers and dates are kept, and each column says which treatment it got.",
+    ],
+    tags: ["Security", "Tests"],
+    files: [
+      "src/ui/charts/options.ts",
+      "src/engine/session.ts",
+      "tests/security.test.ts",
+      "tests/ai-payload.test.ts",
+    ],
+  },
+  {
+    version: "21.12",
+    kind: "minor",
+    date: "2026-10-15T10:24:12Z",
+    title: "Files are read faithfully in more edge cases",
+    summary:
+      "Fixed twelve ways a file could be misread: some silently changed numbers or dates, others lost values. Every fix has its own test that fails on the old code.",
+    changes: [
+      "A column of values like 0.125 or 83.125 was mistaken for European thousands and read 1000× too large. Only values that can be read one way now decide the style; anything still ambiguous is read the usual way and noted in the parse report.",
+      'Number columns whose names merely contain "end", "dt" or "month" ("Ad Spend", "Width", "Monthly Revenue") were turned into dates. Date hints now match whole words, and Excel date numbers need a name that clearly says date.',
+      "An impossible date such as 45/03/2024 no longer counts as evidence for day-first order.",
+      "The demo data is now generated identically in every browser (a seeded shuffle replaced one whose result depended on the browser). The e-commerce demo now has 49,037 rows, and the home page numbers update on the next build.",
+      "Duplicate column names always end up unique, and a column that turns to text keeps every original value, however late the odd value appears.",
+      'Health checks: 1 Jan 1900 placeholders are flagged, coordinates are checked by column name, and ages respect units (an account age in days is not "impossible").',
+      "Excel dates are read exactly as written, workbooks and JSON report skipped columns, UTF-16 files aren't mistaken for being twice as large, JSON fields that first appear late are kept, and unpivoted columns get names that don't clash.",
+    ],
+    tags: ["Fix", "Data", "Tests"],
+    files: [
+      "src/engine/parse/values.ts",
+      "src/engine/parse/dates.ts",
+      "src/engine/parse/builder.ts",
+      "src/engine/parse/excel.ts",
+      "src/engine/parse/csv.ts",
+      "src/engine/parse/json.ts",
+      "src/engine/parse/unpivot.ts",
+      "src/engine/samples/builder.ts",
+      "src/engine/samples/ecommerce.ts",
+      "src/engine/profile/quality.ts",
+      "src/engine/profile/profile.ts",
+      "tests/import-regressions.test.ts",
+    ],
+  },
+  {
+    version: "21.11",
+    kind: "minor",
+    date: "2026-10-15T10:10:33Z",
+    title: "The screen, SQL and DAX now agree in every case",
+    summary:
+      "Fixed nine cases where the number on screen, the exported SQL or the Power BI DAX could disagree. The SQL is now proven to run unchanged on PostgreSQL as well as DuckDB.",
+    changes: [
+      'Rows with a blank flag (for example a blank "is returned") were counted on screen but dropped by the SQL. Both now count them.',
+      "KPIs made only of per-customer or closing-balance parts produced one SQL row per data row instead of a single answer.",
+      "Months with no qualifying customers showed 0 on screen but blank in SQL. Both now show 0.",
+      "Day differences (such as delivery time) used a DuckDB-only function. They now use standard SQL; all 700 formulas and 14,461 monthly results also match on PostgreSQL 18.",
+      'Category matching is now exact ("RTO" vs "rto"), the same as SQL.',
+      "A crash with more than about 150,000 customers in one group is fixed.",
+      'The "Others" bucket counts new customers the same way the named groups do.',
+      "The Power BI 7-day moving average matches the app (7-day total ÷ 7).",
+      "The automated proof is stricter: a blank only equals a blank, and every query must return exactly one answer. A new suite of 47 targeted checks guards each fix.",
+    ],
+    tags: ["Fix", "Tests"],
+    files: [
+      "src/engine/compile/sql.ts",
+      "src/engine/compile/dax.ts",
+      "src/engine/query/evaluate.ts",
+      "src/engine/query/run.ts",
+      "src/engine/query/filter.ts",
+      "tests/equivalence.test.ts",
+      "tests/registry.test.ts",
+    ],
+  },
+  {
+    version: "21.10",
+    kind: "minor",
+    date: "2026-10-15T09:53:39Z",
+    title: "Accessibility pass and phone layout polish",
+    summary:
+      "Ran an automated accessibility audit (axe-core, WCAG 2.1 AA) on the home page and this version log in both themes and fixed everything it found; both now report zero violations. Also tidied the home-page preview on phones.",
+    changes: [
+      "Slightly adjusted five colours so small text keeps at least 4.5:1 contrast even on tinted chips: dark-theme red, plus light-theme bronze, red, amber and the faintest grey.",
+      "Links inside sentences are underlined, so they don't rely on colour alone.",
+      "Code samples can be scrolled with the keyboard.",
+      'Fades in the preview respect the "reduce motion" setting.',
+      "On phones, the preview's pipeline steps wrap instead of running off the edge, and the trend chart's labels stay readable.",
+      'Badges with an icon (such as "Watch" on insights) keep the icon beside the word instead of above it.',
+    ],
+    tags: ["Design", "Fix"],
+    files: [
+      "src/styles/tokens.css",
+      "src/ui/landing/sections.tsx",
+      "src/ui/landing/HeroPreview.tsx",
+      "src/ui/primitives/badge.tsx",
+      "docs/DESIGN.md",
+    ],
+  },
+  {
+    version: "21.9",
+    kind: "minor",
+    date: "2026-10-15T09:47:32Z",
+    title: "README, architecture and design guides, brand files",
+    summary:
+      "Wrote the documentation a developer or a deploying team needs, and exported the logo as ready-to-use files.",
+    changes: [
+      "README: what Loupe is, install and run commands, a step-by-step guide to deploying on Vercel's free tier, how it works, how the numbers are proven, honest known limitations and next steps.",
+      "Architecture guide: the background-thread design, the data model, every stage of the pipeline, the KPI expression language, the industry file format, exports, security and testing.",
+      "Design guide: colours for both themes (with the colour-blindness check results), type, spacing, motion, chart rules and accessibility.",
+      "Logo mark and wordmark as SVG files for dark and light backgrounds, with the lettering converted to shapes so they look the same everywhere.",
+    ],
+    tags: ["Docs", "Design"],
+    files: ["README.md", "docs/ARCHITECTURE.md", "docs/DESIGN.md", "public/brand/*.svg"],
+  },
+  {
+    version: "21.8",
+    kind: "minor",
+    date: "2026-10-15T09:44:24Z",
+    title: "Tests for exact KPI answers, chart rules and speed",
+    summary:
+      "Added three more groups of automated tests. They confirm the numbers are exactly right, the charts follow the design rules, and Loupe stays fast.",
+    changes: [
+      'Known answers: a seven-order file worked out by hand. The full pipeline gives exactly net revenue 350, AOV 87.5, RTO rate 1/6, repeat rate 50% and the right month-on-month changes, and shows "no value" instead of dividing by zero.',
+      "Chart rules on all six demos: every chart states its reason, alternatives must suit the data, time is drawn as lines, areas or bars, one axis only, and no donut has more than six slices. These checks found three issues, now being fixed: a 7-slice payment donut, the donut limit itself, and some unsuitable alternatives.",
+      "Speed: 100,000 rows are profiled in about 0.15 seconds (the target is under 3) and parsed in about 0.8 seconds. A full 23-chart dashboard for the demo computes in under half a second, and a million rows parse in about 7.4 seconds.",
+    ],
+    tags: ["Tests", "Performance"],
+    files: ["tests/kpi.test.ts", "tests/chart-rules.test.ts", "tests/perf.bench.test.ts"],
+  },
+  {
+    version: "21.7",
+    kind: "minor",
+    date: "2026-10-15T09:40:55Z",
+    title: "Every source file documented",
+    summary:
+      "All 126 source files now start with a comment saying what the file does and how it fits in, and the non-obvious functions explain themselves. Before, only 62 files had one. A careful review also turned up about 40 real issues, which are being fixed in the next steps.",
+    changes: [
+      "Documentation comments rose from 246 to about 1,150. Comment lines went from about 540 to 3,800.",
+      "The core expression language, the industry-file format and the analysis session are documented in detail, so new industries and KPIs can be added safely.",
+      "An automated check confirmed that the documentation pass changed comments only, never code.",
+      'Issues found while reading are now being fixed: a security fix for chart tooltips, SQL that disagreed with the screen on blank values, numbers like 0.125 read as 125, columns such as "Ad Spend" read as dates, and weaker insights.',
+    ],
+    tags: ["Docs"],
+    files: ["src/**/*.ts", "src/**/*.tsx"],
+  },
+  {
+    version: "21.6",
+    kind: "minor",
+    date: "2026-10-15T09:34:29Z",
+    title: "KPIs built from other KPIs are handled correctly",
+    summary:
+      "Many KPIs are defined in terms of others, for example net revenue = gross sales − discounts. Two places treated them wrongly; both are fixed.",
+    changes: [
+      'Loupe now knows such KPIs can be added up across months and segments. Before, net revenue was treated like a ratio, which produced misleading insights such as "COD 7.4× Net Banking" and hid its 7-day moving average.',
+      'When the dashboard is narrowed to one business area, KPIs from other areas that a visible KPI depends on are kept behind the scenes, so the visible KPI can always be computed and exported. In Power BI they go into a hidden "Helpers" folder.',
+    ],
+    tags: ["Fix"],
+    files: [
+      "src/engine/query/expr.ts",
+      "src/engine/query/evaluate.ts",
+      "src/engine/insights/insights.ts",
+      "src/engine/kpi/compute.ts",
+      "src/engine/kpi/resolve.ts",
+      "src/engine/export/daxFile.ts",
+      "src/engine/export/sqlFile.ts",
+      "src/engine/session.ts",
+    ],
+  },
+  {
+    version: "21.5",
+    kind: "minor",
+    date: "2026-10-15T09:30:15Z",
+    title: "Tests for file import",
+    summary:
+      "Added automated tests for reading files, so changes can't silently break how data is understood.",
+    changes: [
+      "Delimiters, encodings (including Windows-1252), European decimals and Indian digit grouping.",
+      "Accented and Hindi text stays intact even where a large file is split into chunks.",
+      "Dates: day-first versus month-first is decided from the whole column, the locale preference applies only when nothing proves the order, and a manual override wins.",
+      "JSON flattening, line-delimited JSON, Excel sheets with real dates, and columns that turn to text without losing any values.",
+    ],
+    tags: ["Tests"],
+    files: ["tests/parse.test.ts", "tests/helpers/dataset.ts"],
+  },
+  {
+    version: "21.4",
+    kind: "minor",
+    date: "2026-10-15T09:26:34Z",
+    title: "Text renders at the designed sizes",
+    summary:
+      "A styling helper dropped some of the design system's custom text sizes when they were combined with a colour, so parts of the workspace showed 16 px text instead of 13 px, and a few labels lost their colour. It now knows the custom sizes, corners and shadows.",
+    changes: [
+      "Fixes oversized text in the step bar, the date presets and the filter lists, plus a few labels that lost their colour.",
+      "Corner radius and shadow overrides now resolve predictably.",
+    ],
+    tags: ["Fix", "Design"],
+    files: ["src/lib/utils.ts"],
+  },
+  {
+    version: "21.3",
+    kind: "minor",
+    date: "2026-10-15T09:25:04Z",
+    title: "Fixed a crash when opening the dashboard",
+    summary:
+      "A click-through test in a real browser found that the dashboard crashed into an endless update loop as soon as it opened. It now opens normally.",
+    changes: [
+      "Each chart asked the app state for its drill-down path, and charts without one got a brand-new empty list every time. React saw that as a change and re-rendered forever. Charts now share one empty list.",
+      "The full flow (detect → dashboard → map → insights → export) now completes without errors in a production build.",
+    ],
+    tags: ["Fix"],
+    files: ["src/ui/charts/ChartCard.tsx"],
+  },
+  {
+    version: "21.2",
+    kind: "minor",
+    date: "2026-10-15T09:19:00Z",
+    title: "A guide for whoever works on the code next",
+    summary:
+      "Added CLAUDE.md, a short guide to how the project fits together, the rules that must not be broken, and how to add an industry. Future work can resume quickly and safely.",
+    changes: [
+      "Explains the pipeline (import → profile → detect → KPIs → charts → insights → export) and where each part lives.",
+      "Lists the invariants: never fabricate numbers, keep data in the browser, keep the engine, SQL and DAX in agreement.",
+      "Records the version-log rule (major and minor steps) so every future change is logged here.",
+    ],
+    tags: ["Docs"],
+    files: ["CLAUDE.md"],
+  },
+  {
+    version: "21.1",
+    kind: "minor",
+    date: "2026-10-15T09:15:05Z",
+    title: "Proof extended to every fallback formula",
+    summary:
+      "Many KPIs have backup formulas for when a column is missing. The automated proof now checks every one of them against DuckDB, not just the formula used first.",
+    changes: [
+      "700 KPI formulas across all 16 industries (390 primary plus 310 fallbacks) give exactly the same result in Loupe's engine and in SQL.",
+      "14,435 month-by-month results were compared as well, and every one matched.",
+      'The landing page\'s claim "Every fallback formula checked" is now backed by this test.',
+    ],
+    tags: ["Tests"],
+    files: ["tests/registry.test.ts"],
+  },
+  {
+    version: "21.0",
+    kind: "major",
+    date: "2026-10-15T09:14:02Z",
+    title: "Landing page",
+    summary:
+      "Built the home page. It shows a working miniature of the dashboard whose every number comes from the real engine running on the demo data, then explains how Loupe works, what it covers and how it protects your data.",
+    changes: [
+      "Hero preview: watch Loupe read the file, profile 28 columns, detect e-commerce at 99% and compute the dashboard. Switch between the last 12 months, 6 months and 90 days.",
+      "How it works: the four steps, each with a small example from the demo.",
+      "Features: a real KPI with its SQL and DAX, the reason a chart was chosen, a column profile and an insight, all produced by the engine.",
+      "Industries: all 16 with their KPI and chart counts read from the knowledge base, with e-commerce highlighted.",
+      "Privacy, demo datasets (with their real sizes), straight-answer FAQ (including why there is no .pbix) and a closing call to action.",
+      "Checked in dark and light themes at desktop and phone widths, with no sideways scrolling.",
+    ],
+    tags: ["Feature", "Design"],
+    files: [
+      "src/app/page.tsx",
+      "src/ui/landing/preview-data.ts",
+      "src/ui/landing/HeroPreview.tsx",
+      "src/ui/landing/sections.tsx",
+      "src/ui/site/SiteHeader.tsx",
+      "src/ui/site/SiteFooter.tsx",
+      "src/app/not-found.tsx",
+    ],
+  },
+  {
+    version: "20.1",
+    kind: "minor",
+    date: "2026-10-15T09:08:45Z",
+    title: "Workspace components follow React's stricter rules",
+    summary:
+      "React's new compiler rules flagged six places where the workspace updated its own state in a roundabout way. Each one now uses the recommended pattern, which avoids extra re-renders.",
+    changes: [
+      "Screen-size and platform checks (for example, showing ⌘K or Ctrl+K) read the browser directly instead of setting state after the first render.",
+      "The custom date range, the large-file dialog and the KPI time-intelligence panel reset or load without cascading updates.",
+      "Creating a custom chart generates its id only when you click, never while drawing the screen.",
+    ],
+    tags: ["Fix", "Performance"],
+    files: [
+      "src/ui/workspace/Shell.tsx",
+      "src/ui/workspace/UploadStep.tsx",
+      "src/ui/workspace/dashboard/DashboardStep.tsx",
+      "src/ui/workspace/dashboard/FilterRail.tsx",
+      "src/ui/workspace/dashboard/Inspector.tsx",
+      "src/ui/workspace/dashboard/KpiDetails.tsx",
+    ],
+  },
+  {
+    version: "20.0",
+    kind: "major",
+    date: "2026-10-15T09:05:36Z",
+    title: "Version log",
+    summary:
+      "Added this page, so you can follow every step of the build. Each step is a major version (a new capability) or a minor version (a refinement or fix), with what changed and which files were involved.",
+    changes: [
+      "The /changelog page groups each major version with its minor follow-ups, shows times in your local time zone, and can show major versions only.",
+      'An "Up next" list shows the work that is planned.',
+      "The current version appears in the site footer and in the workspace settings; the command palette can open the log.",
+      "CHANGELOG.md is generated from the same source with npm run changelog.",
+      "An automated test keeps the numbering honest: newest first, no gaps, and dates never go backwards.",
+    ],
+    tags: ["Feature", "Docs"],
+    files: [
+      "src/content/changelog.ts",
+      "src/app/changelog/page.tsx",
+      "src/ui/site/ChangelogTimeline.tsx",
+      "scripts/write-changelog.mts",
+      "tests/changelog.test.ts",
+      "CHANGELOG.md",
+    ],
+  },
+  {
+    version: "19.0",
+    kind: "major",
+    date: "2026-10-15T08:54:03Z",
+    title: "Fifteen more industries",
+    summary:
+      "Added knowledge files for 15 more industries, so Loupe recognises and analyses far more kinds of business data. Every KPI is checked to give the same answer in the engine and in SQL.",
+    changes: [
+      "Sales & Retail, Marketing, SaaS & Subscription, Finance & Accounting, HR & People, Healthcare, Logistics & Supply Chain, Manufacturing, Banking & Lending, Education, Real Estate, Hospitality & Travel, Telecom, Insurance and Customer Support.",
+      "326 new KPI definitions (19–24 per industry), each with a definition, formula, direction, pitfalls and, where widely cited, an indicative benchmark.",
+      "12 chart templates per industry and 2–4 business areas each. For example, Healthcare covers admissions, outpatient visits, claims and bed census.",
+      "Checked against column layouts typical of common tools (CRMs, ad platforms, HR systems, helpdesks, policy and claims registers, MRR snapshots). Most are recognised outright; a few ambiguous ones, such as a pure machine-downtime log, ask you to confirm.",
+      "All five demo datasets for these industries are detected at 99% confidence.",
+    ],
+    tags: ["Feature", "Data", "Tests"],
+    files: ["src/registry/domains/*.json (15 new files)", "src/registry/index.ts"],
+  },
+  {
+    version: "18.1",
+    kind: "minor",
+    date: "2026-10-15T08:45:19Z",
+    title: "First full type-check of the app",
+    summary:
+      "Ran the TypeScript checker across every file now that the workspace is assembled, and fixed what it found.",
+    changes: [
+      "Two buttons (chart CSV export and loading a saved config) returned a value from a click handler where nothing was expected; they now show the error message and stop cleanly.",
+      "The only remaining error is a missing industry file (Education), which is still being written in parallel.",
+    ],
+    tags: ["Fix"],
+    files: ["src/ui/charts/ChartCard.tsx", "src/ui/workspace/ExportStep.tsx"],
+  },
+  {
+    version: "18.0",
+    kind: "major",
+    date: "2026-10-15T08:42:17Z",
+    title: "Workspace page at /app",
+    summary:
+      "Put every workspace step together on one page, so the app can be used end to end: upload, confirm, map, dashboard, insights and export.",
+    changes: [
+      "The six steps switch with a short fade; the top bar shows progress through Upload → Detect & confirm → Map columns → Dashboard → Insights → Export.",
+      "Ctrl+K (⌘K on Mac) opens the command palette from anywhere.",
+      "A link such as /app?sample=ecommerce opens a demo dataset straight away, so the landing page can link to a live demo.",
+      "Problems after the upload step appear as toast messages instead of failing silently.",
+      "Changing the number format (Indian lakh/crore or international) or the currency recomputes every label, chart description and export.",
+    ],
+    tags: ["Feature"],
+    files: ["src/app/app/page.tsx", "src/ui/workspace/Workspace.tsx"],
+  },
+  {
+    version: "17.1",
+    kind: "minor",
+    date: "2026-10-15T08:41:39Z",
+    title: "Accuracy and speed fixes in exports and the command palette",
+    summary:
+      "Corrected a privacy statement that overpromised, and stopped the command palette from slowing the dashboard down.",
+    changes: [
+      'The shareable config said it contained "no data". It does contain category labels used in filters and value meanings, and it now says exactly that.',
+      "The command palette only listens for dashboard changes while it is open, so it no longer re-renders on every filter click.",
+    ],
+    tags: ["Fix", "Performance"],
+    files: ["src/ui/workspace/ExportStep.tsx", "src/ui/workspace/CommandPalette.tsx"],
+  },
+  {
+    version: "17.0",
+    kind: "major",
+    date: "2026-10-15T08:41:24Z",
+    title: "Exports, reports, command palette and settings",
+    summary:
+      "Added the Export step: a Power BI package, a multi-page PDF report, a dashboard image, SQL you can verify in the browser, a data dictionary and a shareable config.",
+    changes: [
+      "Power BI package (.zip): a semantic model (TMDL), every KPI as a DAX measure with folders and comments, a Date table, the data as CSV, and a README with step-by-step setup and the visual layout. It honestly explains that a native .pbix file cannot be created in a browser.",
+      "PDF report: a branded multi-page report rendered in the light theme, with KPIs, charts and insights.",
+      "PNG export of the whole dashboard at 2× resolution, with an optional transparent background.",
+      'SQL file with one view per KPI and notes on dialects. "Verify in browser" loads DuckDB on demand and checks each SQL result against the number on screen.',
+      "Data dictionary (CSV or Markdown) and a config file that restores the same dashboard when loaded with the same data.",
+      "Command palette (Ctrl/⌘+K) to jump to steps, charts and KPIs, switch layout and theme, or load demo data.",
+      "Settings: theme, number format, currency, a privacy statement and the optional AI layer.",
+    ],
+    tags: ["Feature"],
+    files: [
+      "src/ui/workspace/ExportStep.tsx",
+      "src/ui/workspace/export/report.tsx",
+      "src/lib/duckdb.ts",
+      "src/engine/export/config.ts",
+      "src/ui/workspace/CommandPalette.tsx",
+      "src/ui/workspace/SettingsSheet.tsx",
+    ],
+  },
+  {
+    version: "16.1",
+    kind: "minor",
+    date: "2026-10-15T08:37:51Z",
+    title: "Reports keep their own theme",
+    summary:
+      "Colours can now be scoped to one part of the page, so a PDF report renders in the light theme even when the app is dark.",
+    changes: [
+      "Theme colours can be applied to a single element, not only the whole page.",
+      "Charts read their colours from the element they sit in, so exported charts match the report rather than the screen.",
+    ],
+    tags: ["Design", "Fix"],
+    files: ["src/styles/tokens.css", "src/ui/charts/tokens.ts"],
+  },
+  {
+    version: "16.0",
+    kind: "major",
+    date: "2026-10-15T08:37:23Z",
+    title: "Optional AI layer (off by default)",
+    summary:
+      'Added an opt-in "bring your own Anthropic API key" feature. It can suggest the industry and write an executive summary. You see exactly what will be sent before anything leaves the browser.',
+    changes: [
+      "Off by default. The whole product works without it.",
+      "Sends only the column list, aggregated numbers and a few masked sample rows, never the dataset. The exact payload is shown first and needs an explicit click to send.",
+      "The API key is kept in memory for the open tab only. It is never saved.",
+      "Uses Claude Opus 5.5 by default (Sonnet 5.5 and Haiku 4.5 are selectable), with structured answers checked against a schema.",
+      'Any number in the AI summary that does not appear in the computed results is flagged as "unverified".',
+      "Server-side refusal fallback is switched on for Opus and Sonnet requests, so a declined request can be completed by a fallback model instead of failing.",
+    ],
+    tags: ["Feature", "Security"],
+    files: [
+      "src/lib/ai.ts",
+      "src/ui/workspace/AiSummary.tsx",
+      "src/ui/workspace/DetectStep.tsx",
+      "src/store/settings.ts",
+    ],
+  },
+  {
+    version: "15.0",
+    kind: "major",
+    date: "2026-10-15T08:35:01Z",
+    title: "Dashboard and insights",
+    summary:
+      "Built the dashboard itself, laid out the way an analyst reads it: headline KPIs, then the trend, breakdowns, drivers and detail. The Insights step lists ranked findings, each tied to a chart.",
+    changes: [
+      "KPI cards: value, change versus the previous period, sparkline and an optional target. Colour shows whether the change is good or bad for that KPI.",
+      '"How this is calculated" drawer for every KPI: plain-language definition, formula, the columns used, SQL, DAX and time intelligence (MTD, QTD, YTD, YoY, MoM, rolling).',
+      "Filter rail: date presets or a custom range, filters on any dimension, and a summary of active filters.",
+      "Drag-and-drop, resizable grid, with Executive, Analyst and Compact layouts.",
+      "Chart inspector and builder to change a chart's type, measure, grouping or Top-N, or add your own chart.",
+      'A "Not shown" panel lists every KPI and chart that could not be computed and which column it needs. Nothing is faked.',
+      "Insights page: quantified findings ranked by impact, each with its basis and a link to the chart it refers to.",
+    ],
+    tags: ["Feature"],
+    files: [
+      "src/ui/workspace/dashboard/DashboardStep.tsx",
+      "src/ui/workspace/dashboard/KpiCards.tsx",
+      "src/ui/workspace/dashboard/KpiDetails.tsx",
+      "src/ui/workspace/dashboard/FilterRail.tsx",
+      "src/ui/workspace/dashboard/Inspector.tsx",
+      "src/ui/workspace/dashboard/WidgetGrid.tsx",
+      "src/ui/workspace/InsightsStep.tsx",
+    ],
+  },
+  {
+    version: "14.0",
+    kind: "major",
+    date: "2026-10-15T08:30:03Z",
+    title: "Workspace flow: upload, detect, confirm, map",
+    summary:
+      "Built the guided steps before the dashboard: drop a file, see what was detected and how confident Loupe is, confirm or correct the industry, then review how columns were mapped.",
+    changes: [
+      "Upload: a drop zone for CSV, TSV, Excel and JSON; demo datasets; a sheet picker for multi-sheet workbooks; a large-file dialog that offers sampling; designed loading and error states.",
+      'Detect & confirm: the top three industries with confidence %, the evidence for each, and the grain ("one row per …"). The guided flow opens automatically when confidence is below 70% or the top two are within 10 points.',
+      '"Describe your business": industry, business model, goal, reporting period and currency. Changes apply instantly.',
+      "Data preview with a fast virtual grid, a data-health panel and a parse report. The parse report says whether dates were read as DD/MM or MM/DD, with a switch to flip it.",
+      "Map columns: change which column fills each role, what category values mean (for example which order statuses count as RTO), column roles and KPI names. Everything regenerates instantly.",
+    ],
+    tags: ["Feature"],
+    files: [
+      "src/ui/workspace/Shell.tsx",
+      "src/ui/workspace/UploadStep.tsx",
+      "src/ui/workspace/DetectStep.tsx",
+      "src/ui/workspace/ConfidenceRing.tsx",
+      "src/ui/workspace/VirtualGrid.tsx",
+      "src/ui/workspace/HealthPanel.tsx",
+      "src/ui/workspace/MapStep.tsx",
+    ],
+  },
+  {
+    version: "13.0",
+    kind: "major",
+    date: "2026-10-15T08:25:00Z",
+    title: "Chart system and workspace state",
+    summary:
+      "Built the charting layer and the app's state. Every chart follows strict visual rules and comes with a table view, a reason for its type, alternatives and export.",
+    changes: [
+      "Fourteen chart types: line, area, bar, horizontal bar, stacked bar, donut, treemap, heatmap, cohort grid, India and US state tile maps, scatter with trend line, histogram, Pareto and funnel.",
+      "Visual rules: no dual axes, no 3D, no pie charts with more than six slices, bar axes always start at zero, thin bars, a hairline grid, and a legend only when there are two or more series. Colours come from the validated colour-blind-safe palette.",
+      'Each chart card has a "Why this chart" note, alternative chart types, a table view, Top-N, and PNG, SVG and CSV export.',
+      "Clicking a chart filters by that period, drills down a hierarchy (for example category → sub-category) or cross-filters the rest of the dashboard.",
+      "Workspace state: steps, filters, cross-filter, drill-down, layout and debounced recomputation.",
+    ],
+    tags: ["Feature", "Design"],
+    files: [
+      "src/store/workspace.ts",
+      "src/ui/charts/options.ts",
+      "src/ui/charts/EChart.tsx",
+      "src/ui/charts/ChartCard.tsx",
+      "src/ui/charts/DataTable.tsx",
+      "src/ui/charts/Sparkline.tsx",
+      "src/ui/charts/tokens.ts",
+    ],
+  },
+  {
+    version: "12.1",
+    kind: "minor",
+    date: "2026-10-15T08:19:30Z",
+    title: "Faster, smarter recomputation",
+    summary:
+      "Made dashboard refreshes cheaper and fixed how a chart behaves when you click it to filter the others.",
+    changes: [
+      "KPIs are computed once per refresh instead of twice.",
+      "The chart you click to cross-filter keeps showing all of its own bars, so you can still see what you selected against the rest.",
+      "Loading shows clear progress phases: reading, profiling, detecting.",
+      "Date presets (last 12 months, YTD and so on) are defined in one shared place.",
+    ],
+    tags: ["Performance", "Fix"],
+    files: [
+      "src/engine/session.ts",
+      "src/workers/engine.worker.ts",
+      "src/engine/core/periods.ts",
+      "src/engine/parse/csv.ts",
+    ],
+  },
+  {
+    version: "12.0",
+    kind: "major",
+    date: "2026-10-15T08:17:05Z",
+    title: "Analysis session in a background thread",
+    summary:
+      "All analysis now runs in a Web Worker, a background thread of the browser tab, so the interface stays smooth even on large files. Your data still never leaves the browser.",
+    changes: [
+      "One analysis session holds the dataset and everything derived from it. The screen only receives small results such as KPI values and chart data.",
+      "Charts stream in one by one, and a newer filter change cancels stale work.",
+      "Wide tables (months as columns) can be unpivoted into rows with one click.",
+    ],
+    tags: ["Feature", "Performance"],
+    files: [
+      "src/engine/session.ts",
+      "src/workers/engine.worker.ts",
+      "src/lib/engine-client.ts",
+      "src/engine/parse/unpivot.ts",
+    ],
+  },
+  {
+    version: "11.1",
+    kind: "minor",
+    date: "2026-10-15T08:13:41Z",
+    title: "Shared row selections",
+    summary:
+      "Filtered row sets are now cached and shared between KPIs and charts, so each filter is applied once per refresh instead of once per chart.",
+    changes: [
+      "The most recent filter results are remembered and reused across KPI cards, charts and period comparisons.",
+    ],
+    tags: ["Performance"],
+    files: [
+      "src/engine/query/filter.ts",
+      "src/engine/query/run.ts",
+      "src/engine/kpi/compute.ts",
+      "src/engine/charts/data.ts",
+    ],
+  },
+  {
+    version: "11.0",
+    kind: "major",
+    date: "2026-10-15T08:12:56Z",
+    title: "Export generators: Power BI, SQL, dictionary, config",
+    summary:
+      "Wrote the engines that produce the export files, so the KPIs on screen can be rebuilt in Power BI or any SQL database.",
+    changes: [
+      "Power BI package: TMDL semantic model, measures.dax (display folders, comments, a Date table, time intelligence), CSV data and a README with step-by-step setup and a visual-by-visual layout.",
+      "SQL file: CREATE TABLE, one view per KPI, monthly trend views, an RFM view and a cohort view, with notes for DuckDB, PostgreSQL, Snowflake and BigQuery.",
+      "Data dictionary listing every column with its type, role, statistics and the KPIs that use it.",
+      "Shareable config with a fingerprint of the dataset, so it can only be applied to matching data.",
+      "Currency symbols in Power BI number formats are escaped so they display literally.",
+    ],
+    tags: ["Feature"],
+    files: [
+      "src/engine/export/powerbi.ts",
+      "src/engine/export/tmdl.ts",
+      "src/engine/export/daxFile.ts",
+      "src/engine/export/sqlFile.ts",
+      "src/engine/export/readme.ts",
+      "src/engine/export/dictionary.ts",
+      "src/engine/export/config.ts",
+      "src/engine/export/names.ts",
+    ],
+  },
+  {
+    version: "10.1",
+    kind: "minor",
+    date: "2026-10-15T08:08:04Z",
+    title: "Self-review fixes for KPIs, charts and insights",
+    summary: "Re-read the new analysis code and fixed four issues before moving on.",
+    changes: [
+      'The "mix shift" insight (a check for Simpson\'s paradox) now compares like-for-like time windows in all-time mode.',
+      "Chart templates meant for one part of a business (for example returns) only appear when that part is in the data.",
+      "Cohort analysis uses a safe placeholder for customers with no first order date.",
+      "You can build ad-hoc measures on any column (sum, average, min, max, median, count, distinct count) in the chart builder.",
+    ],
+    tags: ["Fix"],
+    files: [
+      "src/engine/insights/insights.ts",
+      "src/engine/charts/recommend.ts",
+      "src/engine/charts/analyses.ts",
+      "src/engine/kpi/context.ts",
+    ],
+  },
+  {
+    version: "10.0",
+    kind: "major",
+    date: "2026-10-15T08:07:57Z",
+    title: "KPI values, chart recommendations and insights",
+    summary:
+      "Connected the pieces into analysis: KPI values with period comparisons, the right chart for each question, deep e-commerce analyses, and written insights. Every number is computed from the data.",
+    changes: [
+      "KPIs for the selected period versus the previous period of the same length, with sparklines and a warning when the latest period is incomplete.",
+      "Time intelligence: MTD, QTD, YTD, YoY, MoM, rolling 3 and 12 months, and moving averages.",
+      "Charts are picked by rules: a trend for time, a ranked bar for categories, a heatmap for weekday × hour, and so on. Each comes with the reason and alternatives.",
+      'Top-N with an "Others" bucket that is recalculated, not summed (so ratios stay correct), and small groups are suppressed.',
+      "E-commerce analyses: RFM customer segments with suggested actions, monthly retention cohorts, Pareto (80/20) and market-basket product pairs.",
+      "Insights: trends, anomalies, concentration, seasonality, segment gaps, drivers and mix shifts, plus caveats such as orders still in transit.",
+      "A generic fallback builds sensible KPIs and charts for data that matches no industry.",
+    ],
+    tags: ["Feature"],
+    files: [
+      "src/engine/kpi/compute.ts",
+      "src/engine/charts/recommend.ts",
+      "src/engine/charts/data.ts",
+      "src/engine/charts/analyses.ts",
+      "src/engine/insights/insights.ts",
+      "src/engine/detect/generic.ts",
+    ],
+  },
+  {
+    version: "9.1",
+    kind: "minor",
+    date: "2026-10-15T07:59:15Z",
+    title: "End-to-end test on demo data, health check tuned",
+    summary:
+      "Ran the whole pipeline on the 48,000-row e-commerce demo: generated in 0.3 s, profiled in 0.2 s, detected as e-commerce with 99% confidence. Tuned the data-health check to stop false warnings.",
+    changes: [
+      "Columns that are legitimately mostly empty (coupon code, return reason) are noted as information, not flagged as a problem.",
+      'The "heavy tail" warning only appears for strongly skewed numbers.',
+    ],
+    tags: ["Tests", "Fix"],
+    files: ["src/engine/profile/quality.ts"],
+  },
+  {
+    version: "9.0",
+    kind: "major",
+    date: "2026-10-15T07:58:20Z",
+    title: "Demo datasets",
+    summary:
+      "Created six realistic demo datasets that are generated the same way every time, so anyone can try Loupe without their own data. They are clearly labelled as demo data.",
+    changes: [
+      "D2C e-commerce: about 48,000 order lines over two years across 24 Indian states, with COD and prepaid payments, RTO, couriers, coupons, sale events and returns that rise with discounts.",
+      "Smaller sets for B2B sales, marketing campaigns, SaaS MRR, a P&L ledger against budget, and an HR roster.",
+    ],
+    tags: ["Data"],
+    files: [
+      "src/engine/samples/ecommerce.ts",
+      "src/engine/samples/small.ts",
+      "src/engine/samples/builder.ts",
+      "src/engine/samples/catalog.ts",
+    ],
+  },
+  {
+    version: "8.1",
+    kind: "minor",
+    date: "2026-10-15T07:51:27Z",
+    title: "Proof that the numbers are right",
+    summary:
+      "Added an automated test that computes every e-commerce KPI twice, once with Loupe's engine and once by running the generated SQL in DuckDB, and requires the results to match.",
+    changes: [
+      "64 of 64 KPIs match overall, and all 1,344 monthly values match too.",
+      "Exports guard against spreadsheet formula injection: cells starting with =, +, -, @ or a tab are made safe.",
+    ],
+    tags: ["Tests", "Security"],
+    files: [
+      "tests/registry.test.ts",
+      "tests/helpers/duck.ts",
+      "tests/helpers/synthetic.ts",
+      "src/engine/export/csv.ts",
+    ],
+  },
+  {
+    version: "8.0",
+    kind: "major",
+    date: "2026-10-15T07:48:59Z",
+    title: "KPI compilers: SQL and DAX",
+    summary:
+      "Every KPI definition can now be translated into SQL and Power BI DAX that give the same answer as the on-screen number.",
+    changes: [
+      "SQL that runs on DuckDB and PostgreSQL, with readable common table expressions for complex KPIs.",
+      "DAX measures that use DIVIDE for safe division, branch on other measures, and follow standard patterns for new customers and closing balances.",
+      "Registry checks catch broken references or circular KPI definitions before they reach users.",
+    ],
+    tags: ["Feature"],
+    files: [
+      "src/engine/compile/sql.ts",
+      "src/engine/compile/dax.ts",
+      "src/registry/validate.ts",
+      "src/engine/kpi/context.ts",
+    ],
+  },
+  {
+    version: "7.0",
+    kind: "major",
+    date: "2026-10-15T07:45:30Z",
+    title: "Industry detection",
+    summary: "Loupe can now recognise what kind of business a table describes, how sure it is, and why.",
+    changes: [
+      "Matches column names to known fields, handling synonyms, abbreviations (qty, amt, cust), plurals and near-spellings.",
+      'Uses the values as evidence too, for example order statuses that include "RTO" or payment methods that include "COD".',
+      "Scores each industry and its sub-areas (orders, returns, inventory, marketing …), then reports the top three with confidence % and evidence.",
+      "Decides which KPIs can be computed. When a KPI can't be, it says which column is missing and suggests a substitute.",
+    ],
+    tags: ["Feature"],
+    files: [
+      "src/engine/detect/match.ts",
+      "src/engine/detect/mapping.ts",
+      "src/engine/detect/detect.ts",
+      "src/engine/kpi/resolve.ts",
+    ],
+  },
+  {
+    version: "6.0",
+    kind: "major",
+    date: "2026-10-15T07:42:51Z",
+    title: "Industry knowledge base and e-commerce",
+    summary:
+      "Created the extensible knowledge base that describes each industry as a JSON file, and wrote the deepest one first: e-commerce with Indian specifics.",
+    changes: [
+      "Each industry lists its fields and their synonyms, what category values mean, its sub-areas, KPIs with definitions, formulas and benchmarks, chart templates and common pitfalls.",
+      "E-commerce: about 55 fields and 64 KPIs, including net revenue, AOV, gross margin, COD share, RTO rate, return rate, repeat rate, new customers, delivery time and marketing and inventory KPIs.",
+      "Indian specifics: COD, RTO, GST, pincode and city tiers, and courier performance.",
+      "All industry files are validated against a strict schema when the app loads.",
+    ],
+    tags: ["Feature", "Data"],
+    files: ["src/registry/schema.ts", "src/registry/domains/ecommerce.json", "src/registry/index.ts"],
+  },
+  {
+    version: "5.1",
+    kind: "minor",
+    date: "2026-10-15T07:37:31Z",
+    title: "Query engine self-review fixes",
+    summary: "Fixed three small issues found while re-reading the query engine.",
+    changes: [
+      'Top-N rankings no longer drop the "(blank)" group.',
+      "Bin labels (for example ₹500–₹1,000) are shared by charts and tables.",
+      "Row calculations can measure the days between two dates, used for delivery time.",
+    ],
+    tags: ["Fix"],
+    files: ["src/engine/query/run.ts", "src/engine/query/groupby.ts", "src/engine/query/expr.ts"],
+  },
+  {
+    version: "5.0",
+    kind: "major",
+    date: "2026-10-15T07:37:26Z",
+    title: "Query engine",
+    summary:
+      "Built the calculator behind every number: a small expression language for KPIs, plus fast filtering and grouping over the typed columns.",
+    changes: [
+      "KPIs are defined once as expressions (sums, averages, distinct counts, safe division, filtered measures, per-customer measures, new customers, latest snapshot).",
+      'Ratios are always a ratio of sums, never an average of row ratios, and division by zero gives "no value" instead of an error or infinity.',
+      "Grouping by category, by time (day to year), by weekday or hour, and by value bands.",
+    ],
+    tags: ["Feature"],
+    files: [
+      "src/engine/query/expr.ts",
+      "src/engine/query/filter.ts",
+      "src/engine/query/groupby.ts",
+      "src/engine/query/evaluate.ts",
+      "src/engine/query/run.ts",
+    ],
+  },
+  {
+    version: "4.0",
+    kind: "major",
+    date: "2026-10-15T07:31:35Z",
+    title: "Column profiling and data health",
+    summary:
+      "Loupe now studies every column: what type it is, what role it plays, how values are distributed, and how trustworthy the table is overall.",
+    changes: [
+      "Roles: measure, currency, percentage, dimension, identifier, date, geography, boolean and free text.",
+      "Statistics: missing values, distinct counts, min/median/max, outliers, top values and common patterns (emails, phone numbers, pincodes, SKUs).",
+      "Structure: primary keys, the grain of the table, hierarchies (category → sub-category), the main date, gaps in the time series, additivity, and wide tables with months as columns.",
+      "A data-health score from 0 to 100 with specific, fixable issues.",
+      "Recognises Indian and US states, countries and major cities for maps.",
+    ],
+    tags: ["Feature"],
+    files: [
+      "src/engine/profile/profile.ts",
+      "src/engine/profile/roles.ts",
+      "src/engine/profile/structure.ts",
+      "src/engine/profile/patterns.ts",
+      "src/engine/profile/quality.ts",
+      "src/engine/profile/geo.ts",
+      "src/engine/profile/names.ts",
+    ],
+  },
+  {
+    version: "3.0",
+    kind: "major",
+    date: "2026-10-15T07:21:07Z",
+    title: "File import engine",
+    summary:
+      "Loupe can read CSV, TSV, Excel and JSON files directly in the browser and works out their structure automatically.",
+    changes: [
+      "Detects the delimiter, the text encoding and the header row, and streams large files in chunks.",
+      "Excel workbooks with a sheet picker; JSON arrays, wrapped records and line-delimited JSON, with nested fields flattened.",
+      "Understands ₹1,23,456.50, $1,234, 12.5%, (1,234) as a negative, and European 1.234,56.",
+      "Reads more than 20 date formats. Decides DD/MM versus MM/DD from the whole column, not one cell, and tells you which it chose.",
+      "Stores data in compact typed columns, which keeps memory low and scans fast.",
+      "Warns before very large files and offers to sample them.",
+    ],
+    tags: ["Feature"],
+    files: [
+      "src/engine/parse/csv.ts",
+      "src/engine/parse/excel.ts",
+      "src/engine/parse/json.ts",
+      "src/engine/parse/sniff.ts",
+      "src/engine/parse/values.ts",
+      "src/engine/parse/dates.ts",
+      "src/engine/parse/builder.ts",
+      "src/engine/core/types.ts",
+      "src/engine/core/format.ts",
+    ],
+  },
+  {
+    version: "2.0",
+    kind: "major",
+    date: "2026-10-15T07:08:40Z",
+    title: "Design system and brand",
+    summary:
+      'Created Loupe\'s look, "quiet luxury meets precision instrument": graphite surfaces, one brass accent, an editorial serif for headlines and tabular figures for numbers.',
+    changes: [
+      "Colour tokens for dark (default) and light themes, with status colours that are never reused for data series.",
+      "Chart palettes checked with a colour-vision simulator: 8 categorical colours per theme, a brass sequential scale and a diverging scale.",
+      "Type: Instrument Serif for display, Geist for the interface, and Geist Mono with tabular figures so numbers line up.",
+      "A 4/8 px spacing grid, radii of 10/14/20 px, soft shadows and motion that respects reduced-motion settings.",
+      "Fifteen accessible interface components (buttons, menus, dialogs, sheets, tabs, tooltips …) built on Radix.",
+      "The Loupe mark (a lens rim with a brass measuring arc) and wordmark.",
+    ],
+    tags: ["Design"],
+    files: [
+      "src/styles/tokens.css",
+      "src/app/globals.css",
+      "src/ui/primitives/",
+      "src/ui/brand/logo.tsx",
+      "src/app/layout.tsx",
+    ],
+  },
+  {
+    version: "1.1",
+    kind: "minor",
+    date: "2026-10-15T07:03:25Z",
+    title: "Tooling and security configuration",
+    summary:
+      "Configured strict type-checking, linting, formatting and tests, plus browser security headers that back up the privacy promise.",
+    changes: [
+      "TypeScript strict mode, and ESLint forbids the unsafe `any` type.",
+      "A Content-Security-Policy that only allows network requests to this site, the DuckDB library (when you verify SQL) and the Anthropic API (only if you turn AI on).",
+      "Kept TypeScript at 5.9 and ESLint at 9, because the Next.js lint rules do not support TypeScript 7 or ESLint 10 yet.",
+    ],
+    tags: ["Security"],
+    files: ["tsconfig.json", "next.config.ts", "eslint.config.mjs", "vitest.config.ts", ".prettierrc.json"],
+  },
+  {
+    version: "1.0",
+    kind: "major",
+    date: "2026-10-15T06:59:22Z",
+    title: "Project foundation",
+    summary:
+      "Read the product brief, chose the name Loupe, and set up the app's technical base. It is a single-page web app that runs entirely in the browser and deploys to Vercel's free tier.",
+    changes: [
+      "Next.js 16 and React 19 with TypeScript, styled with Tailwind CSS 4.",
+      "Libraries for charts (ECharts), state (Zustand), validation (Zod), motion (Framer Motion), accessible components (Radix), files (PapaParse, SheetJS) and in-browser SQL (DuckDB-WASM).",
+      "No backend, no database and no accounts, by design.",
+    ],
+    tags: ["Feature"],
+    files: ["package.json"],
+  },
+];
+
+/**
+ * Work that is planned but not done yet, in the order it will be tackled.
+ * Shown on /changelog under "Up next" so the owner can see what is coming.
+ * Remove an item when its version ships.
+ */
+export const PLANNED: Array<{ title: string; detail: string }> = [
+  {
+    title: "Brand themes",
+    detail:
+      "Design the dashboard's colours from your company's brand colours (typed as hex codes or picked from your logo), and ask which style you want: one colour with a gradient, a multi-colour combination, or brand accent with neutral charts.",
+  },
+  {
+    title: "Theme everywhere",
+    detail:
+      "Apply the chosen theme to the dashboard, charts, PDF and PNG reports, and a matching Power BI theme file.",
+  },
+];
+
+/** The newest release; shown in the footer and settings. */
+export const CURRENT_RELEASE: Release = RELEASES[0] as Release;
+export const CURRENT_VERSION: string = CURRENT_RELEASE.version;
+
+/** Parses "12.3" into [12, 3]. */
+export function parseVersion(version: string): [number, number] {
+  const [major, minor] = version.split(".").map((part) => Number(part));
+  return [major ?? 0, minor ?? 0];
+}
