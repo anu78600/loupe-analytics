@@ -93,6 +93,8 @@ export const configSchema = z.object({
     .optional(),
   mappingOverrides: z.record(z.string(), z.string().nullable()).default({}),
   classOverrides: z.record(z.string(), z.array(z.string())).default({}),
+  /** Columns hidden in step 3 (kept in the file, never computed from); older configs have none. */
+  hiddenColumns: z.array(z.string()).default([]),
   roleOverrides: z
     .record(
       z.string(),

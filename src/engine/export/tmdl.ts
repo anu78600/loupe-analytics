@@ -154,12 +154,22 @@ export function generateTmdl(ctx: ExportContext, symbol: string, modelName: stri
     lines.push(`${TAB}${TAB}lineageTag: ${lineageTag(`${modelName}:measure:${m.id}`)}`);
     lines.push("");
   }
+  const hidden = new Set(ctx.hiddenColumns ?? []);
   for (const col of ds.columns) {
     const clean = names.columns.get(col.name) ?? col.name;
     const p = profile.columns.find((c) => c.name === col.name);
-    if (p?.roleReason) lines.push(description(`${p.roleReason} Source column: ${col.name}.`, 1));
+    // A column hidden in Loupe stays in the table (it is the user's reference) but is hidden in the report view too.
+    if (hidden.has(col.name))
+      lines.push(
+        description(
+          `Hidden in Loupe: kept as a reference, not used by any measure. Source column: ${col.name}.`,
+          1,
+        ),
+      );
+    else if (p?.roleReason) lines.push(description(`${p.roleReason} Source column: ${col.name}.`, 1));
     lines.push(`${TAB}column ${tmdlName(clean)}`);
     lines.push(`${TAB}${TAB}dataType: ${dataType(col)}`);
+    if (hidden.has(col.name)) lines.push(`${TAB}${TAB}isHidden`);
     if (col.kind === "date")
       lines.push(
         `${TAB}${TAB}formatString: ${col.timeOnly ? "Long Time" : col.hasTime ? "General Date" : "Long Date"}`,

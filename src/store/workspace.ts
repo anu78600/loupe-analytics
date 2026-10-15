@@ -9,9 +9,10 @@
  *
  * The store never holds the dataset itself, only small results; every
  * computation goes through engine(). Three kinds of change, three paths:
- *  - Mapping, value-class, role, sub-domain and KPI-name changes call
- *    reconfigure(): the worker rebuilds the whole analysis context (KPI
- *    resolution, chart specs, SQL/DAX), then the dashboard refreshes.
+ *  - Mapping, value-class, role, sub-domain, hidden-column and KPI-name
+ *    changes call reconfigure(): the worker rebuilds the whole analysis
+ *    context (KPI resolution, chart specs, SQL/DAX), then the dashboard
+ *    refreshes.
  *  - Filter, drill, mode and widget changes call refresh(): a 90 ms
  *    debounced recompute of KPIs and visible charts; superseded requests are
  *    aborted in the worker and their late results ignored here.
@@ -26,6 +27,7 @@ import { Comlink, engine, resetEngine } from "@/lib/engine-client";
 import { formatCount, SUPPORTED_CURRENCIES } from "@/engine/core/format";
 import type { IngestOptions, LargeFileAssessment, ParseReport } from "@/engine/core/types";
 import type { HealthReport } from "@/engine/profile/quality";
+import type { ReplacedColumn } from "@/engine/profile/replaced";
 import type { DatasetProfile, SemanticRole, Additivity } from "@/engine/profile/types";
 import type { DetectionResult } from "@/engine/detect/detect";
 import type {
@@ -141,6 +143,15 @@ interface WorkspaceState {
   kpiRenames: Record<string, string>;
   /** UI-only KPI targets; never sent to the engine. */
   kpiTargets: Record<string, number>;
+  /**
+   * Columns the user hid in step 3, sent with every configure: they stay in
+   * the file, the data grid and the exports, but nothing computes from them.
+   */
+  hiddenColumns: string[];
+  /** Columns that look replaced by a cleaned copy (found on loading), offered in step 3 as columns to hide. */
+  replaced: ReplacedColumn[];
+  /** The user waved the suggestions away; they come back with the next file. */
+  replacedDismissed: boolean;
   /** Result of the last configure(); null until a domain is confirmed. */
   context: ContextResult | null;
   configuring: boolean;
@@ -222,6 +233,12 @@ interface WorkspaceState {
   setClassOverride: (key: string, values: string[]) => void;
   /** null removes the override, restoring the detected role. */
   setRoleOverride: (column: string, role: SemanticRole | null, additivity?: Additivity) => void;
+  /**
+   * Hides columns from the analysis (or shows them again) and reconfigures.
+   * Filters on a newly hidden column are dropped, so no figure stays narrowed by it.
+   */
+  setColumnsHidden: (columns: string[], hidden: boolean) => void;
+  dismissReplaced: () => void;
   renameKpi: (id: string, name: string) => void;
   /** null or a non-finite value clears the target. No refresh: targets are display-only. */
   setTarget: (id: string, value: number | null) => void;
@@ -243,7 +260,8 @@ interface WorkspaceState {
   updateWidget: (id: string, patch: Partial<Widget>) => void;
   /** Drag-and-drop reorder: widget `from` takes the index widget `to` had. */
   moveWidget: (from: string, to: string) => void;
-  addCustomChart: (spec: ChartSpec) => void;
+  /** Adds a chart; `select` (default true) also opens it in the inspector, as the manual builder wants. */
+  addCustomChart: (spec: ChartSpec, opts?: { select?: boolean }) => void;
   /** Custom charts are deleted; built-in charts are only hidden, so they can come back. */
   removeChart: (id: string) => void;
   toggleExtraKpi: (id: string) => void;
@@ -293,6 +311,9 @@ function initialData(): WorkspaceData {
     roleOverrides: {},
     kpiRenames: {},
     kpiTargets: {},
+    hiddenColumns: [],
+    replaced: [],
+    replacedDismissed: false,
     context: null,
     configuring: false,
     mode: "analyst",
@@ -392,6 +413,9 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
       roleOverrides: {},
       kpiRenames: {},
       kpiTargets: {},
+      hiddenColumns: [],
+      replaced: res.replaced,
+      replacedDismissed: false,
       context: null,
       charts: {},
       kpiBatch: null,
@@ -454,6 +478,7 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
         classOverrides: s.classOverrides,
         roleOverrides: s.roleOverrides,
         kpiRenames: s.kpiRenames,
+        hiddenColumns: s.hiddenColumns,
         numberLocale: settings.numberLocale,
         currency: settings.currencyOverride,
       });
@@ -462,6 +487,8 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
       // load starts from the specs' default sizes.
       set({
         context,
+        // The health of the columns in use: problems in hidden columns no longer count.
+        health: context.health,
         configuring: false,
         domainId,
         subDomainId: context.subDomainId,
@@ -635,6 +662,23 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
       void get().reconfigure();
     },
 
+    setColumnsHidden: (columns, hidden) => {
+      set((s) => {
+        const gone = new Set(hidden ? columns : []);
+        return {
+          hiddenColumns: hidden
+            ? [...new Set([...s.hiddenColumns, ...columns])]
+            : s.hiddenColumns.filter((c) => !columns.includes(c)),
+          // A filter on a column that is now hidden would still narrow every figure, so it goes too.
+          dimFilters: s.dimFilters.filter((f) => !gone.has(f.column)),
+          crossFilter: s.crossFilter && gone.has(s.crossFilter.column) ? null : s.crossFilter,
+        };
+      });
+      void get().reconfigure();
+    },
+
+    dismissReplaced: () => set({ replacedDismissed: true }),
+
     renameKpi: (id, name) => {
       set((s) => ({ kpiRenames: { ...s.kpiRenames, [id]: name } }));
       void get().reconfigure();
@@ -744,11 +788,11 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
         return { widgets: list };
       }),
 
-    addCustomChart: (spec) => {
+    addCustomChart: (spec, opts) => {
       set((s) => ({
         customCharts: [...s.customCharts, spec],
         widgets: [...s.widgets, { id: spec.id, w: spec.size.w, h: spec.size.h }],
-        selected: { type: "chart", id: spec.id },
+        ...(opts?.select === false ? {} : { selected: { type: "chart" as const, id: spec.id } }),
       }));
       get().refresh();
     },
@@ -937,6 +981,7 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
         roleOverrides: cfg.roleOverrides,
         kpiRenames: cfg.kpiRenames,
         kpiTargets: cfg.kpiTargets,
+        hiddenColumns: cfg.hiddenColumns,
         // The period becomes the trend grain sent to the engine, so only a known grain is kept.
         business: {
           model: business.model,

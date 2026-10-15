@@ -60,28 +60,12 @@ export function columnUsage(input: UsageInput, specs: ChartSpec[]): Map<string, 
   }
 
   for (const spec of specs) {
-    const axisColumns = (a: ResolvedAxis | undefined): string[] => {
-      if (!a || a.kind === "none") return [];
-      if (a.kind === "bins") return [...fieldsOf(a.expr)].map(columnOfRef).filter((c): c is string => !!c);
-      return [a.column];
-    };
-    const cols = new Set<string>([
-      ...axisColumns(spec.x),
-      ...axisColumns(spec.series),
-      ...(spec.drill ?? []),
-    ]);
-    for (const m of spec.measures) {
-      // "agg:<fn>:<column>" names its column; "agg:count:" (row count) has none.
-      if (m.id.startsWith("agg:")) {
-        const col = m.id.split(":").slice(2).join(":");
-        if (col) cols.add(col);
-      } else for (const c of kpiColumns.get(m.id) ?? []) cols.add(c);
-    }
-    const p = spec.analysisParams;
-    if (p) {
-      for (const c of [p.customer, p.date, p.order, p.item]) if (c) cols.add(c);
-      if (p.monetary) for (const c of kpiColumns.get(p.monetary) ?? []) cols.add(c);
-    }
+    const cols = specColumns(spec, columnOfRef);
+    // KPI measures read their columns through the mapping (refs included).
+    for (const m of spec.measures)
+      if (!m.id.startsWith("agg:")) for (const c of kpiColumns.get(m.id) ?? []) cols.add(c);
+    const monetary = spec.analysisParams?.monetary;
+    if (monetary) for (const c of kpiColumns.get(monetary) ?? []) cols.add(c);
     for (const c of cols) add(c, "charts", spec.title);
   }
 
@@ -93,4 +77,30 @@ export function columnUsage(input: UsageInput, specs: ChartSpec[]): Map<string, 
 /** True when a column feeds anything at all. */
 export function isUsed(u: ColumnUse | undefined): boolean {
   return Boolean(u && (u.kpis.length || u.charts.length || u.filters.length));
+}
+
+/**
+ * Columns a chart reads directly: its axes (a histogram's binned expression
+ * included), series and drill path, its ad-hoc "agg:" measures and the raw
+ * inputs of an RFM, cohort or basket analysis. KPI measures (and an
+ * analysis's monetary KPI) are not included: they read their columns through
+ * the field mapping. `columnOfRef` turns a field reference (a domain field id
+ * or "col:<name>") into a column name.
+ */
+export function specColumns(spec: ChartSpec, columnOfRef: (ref: string) => string | undefined): Set<string> {
+  const axisColumns = (a: ResolvedAxis | undefined): string[] => {
+    if (!a || a.kind === "none") return [];
+    if (a.kind === "bins") return [...fieldsOf(a.expr)].map(columnOfRef).filter((c): c is string => !!c);
+    return [a.column];
+  };
+  const cols = new Set<string>([...axisColumns(spec.x), ...axisColumns(spec.series), ...(spec.drill ?? [])]);
+  for (const m of spec.measures) {
+    // "agg:<fn>:<column>" names its column; "agg:count:" (row count) has none.
+    if (!m.id.startsWith("agg:")) continue;
+    const col = m.id.split(":").slice(2).join(":");
+    if (col) cols.add(col);
+  }
+  const p = spec.analysisParams;
+  if (p) for (const c of [p.customer, p.date, p.order, p.item]) if (c) cols.add(c);
+  return cols;
 }

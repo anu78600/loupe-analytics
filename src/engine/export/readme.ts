@@ -217,6 +217,16 @@ export function generateReadme(ctx: ExportContext, specs: ChartSpec[], symbol: s
     );
     out.push("");
   }
+  if (ctx.hiddenColumns?.length) {
+    const one = ctx.hiddenColumns.length === 1;
+    const list = ctx.hiddenColumns.map((c) => `\`${ctx.names.columns.get(c) ?? c}\``).join(", ");
+    out.push("## Hidden columns");
+    out.push("");
+    out.push(
+      `You hid ${list} in Loupe. ${one ? "It stays" : "They stay"} in \`data.csv\` and the table as your reference, but no measure reads ${one ? "it" : "them"}, and the model marks ${one ? "it" : "them"} hidden so ${one ? "it stays" : "they stay"} out of the report's field list.`,
+    );
+    out.push("");
+  }
   out.push("## Path A: any Power BI Desktop (about 5 minutes)");
   out.push("");
   out.push(

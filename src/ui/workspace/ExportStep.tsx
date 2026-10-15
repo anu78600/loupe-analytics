@@ -163,6 +163,7 @@ export function buildConfig(): LoupeConfig | null {
     mappingOverrides: s.mappingOverrides,
     classOverrides: s.classOverrides,
     roleOverrides: s.roleOverrides,
+    hiddenColumns: s.hiddenColumns,
     kpiRenames: s.kpiRenames,
     kpiTargets: s.kpiTargets,
     dashboard: {

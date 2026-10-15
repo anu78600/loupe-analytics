@@ -4,7 +4,8 @@
  * Step 4, Dashboard. Filter rail on the left; the hero KPI strip and the
  * supporting KPIs; then charts in the order analysts read them (trend →
  * breakdowns → drivers & segments → detail); Executive, Analyst and Compact
- * layouts; the inspector and chart builder (in a sheet below 1280 px); "Ask
+ * layouts; the inspector and chart builder (a slide-in panel, so the charts
+ * keep the full width; WidgetGrid packs them into full rows); "Ask
  * for a chart", which designs charts from a request in the user's words and
  * lets them keep or remove any chart (AskChart.tsx); the line saying how
  * many of the file's columns are used; and the "Not shown" panel, which
@@ -17,7 +18,6 @@ import {
   Columns3,
   LayoutGrid,
   Loader2,
-  PanelRight,
   Plus,
   SlidersHorizontal,
 } from "lucide-react";
@@ -52,15 +52,6 @@ const SECTIONS: Array<{ id: ChartSection; title: string; blurb: string }> = [
   { id: "detail", title: "Detail", blurb: "The rows behind the totals." },
 ];
 
-/** The three-column layout (rail, dashboard, inspector) needs at least this width. */
-const WIDE_QUERY = "(min-width: 1280px)";
-const isWide = () => window.matchMedia(WIDE_QUERY).matches;
-function subscribeWide(onChange: () => void): () => void {
-  const mq = window.matchMedia(WIDE_QUERY);
-  mq.addEventListener("change", onChange);
-  return () => mq.removeEventListener("change", onChange);
-}
-
 export function DashboardStep() {
   const context = useWorkspace((s) => s.context);
   const mode = useWorkspace((s) => s.mode);
@@ -75,13 +66,12 @@ export function DashboardStep() {
   const [filtersOpen, setFiltersOpen] = React.useState(false);
   const [inspectorOpen, setInspectorOpen] = React.useState(false);
   const [healthOpen, setHealthOpen] = React.useState(false);
-  const wide = React.useSyncExternalStore(subscribeWide, isWide, () => true);
-
-  // Below 1280px the inspector lives in a sheet: open it whenever a new chart or KPI is selected.
+  // The inspector is a slide-in panel, so the charts keep the full width: it opens when a
+  // chart or KPI is picked (a KPI card, a chart's Customise) and from "Build manually".
   React.useEffect(
     () =>
       useWorkspace.subscribe((s, prev) => {
-        if (s.selected && s.selected !== prev.selected && !isWide()) setInspectorOpen(true);
+        if (s.selected && s.selected !== prev.selected) setInspectorOpen(true);
       }),
     [],
   );
@@ -91,9 +81,10 @@ export function DashboardStep() {
   const subName = context.domain.subDomains.find((s) => s.id === context.subDomainId)?.name;
 
   return (
-    <div className="mx-auto grid w-full max-w-[1680px] gap-6 px-4 py-6 md:px-6 lg:grid-cols-[248px_minmax(0,1fr)] xl:grid-cols-[248px_minmax(0,1fr)_340px]">
-      <aside className="no-print hidden lg:block" aria-label="Dataset and filters">
-        <div className="sticky top-20 max-h-[calc(100dvh-6rem)] overflow-y-auto pr-1">
+    <div className="mx-auto grid w-full max-w-[1760px] gap-6 px-4 py-6 md:px-6 lg:grid-cols-[256px_minmax(0,1fr)]">
+      <aside className="no-print hidden min-w-0 lg:block" aria-label="Dataset and filters">
+        {/* Never scrolls sideways: everything in the rail fits its width. */}
+        <div className="sticky top-20 max-h-[calc(100dvh-6rem)] overflow-x-hidden overflow-y-auto pr-1">
           <FilterRail onOpenHealth={() => setHealthOpen(true)} />
         </div>
       </aside>
@@ -112,6 +103,7 @@ export function DashboardStep() {
               <p className="mt-2 flex items-center gap-1.5 text-2xs text-fg-subtle">
                 <Columns3 className="size-3.5" aria-hidden />
                 Uses {usage.used} of your {usage.total} columns ·{" "}
+                {usage.hidden ? `${usage.hidden} hidden by you · ` : ""}
                 {usage.derived ? "only the unpivot columns you agreed to were added" : "no columns added"}
               </p>
             ) : null}
@@ -147,22 +139,12 @@ export function DashboardStep() {
               size="sm"
               onClick={() => {
                 select(null);
-                if (!wide) setInspectorOpen(true);
+                setInspectorOpen(true);
               }}
             >
               <Plus aria-hidden /> Build manually
             </Button>
             <AskChartButton />
-            {!wide ? (
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label="Open inspector"
-                onClick={() => setInspectorOpen(true)}
-              >
-                <PanelRight aria-hidden />
-              </Button>
-            ) : null}
           </div>
         </div>
         <div className="mb-4">
@@ -197,14 +179,6 @@ export function DashboardStep() {
         <NotShown />
       </div>
 
-      {wide ? (
-        <aside className="no-print" aria-label="Inspector">
-          <div className="sticky top-20 max-h-[calc(100dvh-6rem)] overflow-y-auto rounded-panel border border-border bg-surface-1 p-5 shadow-card">
-            <Inspector />
-          </div>
-        </aside>
-      ) : null}
-
       <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
         <SheetContent side="left" title="Filters">
           <div className="p-5">
@@ -213,7 +187,7 @@ export function DashboardStep() {
         </SheetContent>
       </Sheet>
       <Sheet
-        open={!wide && inspectorOpen}
+        open={inspectorOpen}
         onOpenChange={(o) => {
           setInspectorOpen(o);
           if (!o) select(null);

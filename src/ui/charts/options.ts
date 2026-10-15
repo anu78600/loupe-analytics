@@ -237,9 +237,11 @@ function legend(ctx: OptionContext, names: string[]): Obj | undefined {
  * Peak / low / anomaly markers from the engine's annotations, drawn on the
  * first series only. Each carries its value ("Peak ₹12.4L"): on time axes
  * these are the only direct labels, so the extremes stay readable without a
- * number on every bar.
+ * number on every bar. Labels sit on a small surface-coloured plate, so they
+ * stay legible where they cross a line or a neighbouring bar; on lines and
+ * areas the low sits below its point, where the space is free.
  */
-function markPoints(ctx: OptionContext, seriesIndex: number): Obj | undefined {
+function markPoints(ctx: OptionContext, seriesIndex: number, isLine = false): Obj | undefined {
   if (seriesIndex !== 0 || !ctx.data.annotations.length) return undefined;
   const s = ctx.data.series[0];
   if (!s) return undefined;
@@ -254,12 +256,21 @@ function markPoints(ctx: OptionContext, seriesIndex: number): Obj | undefined {
       color: ctx.tokens.muted,
       fontSize: 10,
       fontFamily: ctx.tokens.fontSans,
+      backgroundColor: ctx.tokens.surface,
+      borderColor: ctx.tokens.border,
+      borderWidth: 1,
+      borderRadius: 4,
+      padding: [2, 5],
       formatter: (p: { name: string }) => p.name,
     },
     data: ctx.data.annotations.map((a) => {
       const word = a.kind === "max" ? "Peak" : a.kind === "min" ? "Low" : "Anomaly";
       const v = s.values[a.index] ?? null;
-      return { name: v === null ? word : `${word} ${fv(v, s.format, ctx.fmt)}`, coord: [a.index, v] };
+      return {
+        name: v === null ? word : `${word} ${fv(v, s.format, ctx.fmt)}`,
+        coord: [a.index, v],
+        ...(isLine && a.kind === "min" ? { label: { position: "bottom" } } : {}),
+      };
     }),
   };
 }
@@ -395,7 +406,7 @@ function cartesian(ctx: OptionContext): EChartsCoreOption {
                     ),
                 }
               : undefined,
-          markPoint: markPoints(ctx, i),
+          markPoint: markPoints(ctx, i, true),
         });
       } else {
         series.push({
@@ -539,10 +550,12 @@ function donut(ctx: OptionContext): EChartsCoreOption {
     series: [
       {
         type: "pie",
-        radius: ["56%", "78%"],
+        radius: ["50%", "70%"],
         center: ["50%", "52%"],
         padAngle: 1.5,
         itemStyle: { borderRadius: 4, borderColor: t.surface, borderWidth: 2 },
+        // Labels line up at the card's edges, where there is the most room, and long names wrap
+        // onto a second line instead of being cut ("Net Banking", "Debit Card").
         label: {
           show: true,
           color: t.muted,
@@ -550,8 +563,12 @@ function donut(ctx: OptionContext): EChartsCoreOption {
           fontFamily: t.fontSans,
           formatter: (p: { name: string; percent: number }) => `${p.name}\n${p.percent.toFixed(0)}%`,
           lineHeight: 15,
+          alignTo: "edge",
+          edgeDistance: 8,
+          overflow: "break",
         },
-        labelLine: { length: 8, length2: 8, lineStyle: { color: t.axis } },
+        labelLine: { length: 10, length2: 0, maxSurfaceAngle: 80, lineStyle: { color: t.axis } },
+        labelLayout: { hideOverlap: false, moveOverlap: "shiftY" },
         data: items,
         emphasis: { scale: true, scaleSize: 4 },
       },

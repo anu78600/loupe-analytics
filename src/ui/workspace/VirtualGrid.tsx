@@ -10,12 +10,16 @@
  * that couldn't be read shows what the file said, a value that breaks a
  * rule, a probably missing value, and a row that repeats an earlier one.
  *
+ * Each column header can hide its column from the analysis (the eye
+ * button). A hidden column stays in the grid, dimmed and unmarked, because
+ * the user keeps it as a reference; nothing computes from it.
+ *
  * Browsers cap an element's height (about 33 million px, roughly a million
  * 32-px rows), so a view longer than BLOCK rows is shown one block at a time.
  */
 import * as React from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { AlertTriangle, Calendar, Clock, Copy, Hash, ToggleLeft, Type } from "lucide-react";
+import { AlertTriangle, Calendar, Clock, Copy, Eye, EyeOff, Hash, ToggleLeft, Type } from "lucide-react";
 import type { ColumnProfile } from "@/engine/profile/types";
 import { ROLE_LABEL } from "@/engine/profile/types";
 import type { CellProblem, CheckedRow } from "@/engine/profile/dataCheck";
@@ -53,6 +57,8 @@ export function VirtualGrid({
   columns,
   view = "all",
   total,
+  hidden,
+  onToggleHidden,
   className,
 }: {
   /** The file's columns in file order (the worker returns cells in this order). */
@@ -61,6 +67,10 @@ export function VirtualGrid({
   view?: string;
   /** Rows in the view. */
   total: number;
+  /** Columns hidden from the analysis: shown dimmed, with "Hidden" in the header. */
+  hidden?: ReadonlySet<string>;
+  /** Adds the hide/show button to each column header. */
+  onToggleHidden?: (column: string, hide: boolean) => void;
   className?: string;
 }) {
   const parent = React.useRef<HTMLDivElement>(null);
@@ -71,9 +81,19 @@ export function VirtualGrid({
   const blocks = Math.max(1, Math.ceil(total / BLOCK));
   const offset = Math.min(block, blocks - 1) * BLOCK;
   const rowCount = Math.max(0, Math.min(BLOCK, total - offset));
+  // Room for the name (plus the hide button when there is one) and for the role line under it
+  // ("Currency · non-additive"), so neither wraps.
+  const button = onToggleHidden ? 26 : 0;
   const widths = React.useMemo(
-    () => columns.map((c) => Math.min(260, Math.max(110, c.name.length * 7.4 + 54))),
-    [columns],
+    () =>
+      columns.map((c) => {
+        const role =
+          ROLE_LABEL[c.role].length +
+          (c.additivity && c.additivity !== "additive" ? c.additivity.length + 3 : 0);
+        const wanted = Math.max(c.name.length * 7.4 + 54 + button, role * 6.4 + 46);
+        return Math.min(260 + button, Math.max(110 + button, wanted));
+      }),
+    [columns, button],
   );
   const totalWidth = 72 + widths.reduce((a, b) => a + b, 0);
 
@@ -151,25 +171,66 @@ export function VirtualGrid({
             </div>
             {columns.map((c, j) => {
               const Icon = c.role === "time" ? Clock : STORAGE_ICON[c.storage];
+              const off = hidden?.has(c.name) ?? false;
               return (
                 <div
                   key={c.name}
                   style={{ width: widths[j] }}
-                  className="shrink-0 border-r border-border px-3 py-1.5"
+                  className={cn("shrink-0 border-r border-border px-3 py-1.5", off && "bg-surface-3")}
                   role="columnheader"
                 >
-                  <p className="truncate text-ui font-medium text-fg" title={c.name}>
-                    {c.name}
-                  </p>
-                  <Tooltip content={`${ROLE_LABEL[c.role]} · ${c.roleReason}`}>
-                    <p className={cn("mt-0.5 inline-flex items-center gap-1 text-2xs", ROLE_TONE[c.role])}>
-                      <Icon className="size-3" aria-hidden />
-                      {ROLE_LABEL[c.role]}
-                      {c.additivity && c.additivity !== "additive" ? (
-                        <span className="text-fg-subtle">· {c.additivity}</span>
-                      ) : null}
+                  <div className="flex items-start justify-between gap-1">
+                    <p
+                      className={cn(
+                        "truncate text-ui font-medium",
+                        off ? "text-fg-subtle line-through" : "text-fg",
+                      )}
+                      title={c.name}
+                    >
+                      {c.name}
                     </p>
-                  </Tooltip>
+                    {onToggleHidden ? (
+                      <Tooltip
+                        content={
+                          off
+                            ? "Use this column in the analysis again"
+                            : "Hide from the analysis: it stays in your file and here, but no KPI, chart, filter or question uses it"
+                        }
+                      >
+                        <button
+                          type="button"
+                          onClick={() => onToggleHidden(c.name, !off)}
+                          aria-pressed={off}
+                          aria-label={
+                            off ? `Use ${c.name} in the analysis again` : `Hide ${c.name} from the analysis`
+                          }
+                          className="-mt-0.5 -mr-1.5 grid size-6 shrink-0 place-items-center rounded-[6px] text-fg-subtle transition-colors hover:bg-surface-3 hover:text-fg focus-visible:ring-2 focus-visible:ring-accent-ring focus-visible:outline-none"
+                        >
+                          {off ? (
+                            <Eye className="size-3.5" aria-hidden />
+                          ) : (
+                            <EyeOff className="size-3.5" aria-hidden />
+                          )}
+                        </button>
+                      </Tooltip>
+                    ) : null}
+                  </div>
+                  {off ? (
+                    <p className="mt-0.5 inline-flex items-center gap-1 text-2xs text-fg-muted">
+                      <EyeOff className="size-3" aria-hidden />
+                      Hidden · not used
+                    </p>
+                  ) : (
+                    <Tooltip content={`${ROLE_LABEL[c.role]} · ${c.roleReason}`}>
+                      <p className={cn("mt-0.5 inline-flex items-center gap-1 text-2xs", ROLE_TONE[c.role])}>
+                        <Icon className="size-3" aria-hidden />
+                        {ROLE_LABEL[c.role]}
+                        {c.additivity && c.additivity !== "additive" ? (
+                          <span className="text-fg-subtle">· {c.additivity}</span>
+                        ) : null}
+                      </p>
+                    </Tooltip>
+                  )}
                 </div>
               );
             })}
@@ -203,7 +264,9 @@ export function VirtualGrid({
                   </div>
                   {columns.map((c, j) => {
                     const v = row?.cells[j];
-                    const problem = byColumn.get(j);
+                    const off = hidden?.has(c.name) ?? false;
+                    // A hidden column is the user's reference only: dimmed, never marked.
+                    const problem = off ? undefined : byColumn.get(j);
                     return (
                       <div
                         key={c.name}
@@ -212,8 +275,9 @@ export function VirtualGrid({
                         className={cn(
                           "flex shrink-0 items-center gap-1 truncate border-r border-border px-3 py-1.5",
                           c.storage === "number" ? "font-figures justify-end" : "",
-                          v === null ? "text-fg-subtle italic" : "text-fg",
-                          problemClass(problem),
+                          v === null || off ? "text-fg-subtle" : "text-fg",
+                          v === null ? "italic" : "",
+                          off ? "bg-surface-2" : problemClass(problem),
                         )}
                         title={problem ? problem.note : (v ?? undefined)}
                       >

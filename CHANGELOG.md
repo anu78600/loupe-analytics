@@ -10,6 +10,43 @@ Every step of building Loupe, newest first. Generated from `src/content/changelo
 1. **Brand themes.** Design the dashboard's colours from your company's brand colours (typed as hex codes or picked from your logo), and ask which style you want: one colour with a gradient, a multi-colour combination, or brand accent with neutral charts.
 2. **Theme everywhere.** Apply the chosen theme to the dashboard, charts, PDF and PNG reports, and a matching Power BI theme file.
 
+## 30.0 · Hide the columns you only keep as a reference
+
+*Major · 2026-10-15 19:50 UTC · Feature, Data, Tests*
+
+In Check & map you can now hide any column from the analysis. It stays in your file and on screen as your reference, but no KPI, chart, filter, insight or business question is ever computed from it. Loupe also spots raw columns that have a cleaned copy (Unit_Price beside Unit_Price_Clean, and the Reference_Price used to fix it) and offers to hide them for you.
+
+- Every column header in Your data has an eye button that hides the column from the analysis, and Your columns has a Use switch on every row. A hidden column is dimmed and struck through, and shows its values unmarked.
+- Hiding really takes the column out of every calculation: fields are matched again without it, so a template field moves to your cleaned column (gross sales then use Unit_Price_Clean instead of the raw Unit_Price with its -100 values). KPIs, charts, filters, insights, the chart builder and the questions in step 5 never see it.
+- An earlier manual mapping, a filter, a chart you built or a question that names a column you then hide is never computed from it: the mapping is matched again, the filter is dropped, and the chart or question says which hidden column it needs.
+- Suggestions: Loupe looks for columns that seem replaced by a cleaned copy (the same name plus Clean, New, Final, Fixed or Corrected, a name with Raw, Old or Original, a column named as a Reference, or two columns identical in every row). It suggests one only when the values also agree, and shows the evidence: how often the two match, and the problems found only in the raw one. Hide them one by one or all at once, or wave them away. Nothing is hidden unless you choose to.
+- The data check and the health score leave hidden columns out, so the -100s in a raw column you replaced no longer count as rows to check or lower your score.
+- Exports keep every column of your file. The Power BI model marks hidden columns as hidden, the package README lists them, and the data dictionary says which ones they are. The AI helper is not sent hidden columns at all.
+- Your hidden columns are saved with your dashboard settings and restored from them; a new file starts with none hidden.
+- The header of Check & map and the dashboard show how many columns you hid next to how many are used.
+- New tests use a file like yours (Unit_Price with -100s, Reference_Price, Unit_Price_Clean). They check that once the raw columns are hidden nothing reads them, that gross sales equal a hand calculation, that the data check, exports and saved settings behave as described, and that ordinary column pairs are not mistaken for raw and clean copies.
+
+Files: `src/engine/profile/hidden.ts`, `src/engine/profile/replaced.ts`, `src/engine/profile/dataCheck.ts`, `src/engine/session.ts`, `src/engine/charts/columnUsage.ts`, `src/engine/export/context.ts`, `src/engine/export/tmdl.ts`, `src/engine/export/readme.ts`, `src/engine/export/dictionary.ts`, `src/engine/export/config.ts`, `src/store/workspace.ts`, `src/ui/workspace/HiddenColumns.tsx`, `src/ui/workspace/useFileColumns.ts`, `src/ui/workspace/useColumnUsage.ts`, `src/ui/workspace/MapStep.tsx`, `src/ui/workspace/DataCheckPanel.tsx`, `src/ui/workspace/VirtualGrid.tsx`, `src/ui/workspace/ExportStep.tsx`, `src/ui/workspace/dashboard/DashboardStep.tsx`, `tests/hidden-columns.test.ts`, `tests/workspace-store.test.ts`
+
+## 29.0 · A dashboard you can read at a glance
+
+*Major · 2026-10-15 19:13 UTC · Design, Fix, Tests*
+
+The dashboard's layout was redesigned so every chart has room to be read. Charts now use the full width, sit in neat rows with no gaps, never get narrower than their type needs, and their titles and labels are no longer cut off.
+
+- Charts use the whole width: the "Build a chart" panel no longer takes a permanent column on the right. It slides in when you click a KPI, choose a chart's Customise, or press Build manually, and closes again.
+- Every chart gets at least the width its type needs to stay readable (a donut's labels, a monthly trend's axis, a table's columns), measured on your screen, so nothing is squeezed into a narrow strip.
+- Rows are packed for you: charts sit side by side wherever both can still be read, every row fills the full width with no holes, the cards on a row line up at the same height, and a section never ends with one chart alone stretched across the page.
+- The main KPIs share one row when there is room (all six side by side), or split evenly; the smaller KPI tiles fill their rows with no empty grey slots.
+- The filter panel no longer gets cut off on the left: the From and To dates now stack, so nothing in the panel is wider than it is.
+- Chart titles can use two lines instead of being cut short, and the comparison line under each KPI wraps instead of ending in …
+- Peak and Low labels sit on a small plate so they stay readable over lines and bars, and the low point's label goes below a line rather than on top of it.
+- Donut labels line up at the card's edges with full names ("Net Banking", "Debit Card") instead of being cut.
+- On a phone or narrow window every chart takes the full width.
+- New tests check the packing: rows always fill the width, each chart keeps its readable width, rows are balanced, and narrow screens show one chart per row.
+
+Files: `src/ui/workspace/dashboard/layout.ts`, `src/ui/workspace/dashboard/WidgetGrid.tsx`, `src/ui/workspace/dashboard/DashboardStep.tsx`, `src/ui/workspace/dashboard/FilterRail.tsx`, `src/ui/workspace/dashboard/KpiCards.tsx`, `src/ui/charts/ChartCard.tsx`, `src/ui/charts/options.ts`, `src/store/workspace.ts`, `tests/layout.test.ts`
+
 ## 28.0 · Export in order: dashboard, SQL, insights
 
 *Major · 2026-10-15 18:37 UTC · Feature, Design*

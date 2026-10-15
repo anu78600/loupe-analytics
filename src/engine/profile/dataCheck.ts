@@ -19,6 +19,11 @@
  * above except value rules the health check only reports for information),
  * one view per health issue with row-level evidence, and the blanks of each
  * column. Row lists are built on first use and cached.
+ *
+ * Only the columns in `profile` are checked. The session leaves out the
+ * columns the user hid (profile/hidden.ts) and passes the health of the
+ * columns left, so a raw column kept beside its cleaned copy shows its
+ * values in the grid, unmarked, and adds nothing to "rows to check".
  */
 import { unreadableAt, type Dataset } from "@/engine/core/types";
 import type { DatasetProfile } from "./types";
@@ -75,13 +80,16 @@ export class DataCheck {
   private readonly rules: ValueRule[] = [];
   /** Columns (dataset order) whose blanks are probably missing values. */
   private readonly suspectBlanks = new Set<number>();
+  /** Dataset indexes of the columns being checked (those in the profile). */
+  private readonly checked: Set<number>;
   private dupOf: Int32Array | null = null;
   private readonly lists = new Map<string, Int32Array>();
   private viewList: CheckView[] | null = null;
 
   /**
-   * `cellText` renders one cell for display (the session's preview format),
-   * null for blank.
+   * `profile` lists the columns to check (hidden ones left out) and `health`
+   * is their health report. `cellText` renders one cell for display (the
+   * session's preview format), null for blank.
    */
   constructor(
     private readonly ds: Dataset,
@@ -103,6 +111,7 @@ export class DataCheck {
     }
     for (const p of profile.columns)
       if (p.nullCount > 0 && 1 - p.nullPct >= FILLED && !isOptionalColumn(p)) this.suspectBlanks.add(p.index);
+    this.checked = new Set(profile.columns.map((p) => p.index));
   }
 
   private duplicates(): Int32Array {
@@ -137,7 +146,8 @@ export class DataCheck {
     const ds = this.ds;
     const views: CheckView[] = [];
     const dup = this.duplicates();
-    const unreadable = ds.columns.map((c) => c.unreadable);
+    // Cells a hidden column couldn't read are not problems: nothing computes from that column.
+    const unreadable = ds.columns.map((c, j) => (this.checked.has(j) ? c.unreadable : undefined));
 
     // Rows to check: anything wrong except information-only value rules.
     const warnRules = this.rules.filter((r) => r.tone === "warning");
@@ -241,6 +251,8 @@ export class DataCheck {
       const cells = this.ds.columns.map((c, j) => {
         const text = unreadableAt(c.unreadable, r);
         if (text !== undefined) {
+          // A hidden column shows what the file says, unmarked.
+          if (!this.checked.has(j)) return text;
           problems.push({
             column: j,
             kind: "unreadable",

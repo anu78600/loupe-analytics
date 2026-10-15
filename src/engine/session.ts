@@ -4,7 +4,8 @@
  *
  * Lifecycle: ingest() / ingestSample() / unpivot() → adopt() (profile, health,
  * domain detection) → configure() (domain + mapping + overrides → KPI
- * resolution, chart specs, SQL/DAX per KPI) → kpiBatch() / chart() /
+ * resolution, chart specs, SQL/DAX per KPI; hidden columns leave the
+ * profile everything is built from) → kpiBatch() / chart() /
  * rowCount() / insights() / timeIntel() → export*(). Calling a method before
  * its stage throws ("No dataset loaded." / "No analysis context."), and
  * adopting a new dataset drops the context, so configure() must run again.
@@ -32,6 +33,8 @@ import { fileKindFromName } from "@/engine/parse";
 import { profileDataset } from "@/engine/profile/profile";
 import { assessHealth, type HealthReport } from "@/engine/profile/quality";
 import { DataCheck, type CheckedRow, type CheckView } from "@/engine/profile/dataCheck";
+import { withoutColumns } from "@/engine/profile/hidden";
+import { replacedColumns, type ReplacedColumn } from "@/engine/profile/replaced";
 import { applyRoleOverride } from "@/engine/profile/roles";
 import type {
   Additivity,
@@ -61,6 +64,7 @@ import type { Resolver } from "@/engine/query/evaluate";
 import { type Filter, selectRowsCached } from "@/engine/query/filter";
 import { customSpec, recommendCharts, type SkippedChart } from "@/engine/charts/recommend";
 import { computeChartData, type DrillState } from "@/engine/charts/data";
+import { specColumns } from "@/engine/charts/columnUsage";
 import {
   askMeasure,
   axisFor,
@@ -126,6 +130,8 @@ export type LoadResult =
       detection: DetectionResult;
       domains: DomainListItem[];
       timings: Record<string, number>;
+      /** Columns that look replaced by a cleaned copy (profile/replaced.ts), offered in step 3 as columns to hide. */
+      replaced: ReplacedColumn[];
     }
   | { status: "needs-decision"; assessment: LargeFileAssessment }
   | { status: "needs-sheet"; sheets: string[] };
@@ -150,6 +156,13 @@ export interface ContextRequest {
   roleOverrides?: Record<string, RoleOverride>;
   /** KPI id → display name; also becomes the measure name in DAX/TMDL exports. */
   kpiRenames?: Record<string, string>;
+  /**
+   * Columns the user hid in step 3: they stay in the file, the data grid and
+   * the exports, but no KPI, chart, filter, insight or question reads them.
+   * Names not in the file are ignored, and so is a mapping override that
+   * points at a hidden column (the field is matched again without it).
+   */
+  hiddenColumns?: string[];
   numberLocale: NumberLocale;
   /** ISO 4217 code chosen by the user, or null to use the currency detected in the profile. */
   currency: string | null;
@@ -253,8 +266,15 @@ export interface ContextResult {
   dateColumn: string | null;
   /** Min/max of dateColumn (wall-clock epoch ms), ignoring blanks. */
   dateBounds: { min: number; max: number } | null;
-  /** Profile after role overrides. */
+  /**
+   * Profile after role overrides, without the hidden columns: the columns
+   * every KPI, chart, filter and question can use.
+   */
   profile: DatasetProfile;
+  /** The hidden columns that exist in the file, in file order. */
+  hiddenColumns: string[];
+  /** Data health of the columns in use: problems in hidden columns are left out, so they don't lower the score. */
+  health: HealthReport;
   grainLabel: string;
   /** Effective ISO 4217 currency (override or detected). */
   currency: string;
@@ -513,11 +533,21 @@ export class Session {
   private report: ParseReport | null = null;
   /** Profile as detected; never mutated, so removing a role override restores detection. */
   private baseProfile: DatasetProfile | null = null;
-  /** baseProfile with the current role overrides applied. */
+  /** baseProfile with the current role overrides applied; every column of the file. */
   private profile: DatasetProfile | null = null;
+  /** Columns the user hid (step 3), set by configure(): kept in the dataset, never read by the analysis. */
+  private hidden: ReadonlySet<string> = new Set();
+  /** `profile` without the hidden columns: what every KPI, chart, filter, insight and question is built from. */
+  private active: DatasetProfile | null = null;
+  /** Health of the whole file, as loaded. */
   private health: HealthReport | null = null;
-  /** The data check, tied to the dataset it was built for (a new load or unpivot builds a new one). */
-  private checker: { ds: Dataset; check: DataCheck } | null = null;
+  /**
+   * The detected profile without the hidden columns, and their health, for
+   * the data check and the health score; rebuilt when the hidden set changes.
+   */
+  private scoped: { ds: Dataset; key: string; profile: DatasetProfile; health: HealthReport } | null = null;
+  /** The data check, tied to the dataset and checked columns it was built for. */
+  private checker: { ds: Dataset; profile: DatasetProfile; check: DataCheck } | null = null;
   private ctx: ActiveContext | null = null;
   // Results of the most recent dashboard computation. insights() reads these
   // instead of recomputing, and chartCsv() exports exactly what is on screen.
@@ -614,6 +644,10 @@ export class Session {
     onProgress?.({ phase: "profiling", loadedBytes: 0, totalBytes: 0, rows: ds.rowCount });
     this.baseProfile = profileDataset(ds);
     this.profile = this.baseProfile;
+    // A new dataset starts with every column in use.
+    this.active = this.baseProfile;
+    this.hidden = new Set();
+    this.scoped = null;
     timings.profile = Math.round(performance.now() - t1);
     const t2 = performance.now();
     this.health = assessHealth(ds, this.baseProfile, report);
@@ -622,6 +656,7 @@ export class Session {
     onProgress?.({ phase: "detecting", loadedBytes: 0, totalBytes: 0, rows: ds.rowCount });
     const detection = detectDomain(DOMAIN_LIST(), this.baseProfile);
     timings.detect = Math.round(performance.now() - t3);
+    const replaced = replacedColumns(ds, this.baseProfile, this.health);
     const domains = DOMAIN_LIST().map((d) => ({
       id: d.id,
       name: d.name,
@@ -639,6 +674,7 @@ export class Session {
       detection,
       domains,
       timings,
+      replaced,
     };
   }
 
@@ -665,9 +701,11 @@ export class Session {
   }
 
   /**
-   * Builds the analysis context from scratch: role overrides → domain and
-   * mapping → sub-domain → KPI resolution and selection → chart specs →
-   * primary date column → export names → SQL and DAX for every available KPI.
+   * Builds the analysis context from scratch: role overrides → hidden
+   * columns left out → domain and mapping → sub-domain → KPI resolution and
+   * selection → chart specs → primary date column → export names → SQL and
+   * DAX for every available KPI. Everything after the hidden columns works
+   * from the profile without them, so nothing can be built from one.
    * A KPI that fails to compile gets `sql`/`dax` undefined rather than failing
    * the whole call. Clears the last dashboard results (charts, KPI batch and
    * filters) because spec ids, KPIs and columns may have changed.
@@ -686,15 +724,20 @@ export class Session {
       };
     }
     this.profile = profile;
+    // Hidden columns stay in the dataset but leave the profile the analysis is built from. A mapping
+    // override naming one is dropped by buildMapping (it only accepts columns of the profile it gets).
+    this.hidden = new Set((req.hiddenColumns ?? []).filter((n) => ds.columns.some((c) => c.name === n)));
+    const active = withoutColumns(ds, profile, this.hidden);
+    this.active = active;
     let domain: DomainDef;
     let mapping: Mapping;
     if (req.domainId === GENERIC_ID || !getDomain(req.domainId)) {
-      const g = buildGenericDomain(profile);
+      const g = buildGenericDomain(active);
       domain = g.domain;
       mapping = g.mapping;
     } else {
       domain = getDomain(req.domainId) as DomainDef;
-      mapping = buildMapping(domain, profile, assignFields(domain, profile.columns), {
+      mapping = buildMapping(domain, active, assignFields(domain, active.columns), {
         fields: req.mappingOverrides,
         classes: req.classOverrides,
       });
@@ -725,7 +768,7 @@ export class Session {
       sub?.signals.find((id) => isDateField(id) && mapping.fields[id]) ??
       templateFields.find((f) => f.roles[0] === "datetime" && mapping.fields[f.id])?.id;
     let dateColumn = dateField ? (mapping.fields[dateField] ?? null) : null;
-    if (domain.id === GENERIC_ID) dateColumn = profile.primaryDate;
+    if (domain.id === GENERIC_ID) dateColumn = active.primaryDate;
     // A field can be mapped to a column that did not parse as dates; time logic needs real dates.
     // A time-of-day column is never the date axis either.
     const dateCol = dateColumn ? ds.columns.find((c) => c.name === dateColumn) : undefined;
@@ -733,7 +776,7 @@ export class Session {
 
     // Measure columns that no KPI of this view reads get KPIs and charts of their own, computed
     // from the column the way its data says (totals, latest balances or averages; kpi/columnKpis).
-    const extras = columnExtras({ domain, mapping, res, profile, subDomainId, dateColumn });
+    const extras = columnExtras({ domain, mapping, res, profile: active, subDomainId, dateColumn });
     if (extras.kpis.length || extras.charts.length) {
       domain = {
         ...domain,
@@ -749,7 +792,13 @@ export class Session {
       res = resolveKpis(domain, mapping, subDomainId);
     }
     const selection = selectKpis(res);
-    const { specs, skipped } = recommendCharts({ domain, mapping, res, profile, subDomain: subDomainId });
+    const { specs, skipped } = recommendCharts({
+      domain,
+      mapping,
+      res,
+      profile: active,
+      subDomain: subDomainId,
+    });
 
     const names = compileNames(ds, domain, req.kpiRenames);
     const resolver = makeResolver(ds, mapping, res);
@@ -829,7 +878,7 @@ export class Session {
       };
     });
     const fieldLabel = new Map(Object.entries(mapping.fields).map(([f, c]) => [c, labelOf.get(f) ?? c]));
-    const dimensions = profile.columns
+    const dimensions = active.columns
       .filter(
         (c) =>
           (c.role === "dimension" || c.role === "geo" || c.role === "boolean") &&
@@ -872,9 +921,11 @@ export class Session {
       skippedCharts: skipped,
       dateColumn,
       dateBounds: dateBounds(ds, dateColumn),
-      profile,
+      profile: active,
+      hiddenColumns: ds.columns.filter((c) => this.hidden.has(c.name)).map((c) => c.name),
+      health: this.scope().health,
       grainLabel:
-        sub?.grain && domain.id !== GENERIC_ID ? `One row per ${sub.grain}` : profile.grain.description,
+        sub?.grain && domain.id !== GENERIC_ID ? `One row per ${sub.grain}` : active.grain.description,
       currency,
       dimensions,
     };
@@ -884,14 +935,25 @@ export class Session {
     return { locale, currency: this.ctx?.currency ?? this.profile?.currency.code ?? "INR" };
   }
 
+  /** `filters` without any on a hidden column: the UI never offers one, so this only guards older saved state. */
+  private usable(filters: Filter[]): Filter[] {
+    return this.hidden.size ? filters.filter((f) => !this.hidden.has(f.column)) : filters;
+  }
+
+  /** Hidden columns among `columns`, without repeats, in the order given. */
+  private hiddenAmong(columns: Iterable<string>): string[] {
+    return [...new Set(columns)].filter((c) => this.hidden.has(c));
+  }
+
   /**
    * KPI values under `filters`, with the comparison period when a date range
    * is active. Unknown or unavailable ids are skipped. Remembers the batch and
    * filters for insights(), and the locale for the exports.
    */
-  kpiBatch(filters: Filter[], kpiIds: string[], numberLocale: NumberLocale): KpiBatch {
+  kpiBatch(allFilters: Filter[], kpiIds: string[], numberLocale: NumberLocale): KpiBatch {
     const ds = this.requireDs();
     const ctx = this.requireCtx();
+    const filters = this.usable(allFilters);
     ctx.locale = numberLocale;
     const measures = kpiIds
       .map((id) => ctx.res.get(id))
@@ -934,12 +996,22 @@ export class Session {
     if (!spec) return null;
     let data: ChartData;
     try {
+      // Recommended charts are built without hidden columns; a chart the user built earlier may name one.
+      const hiddenUsed = c.spec
+        ? this.hiddenAmong(
+            specColumns(spec, (ref) => (ref.startsWith("col:") ? ref.slice(4) : ctx.mapping.fields[ref])),
+          )
+        : [];
+      if (hiddenUsed.length)
+        throw new Error(
+          `This chart uses ${hiddenUsed.map((h) => `"${h}"`).join(" and ")}, which you hid in Check & map. Show the column again there, or remove this chart.`,
+        );
       // The user's trend grain only applies when the spec leaves the grain to "auto".
       data = computeChartData({
         ds,
         resolver: ctx.resolver,
         spec,
-        filters: c.filters ?? filters,
+        filters: this.usable(c.filters ?? filters),
         dateColumn: ctx.dateColumn,
         fmt: this.fmt(numberLocale),
         drill: c.drill,
@@ -969,7 +1041,7 @@ export class Session {
 
   /** Rows passing `filters`, via the memoised selection cache (cheap for a filter set just used). */
   rowCount(filters: Filter[]): number {
-    return selectRowsCached(this.requireDs(), filters).length;
+    return selectRowsCached(this.requireDs(), this.usable(filters)).length;
   }
 
   /**
@@ -1041,7 +1113,7 @@ export class Session {
       .filter((f) => m[f])
       .map((f) => ({ column: m[f] as string, label: labelOf(f) }));
     if (!segments.length || ctx.domain.id === GENERIC_ID) {
-      segments = (this.profile?.columns ?? [])
+      segments = (this.active?.columns ?? [])
         .filter(
           (c) =>
             (c.role === "dimension" || c.role === "geo") &&
@@ -1057,7 +1129,7 @@ export class Session {
     const conc =
       m.product_name ??
       m.product_id ??
-      (this.profile?.columns ?? [])
+      (this.active?.columns ?? [])
         .filter(
           (c) =>
             (c.role === "dimension" || c.role === "identifier") &&
@@ -1092,9 +1164,10 @@ export class Session {
    * other (non-date) filters applied. Empty when the KPI is unavailable or
    * there is no primary date column.
    */
-  timeIntel(kpiId: string, filters: Filter[]): TimeIntelValue[] {
+  timeIntel(kpiId: string, allFilters: Filter[]): TimeIntelValue[] {
     const ds = this.requireDs();
     const ctx = this.requireCtx();
+    const filters = this.usable(allFilters);
     const r = ctx.res.get(kpiId);
     if (!r?.available || !r.variant || !ctx.dateColumn) return [];
     const df = filters.find((f) => f.kind === "dateRange" && f.column === ctx.dateColumn);
@@ -1148,15 +1221,40 @@ export class Session {
     }
   }
 
-  /** The data check of the loaded file (step 3), built on first use. */
+  /**
+   * The detected profile without the hidden columns, and the health of the
+   * columns left. With nothing hidden that is the profile and health found
+   * on loading; otherwise health is assessed again over the columns in use
+   * (duplicate rows still compare every column), once per hidden set.
+   */
+  private scope(): { profile: DatasetProfile; health: HealthReport } {
+    const ds = this.requireDs();
+    const key = [...this.hidden].sort().join("\u0000");
+    if (!this.scoped || this.scoped.ds !== ds || this.scoped.key !== key) {
+      const base = this.baseProfile as DatasetProfile;
+      const profile = withoutColumns(ds, base, this.hidden);
+      const report = this.report as ParseReport;
+      const health =
+        profile === base
+          ? (this.health as HealthReport)
+          : assessHealth(ds, profile, {
+              ...report,
+              columnNotes: report.columnNotes.filter((n) => !this.hidden.has(n.column)),
+            });
+      this.scoped = { ds, key, profile, health };
+    }
+    return this.scoped;
+  }
+
+  /** The data check of the loaded file (step 3) over the columns in use, built on first use. */
   private dataCheck(): DataCheck {
     const ds = this.requireDs();
-    if (!this.checker || this.checker.ds !== ds)
+    const { profile, health } = this.scope();
+    if (!this.checker || this.checker.ds !== ds || this.checker.profile !== profile)
       this.checker = {
         ds,
-        check: new DataCheck(ds, this.baseProfile as DatasetProfile, this.health as HealthReport, (c, r) =>
-          this.cellText(c, r),
-        ),
+        profile,
+        check: new DataCheck(ds, profile, health, (c, r) => this.cellText(c, r)),
       };
     return this.checker.check;
   }
@@ -1188,7 +1286,8 @@ export class Session {
         available: r.available,
         hidden: Boolean(r.def.hidden || r.dependencyOnly),
       })),
-      profile: this.profile as DatasetProfile,
+      // Without the hidden columns, so a question can't be read as one of them.
+      profile: this.active as DatasetProfile,
       domain: { fields: ctx.domain.fields.filter((f) => !isColumnId(f.id)) },
       mapping: {
         fields: Object.fromEntries(Object.entries(ctx.mapping.fields).filter(([f]) => !isColumnId(f))),
@@ -1223,17 +1322,27 @@ export class Session {
       filters: req.filters,
       measures: measures.map((m) => ({ id: m.id, label: m.label, format: m.format })),
     };
-    if (!measures.length)
-      return {
-        ...base,
-        keyLabel: null,
-        rows: [],
-        more: 0,
-        headline: "",
-        sql: "",
-        skipped: [],
-        error: "Nothing in your file matches what to measure.",
-      };
+    const failed = (error: string): QuestionAnswer => ({
+      ...base,
+      keyLabel: null,
+      rows: [],
+      more: 0,
+      headline: "",
+      sql: "",
+      skipped: [],
+      error,
+    });
+    // The question reader never offers a hidden column; an ask built before it was hidden may name one.
+    const hiddenUsed = this.hiddenAmong([
+      ...req.ask.measures.flatMap((m) => (m.kind === "column" ? [m.column] : [])),
+      ...(req.ask.by.kind === "none" ? [] : [req.ask.by.column]),
+      ...(req.ask.split ? [req.ask.split] : []),
+    ]);
+    if (hiddenUsed.length)
+      return failed(
+        `This question uses ${hiddenUsed.map((h) => `"${h}"`).join(" and ")}, which you hid in Check & map.`,
+      );
+    if (!measures.length) return failed("Nothing in your file matches what to measure.");
     const exprs = measures.map((m) => ({ id: m.id, label: m.label, expr: ctx.resolver.kpi(m.id) }));
     const show = (v: number | null, i: number) =>
       formatValue(v, measures[i]?.format ?? "number", { ...fmt, compact: false });
@@ -1243,8 +1352,9 @@ export class Session {
     let more = 0;
     let headline = "";
     const by = req.ask.by;
+    const filters = this.usable(req.filters);
     if (by.kind === "none") {
-      const ev = evaluateMany(ds, ctx.resolver, exprs, req.filters, ctx.dateColumn);
+      const ev = evaluateMany(ds, ctx.resolver, exprs, filters, ctx.dateColumn);
       const values = measures.map((m) => {
         const v = ev.values.get(m.id);
         return v !== undefined && Number.isFinite(v) ? v : null;
@@ -1266,7 +1376,7 @@ export class Session {
         ds,
         resolver: ctx.resolver,
         spec,
-        filters: req.filters,
+        filters,
         dateColumn: ctx.dateColumn,
         fmt,
         kind: "table",
@@ -1323,7 +1433,7 @@ export class Session {
         measures: exprs,
         key,
         keyLabel: keyLabel ?? "Value",
-        filters: req.filters,
+        filters,
         order: req.order,
         limit: key.kind === "column" ? (req.ask.topN ?? 10) : undefined,
       },
@@ -1407,6 +1517,9 @@ export class Session {
       kpiValues,
       generatedAt: new Date().toISOString().slice(0, 10),
       ...(noNewColumns ? { noNewColumns: true } : {}),
+      ...(this.hidden.size
+        ? { hiddenColumns: ds.columns.filter((c) => this.hidden.has(c.name)).map((c) => c.name) }
+        : {}),
     };
     if (noNewColumns && ec.dateColumn) {
       const clean = ec.names.columns.get(ec.dateColumn) ?? ec.dateColumn;
@@ -1628,7 +1741,8 @@ export class Session {
    */
   aiPayload(): Record<string, unknown> {
     const ds = this.requireDs();
-    const profile = this.profile as DatasetProfile;
+    // Columns the user hid are not part of the analysis, so they are not sent either.
+    const profile = (this.active ?? this.profile) as DatasetProfile;
     const profileOf = new Map(profile.columns.map((c) => [c.name, c]));
     const treatment = new Map(ds.columns.map((c) => [c.name, aiTreatment(profileOf.get(c.name))]));
     const pseudonyms = new Map<string, Map<string, string>>();
@@ -1658,10 +1772,10 @@ export class Session {
     };
     const sample = this.rows(0, Math.min(8, ds.rowCount)).map((row) =>
       Object.fromEntries(
-        row.map((v, j) => {
+        row.flatMap((v, j) => {
           const col = ds.columns[j];
           const name = col?.name ?? `c${j}`;
-          return [name, mask(name, col?.kind ?? "string", v)];
+          return this.hidden.has(name) ? [] : [[name, mask(name, col?.kind ?? "string", v)] as const];
         }),
       ),
     );

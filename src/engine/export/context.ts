@@ -40,6 +40,12 @@ export interface ExportContext {
   noNewColumns?: boolean;
   /** Primary date column whose Date table was left out because it needed a new column. */
   dateTableSkipped?: string;
+  /**
+   * Columns the user hid in step 3, in file order. They stay in the exported
+   * table (the user keeps them as a reference), no measure reads them, and
+   * the Power BI model marks them hidden.
+   */
+  hiddenColumns?: string[];
   currency: string;
   locale: NumberLocale;
   /** Engine values over the full dataset, used as verification comments. */

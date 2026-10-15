@@ -8,9 +8,13 @@
  * rule, repeated rows) and the blanks of each column; picking one filters
  * the grid to those rows. On the right, the grid with problem cells tinted
  * and explained in their tooltips.
+ *
+ * Each column header can hide its column from the analysis. Hidden columns
+ * stay in the grid as the user's reference, dimmed, and the check leaves
+ * them out: their problems neither mark cells nor count as rows to check.
  */
 import * as React from "react";
-import { AlertTriangle, CheckCircle2, Info, Rows3 } from "lucide-react";
+import { AlertTriangle, CheckCircle2, EyeOff, Info, Rows3 } from "lucide-react";
 import type { CheckView } from "@/engine/profile/dataCheck";
 import { formatCount } from "@/engine/core/format";
 import { engine } from "@/lib/engine-client";
@@ -20,19 +24,24 @@ import { useSettings } from "@/store/settings";
 import { Badge } from "@/ui/primitives/badge";
 import { Skeleton } from "@/ui/primitives/misc";
 import { VirtualGrid } from "./VirtualGrid";
+import { useFileColumns } from "./useFileColumns";
 
 const TONE_ICON = { warning: AlertTriangle, info: Info, neutral: Rows3 } as const;
 const TONE_TEXT = { warning: "text-warning", info: "text-info", neutral: "text-fg-subtle" } as const;
 
 export function DataCheckPanel() {
   const summary = useWorkspace((s) => s.summary);
-  // The analysis profile carries the user's role changes; the detected one is used before there is one.
-  const columns = useWorkspace((s) => (s.context?.profile ?? s.profile)?.columns);
+  // Every column of the file, with the user's role changes; hidden ones included (they stay in the grid).
+  const file = useFileColumns();
+  const setHidden = useWorkspace((s) => s.setColumnsHidden);
   const health = useWorkspace((s) => s.health);
   const locale = useSettings((s) => s.numberLocale);
-  const [state, setState] = React.useState<{ datasetId: string; views: CheckView[] } | null>(null);
+  const [state, setState] = React.useState<{ key: string; views: CheckView[] } | null>(null);
   const [selected, setSelected] = React.useState("all");
   const datasetId = summary?.id ?? "";
+  // The hidden columns the worker has applied: the views are fetched again once it has rebuilt without them.
+  const applied = useWorkspace((s) => s.context?.hiddenColumns.join("\u0000") ?? "");
+  const key = `${datasetId}|${applied}`;
 
   React.useEffect(() => {
     if (!datasetId) return;
@@ -40,15 +49,16 @@ export function DataCheckPanel() {
     void engine()
       .checkViews()
       .then((views) => {
-        if (live) setState({ datasetId, views });
+        if (live) setState({ key, views });
       });
     return () => {
       live = false;
     };
-  }, [datasetId]);
+  }, [datasetId, key]);
 
-  const views = state?.datasetId === datasetId ? state.views : null;
-  if (!summary || !columns) return null;
+  const views = state?.key === key ? state.views : null;
+  if (!summary || !file) return null;
+  const hiddenNames = file.columns.filter((c) => file.hidden.has(c.name)).map((c) => c.name);
   const view = views?.find((v) => v.id === selected) ?? views?.[0];
   const toCheck = views?.find((v) => v.id === "problems");
   const issues = views?.filter((v) => v.id.startsWith("issue:")) ?? [];
@@ -97,6 +107,19 @@ export function DataCheckPanel() {
             <p className="mt-1 flex items-center gap-2 text-ui text-fg-muted">
               Data health <Badge tone={health.score >= 90 ? "success" : "warning"}>{health.score}/100</Badge>
               {health.grade}
+            </p>
+          ) : null}
+          {hiddenNames.length ? (
+            <p className="mt-2 flex items-start gap-2 text-ui text-fg-muted">
+              <EyeOff className="mt-0.5 size-4 shrink-0 text-fg-subtle" aria-hidden />
+              <span>
+                {hiddenNames.length === 1 ? "1 hidden column is" : `${hiddenNames.length} hidden columns are`}{" "}
+                not checked: nothing computes from{" "}
+                {hiddenNames.length === 1
+                  ? `"${hiddenNames[0]}"`
+                  : hiddenNames.map((h) => `"${h}"`).join(", ")}
+                .
+              </span>
             </p>
           ) : null}
           {toCheck ? (
@@ -168,10 +191,13 @@ export function DataCheckPanel() {
         </div>
         {view ? (
           <VirtualGrid
-            key={view.id}
-            columns={columns}
+            // A new hidden set changes which cells are marked, so the grid fetches its rows again.
+            key={`${view.id}|${applied}`}
+            columns={file.columns}
             view={view.id}
             total={view.rows}
+            hidden={file.hidden}
+            onToggleHidden={(column, hide) => setHidden([column], hide)}
             className="h-[min(680px,72vh)]"
           />
         ) : (

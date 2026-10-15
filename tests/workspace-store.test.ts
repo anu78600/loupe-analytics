@@ -5,7 +5,8 @@
  * still exempts its source chart, the saved currency is restored without a
  * stray override, an unknown trend grain is dropped, the business context is
  * reset for a new dataset, and "Start over" forgets everything, the last
- * file included.
+ * file included. Hiding a column drops the filters on it, the hidden list is
+ * saved and restored with a config, and a new dataset starts with none.
  */
 import { describe, expect, it, vi } from "vitest";
 import type { ContextRequest } from "@/engine/session";
@@ -54,6 +55,7 @@ function savedConfig(over: (cfg: LoupeConfig) => void = () => {}): LoupeConfig {
     mappingOverrides: s.mappingOverrides,
     classOverrides: s.classOverrides,
     roleOverrides: s.roleOverrides,
+    hiddenColumns: s.hiddenColumns,
     kpiRenames: s.kpiRenames,
     kpiTargets: s.kpiTargets,
     dashboard: {
@@ -149,6 +151,52 @@ describe("saved configs", () => {
     expect(useWorkspace.getState().business).toMatchObject({ period: "week", notes: "kept" });
     await useWorkspace.getState().applyConfig(savedConfig((c) => (c.business = { period: "fortnight" })));
     expect(useWorkspace.getState().business.period).toBeUndefined();
+  });
+});
+
+describe("hidden columns", () => {
+  /** Waits for the reconfigure that setColumnsHidden starts, until the analysis has `names` hidden. */
+  const appliedHidden = (names: string[]) =>
+    vi.waitFor(() =>
+      expect([...(useWorkspace.getState().context?.hiddenColumns ?? [])].sort()).toEqual([...names].sort()),
+    );
+
+  it("hiding a column drops its filters and takes it out of the analysis", async () => {
+    await loadDemo();
+    const s = useWorkspace.getState();
+    s.setDimFilter("Channel", ["Website"]);
+    s.setCrossFilter("revenue_by_category", "Category", "Electronics");
+    s.setColumnsHidden(["Channel", "Category"], true);
+    expect(useWorkspace.getState().dimFilters).toEqual([]);
+    expect(useWorkspace.getState().crossFilter).toBeNull();
+    await appliedHidden(["Channel", "Category"]);
+    const ctx = useWorkspace.getState().context;
+    expect(ctx?.profile.columns.some((c) => c.name === "Channel" || c.name === "Category")).toBe(false);
+    expect(ctx?.dimensions.some((d) => d.column === "Channel" || d.column === "Category")).toBe(false);
+    // Showing one again brings it back.
+    useWorkspace.getState().setColumnsHidden(["Channel"], false);
+    await appliedHidden(["Category"]);
+    expect(useWorkspace.getState().context?.dimensions.some((d) => d.column === "Channel")).toBe(true);
+  });
+
+  it("are saved with a config and restored from it; a new dataset starts with none", async () => {
+    await loadDemo();
+    useWorkspace.getState().setColumnsHidden(["Channel"], true);
+    await appliedHidden(["Channel"]);
+    const cfg = savedConfig();
+    expect(cfg.hiddenColumns).toEqual(["Channel"]);
+    useWorkspace.getState().setColumnsHidden(["Channel"], false);
+    await appliedHidden([]);
+    await useWorkspace.getState().applyConfig(cfg);
+    expect(useWorkspace.getState().hiddenColumns).toEqual(["Channel"]);
+    expect(useWorkspace.getState().context?.hiddenColumns).toEqual(["Channel"]);
+    // A config saved before hiding existed has no list: nothing is hidden.
+    const { hiddenColumns: _omit, ...older } = cfg;
+    const parsed = parseConfig(JSON.stringify(older));
+    expect(parsed.config?.hiddenColumns).toEqual([]);
+    await useWorkspace.getState().loadSample("ecommerce");
+    expect(useWorkspace.getState().hiddenColumns).toEqual([]);
+    expect(useWorkspace.getState().replaced).toEqual([]);
   });
 });
 

@@ -327,7 +327,7 @@ function AnswerCard({ answer: a, ctx }: { answer: QuestionAnswer; ctx: AskContex
     const base = Date.now().toString(36);
     let i = 0;
     const out = designAsk(a.ask, ctx, () => `custom_${base}_${i++}`);
-    for (const c of out.charts) addCustomChart(c.spec);
+    for (const c of out.charts) addCustomChart(c.spec, { select: false });
     toast.success(
       out.charts.length === 1
         ? "Chart added to the dashboard"

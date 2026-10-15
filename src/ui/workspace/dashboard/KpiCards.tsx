@@ -148,7 +148,7 @@ export function KpiCard({
             ) : null}
             <DeltaChip meta={meta} value={value} />
             {value.delta !== null || value.deltaAbs !== null ? (
-              <span className="truncate text-2xs text-fg-subtle" title={value.comparisonLabel}>
+              <span className="line-clamp-2 text-2xs text-fg-subtle" title={value.comparisonLabel}>
                 {value.comparisonLabel}
               </span>
             ) : null}
@@ -192,6 +192,21 @@ export function KpiCard({
   );
 }
 
+/**
+ * Columns of the hero strip by how many KPIs it holds, chosen from the
+ * strip's own width (container queries), so its rows are always balanced:
+ * six in one row when there is room, else three and three; never five and
+ * one left alone on a second row.
+ */
+const STRIP_COLS: Record<number, string> = {
+  1: "grid-cols-1",
+  2: "grid-cols-1 @md:grid-cols-2",
+  3: "grid-cols-1 @2xl:grid-cols-3",
+  4: "grid-cols-2 @4xl:grid-cols-4",
+  5: "grid-cols-2 @2xl:grid-cols-3 @5xl:grid-cols-5",
+  6: "grid-cols-2 @2xl:grid-cols-3 @5xl:grid-cols-6",
+};
+
 export function KpiStrip() {
   const context = useWorkspace((s) => s.context);
   const batch = useWorkspace((s) => s.kpiBatch);
@@ -201,15 +216,17 @@ export function KpiStrip() {
   const values = new Map(batch?.values.map((v) => [v.id, v]) ?? []);
   const ids = orderByGoal(context.selection.hero, metas, goal);
   return (
-    <section
-      aria-label="Key performance indicators"
-      className="grid [grid-template-columns:repeat(auto-fit,minmax(min(100%,190px),1fr))] gap-3"
-    >
-      {ids.map((id, i) => {
-        const meta = metas.get(id);
-        return meta ? <KpiCard key={id} meta={meta} value={values.get(id)} index={i} /> : null;
-      })}
-    </section>
+    <div className="@container">
+      <section
+        aria-label="Key performance indicators"
+        className={cn("grid gap-3", STRIP_COLS[ids.length] ?? STRIP_COLS[6])}
+      >
+        {ids.map((id, i) => {
+          const meta = metas.get(id);
+          return meta ? <KpiCard key={id} meta={meta} value={values.get(id)} index={i} /> : null;
+        })}
+      </section>
+    </div>
   );
 }
 
@@ -237,7 +254,8 @@ export function KpiTiles({ ids, label }: { ids: string[]; label: string }) {
   return (
     <section
       aria-label={label}
-      className="grid [grid-template-columns:repeat(auto-fill,minmax(min(100%,150px),1fr))] gap-px overflow-hidden rounded-card border border-border bg-border"
+      // Wrapping tiles that grow to fill their row, so the last row has no empty slots.
+      className="flex flex-wrap gap-px overflow-hidden rounded-card border border-border bg-border"
     >
       {ids.map((id) => {
         const meta = metas.get(id);
@@ -248,7 +266,7 @@ export function KpiTiles({ ids, label }: { ids: string[]; label: string }) {
             key={id}
             type="button"
             onClick={() => select({ type: "kpi", id })}
-            className="flex min-w-0 flex-col items-start gap-1 bg-surface-1 px-3.5 py-3 text-left transition-colors hover:bg-surface-2"
+            className="flex min-w-0 flex-[1_1_160px] flex-col items-start gap-1 bg-surface-1 px-3.5 py-3 text-left transition-colors hover:bg-surface-2"
           >
             <span className="w-full truncate text-2xs text-fg-muted" title={meta.name}>
               {meta.name}

@@ -195,8 +195,8 @@ function AskPanel({ onDone, edit }: { onDone: () => void; edit?: ChartSpec }) {
         customCharts: s.customCharts.map((c) => (c.id === edit.id ? spec : c)),
       }));
       useWorkspace.getState().refresh();
-      for (const c of rest) addCustomChart(c.spec);
-    } else for (const c of out.charts) addCustomChart(c.spec);
+      for (const c of rest) addCustomChart(c.spec, { select: false });
+    } else for (const c of out.charts) addCustomChart(c.spec, { select: false });
     const last =
       replacing && edit && !rest.length ? { spec: { id: edit.id } } : out.charts[out.charts.length - 1];
     toast.success(

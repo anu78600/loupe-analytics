@@ -13,6 +13,11 @@
  * The "Your columns" tab lists every column of the file with what it feeds
  * (KPIs, charts, filters), so it is visible that the dashboard is built from
  * the file's own columns and adds none.
+ *
+ * Any column can be hidden from the analysis (HiddenColumns above the tabs,
+ * the eye on each grid header, the switch in "Your columns"), typically a raw
+ * column kept beside its cleaned copy. It stays in the file; nothing
+ * computes from it.
  */
 import * as React from "react";
 import {
@@ -21,6 +26,7 @@ import {
   ChevronDown,
   CircleSlash,
   Columns3,
+  EyeOff,
   Loader2,
   RotateCcw,
   Tags,
@@ -36,6 +42,7 @@ import { Card } from "@/ui/primitives/card";
 import { Checkbox, Eyebrow } from "@/ui/primitives/misc";
 import { Input } from "@/ui/primitives/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/ui/primitives/popover";
+import { Switch } from "@/ui/primitives/switch";
 import {
   Select,
   SelectContent,
@@ -51,6 +58,8 @@ import { useColumnUsage } from "./useColumnUsage";
 import { dataSummary } from "./columnSummary";
 import { DataCheckPanel } from "./DataCheckPanel";
 import { HealthPanel, ParseReportPanel } from "./HealthPanel";
+import { HiddenColumns } from "./HiddenColumns";
+import { useFileColumns } from "./useFileColumns";
 
 const ROLES: SemanticRole[] = [
   "identifier",
@@ -111,7 +120,10 @@ export function MapStep() {
           {usage ? (
             <div className="rounded-control border border-border bg-surface-1 px-3 py-1.5 text-ui">
               <span className="font-figures text-fg">{usage.used}</span>
-              <span className="text-fg-muted"> of {usage.total} columns used · none added</span>
+              <span className="text-fg-muted">
+                {" "}
+                of {usage.total} columns used{usage.hidden ? ` · ${usage.hidden} hidden` : ""} · none added
+              </span>
             </div>
           ) : null}
           {context.domain.subDomains.length > 1 ? (
@@ -133,6 +145,7 @@ export function MapStep() {
           </Button>
         </div>
       </div>
+      <HiddenColumns />
       <Tabs defaultValue="data">
         <TabsList className="mb-5">
           <TabsTrigger value="data">Your data</TabsTrigger>
@@ -154,7 +167,14 @@ export function MapStep() {
           <ValueMeanings />
         </TabsContent>
         <TabsContent value="roles">
-          {usage ? <ColumnsNote used={usage.used} total={usage.total} derived={usage.derived} /> : null}
+          {usage ? (
+            <ColumnsNote
+              used={usage.used}
+              total={usage.total}
+              hidden={usage.hidden}
+              derived={usage.derived}
+            />
+          ) : null}
           <ColumnRoles usage={usage?.usage ?? null} />
         </TabsContent>
         <TabsContent value="kpis">
@@ -375,17 +395,28 @@ function ValueMeanings() {
 }
 
 /** States the "your columns only" rule above the column table. */
-function ColumnsNote({ used, total, derived }: { used: number; total: number; derived: boolean }) {
+function ColumnsNote({
+  used,
+  total,
+  hidden,
+  derived,
+}: {
+  used: number;
+  total: number;
+  hidden: number;
+  derived: boolean;
+}) {
   return (
     <p className="mb-4 flex gap-2 rounded-card border border-border bg-surface-1 px-4 py-3 text-ui leading-relaxed text-fg-muted">
       <Columns3 className="mt-0.5 size-4 shrink-0 text-accent" aria-hidden />
       <span>
         <span className="text-fg">
-          The dashboard is built from {used} of your {total} columns.
+          The dashboard is built from {used} of your {total} columns
+          {hidden ? `; you hid ${hidden === 1 ? "1 column" : `${hidden} columns`}, which nothing reads` : ""}.
         </span>{" "}
         Loupe never adds a column on its own: every KPI, chart and filter below reads a column from your file
         {derived ? " (including the two unpivot columns you agreed to)" : ""}, and anything that would need a
-        new one asks you first.
+        new one asks you first. Switch a column off to hide it from the analysis: it stays in your file.
       </span>
     </p>
   );
@@ -431,42 +462,86 @@ function ColumnRoles({ usage }: { usage: Map<string, ColumnUse> | null }) {
   const context = useWorkspace((s) => s.context);
   const overrides = useWorkspace((s) => s.roleOverrides);
   const setRole = useWorkspace((s) => s.setRoleOverride);
-  if (!context) return null;
+  const setHidden = useWorkspace((s) => s.setColumnsHidden);
+  // Every column of the file, hidden ones included, so a hidden column can be switched back on here.
+  const file = useFileColumns();
+  if (!context || !file) return null;
   return (
     <Card className="overflow-hidden">
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[1180px] border-separate border-spacing-0 text-ui">
+        <table className="w-full min-w-[1260px] border-separate border-spacing-0 text-ui">
           <thead className="bg-surface-2 text-left text-fg-muted">
             <tr>
-              {["Column", "In your data", "Used by", "Stored as", "Semantic role", "Aggregation", "Why"].map(
-                (h) => (
-                  <th key={h} scope="col" className="border-b border-border px-4 py-2.5 font-medium">
-                    {h}
-                  </th>
-                ),
-              )}
+              {[
+                "Use",
+                "Column",
+                "In your data",
+                "Used by",
+                "Stored as",
+                "Semantic role",
+                "Aggregation",
+                "Why",
+              ].map((h) => (
+                <th key={h} scope="col" className="border-b border-border px-4 py-2.5 font-medium">
+                  {h}
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody>
-            {context.profile.columns.map((c) => {
+            {file.columns.map((c) => {
               const o = overrides[c.name];
               const numeric = c.storage === "number";
+              const off = file.hidden.has(c.name);
               return (
-                <tr key={c.name} className="hover:bg-surface-2/60">
-                  <td className="border-b border-border px-4 py-2 font-medium text-fg">{c.name}</td>
+                <tr key={c.name} className={cn("hover:bg-surface-2/60", off && "bg-surface-2/50")}>
+                  <td className="border-b border-border px-4 py-2">
+                    <Tooltip
+                      content={
+                        off
+                          ? "Hidden: kept in your file, but nothing computes from it. Switch on to use it again."
+                          : "Switch off to hide this column from every KPI, chart, filter and question. It stays in your file."
+                      }
+                    >
+                      {/* The tooltip marks its trigger with its own data-state, which would
+                          override the switch's checked state, so it gets a wrapper. */}
+                      <span className="inline-flex">
+                        <Switch
+                          checked={!off}
+                          onCheckedChange={(on) => setHidden([c.name], !on)}
+                          aria-label={`Use ${c.name} in the analysis`}
+                        />
+                      </span>
+                    </Tooltip>
+                  </td>
+                  <td
+                    className={cn(
+                      "border-b border-border px-4 py-2 font-medium",
+                      off ? "text-fg-subtle line-through" : "text-fg",
+                    )}
+                  >
+                    {c.name}
+                  </td>
                   <td className="max-w-[240px] border-b border-border px-4 py-2 text-2xs leading-relaxed text-fg-muted">
                     <span className="line-clamp-2" title={dataSummary(c)}>
                       {dataSummary(c)}
                     </span>
                   </td>
                   <td className="border-b border-border px-4 py-1.5">
-                    <UsedBy use={usage?.get(c.name)} />
+                    {off ? (
+                      <Badge tone="neutral">
+                        <EyeOff aria-hidden /> Hidden
+                      </Badge>
+                    ) : (
+                      <UsedBy use={usage?.get(c.name)} />
+                    )}
                   </td>
                   <td className="border-b border-border px-4 py-2 text-fg-muted">{c.storage}</td>
                   <td className="border-b border-border px-4 py-1.5">
                     <div className="flex items-center gap-1.5">
                       <Select
                         value={c.role}
+                        disabled={off}
                         onValueChange={(v) => setRole(c.name, v as SemanticRole, o?.additivity)}
                       >
                         <SelectTrigger size="sm" className="w-40" aria-label={`Role for ${c.name}`}>
@@ -480,7 +555,7 @@ function ColumnRoles({ usage }: { usage: Map<string, ColumnUse> | null }) {
                           ))}
                         </SelectContent>
                       </Select>
-                      {o ? (
+                      {o && !off ? (
                         <Tooltip content="Reset to detected">
                           <Button
                             size="icon-sm"
@@ -498,6 +573,7 @@ function ColumnRoles({ usage }: { usage: Map<string, ColumnUse> | null }) {
                     {numeric && ["measure", "currency", "rate", "percentage"].includes(c.role) ? (
                       <Select
                         value={c.additivity ?? "additive"}
+                        disabled={off}
                         onValueChange={(v) => setRole(c.name, c.role, v as Additivity)}
                       >
                         <SelectTrigger size="sm" className="w-44" aria-label={`Aggregation for ${c.name}`}>

@@ -164,8 +164,9 @@ function CustomRangeForm({
   const [from, setFrom] = React.useState(() => isoDate(initial.from));
   const [to, setTo] = React.useState(() => isoDate(initial.to));
   return (
+    // One field per line: date inputs have a minimum width, and side by side they overflow the rail.
     <form
-      className="grid grid-cols-2 gap-2"
+      className="grid grid-cols-1 gap-2"
       onSubmit={(e) => {
         e.preventDefault();
         const a = parseIsoDay(from);
@@ -185,7 +186,7 @@ function CustomRangeForm({
           min={isoDate(bounds.min)}
           max={isoDate(bounds.max)}
           onChange={(e) => setFrom(e.target.value)}
-          className="h-8 px-2 text-ui"
+          className="h-8 w-full min-w-0 px-2 text-ui"
         />
       </div>
       <div className="grid gap-1">
@@ -199,10 +200,10 @@ function CustomRangeForm({
           min={isoDate(bounds.min)}
           max={isoDate(bounds.max)}
           onChange={(e) => setTo(e.target.value)}
-          className="h-8 px-2 text-ui"
+          className="h-8 w-full min-w-0 px-2 text-ui"
         />
       </div>
-      <Button type="submit" size="sm" variant="secondary" className="col-span-2">
+      <Button type="submit" size="sm" variant="secondary">
         Apply custom range
       </Button>
     </form>

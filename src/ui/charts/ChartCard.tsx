@@ -264,7 +264,7 @@ export function ChartCard({
     >
       <header className="flex items-start gap-2 px-4 pt-3.5 pb-1">
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-start gap-1.5">
             {drillLevel ? (
               <button
                 type="button"
@@ -276,9 +276,10 @@ export function ChartCard({
               </button>
             ) : null}
             {drillLevel ? <ChevronRight className="size-3 text-fg-subtle" aria-hidden /> : null}
+            {/* Two lines before an ellipsis, so a title is read rather than guessed. */}
             <h3
               id={`chart-title-${spec.id}`}
-              className="truncate text-[13.5px] font-medium tracking-[-0.005em] text-fg"
+              className="line-clamp-2 min-w-0 text-[13.5px] leading-snug font-medium tracking-[-0.005em] break-words text-fg"
               title={title}
             >
               {drillLevel ? drillPath.join(" › ") : title}

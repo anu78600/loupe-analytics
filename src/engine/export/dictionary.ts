@@ -5,7 +5,8 @@
  * the user's overrides), additivity, mapped domain field, completeness and a
  * few example values. Examples are real values from the file, so the CSV goes
  * through the injection-guarded tableToCsv and the Markdown escapes pipes and
- * newlines in free text.
+ * newlines in free text. A column the user hid is listed (it is still in the
+ * file) and says so.
  */
 import { ROLE_LABEL } from "@/engine/profile/types";
 import { tableToCsv } from "./csv";
@@ -32,11 +33,14 @@ export function dictionaryRows(ctx: ExportContext): DictionaryRow[] {
     const label = ctx.domain.fields.find((f) => f.id === fieldId)?.label ?? fieldId;
     fieldOf.set(column, label);
   }
+  const hidden = new Set(ctx.hiddenColumns ?? []);
   return ctx.profile.columns.map((c) => {
     const mapped = fieldOf.get(c.name);
-    const desc = [mapped ? `${mapped}.` : "", c.roleReason].filter(Boolean).join(" ");
+    const desc = hidden.has(c.name)
+      ? "Hidden in Loupe: kept as a reference; no KPI, chart or filter uses it."
+      : [mapped ? `${mapped}.` : "", c.roleReason].filter(Boolean).join(" ");
     return {
-      column: c.name,
+      column: hidden.has(c.name) ? `${c.name} (hidden)` : c.name,
       exportName: ctx.names.columns.get(c.name) ?? c.name,
       type: c.storage,
       role: ROLE_LABEL[c.role],
