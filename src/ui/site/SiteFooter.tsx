@@ -3,7 +3,7 @@
  * and the current version from the version log (src/content/changelog.ts) so
  * visitors can see what changed and when. Its links to the home page's
  * sections are SectionLinks, so they scroll in place there (see
- * SectionLink.tsx).
+ * SectionLink.tsx). The Learn column leads into the glossary (/glossary).
  */
 import Link from "next/link";
 import { ShieldCheck } from "lucide-react";
@@ -23,6 +23,15 @@ const COLUMNS: Array<{ title: string; links: Array<{ href: string; label: string
     ],
   },
   {
+    title: "Learn",
+    links: [
+      { href: "/glossary", label: "Glossary" },
+      { href: "/glossary#basics", label: "Data basics" },
+      { href: "/glossary#charts", label: "Chart types" },
+      { href: "/glossary#industries", label: "Industry KPIs" },
+    ],
+  },
+  {
     title: "Trust",
     links: [
       { href: "/#privacy", label: "Privacy" },
@@ -36,7 +45,7 @@ export function SiteFooter() {
   const version = `v${CURRENT_RELEASE.version} · ${CURRENT_RELEASE.title}`;
   return (
     <footer className="border-t border-border bg-bg-subtle">
-      <div className="mx-auto grid max-w-6xl gap-10 px-4 py-14 sm:px-6 md:grid-cols-[1.6fr_1fr_1fr]">
+      <div className="mx-auto grid max-w-6xl gap-10 px-4 py-14 sm:grid-cols-3 sm:px-6 md:grid-cols-[1.6fr_1fr_1fr_1fr]">
         <div className="grid content-start gap-4">
           <Wordmark />
           <p className="max-w-sm text-ui leading-relaxed text-fg-muted">

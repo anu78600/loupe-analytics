@@ -5,6 +5,22 @@ Every step of building Loupe, newest first. Generated from `src/content/changelo
 - **MAJOR** (`x.0`): a new capability, subsystem or page.
 - **MINOR** (`x.y`): a refinement, fix or follow-up to that major version.
 
+## 38.0 · A glossary for learning the language of data
+
+*Major · 2026-10-16 21:21 UTC · Feature, Docs, Tests*
+
+A new Glossary page, linked from the footer, explains every word Loupe uses for someone new to data: a learning path from the basics to the KPIs of 16 industries, each term with its level, an example and where to find it in the app.
+
+- 127 terms in a learning path: basics, numbers, time, charts, analysis methods, data quality, and reports and exports. Each says what it is, why it matters, an example with round numbers, where you meet it in Loupe, and related terms to read next.
+- Every term has a level (Beginner, Intermediate or Advanced): choose Beginner and read from the top, or show every level.
+- Which chart for which question: all 33 chart types Loupe draws, grouped by the question they answer, in the same words as the chart builder.
+- Industry KPIs: pick one of 16 industries to see the tables Loupe recognises in it, what to watch out for in its data, and every one of its KPIs (379 in all) with its definition, formula, unit, which way is good, the data it applies to, its benchmark where one is known, and its pitfalls. These are the definitions the app computes with.
+- Search across all of it at once: press / anywhere on the page. Results bring up terms, charts and every industry's KPIs together.
+- Every term and industry has its own link (/glossary#term-grain, /glossary#industry-hr), so a definition can be shared.
+- The footer has a new Learn column: Glossary, Data basics, Chart types and Industry KPIs.
+
+Files: `src/content/glossary.ts`, `src/ui/site/Glossary.tsx`, `src/app/glossary/page.tsx`, `src/ui/site/SiteFooter.tsx`, `tests/glossary.test.ts`, `docs/ANALYST-STANDARDS.md`, `CLAUDE.md`
+
 ## 37.0 · A one-page dashboard, the page you present
 
 *Major · 2026-10-16 20:20 UTC · Feature, Design, Tests, Docs*

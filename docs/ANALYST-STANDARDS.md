@@ -73,6 +73,7 @@ Loupe's output is read the way an analyst's work is read: by managers, finance t
 - **Grammar comes from the words.** Generated sentences agree with the KPI's name ("New customers were", "Net revenue was", `wasWere`) and take "a" or "an" as said ("an 85.8 pp gap", `article`).
 - **Filters.** Filters read "Column: value" everywhere (`describeFilter`).
 - **Neutral advice.** Insight advice fits any industry. Don't assume a shop.
+- **The glossary speaks the same language.** `/glossary` explains every term in these words, for beginners: the hand-written terms in `content/glossary.ts` (each with a level, an example and where it is in Loupe), the chart types in the catalogue's own words, and every industry's KPIs with the registry's definitions, formulas, pitfalls and benchmarks. A new KPI or chart kind appears there by itself; a new idea in the app gets a term.
 
 ## Files
 
