@@ -51,6 +51,10 @@ npm run changelog    # regenerate CHANGELOG.md from src/content/changelog.ts
 
 Edit or add `src/registry/domains/<id>.json`, import it in `src/registry/index.ts`, then run `npx vitest run tests/registry.test.ts -t "<id>.json"`. Hero KPIs are 4–6 per sub-domain. A KPI that refs another may be scoped to other sub-domains; the referenced KPI is then kept as a hidden helper (`dependencyOnly` in `kpi/resolve.ts`). Mark sub-domains whose rows are standing entities (employees, customers, products) with `"timeModel": "roster"`. Detection changes must keep `tests/detect.test.ts` (75 real-world layouts) green.
 
+## Analyst standards
+
+What users see and export follows the conventions professional analysts use. These cover numbers (one unit per axis, a true minus sign, pp for rates), dates ("Oct 2025"), chart labelling and colour, names and wording, file names, the Power BI model and the report structure. They are written down in `docs/ANALYST-STANDARDS.md`, with the code that enforces each one. New output must follow them.
+
 ## Conventions
 
 - TypeScript strict, no `any`. Every file starts with a `/** … */` header (after `"use client"`), saying what it does and how it fits. Add JSDoc to non-obvious exports. Comments explain _why_ and use British spelling (analyse, colour, behaviour).

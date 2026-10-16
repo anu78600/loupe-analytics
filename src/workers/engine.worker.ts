@@ -126,8 +126,8 @@ const api = {
   exportDictionary: (format: "csv" | "md") => session.exportDictionary(format),
   exportCodeHtml: (noNewColumns = false) => session.exportCodeHtml(noNewColumns),
 
-  exportCsv(guard = true) {
-    const bytes = session.exportCsv(guard);
+  exportCsv(guard = true, ownHeaders = false) {
+    const bytes = session.exportCsv(guard, ownHeaders);
     return Comlink.transfer(bytes, [bytes.buffer]);
   },
 

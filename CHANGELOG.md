@@ -5,6 +5,20 @@ Every step of building Loupe, newest first. Generated from `src/content/changelo
 - **MAJOR** (`x.0`): a new capability, subsystem or page.
 - **MINOR** (`x.y`): a refinement, fix or follow-up to that major version.
 
+## 35.1 · A Power BI model and data files built the way analysts build them
+
+*Minor · 2026-10-16 14:28 UTC · Feature, Data, Docs, Tests*
+
+The last round of the analyst review: the Power BI model now follows standard modelling practice, the cleaned data keeps your own column headers, the data dictionary carries what an analyst's dictionary does, and the standards behind all of this are written down for every future change.
+
+- Power BI model: state, city, postal-code and other geographic columns carry their data category, so map visuals place them; hierarchies found in your data (Category → Sub Category → Product Name, region → state → city) are built in for drill-down; the date-only helper column used for the Date table is hidden; and with its own Date table the model turns off Power BI's automatic date tables. The README lists what the model includes.
+- Cleaned data (.csv) keeps your file's own column headers; only the values are tidied (ISO dates, dot decimals). The SQL and the Power BI package keep their export names.
+- Data dictionary: each column now has its business name, unit (currency, %, date…), range (lowest to highest), whether it is a key, and its allowed values when there are 12 or fewer. The Markdown version lists what each column means under the table.
+- New: docs/ANALYST-STANDARDS.md writes down the conventions Loupe now follows (numbers, dates, charts, names, files, the Power BI model and the reports), each with the code that enforces it, so future changes keep to them.
+- New tests: geographic data categories, uniquely named hierarchies, the hidden helper column and Auto date/time, the cleaned CSV's own headers, and the dictionary's new fields.
+
+Files: `src/engine/export/tmdl.ts`, `src/engine/export/readme.ts`, `src/engine/export/dictionary.ts`, `src/engine/session.ts`, `src/workers/engine.worker.ts`, `src/ui/workspace/ExportStep.tsx`, `docs/ANALYST-STANDARDS.md`, `CLAUDE.md`, `tests/export.test.ts`
+
 ## 35.0 · Presented like an analyst's report
 
 *Major · 2026-10-16 14:16 UTC · Feature, Design, Tests*

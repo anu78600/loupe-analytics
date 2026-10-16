@@ -1721,9 +1721,11 @@ export class Session {
    * `guard` applies the formula-injection guard; verificationBundle() turns
    * it off so DuckDB sees exactly the values the engine used.
    */
-  exportCsv(guard = true): Uint8Array {
+  exportCsv(guard = true, ownHeaders = false): Uint8Array {
     const ds = this.requireDs();
-    const names = this.ctx?.names.columns;
+    // The cleaned-data download keeps the file's own headers (only the values are tidied); the SQL
+    // and the DuckDB check read the export names that kpis.sql's CREATE TABLE uses.
+    const names = ownHeaders ? undefined : this.ctx?.names.columns;
     const parts = datasetToCsvChunks(ds, { headers: names, guardInjection: guard });
     // Encode chunk by chunk and copy into one buffer, never building one giant string.
     const enc = new TextEncoder();

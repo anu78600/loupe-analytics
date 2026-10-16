@@ -791,7 +791,8 @@ function MiscCard() {
           "text/markdown;charset=utf-8",
         );
       if (kind === "csv") {
-        const bytes = await engine().exportCsv(true);
+        // Your headers as written: this file is for you, not for the SQL or Power BI package.
+        const bytes = await engine().exportCsv(true, true);
         downloadBlob(
           new Blob([UTF8_BOM, bytes as BlobPart], { type: "text/csv;charset=utf-8" }),
           name("data", "csv"),

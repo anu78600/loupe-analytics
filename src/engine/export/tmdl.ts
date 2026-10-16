@@ -7,6 +7,10 @@
  * TMDL is indentation-sensitive (tabs here): child properties sit one level
  * below their object and multi-line expressions deeper still. Lineage tags
  * are deterministic (names.ts) so re-exports of the same model diff cleanly.
+ * It follows Power BI modelling conventions: geographic columns carry their
+ * data category (so maps place them), hierarchies found in the data (Category
+ * → Sub-category, Region → State → City) are built in, the date-link helper
+ * is hidden, and with a Date table the automatic date tables are switched off.
  * The model culture follows the number locale for display, but Power Query
  * always parses data.csv as en-US: the CSV is written with dot decimals and
  * ISO dates whatever the locale. The DataFile parameter defaults to a
@@ -14,12 +18,31 @@
  */
 import { exportKind } from "@/engine/core/booleans";
 import type { Column } from "@/engine/core/types";
-import type { ColumnProfile } from "@/engine/profile/types";
+import type { ColumnProfile, GeoLevel, HierarchyInfo } from "@/engine/profile/types";
+import { friendlyStart } from "@/engine/core/labels";
 import { buildMeasures, DATE_TABLE, dateRelColumn, dateTableDax, escapeFormatLiteral } from "./daxFile";
 import type { ExportContext } from "./context";
 import { lineageTag } from "./names";
 
 const TAB = "\t";
+
+/** Power BI data category for each kind of geographic column, so map visuals place it correctly. */
+const DATA_CATEGORY: Partial<Record<GeoLevel, string>> = {
+  country: "Country",
+  state: "StateOrProvince",
+  city: "City",
+  postal: "PostalCode",
+  latitude: "Latitude",
+  longitude: "Longitude",
+  address: "Address",
+};
+
+/** A hierarchy's name by what it describes; any other kind is named after its top level. */
+const HIERARCHY_NAME: Partial<Record<HierarchyInfo["kind"], string>> = {
+  geo: "Geography",
+  product: "Product hierarchy",
+  organisation: "Organisation",
+};
 
 /** Object name as TMDL wants it: bare when identifier-like, else single-quoted with '' escaping. */
 function tmdlName(name: string): string {
@@ -131,6 +154,9 @@ export function generateTmdl(ctx: ExportContext, symbol: string, modelName: stri
     `${TAB}${TAB}legacyRedirects`,
     `${TAB}${TAB}returnErrorValuesAsNull`,
     "",
+    // With its own Date table the model needs no hidden auto date tables (Options → Auto date/time);
+    // without one they stay on, as the README then relies on each date's own hierarchy.
+    ...(ctx.dateColumn ? [`${TAB}annotation __PBI_TimeIntelligenceEnabled = 0`, ""] : []),
     `ref table ${tmdlName(table)}`,
     ...(ctx.dateColumn ? [`ref table ${tmdlName(DATE_TABLE)}`] : []),
     "",
@@ -184,6 +210,8 @@ export function generateTmdl(ctx: ExportContext, symbol: string, modelName: stri
     else if (col.kind === "number" && p?.role === "currency")
       lines.push(`${TAB}${TAB}formatString: ${escapeFormatLiteral(symbol)}#,0.00`);
     else if (col.kind === "number" && col.format.integer) lines.push(`${TAB}${TAB}formatString: 0`);
+    const category = p?.geoLevel ? DATA_CATEGORY[p.geoLevel] : undefined;
+    if (category) lines.push(`${TAB}${TAB}dataCategory: ${category}`);
     lines.push(`${TAB}${TAB}lineageTag: ${lineageTag(`${modelName}:col:${clean}`)}`);
     lines.push(`${TAB}${TAB}summarizeBy: ${summarizeBy(p)}`);
     lines.push(`${TAB}${TAB}sourceColumn: ${clean}`);
@@ -203,6 +231,8 @@ export function generateTmdl(ctx: ExportContext, symbol: string, modelName: stri
     lines.push(`${TAB}column ${tmdlName(rel)}`);
     lines.push(`${TAB}${TAB}dataType: dateTime`);
     lines.push(`${TAB}${TAB}formatString: Long Date`);
+    // Plumbing for the relationship: report authors slice by the Date table instead.
+    lines.push(`${TAB}${TAB}isHidden`);
     lines.push(`${TAB}${TAB}lineageTag: ${lineageTag(`${modelName}:col:${rel}`)}`);
     lines.push(`${TAB}${TAB}summarizeBy: none`);
     lines.push(`${TAB}${TAB}sourceColumn: ${rel}`);
@@ -223,6 +253,29 @@ export function generateTmdl(ctx: ExportContext, symbol: string, modelName: stri
     "in",
     `    ${needsDay ? "WithDay" : "Typed"}`,
   ].join("\n");
+  // Hierarchies found in the data (coarse → fine), for drill-down in any visual; none that uses a hidden column.
+  const hierarchyNames = new Set<string>();
+  for (const h of profile.hierarchies) {
+    if (h.levels.length < 2 || h.levels.some((l) => hidden.has(l) || !names.columns.has(l))) continue;
+    // Names are unique in a table: a second product hierarchy is told apart by its middle level.
+    const base = HIERARCHY_NAME[h.kind] ?? `${friendlyStart(h.levels[0] as string)} hierarchy`;
+    let name = hierarchyNames.has(base.toLowerCase())
+      ? `${base} (${friendlyStart(h.levels[1] as string)})`
+      : base;
+    for (let n = 2; hierarchyNames.has(name.toLowerCase()); n++) name = `${base} ${n}`;
+    hierarchyNames.add(name.toLowerCase());
+    lines.push(`${TAB}hierarchy ${tmdlName(name)}`);
+    lines.push(`${TAB}${TAB}lineageTag: ${lineageTag(`${modelName}:hierarchy:${h.levels.join(">")}`)}`);
+    lines.push("");
+    for (const level of h.levels) {
+      lines.push(`${TAB}${TAB}level ${tmdlName(friendlyStart(level))}`);
+      lines.push(
+        `${TAB}${TAB}${TAB}lineageTag: ${lineageTag(`${modelName}:level:${h.levels.join(">")}:${level}`)}`,
+      );
+      lines.push(`${TAB}${TAB}${TAB}column: ${tmdlName(names.columns.get(level) as string)}`);
+      lines.push("");
+    }
+  }
   lines.push(`${TAB}partition ${tmdlName(table)} = m`);
   lines.push(`${TAB}${TAB}mode: import`);
   lines.push(`${TAB}${TAB}source =`);

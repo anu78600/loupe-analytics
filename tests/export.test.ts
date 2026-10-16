@@ -430,3 +430,61 @@ describe("CSV formula-injection guard", () => {
     ).toEqual(["'=Label,Value", "'@x,1", "-5,-5", `"(1,234)",`, ""]);
   });
 });
+
+describe("Power BI modelling conventions (35.1)", () => {
+  const config = JSON.stringify({ app: "loupe", test: true });
+  const ids = ctx.charts.map((c) => c.id);
+  const files = unzipSync(session.exportPowerBi(config, ids).zip);
+  const text = (path: string) => strFromU8(files[`loupe-powerbi/${path}`] ?? new Uint8Array());
+  const table = text("Orders.SemanticModel/definition/tables/Orders.tmdl");
+  const model = text("Orders.SemanticModel/definition/model.tmdl");
+
+  it("gives geographic columns their data category, so maps place them", () => {
+    expect(table).toMatch(/column customer_state\n(\t\t.*\n)*?\t\tdataCategory: StateOrProvince/);
+  });
+
+  it("hides the date-link helper and turns off the automatic date tables beside its own Date table", () => {
+    expect(table).toMatch(
+      /column order_date_day\n\t\tdataType: dateTime\n\t\tformatString: Long Date\n\t\tisHidden/,
+    );
+    expect(model).toContain("annotation __PBI_TimeIntelligenceEnabled = 0");
+    // Without a Date table Power BI's own date hierarchy is the fallback, so it stays on.
+    const noDate = unzipSync(session.exportPowerBi(config, ids, true).zip);
+    const noDateModel = strFromU8(
+      noDate["loupe-powerbi/Orders.SemanticModel/definition/model.tmdl"] ?? new Uint8Array(),
+    );
+    expect(noDateModel).not.toContain("__PBI_TimeIntelligenceEnabled");
+  });
+
+  it("builds in the hierarchies found in the data, each with its own name", () => {
+    const ec = exportContext();
+    const h = ec.profile.hierarchies.find((x) => x.levels.length >= 2);
+    expect(h, "the demo has a product hierarchy").toBeDefined();
+    for (const level of h?.levels ?? []) expect(table).toContain(`column: ${ec.names.columns.get(level)}`);
+    const names = [...table.matchAll(/^\thierarchy (.+)$/gm)].map((m) => (m[1] as string).toLowerCase());
+    expect(names.length).toBeGreaterThan(1);
+    // Power BI rejects two objects of one name in a table.
+    expect(new Set(names).size).toBe(names.length);
+  });
+});
+
+describe("data files as an analyst expects them (35.1)", () => {
+  it("keeps the file's own headers in the cleaned CSV, and the export names for SQL", () => {
+    const own = new TextDecoder().decode(session.exportCsv(true, true)).split("\r\n")[0] ?? "";
+    expect(own).toContain("Order Date");
+    expect(own).not.toContain("order_date");
+    const forSql = new TextDecoder().decode(session.exportCsv(false)).split("\r\n")[0] ?? "";
+    expect(forSql).toContain("order_date");
+  });
+
+  it("gives each column a business name, unit, range, key flag and allowed values", () => {
+    const csv = session.exportDictionary("csv");
+    const header = csv.split("\r\n")[0] ?? "";
+    for (const h of ["Business name", "Unit", "Range", "Key", "Allowed values"]) expect(header).toContain(h);
+    const md = session.exportDictionary("md");
+    expect(md).toContain("| Business name |");
+    expect(md).toContain("## What each column means");
+    // A money column states its currency and range; a date column its first and last day.
+    expect(csv).toMatch(/Net Amount,[^\r\n]*,INR,"?\d/);
+  });
+});

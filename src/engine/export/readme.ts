@@ -390,6 +390,26 @@ export function generateReadme(ctx: ExportContext, specs: ChartSpec[], symbol: s
     "- Ratio measures (AOV, rates, margins) are ratios of sums. They recompute correctly at every level of a visual; never set them to Sum.",
   );
   out.push("- Numeric columns that are prices, rates or IDs are set to *Don't summarize* in the model.");
+  // What the TMDL model sets up for the report author (Path B), in the words a Power BI user knows.
+  const hierarchies = ctx.profile.hierarchies.filter(
+    (h) =>
+      h.levels.length >= 2 &&
+      h.levels.every((l) => ctx.names.columns.has(l) && !(ctx.hiddenColumns ?? []).includes(l)),
+  );
+  if (hierarchies.length)
+    out.push(
+      `- The model includes drill-down hierarchies: ${hierarchies
+        .map((h) => h.levels.map((l) => `\`${names.columns.get(l)}\``).join(" → "))
+        .join("; ")}.`,
+    );
+  if (ctx.profile.columns.some((c) => c.geoLevel))
+    out.push(
+      "- Geographic columns carry their data category (state, city, postal code…), so map visuals place them.",
+    );
+  if (ctx.dateColumn)
+    out.push(
+      "- *Auto date/time* is off in the model: it has its own Date table, so Power BI doesn't add a hidden date table per date column.",
+    );
   for (const p of domain.pitfalls.slice(0, 4)) out.push(`- ${p}`);
   out.push("");
   return out.join("\n");
