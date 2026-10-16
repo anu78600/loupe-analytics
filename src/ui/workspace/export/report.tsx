@@ -5,6 +5,11 @@
  * the light theme at print resolution, charts use the same option builder as
  * the app, and every chart signals ECharts' "finished" before capture. The
  * PNG holds every chart on the dashboard, wide ones across both columns.
+ *
+ * The PDF reads like an analyst's report: a cover stating the period, what
+ * the changes compare with and how recent the data is; the headline KPIs; an
+ * executive summary whose insights cite their figures; numbered figures with
+ * their unit, notes and source; and a glossary of every KPI shown.
  */
 import * as React from "react";
 import { createRoot } from "react-dom/client";
@@ -16,11 +21,12 @@ import type { FormatOptions } from "@/engine/core/format";
 import { formatCount, formatDelta, formatPointDelta, formatValue, isFlatChange } from "@/engine/core/format";
 import type { KpiValue } from "@/engine/kpi/compute";
 import type { KpiMeta } from "@/engine/session";
-import { buildOption, rendersWithECharts } from "@/ui/charts/options";
+import { buildOption, chartSubtitle, rendersWithECharts } from "@/ui/charts/options";
 import { readChartTokens } from "@/ui/charts/tokens";
 import { DataTable } from "@/ui/charts/DataTable";
 import { loadECharts } from "@/ui/charts/EChart";
 import { Wordmark } from "@/ui/brand/logo";
+import { kpiLabel } from "@/engine/core/labels";
 
 export interface ReportChart {
   spec: ChartSpec;
@@ -36,6 +42,12 @@ export interface ReportInput {
   fileName: string;
   isDemo: boolean;
   period: string;
+  /** The preset's name ("Last 12 months"), or null for a custom range or all time. */
+  periodName: string | null;
+  /** What the changes compare with ("1 Oct 2024 – 30 Sep 2025"), or null. */
+  comparison: string | null;
+  /** The last date in the data, formatted. */
+  dataTo: string | null;
   filters: string;
   rows: number;
   grain: string;
@@ -95,14 +107,35 @@ function StaticChart({ chart, fmt, height }: { chart: ReportChart; fmt: FormatOp
   return <div ref={ref} style={{ width: "100%", height }} />;
 }
 
-function ChartBlock({ chart, fmt, height }: { chart: ReportChart; fmt: FormatOptions; height: number }) {
+function ChartBlock({
+  chart,
+  fmt,
+  height,
+  figure,
+  source,
+}: {
+  chart: ReportChart;
+  fmt: FormatOptions;
+  height: number;
+  /** Figure number in the report, which the insights cite. */
+  figure?: number;
+  /** Where the numbers come from: file, rows, period and filters. */
+  source?: string;
+}) {
+  // As an analyst lays out a figure: number, title, unit; the chart; then its notes and source.
+  const subtitle = chartSubtitle(chart.spec, chart.data, fmt, chart.kind);
   return (
     <section
       className="flex flex-col rounded-[14px] border border-border bg-surface-1 p-6"
       style={{ breakInside: "avoid" }}
     >
-      <h3 className="text-[19px] font-medium text-fg">{chart.spec.title}</h3>
-      <p className="mt-1 text-[13px] text-fg-muted">{chart.spec.reason}</p>
+      {figure ? (
+        <p className="text-[11.5px] font-medium tracking-[0.12em] text-fg-subtle uppercase">
+          Figure {figure}
+        </p>
+      ) : null}
+      <h3 className="mt-1 text-[19px] font-medium text-fg">{chart.spec.title}</h3>
+      {subtitle ? <p className="mt-0.5 text-[13px] text-fg-subtle">{subtitle}</p> : null}
       <div className="mt-4 min-h-0 flex-1">
         {chart.data.empty ? (
           <p className="text-[14px] text-fg-subtle">{chart.data.notes[0] ?? "No data for this selection."}</p>
@@ -121,9 +154,10 @@ function ChartBlock({ chart, fmt, height }: { chart: ReportChart; fmt: FormatOpt
           </div>
         )}
       </div>
-      {chart.data.notes.length && !chart.data.empty ? (
-        <p className="mt-3 text-[12px] text-fg-subtle">{chart.data.notes[0]}</p>
-      ) : null}
+      <div className="mt-3 grid gap-1 text-[12px] leading-relaxed text-fg-subtle">
+        {chart.data.notes.length && !chart.data.empty ? <p>Note: {chart.data.notes.join(" ")}</p> : null}
+        {source ? <p>Source: {source}</p> : null}
+      </div>
     </section>
   );
 }
@@ -138,7 +172,7 @@ function KpiTile({ meta, value, fmt }: { meta: KpiMeta; value: KpiValue | undefi
       : change > 0 === (meta.direction === "higher");
   return (
     <div className="rounded-[14px] border border-border bg-surface-1 p-5">
-      <p className="text-[14px] text-fg-muted">{meta.name}</p>
+      <p className="text-[14px] text-fg-muted">{kpiLabel(meta)}</p>
       <p className="mt-2 text-[34px] leading-none font-semibold tracking-[-0.02em] text-fg">
         {formatValue(value?.value ?? null, meta.format, { ...fmt, compact: meta.format === "currency" })}
       </p>
@@ -153,6 +187,12 @@ function KpiTile({ meta, value, fmt }: { meta: KpiMeta; value: KpiValue | undefi
             </span>
           ) : null}
           {pct ? formatPointDelta(change, fmt.locale) : formatDelta(change, fmt.locale)}{" "}
+          {!value?.currentLabel && value?.previous !== null && value?.previous !== undefined ? (
+            <span className="font-normal text-fg-subtle">
+              from{" "}
+              {formatValue(value.previous, meta.format, { ...fmt, compact: meta.format === "currency" })}{" "}
+            </span>
+          ) : null}
           <span className="font-normal text-fg-subtle">{value?.comparisonLabel}</span>
         </p>
       ) : (
@@ -204,66 +244,90 @@ export function ReportDocument({ input }: { input: ReportInput }) {
   const chartPages: ReportChart[][] = [];
   for (let i = 0; i < input.charts.length; i += 2) chartPages.push(input.charts.slice(i, i + 2));
   const total = 1 + chartPages.length + 1;
+  // Figures are numbered in dashboard order; an insight about a chart cites its figure.
+  const figureOf = new Map(input.charts.map((c, i) => [c.spec.id, i + 1]));
+  const source = `${input.fileName}, ${formatCount(input.rows, input.fmt.locale)} rows, ${input.period}${input.filters !== "None" ? `; ${input.filters}` : ""}.`;
+  const facts: Array<[string, string]> = [
+    ["Period", input.periodName ? `${input.periodName}: ${input.period}` : input.period],
+    ["Compared with", input.comparison ?? "No comparison"],
+    ["Filters", input.filters],
+    ["Rows analysed", formatCount(input.rows, input.fmt.locale)],
+    ["Data up to", input.dataTo ?? "—"],
+    ["Grain", input.grain],
+  ];
+  const glossary = [...input.hero, ...input.supporting.slice(0, 12)];
   return (
     <div className="flex flex-col gap-0 font-sans">
       <Page index={1} total={total} input={input}>
-        <p className="text-[13px] font-medium tracking-[0.14em] text-fg-subtle uppercase">Dashboard report</p>
-        <h1 className="mt-3 font-display text-[64px] leading-[1.02] text-fg">{input.title}</h1>
+        <p className="text-[13px] font-medium tracking-[0.14em] text-fg-subtle uppercase">
+          Performance report
+        </p>
+        <h1 className="mt-3 font-display text-[60px] leading-[1.02] text-fg">{input.title}</h1>
         <p className="mt-3 text-[18px] text-fg-muted">{input.subtitle}</p>
-        <dl className="mt-8 grid grid-cols-4 gap-6 rounded-[14px] border border-border bg-surface-1 p-5">
-          {[
-            ["Period", input.period],
-            ["Filters", input.filters],
-            ["Rows analysed", formatCount(input.rows, input.fmt.locale)],
-            ["Grain", input.grain],
-          ].map(([k, v]) => (
-            <div key={k}>
+        <dl className="mt-7 grid grid-cols-3 gap-x-6 gap-y-4 rounded-[14px] border border-border bg-surface-1 p-5">
+          {facts.map(([k, v]) => (
+            <div key={k} className="min-w-0">
               <dt className="text-[11.5px] tracking-[0.1em] text-fg-subtle uppercase">{k}</dt>
               <dd className="mt-1 text-[14px] text-fg">{v}</dd>
             </div>
           ))}
         </dl>
-        <h2 className="mt-10 text-[15px] font-medium text-fg">Headline KPIs</h2>
+        <h2 className="mt-8 text-[15px] font-medium text-fg">Headline KPIs</h2>
         <div className="mt-3 grid grid-cols-3 gap-4">
           {input.hero.map((h) => (
             <KpiTile key={h.meta.id} meta={h.meta} value={h.value} fmt={input.fmt} />
           ))}
         </div>
+        {input.insights.length ? (
+          <>
+            <h2 className="mt-8 text-[15px] font-medium text-fg">Executive summary</h2>
+            <ol className="mt-3 grid gap-3">
+              {input.insights.slice(0, 4).map((i, n) => {
+                const fig = i.chartId ? figureOf.get(i.chartId) : undefined;
+                return (
+                  <li key={i.id} className="flex gap-3 text-[14px] leading-relaxed">
+                    <span className="font-figures text-fg-subtle">{n + 1}.</span>
+                    <span>
+                      <span className="font-medium text-fg">{i.title}.</span>{" "}
+                      <span className="text-fg-muted">{i.body}</span>
+                      {fig ? <span className="text-fg-subtle"> (Figure {fig})</span> : null}
+                    </span>
+                  </li>
+                );
+              })}
+            </ol>
+          </>
+        ) : null}
         {input.supporting.length ? (
           <>
             <h2 className="mt-8 text-[15px] font-medium text-fg">Supporting KPIs</h2>
             <div className="mt-3 grid grid-cols-2 gap-x-10">
-              {input.supporting.slice(0, 12).map((s) => (
-                <div
-                  key={s.meta.id}
-                  className="flex items-baseline justify-between border-b border-border py-2 text-[14px]"
-                >
-                  <span className="text-fg-muted">{s.meta.name}</span>
-                  <span className="font-figures text-fg">
-                    {formatValue(s.value?.value ?? null, s.meta.format, {
-                      ...input.fmt,
-                      compact: s.meta.format === "currency",
-                    })}
-                  </span>
-                </div>
-              ))}
+              {input.supporting.slice(0, 12).map((s) => {
+                const pct = s.meta.format === "percent";
+                const change = pct ? s.value?.deltaAbs : s.value?.delta;
+                return (
+                  <div
+                    key={s.meta.id}
+                    className="flex items-baseline justify-between gap-4 border-b border-border py-2 text-[14px]"
+                  >
+                    <span className="min-w-0 truncate text-fg-muted">{kpiLabel(s.meta)}</span>
+                    <span className="font-figures shrink-0 text-fg">
+                      {formatValue(s.value?.value ?? null, s.meta.format, {
+                        ...input.fmt,
+                        compact: s.meta.format === "currency",
+                      })}
+                      {change !== null && change !== undefined ? (
+                        <span className="ml-2 text-[12.5px] text-fg-subtle">
+                          {pct
+                            ? formatPointDelta(change, input.fmt.locale)
+                            : formatDelta(change, input.fmt.locale)}
+                        </span>
+                      ) : null}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
-          </>
-        ) : null}
-        {input.insights.length ? (
-          <>
-            <h2 className="mt-8 text-[15px] font-medium text-fg">Top insights</h2>
-            <ol className="mt-3 grid gap-3">
-              {input.insights.slice(0, 4).map((i, n) => (
-                <li key={i.id} className="flex gap-3 text-[14px]">
-                  <span className="font-figures text-fg-subtle">{n + 1}.</span>
-                  <span>
-                    <span className="font-medium text-fg">{i.title}.</span>{" "}
-                    <span className="text-fg-muted">{i.body}</span>
-                  </span>
-                </li>
-              ))}
-            </ol>
           </>
         ) : null}
       </Page>
@@ -271,33 +335,24 @@ export function ReportDocument({ input }: { input: ReportInput }) {
         <Page key={i} index={i + 2} total={total} input={input}>
           <div className="grid h-full grid-rows-2 gap-6">
             {pair.map((c) => (
-              <ChartBlock key={c.spec.id} chart={c} fmt={input.fmt} height={560} />
+              <ChartBlock
+                key={c.spec.id}
+                chart={c}
+                fmt={input.fmt}
+                height={520}
+                figure={figureOf.get(c.spec.id)}
+                source={source}
+              />
             ))}
           </div>
         </Page>
       ))}
       <Page index={total} total={total} input={input}>
         <h2 className="font-display text-[40px] text-fg">Appendix</h2>
-        {input.health ? (
-          <>
-            <h3 className="mt-6 text-[16px] font-medium text-fg">
-              Data health: {input.health.score}/100 ({input.health.grade})
-            </h3>
-            <p className="mt-1 text-[14px] text-fg-muted">{input.health.summary}</p>
-            <ul className="mt-4 grid gap-2.5">
-              {input.health.issues.slice(0, 10).map((x) => (
-                <li key={x.id} className="text-[13.5px]">
-                  <span className="font-medium text-fg">{x.title}.</span>{" "}
-                  <span className="text-fg-muted">{x.detail}</span>
-                </li>
-              ))}
-            </ul>
-          </>
-        ) : null}
-        <h3 className="mt-8 text-[16px] font-medium text-fg">KPI definitions</h3>
+        <h3 className="mt-6 text-[16px] font-medium text-fg">KPI glossary</h3>
         <dl className="mt-3 grid gap-2.5">
-          {input.hero.map((h) => (
-            <div key={h.meta.id} className="text-[13.5px]">
+          {glossary.map((h) => (
+            <div key={h.meta.id} className="text-[13px] leading-relaxed">
               <dt className="font-medium text-fg">{h.meta.name}</dt>
               <dd className="text-fg-muted">
                 {h.meta.definition} Formula: {h.meta.formula}.
@@ -306,9 +361,27 @@ export function ReportDocument({ input }: { input: ReportInput }) {
             </div>
           ))}
         </dl>
+        {input.health ? (
+          <>
+            <h3 className="mt-8 text-[16px] font-medium text-fg">
+              Data health: {input.health.score}/100 ({input.health.grade})
+            </h3>
+            <p className="mt-1 text-[14px] text-fg-muted">{input.health.summary}</p>
+            <ul className="mt-4 grid gap-2.5">
+              {input.health.issues.slice(0, 8).map((x) => (
+                <li key={x.id} className="text-[13px]">
+                  <span className="font-medium text-fg">{x.title}.</span>{" "}
+                  <span className="text-fg-muted">{x.detail}</span>
+                </li>
+              ))}
+            </ul>
+          </>
+        ) : null}
         <p className="mt-8 text-[12.5px] leading-relaxed text-fg-subtle">
-          Ratios are recomputed from their totals for every period and segment (never summed or averaged).
-          Benchmarks, where shown in the app, are indicative ranges and are not computed from this data.
+          Every figure is computed from the file named above; nothing is estimated. Ratios are recomputed from
+          their totals for every period and segment (never summed or averaged). Rates change in percentage
+          points (pp). Benchmarks, where shown in the app, are indicative ranges and are not computed from
+          this data.
         </p>
       </Page>
     </div>

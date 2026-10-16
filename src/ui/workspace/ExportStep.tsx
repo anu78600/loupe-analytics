@@ -126,6 +126,10 @@ function useReportInput(): () => ReportInput | null {
         s.datePreset === "custom" && s.customRange
           ? formatRange(s.customRange.from, s.customRange.to)
           : (s.kpiBatch?.period?.label ?? PRESET_LABEL[s.datePreset]),
+      // The preset's own name beside its dates ("Last 12 months: …"); none for a custom range or all time.
+      periodName: s.datePreset === "custom" || s.datePreset === "all" ? null : PRESET_LABEL[s.datePreset],
+      comparison: s.kpiBatch?.comparison?.label ?? null,
+      dataTo: ctx.dateBounds ? formatDay(ctx.dateBounds.max) : null,
       filters: dims.length ? dims.map((f) => describeFilter(f, formatDay)).join("; ") : "None",
       rows: s.lastCompute?.rows ?? s.summary.rowCount,
       grain: ctx.grainLabel,

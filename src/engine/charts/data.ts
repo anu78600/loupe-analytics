@@ -14,7 +14,7 @@
  * incomplete first or last bucket, which the peak/low annotations then skip.
  * Values pass through finite(), so the UI only sees numbers or null.
  */
-import type { Dataset } from "@/engine/core/types";
+import type { Column, Dataset } from "@/engine/core/types";
 import { autoGrain, bucketLabel, DAY_MS, endOfBucket, isoDate, type TimeGrain } from "@/engine/core/dates";
 import { formatCount, formatValue, type FormatOptions } from "@/engine/core/format";
 import { linearRegression, niceBins, quantileSorted } from "@/engine/core/stats";
@@ -712,8 +712,55 @@ export function computeChartData(input: ChartDataInput): ChartData {
     );
   }
 
+  // Colours follow each value's rank in the whole file (see valueRanks).
+  if (x.kind === "column") rankCategories(ds, x.column, data.categories);
+  if (spec.series?.kind === "column") rankCategories(ds, spec.series.column, data.seriesCategories);
+
   data.altText = describe(spec, data, fmt);
   return data;
+}
+
+const RANKS = new WeakMap<Column, Map<string, number>>();
+
+/**
+ * Each value of a text or yes/no column ranked by its rows over the whole
+ * file (ties in first-seen order), computed once per column. Chart colours
+ * follow these ranks rather than a chart's own sort, so filtering never
+ * repaints the values that remain.
+ */
+export function valueRanks(col: Column): Map<string, number> {
+  const cached = RANKS.get(col);
+  if (cached) return cached;
+  const ranks = new Map<string, number>();
+  if (col.kind === "string") {
+    const counts = new Float64Array(col.dict.length);
+    for (const c of col.codes) if (c >= 0) counts[c] = (counts[c] ?? 0) + 1;
+    [...counts.keys()]
+      .sort((a, b) => (counts[b] ?? 0) - (counts[a] ?? 0) || a - b)
+      .forEach((code, i) => ranks.set(col.dict[code] as string, i));
+  } else if (col.kind === "boolean") {
+    let yes = 0;
+    let no = 0;
+    for (const v of col.values) {
+      if (v === 1) yes++;
+      else if (v === 0) no++;
+    }
+    const order = yes >= no ? [col.trueLabel, col.falseLabel] : [col.falseLabel, col.trueLabel];
+    order.forEach((label, i) => ranks.set(label, i));
+  }
+  RANKS.set(col, ranks);
+  return ranks;
+}
+
+/** Gives categories of a text or yes/no column their whole-file rank (valueRanks). */
+function rankCategories(ds: Dataset, column: string, cats: ChartCategory[] | undefined): void {
+  const col = ds.columns.find((c) => c.name === column);
+  if (!col || !cats || (col.kind !== "string" && col.kind !== "boolean")) return;
+  const ranks = valueRanks(col);
+  for (const c of cats) {
+    const r = c.isOthers ? undefined : ranks.get(c.label);
+    if (r !== undefined) c.rank = r;
+  }
 }
 
 /** Lowest or highest retention at a month offset across cohorts, as a percentage. */

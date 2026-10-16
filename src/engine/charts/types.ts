@@ -90,6 +90,12 @@ export interface ChartCategory {
   /** Raw group key (value, bucket start ms, part or bin index); null for blanks, "__others__" for Others. */
   raw: string | number | null;
   isOthers?: boolean;
+  /**
+   * The value's rank by row count in the whole file (0 = most rows), for
+   * text and yes/no columns. Colours follow it, so a value keeps its colour
+   * in every chart and under every filter.
+   */
+  rank?: number;
 }
 
 export interface ChartSeries {

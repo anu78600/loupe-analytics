@@ -217,7 +217,8 @@ export function bucketLabel(t: number, grain: TimeGrain, long = false): string {
     case "week":
       return `Wk of ${d.getUTCDate()} ${MONTHS_SHORT[m]}${long ? ` ${y}` : ""}`;
     case "month":
-      return long ? `${MONTHS_LONG[m]} ${y}` : `${MONTHS_SHORT[m]} ${String(y).slice(2)}`;
+      // "Oct 2025", never "Oct 25", which reads as the 25th of October.
+      return long ? `${MONTHS_LONG[m]} ${y}` : `${MONTHS_SHORT[m]} ${y}`;
     case "quarter":
       return `Q${Math.floor(m / 3) + 1} ${y}`;
     case "year":

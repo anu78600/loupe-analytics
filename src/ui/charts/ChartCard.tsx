@@ -60,7 +60,7 @@ import { Skeleton } from "@/ui/primitives/misc";
 import { useAnimate, useChartThemeKey, useFmt } from "@/ui/common/hooks";
 import { EChart, type ChartClick, type EChartHandle } from "./EChart";
 import { DataTable } from "./DataTable";
-import { buildOption, rendersWithECharts, type GeoTileDatum } from "./options";
+import { buildOption, chartSubtitle, rendersWithECharts, type GeoTileDatum } from "./options";
 import { readChartTokens } from "./tokens";
 
 /** User-facing name of each chart kind (kind menus and labels). */
@@ -168,6 +168,8 @@ export function ChartCard({
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
+
+  const subtitle = chartSubtitle(spec, data, fmt, kind);
 
   const option = React.useMemo(() => {
     if (!data || data.empty || !rendersWithECharts(kind, data)) return null;
@@ -324,6 +326,8 @@ export function ChartCard({
             </h3>
             {spec.source === "custom" ? <Badge tone="accent">Custom</Badge> : null}
           </div>
+          {/* The unit and what each point covers, so a number is never read in the wrong unit. */}
+          {subtitle ? <p className="mt-0.5 text-2xs text-fg-subtle">{subtitle}</p> : null}
         </div>
         <div className="no-print flex shrink-0 items-center gap-0.5 opacity-100 transition-opacity md:opacity-60 md:group-focus-within/card:opacity-100 md:group-hover/card:opacity-100">
           <Popover>

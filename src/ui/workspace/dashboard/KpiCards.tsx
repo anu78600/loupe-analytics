@@ -174,6 +174,13 @@ export function KpiCard({
           </p>
           <div className="mt-2.5 flex min-h-6 flex-wrap items-center gap-x-2 gap-y-1">
             <DeltaChip meta={meta} value={value} />
+            {/* What the change is measured from, when it describes this card's own number
+                (in all-time mode it describes the latest month instead, which the note above names). */}
+            {!noRows && !value.currentLabel && value.previous !== null && value.delta !== null ? (
+              <span className="font-figures text-2xs text-fg-subtle">
+                from {formatValue(value.previous, meta.format, { ...fmt, compact })}
+              </span>
+            ) : null}
             {/* The comparison is said once above the strip; a card names its own only when it differs. */}
             {(value.delta !== null || value.deltaAbs !== null) &&
             (value.comparisonLabel !== shared?.label || (value.currentLabel ?? "") !== shared?.current) ? (

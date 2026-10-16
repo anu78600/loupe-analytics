@@ -14,6 +14,7 @@
 import { FileIdentity } from "../FileIdentity";
 import * as React from "react";
 import {
+  CalendarRange,
   ChevronDown,
   CircleSlash,
   Columns3,
@@ -24,6 +25,8 @@ import {
 } from "lucide-react";
 import type { ChartSection, LayoutMode } from "@/engine/charts/types";
 import { formatCount } from "@/engine/core/format";
+import { formatDay } from "@/engine/core/dates";
+import { PRESET_LABEL } from "@/engine/core/periods";
 import { allSpecs, kpiLayoutOf, useWorkspace } from "@/store/workspace";
 import { useSettings } from "@/store/settings";
 import { cn } from "@/lib/utils";
@@ -68,6 +71,8 @@ export function DashboardStep() {
   const setMode = useWorkspace((s) => s.setMode);
   const computing = useWorkspace((s) => s.computing);
   const lastCompute = useWorkspace((s) => s.lastCompute);
+  const period = useWorkspace((s) => s.kpiBatch?.period?.label);
+  const preset = useWorkspace((s) => s.datePreset);
   const locale = useSettings((s) => s.numberLocale);
   const select = useWorkspace((s) => s.select);
   const health = useWorkspace((s) => s.health);
@@ -122,6 +127,15 @@ export function DashboardStep() {
             </h1>
             <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1.5 text-2xs text-fg-subtle">
               {summary ? <FileIdentity summary={summary} size="sm" className="max-w-full" /> : null}
+              {/* The period in view, and how recent the data is, as a report's header states them. */}
+              {period ? (
+                <span className="font-figures inline-flex items-center gap-1.5">
+                  <CalendarRange className="size-3.5" aria-hidden />
+                  {preset !== "custom" && preset !== "all" ? `${PRESET_LABEL[preset]}: ` : ""}
+                  {period}
+                  {context.dateBounds ? ` · data to ${formatDay(context.dateBounds.max)}` : ""}
+                </span>
+              ) : null}
               <span className="font-figures inline-flex items-center gap-1.5" aria-live="polite">
                 {computing ? <Loader2 className="size-3 animate-spin" aria-hidden /> : null}
                 {computing

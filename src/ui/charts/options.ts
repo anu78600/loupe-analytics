@@ -25,7 +25,7 @@
  * that would print entities such as "&amp;" on the chart.
  */
 import type { EChartsCoreOption } from "echarts/core";
-import { formatCount, formatValue, type FormatOptions } from "@/engine/core/format";
+import { currencySymbol, formatCount, formatValue, type FormatOptions } from "@/engine/core/format";
 import type { ChartData, ChartKind, ChartSpec } from "@/engine/charts/types";
 import type { KpiFormat } from "@/registry/schema";
 import { INDIA_STATES, matchIndianState, matchUsState, US_STATES } from "@/engine/profile/geo";
@@ -63,6 +63,43 @@ export function escapeHtml(s: string): string {
 // Compact by default (axis ticks, labels); tooltips pass compact = false for full precision.
 function fv(v: number | null | undefined, format: KpiFormat, fmt: FormatOptions, compact = true): string {
   return formatValue(v ?? null, format, { ...fmt, compact });
+}
+
+/**
+ * Value-axis tick labels in one unit for the whole axis, the unit its largest
+ * value needs: "₹0.9L, ₹1.2L, ₹1.5L", never "₹90K, ₹1.2L". Mirrors
+ * formatValue's compact rule (money from 1,000; counts from 1,00,000);
+ * below that, and for rates, ticks use the plain format.
+ */
+function axisTicks(format: KpiFormat, fmt: FormatOptions, maxAbs: number): (v: number) => string {
+  const plain = (v: number) => fv(v, format, fmt);
+  if (format !== "currency" && format !== "number" && format !== "integer") return plain;
+  if (!(maxAbs >= (format === "currency" ? 1000 : 100000))) return plain;
+  const units: Array<[number, string]> =
+    fmt.locale === "IN"
+      ? [
+          [1e7, "Cr"],
+          [1e5, "L"],
+          [1e3, "K"],
+        ]
+      : [
+          [1e12, "T"],
+          [1e9, "B"],
+          [1e6, "M"],
+          [1e3, "K"],
+        ];
+  const [size, suffix] = units.find(([u]) => maxAbs >= u * 0.9995) ?? [1, ""];
+  const sym = format === "currency" ? currencySymbol(fmt.currency) : "";
+  return (v: number) => {
+    if (!Number.isFinite(v)) return "";
+    if (v === 0) return `${sym}0`;
+    const scaled = Math.abs(v) / size;
+    const digits = scaled >= 100 ? 0 : scaled >= 10 ? 1 : 2;
+    // Trailing zeros go only after a decimal point ("1.50" → "1.5"); "100" stays "100".
+    const fixed = scaled.toFixed(digits);
+    const text = digits ? fixed.replace(/0+$/, "").replace(/\.$/, "") : fixed;
+    return `${v < 0 ? "−" : ""}${sym}${text}${suffix}`;
+  };
 }
 
 function baseTooltip(t: ChartTokens): Obj {
@@ -118,8 +155,19 @@ function categoryAxis(t: ChartTokens, labels: string[], extra: Obj = {}): Obj {
   };
 }
 
-/** Value axis in one format; ticks that would overlap their neighbours are dropped rather than drawn over each other. */
-function valueAxis(t: ChartTokens, format: KpiFormat, fmt: FormatOptions, extra: Obj = {}): Obj {
+/**
+ * Value axis in one format; ticks that would overlap their neighbours are
+ * dropped rather than drawn over each other. With `maxAbs` (the largest value
+ * drawn) every tick uses the same unit (axisTicks).
+ */
+function valueAxis(
+  t: ChartTokens,
+  format: KpiFormat,
+  fmt: FormatOptions,
+  extra: Obj = {},
+  maxAbs?: number,
+): Obj {
+  const ticks = maxAbs === undefined ? (v: number) => fv(v, format, fmt) : axisTicks(format, fmt, maxAbs);
   return {
     type: "value",
     axisLine: { show: false },
@@ -131,7 +179,7 @@ function valueAxis(t: ChartTokens, format: KpiFormat, fmt: FormatOptions, extra:
       fontSize: 11,
       fontFamily: t.fontMono,
       hideOverlap: true,
-      formatter: (v: number) => fv(v, format, fmt),
+      formatter: ticks,
     },
     ...extra,
   };
@@ -214,6 +262,45 @@ function animation(ctx: OptionContext): Obj {
     animationDurationUpdate: 360,
     animationEasingUpdate: "cubicOut",
   };
+}
+
+/**
+ * One colour per named item (categories, or the series of a split), following
+ * each item's whole-file rank (ChartCategory.rank): an item keeps its palette
+ * slot in every chart and under every filter. Items without a rank, or whose
+ * slot another item in this chart already holds, take the next free slot;
+ * Others is always the neutral colour. Slots are never cycled while free
+ * ones remain.
+ */
+export function stableColours(
+  ctx: OptionContext,
+  items: Array<{ rank?: number; isOthers?: boolean }>,
+): string[] {
+  const n = ctx.tokens.palette.length;
+  const used = new Set<number>();
+  const slot = items.map((it) => {
+    if (it.isOthers) return null;
+    if (it.rank !== undefined && it.rank < n && !used.has(it.rank)) {
+      used.add(it.rank);
+      return it.rank;
+    }
+    return -1;
+  });
+  return slot.map((s, i) => {
+    if (s === null) return ctx.tokens.other;
+    if (s >= 0) return ctx.tokens.palette[s] as string;
+    let k = 0;
+    while (used.has(k) && k < n) k++;
+    if (k >= n) k = i % n;
+    used.add(k);
+    return ctx.tokens.palette[k] as string;
+  });
+}
+
+/** A tree's top-level nodes with their whole-file ranks (taken from the matching categories). */
+function treeItems(data: ChartData): Array<{ rank?: number; isOthers?: boolean }> {
+  const byLabel = new Map(data.categories.map((c) => [c.label, c]));
+  return (data.tree ?? []).map((n) => ({ rank: byLabel.get(n.label)?.rank, isOthers: n.label === "Others" }));
 }
 
 function colorFor(ctx: OptionContext, i: number, isOthers?: boolean): string {
@@ -372,6 +459,27 @@ function markPoints(ctx: OptionContext, seriesIndex: number, isLine = false): Ob
   };
 }
 
+/**
+ * Time-axis labels that say the year once per year: "Oct 2025", "Nov", "Dec",
+ * "Jan 2026" for months; "6 Jan 2026", "13 Jan" for days and weeks. Quarters
+ * and years already carry it. Tooltips and tables keep the full label.
+ */
+function timeTick(data: ChartData): ((v: unknown, idx: number) => string) | undefined {
+  const grain = data.grain;
+  if (grain !== "month" && grain !== "day" && grain !== "week") return undefined;
+  return (v, idx) => {
+    const raw = data.categories[idx]?.raw;
+    if (typeof raw !== "number") return str(v);
+    const d = new Date(raw);
+    const prev = data.categories[idx - 1]?.raw;
+    const newYear =
+      idx === 0 || typeof prev !== "number" || new Date(prev).getUTCFullYear() !== d.getUTCFullYear();
+    const month = MONTHS_SHORT[d.getUTCMonth()] as string;
+    const base = grain === "month" ? month : `${grain === "week" ? "Wk of " : ""}${d.getUTCDate()} ${month}`;
+    return newYear ? `${base} ${d.getUTCFullYear()}` : base;
+  };
+}
+
 /** "to 20 Dec" for an incomplete last period, "from 3 Jan" for an incomplete first one. */
 function partialText(data: ChartData, idx: number): string {
   if (idx === 0 && data.partialFirst && data.partialFirstStart !== undefined)
@@ -521,6 +629,11 @@ function cartesian(ctx: OptionContext): EChartsCoreOption {
     const segments = data.seriesCategories
       .map((sc, row) => ({ sc, row }))
       .filter(({ sc, row }) => sc.isOthers || row < 8);
+    // Each split value keeps its colour across charts and filters (stableColours).
+    const segColours = stableColours(
+      ctx,
+      segments.map((x) => x.sc),
+    );
     segments.forEach(({ sc, row }, i) => {
       series.push({
         type: "bar",
@@ -529,7 +642,7 @@ function cartesian(ctx: OptionContext): EChartsCoreOption {
         data: (data.matrix?.[row] ?? []).map((v, idx) => share(v, idx) ?? 0),
         barMaxWidth: 24,
         itemStyle: {
-          color: colorFor(ctx, i, sc.isOthers),
+          color: segColours[i],
           borderColor: t.surface,
           borderWidth: 1,
           borderRadius: i === segments.length - 1 ? [4, 4, 0, 0] : 0,
@@ -541,8 +654,11 @@ function cartesian(ctx: OptionContext): EChartsCoreOption {
     const stacked = kind === "stackedBar" || percent;
     // Stacked areas add up per period, so their parts are never split into solid and dashed pieces.
     const dashEnds = kind !== "stackedArea" && labels.length >= 3;
+    // Series from a split are values of a column: they keep their colours; separate measures go in order.
+    const splitColours =
+      data.matrix && data.seriesCategories ? stableColours(ctx, data.seriesCategories) : null;
     data.series.forEach((s, i) => {
-      const color = colorFor(ctx, i, othersSeries(i));
+      const color = splitColours?.[i] ?? colorFor(ctx, i, othersSeries(i));
       // Per-point styling: "Others" in the neutral colour; points outside the
       // cross-filter selection and an incomplete first or last period are faded.
       const values = s.values.map((v, idx) => {
@@ -719,7 +835,13 @@ function cartesian(ctx: OptionContext): EChartsCoreOption {
                 lineHeight: 13,
                 formatter: (v: unknown) => wrapLabel(str(v), slotChars),
               }
-            : { color: t.label, fontSize: 11, fontFamily: t.fontSans, hideOverlap: true },
+            : {
+                color: t.label,
+                fontSize: 11,
+                fontFamily: t.fontSans,
+                hideOverlap: true,
+                ...(ctx.spec.x.kind === "time" && timeTick(data) ? { formatter: timeTick(data) } : {}),
+              },
         },
   );
   // Only percentage lines may start above zero (scale: true); bars and areas
@@ -735,7 +857,13 @@ function cartesian(ctx: OptionContext): EChartsCoreOption {
           ? { axisLabel: { show: false }, splitLine: { show: false } }
           : { splitNumber: 3 }
         : {};
-  const valAxis = valueAxis(t, fmt0, fmt, percent ? { ...valExtra, max: 1 } : valExtra);
+  // The largest value the axis has to reach: a column's total when the series stack, else any one value.
+  const stackedSeries = kind === "stackedBar" || kind === "stackedArea";
+  const reach = stackedSeries
+    ? data.categories.map((_, idx) => columnTotal(data, idx))
+    : data.series.flatMap((s) => s.values.map((v) => Math.abs(v ?? 0)));
+  const maxAbs = reach.reduce((m, v) => Math.max(m, v), 0);
+  const valAxis = valueAxis(t, fmt0, fmt, percent ? { ...valExtra, max: 1 } : valExtra, maxAbs);
   return {
     ...animation(ctx),
     grid: {
@@ -769,10 +897,12 @@ function donut(ctx: OptionContext, pie = false): EChartsCoreOption {
   const s = data.series[0];
   const total = (s?.values ?? []).reduce<number>((a, v) => a + (v ?? 0), 0);
   const format = s?.format ?? "number";
+  // A slice keeps its value's colour in every chart (stableColours).
+  const colours = stableColours(ctx, data.categories);
   const items = data.categories.map((c, i) => ({
     name: c.label,
     value: s?.values[i] ?? 0,
-    itemStyle: { color: colorFor(ctx, i, c.isOthers), opacity: dimmed(ctx, c.label) ? 0.35 : 1 },
+    itemStyle: { color: colours[i], opacity: dimmed(ctx, c.label) ? 0.35 : 1 },
   }));
   return {
     ...animation(ctx),
@@ -890,8 +1020,9 @@ function treemap(ctx: OptionContext): EChartsCoreOption {
       };
     });
   } else {
+    const treeColours = stableColours(ctx, treeItems(data));
     nodes = (data.tree ?? []).map((n, i) => {
-      const color = colorFor(ctx, i, n.label === "Others");
+      const color = treeColours[i] ?? colorFor(ctx, i, n.label === "Others");
       // The largest sub-category keeps the category's own colour; the rest step lighter and darker.
       const kids = [...(n.children ?? [])].sort((a, b) => (b.value ?? 0) - (a.value ?? 0));
       const shades = childShades(color, kids.length, t.dark);
@@ -1711,8 +1842,9 @@ function bigNumber(ctx: OptionContext): EChartsCoreOption {
 function sunburst(ctx: OptionContext): EChartsCoreOption {
   const { data, tokens: t, fmt } = ctx;
   const format = data.series[0]?.format ?? ctx.spec.measures[0]?.format ?? "number";
+  const treeColours = stableColours(ctx, treeItems(data));
   const nodes = (data.tree ?? []).map((n, i) => {
-    const color = colorFor(ctx, i, n.label === "Others");
+    const color = treeColours[i] ?? colorFor(ctx, i, n.label === "Others");
     const kids = [...(n.children ?? [])].sort((a, b) => (b.value ?? 0) - (a.value ?? 0));
     const shades = childShades(color, kids.length, t.dark);
     return {
@@ -1776,6 +1908,7 @@ function sankey(ctx: OptionContext): EChartsCoreOption {
   const left = data.categories.map((c) => `L\u241F${c.label}`);
   const right = (data.seriesCategories ?? []).map((c) => `R\u241F${c.label}`);
   const plain = (name: unknown) => str(name).replace(/^[LR]\u241F/, "");
+  const leftColours = stableColours(ctx, data.categories);
   const links: Obj[] = [];
   (data.matrix ?? []).forEach((row, yi) =>
     row.forEach((v, xi) => {
@@ -1784,14 +1917,14 @@ function sankey(ctx: OptionContext): EChartsCoreOption {
         source: left[xi],
         target: right[yi],
         value: v,
-        lineStyle: { color: withAlpha(colorFor(ctx, xi, data.categories[xi]?.isOthers), 0.32) },
+        lineStyle: { color: withAlpha(leftColours[xi] ?? ctx.tokens.other, 0.32) },
       });
     }),
   );
   const nodes = [
     ...left.map((name, i) => ({
       name,
-      itemStyle: { color: colorFor(ctx, i, data.categories[i]?.isOthers), borderColor: t.surface },
+      itemStyle: { color: leftColours[i], borderColor: t.surface },
     })),
     ...right.map((name) => ({ name, itemStyle: { color: t.subtle, borderColor: t.surface } })),
   ];
@@ -1906,6 +2039,45 @@ function calendar(ctx: OptionContext): EChartsCoreOption {
 }
 
 /** The ECharts option for a chart, or null when there is nothing to draw (empty data, or a table view). */
+const GRAIN_WORD: Record<string, string> = {
+  day: "daily",
+  week: "weekly",
+  month: "monthly",
+  quarter: "quarterly",
+  year: "yearly",
+};
+
+/**
+ * The line under a chart's title, as analysts write it: the unit and, on a
+ * time axis, what each point covers ("In ₹ · monthly", "In % · weekly",
+ * "Count · monthly"). Empty for tables and for charts mixing units.
+ */
+export function chartSubtitle(
+  spec: ChartSpec,
+  data: ChartData | null | undefined,
+  fmt: FormatOptions,
+  kind: ChartKind,
+): string {
+  if (kind === "table") return "";
+  const formats = new Set(
+    data?.series.length ? data.series.map((s) => s.format) : spec.measures.map((m) => m.format),
+  );
+  if (formats.size !== 1) return "";
+  const f = [...formats][0];
+  const unit =
+    f === "currency"
+      ? `In ${currencySymbol(fmt.currency).trim()}`
+      : f === "percent"
+        ? "In %"
+        : f === "integer"
+          ? "Count"
+          : f === "days"
+            ? "In days"
+            : "";
+  const grain = spec.x.kind === "time" && data?.grain ? (GRAIN_WORD[data.grain] ?? "") : "";
+  return [unit, grain].filter(Boolean).join(" · ");
+}
+
 export function buildOption(ctx: OptionContext): EChartsCoreOption | null {
   if (ctx.data.empty) return null;
   if (ctx.data.cohorts) return cohort(ctx);

@@ -129,7 +129,7 @@ export function formatCompact(value: number, locale: NumberLocale): string {
       if (decimals > 0) text = text.replace(/\.?0+$/, "");
       // Large crore values keep grouping (e.g. 1,234Cr).
       if (scaled >= 1000) text = groupDigits(Math.round(scaled).toString(), locale);
-      return `${value < 0 ? "-" : ""}${text}${u.suffix}`;
+      return `${value < 0 ? "−" : ""}${text}${u.suffix}`;
     }
   }
   const decimals = abs >= 100 || Number.isInteger(value) ? 0 : abs >= 10 ? 1 : 2;
@@ -148,6 +148,13 @@ export function formatValue(
   format: ValueFormat,
   opts: FormatOptions,
 ): string {
+  // Shown numbers carry a true minus sign (−), as typeset reports do; the data grid and the
+  // exported files keep the plain hyphen-minus that other software reads.
+  const out = formatValueText(value, format, opts);
+  return out.startsWith("-") ? `−${out.slice(1)}` : out;
+}
+
+function formatValueText(value: number | null | undefined, format: ValueFormat, opts: FormatOptions): string {
   if (value === null || value === undefined || !Number.isFinite(value)) return DASH;
   const sign = opts.signed && value > 0 ? "+" : "";
   switch (format) {

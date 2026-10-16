@@ -238,7 +238,7 @@ describe("time axis", () => {
       dateColumn: "Date",
       fmt,
     });
-    expect(data.categories[0]?.label).toBe("Jan 25");
+    expect(data.categories[0]?.label).toBe("Jan 2025");
     expect(data.series[0]?.values[0]).toBe(1700);
     expect(data.partialFirst).toBe(true);
     expect(data.partialLast).toBeUndefined();

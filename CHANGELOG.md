@@ -5,6 +5,24 @@ Every step of building Loupe, newest first. Generated from `src/content/changelo
 - **MAJOR** (`x.0`): a new capability, subsystem or page.
 - **MINOR** (`x.y`): a refinement, fix or follow-up to that major version.
 
+## 35.0 · Presented like an analyst's report
+
+*Major · 2026-10-16 14:16 UTC · Feature, Design, Tests*
+
+The dashboard and the PDF report now follow the conventions professional analysts use: every number in one system, dates that can't be misread, a unit under every chart, colours that stay with each category, and a PDF that reads as a report, with a cover, an executive summary that cites numbered figures, and a glossary.
+
+- PDF report, rebuilt: a cover stating the period (“Last 12 months: 1 Oct 2025 – 30 Sep 2026”), what the changes compare with, the filters, the rows analysed, how recent the data is and the grain; the headline KPIs; an executive summary whose insights cite their figures (“Figure 3”); the supporting KPIs with their changes; numbered figures, each with its unit, notes and source line; and an appendix with a glossary of every KPI shown and the data health.
+- Dashboard header: the period in view and how recent the data is (“Last 12 months: 1 Oct 2025 – 30 Sep 2026 · data to 30 Sep 2026”).
+- KPI cards say what each change is measured from (“+40.5% from ₹2.23Cr”), in the app and in the report.
+- Every chart has a unit line under its title (“In ₹ · monthly”, “In %”, “Count · weekly”), so a number is never read in the wrong unit.
+- One unit per axis: ticks read ₹0.9L, ₹1.2L, ₹1.5L instead of mixing ₹90K and ₹1.2L.
+- Dates can't be misread: a month is “Oct 2025”, never “Oct 25” (which reads as the 25th), and a month axis shows the year once per year: Oct 2025, Nov, Dec, Jan 2026.
+- Negative numbers carry a true minus sign (−1.8%), as in typeset reports. The data grid and the exported files keep the plain hyphen other software reads.
+- Colours follow the value: each category keeps the same colour in every chart, under every filter and in every export, chosen by how common it is in the whole file. Filtering no longer repaints the categories that remain, and Others is always grey.
+- New tests: one unit per axis, the year once per year, the unit line, minus signs, and colours that survive a filter.
+
+Files: `src/ui/workspace/export/report.tsx`, `src/ui/workspace/ExportStep.tsx`, `src/ui/charts/options.ts`, `src/ui/charts/ChartCard.tsx`, `src/ui/workspace/dashboard/DashboardStep.tsx`, `src/ui/workspace/dashboard/KpiCards.tsx`, `src/engine/charts/data.ts`, `src/engine/charts/types.ts`, `src/engine/core/format.ts`, `src/engine/core/dates.ts`, `tests/presentation.test.ts`
+
 ## 34.3 · Names and words a report would use
 
 *Minor · 2026-10-16 14:00 UTC · Design, Fix, Tests*
