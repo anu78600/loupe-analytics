@@ -6,11 +6,14 @@
  * structure) and every column header in the file with the kind of values it
  * holds and what is in it. BusinessForm lets the user set industry, data
  * shape (sub-domain), business model, goal, reporting period and currency:
- * the user's choice always overrides detection. "Next: check your data"
+ * the user's choice always overrides detection, and the card beside the form
+ * describes that choice, not the best match. A changed choice is built when
+ * the user moves on (Next, Skip, or any later step). "Next: check your data"
  * confirms and opens step 3 (Check & map), where the whole file is shown
- * with its problems marked. Also hosts the optional AI second opinion, and
- * the wide-format banner, whose unpivot adds two columns and so asks first
- * (useColumnConsent).
+ * with its problems marked. Also says how dates nothing could prove were
+ * read (with a switch), and that the data is a sample when it is; hosts the
+ * optional AI second opinion, and the wide-format banner, whose unpivot adds
+ * two columns and so asks first (useColumnConsent).
  */
 import { FileIdentity } from "./FileIdentity";
 import * as React from "react";
@@ -19,6 +22,7 @@ import {
   AlertTriangle,
   ArrowRight,
   Calendar,
+  CalendarClock,
   Clock,
   Columns3,
   Hash,
@@ -30,7 +34,11 @@ import {
 import { stepNumber, useWorkspace } from "@/store/workspace";
 import { useSettings } from "@/store/settings";
 import { SUPPORTED_CURRENCIES, currencySymbol, formatCount } from "@/engine/core/format";
+import { grainLabel } from "@/engine/profile/structure";
+import type { DomainCandidate } from "@/engine/detect/detect";
+import type { DomainListItem } from "@/engine/session";
 import { cn } from "@/lib/utils";
+import { countOf, ordinal } from "@/ui/common/words";
 import { Button } from "@/ui/primitives/button";
 import { Badge } from "@/ui/primitives/badge";
 import { Card } from "@/ui/primitives/card";
@@ -55,6 +63,7 @@ import { useColumnConsent } from "./NewColumnsDialog";
 import { unpivotColumnNames } from "@/engine/parse/unpivot";
 import { ROLE_LABEL } from "@/engine/profile/types";
 import { AiDomainCheck } from "./AiSummary";
+import { DateOrderSwitch } from "./HealthPanel";
 
 const MODELS = ["D2C brand", "Marketplace seller", "B2B", "Subscription", "Retail / offline", "Other"];
 const GOALS = [
@@ -68,10 +77,18 @@ export function DetectStep() {
   const detection = useWorkspace((s) => s.detection);
   const profile = useWorkspace((s) => s.profile);
   const summary = useWorkspace((s) => s.summary);
+  const report = useWorkspace((s) => s.report);
+  const domainId = useWorkspace((s) => s.domainId);
   const unpivot = useWorkspace((s) => s.unpivot);
   const locale = useSettings((s) => s.numberLocale);
   const consent = useColumnConsent();
   if (!detection || !profile || !summary) return null;
+  // The grain as the dashboard will word it: the chosen industry's assumption replaces a key that
+  // only numbers the rows (never "One row per row").
+  const chosen = detection.candidates.find((c) => c.domainId === domainId);
+  const grain = grainLabel(profile.grain, chosen && chosen.grain !== "row" ? chosen.grain : undefined);
+  const sampling = report?.sampling;
+  const unproven = report?.dateFormats.filter((d) => d.ambiguous) ?? [];
   const wide = profile.wide;
   // Unpivoting replaces the period columns with two new ones, so it only runs after a yes.
   const askUnpivot = async () => {
@@ -107,10 +124,49 @@ export function DetectStep() {
           <FileIdentity summary={summary} className="mt-2" />
         </div>
         <p className="font-figures text-ui text-fg-muted">
-          {formatCount(summary.rowCount, locale)} rows · {summary.columnCount} columns ·{" "}
-          {profile.grain.description}
+          {countOf(summary.rowCount, "row", locale)} · {countOf(summary.columnCount, "column", locale)} ·{" "}
+          {grain}
         </p>
       </div>
+      {sampling ? (
+        <div
+          role="note"
+          className="mb-5 flex items-start gap-2.5 rounded-card border border-warning/30 bg-warning-soft px-4 py-3"
+        >
+          <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden />
+          <p className="text-ui text-fg">
+            <span className="font-medium">A sample of the file.</span>{" "}
+            {formatCount(sampling.keptRows, locale)} of about{" "}
+            {countOf(sampling.estimatedTotalRows, "row", locale)} were loaded (
+            {sampling.strategy === "systematic" && sampling.every
+              ? `every ${ordinal(sampling.every)} row`
+              : "the first rows"}
+            ). Totals describe these rows, not the whole file.
+          </p>
+        </div>
+      ) : null}
+      {unproven.length ? (
+        <div
+          role="note"
+          className="mb-5 grid gap-2 rounded-card border border-info/30 bg-info-soft px-4 py-3"
+        >
+          {unproven.map((d) => (
+            <div key={d.column} className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
+              <p className="flex min-w-0 flex-1 items-start gap-2.5 text-ui text-fg">
+                <CalendarClock className="mt-0.5 size-4 shrink-0 text-info" aria-hidden />
+                <span>
+                  <span className="font-medium">
+                    {d.column} read as {d.format}.
+                  </span>{" "}
+                  {d.evidence} If these are {d.alternative?.startsWith("MM") ? "month" : "day"}-first, switch
+                  now; you can also do it later in Check & map › File report.
+                </span>
+              </p>
+              <DateOrderSwitch decision={d} />
+            </div>
+          ))}
+        </div>
+      ) : null}
       {profile.wide ? (
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-card border border-info/30 bg-info-soft px-4 py-3">
           <p className="text-ui text-fg">
@@ -131,14 +187,20 @@ export function DetectStep() {
   );
 }
 
+/**
+ * What the industry choice rests on: the chosen candidate's confidence, data
+ * shape and matched columns. The card follows the choice, not the ranking:
+ * the best match says so; a lower-ranked candidate is "Your choice" with its
+ * own evidence; an industry outside the top matches, or Generic, gets a card
+ * of its own instead of the best match's evidence.
+ */
 function DetectionCard() {
   const detection = useWorkspace((s) => s.detection);
   const domains = useWorkspace((s) => s.domains);
   const domainId = useWorkspace((s) => s.domainId);
   const top = detection?.candidates[0];
   if (!detection || !top) return null;
-  const shown = detection.candidates.find((c) => c.domainId === domainId) ?? top;
-  const meta = domains.find((d) => d.id === shown.domainId);
+  const shown = detection.candidates.find((c) => c.domainId === domainId);
   return (
     <Card className="relative overflow-hidden p-6 lg:col-span-7">
       <div aria-hidden className="mesh pointer-events-none absolute inset-x-0 top-0 h-48 opacity-60" />
@@ -150,89 +212,35 @@ function DetectionCard() {
           >
             <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden />
             <p className="text-ui text-fg">
-              <span className="font-medium">Please confirm.</span> {detection.reason} Use the form on the
-              right; your choice always overrides detection.
+              <span className="font-medium">Please confirm.</span> {detection.reason} Use the form{" "}
+              <span className="lg:hidden">below</span>
+              <span className="hidden lg:inline">on the right</span>; your choice always overrides detection.
             </p>
           </div>
         ) : null}
-        <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
-          <ConfidenceRing value={shown.confidence} />
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <span className="grid size-8 place-items-center rounded-[9px] border border-border-accent bg-accent-soft">
-                <DomainIcon name={meta?.icon ?? "table"} className="size-4 text-accent" />
-              </span>
-              <Badge tone="accent">{shown.domainId === top.domainId ? "Best match" : "Your choice"}</Badge>
-            </div>
-            <h2 className="mt-3 font-display text-[40px] leading-none text-fg">{shown.name}</h2>
-            <p className="mt-2 text-sm text-fg-muted">
-              {shown.subDomain.name} · {Math.round(shown.subDomain.coverage * 100)}% of its key fields found ·
-              grain: {shown.grain}
-            </p>
-          </div>
-        </div>
-
-        <div className="mt-6">
-          <p className="mb-2 text-2xs font-medium tracking-[0.12em] text-fg-subtle uppercase">
-            Evidence · matched columns
-          </p>
-          <motion.ul
-            className="flex flex-wrap gap-1.5"
-            initial="hidden"
-            animate="show"
-            variants={{ show: { transition: { staggerChildren: 0.03 } } }}
-          >
-            {shown.evidence.slice(0, 16).map((e) => (
-              <motion.li
-                key={e.fieldId}
-                variants={{ hidden: { opacity: 0, y: 4 }, show: { opacity: 1, y: 0 } }}
-              >
-                <Tooltip
-                  content={`Matched by ${e.via === "name" ? "column name" : e.via === "values" ? "cell values" : "name and values"} · score ${(e.score * 100).toFixed(0)}`}
-                >
-                  <span className="inline-flex h-7 items-center gap-1.5 rounded-full border border-border-strong bg-surface-2 pr-3 pl-2.5 text-2xs">
-                    <span
-                      className={cn(
-                        "size-1.5 rounded-full",
-                        e.score >= 0.9 ? "bg-success" : e.score >= 0.7 ? "bg-accent" : "bg-warning",
-                      )}
-                      aria-hidden
-                    />
-                    <span className="text-fg-muted">{e.fieldLabel}</span>
-                    <span className="text-fg-subtle">←</span>
-                    <span className="font-figures text-fg">{e.column}</span>
-                    {e.via !== "name" ? (
-                      <Sparkles className="size-3 text-accent" aria-label="value evidence" />
-                    ) : null}
-                  </span>
-                </Tooltip>
-              </motion.li>
-            ))}
-          </motion.ul>
-          {shown.missingSignals.length ? (
-            <p className="mt-3 text-ui text-fg-subtle">
-              Not found: {shown.missingSignals.map((m) => m.label).join(", ")}. KPIs that need them will say
-              so instead of guessing.
-            </p>
-          ) : null}
-        </div>
+        {shown ? (
+          <CandidateDetail candidate={shown} best={shown.domainId === top.domainId} />
+        ) : (
+          <ChoiceDetail domain={domains.find((d) => d.id === domainId)} top={top} />
+        )}
 
         <div className="mt-6 grid gap-5 border-t border-border pt-5 md:grid-cols-2">
           <div>
             <p className="mb-2 text-2xs font-medium tracking-[0.12em] text-fg-subtle uppercase">
-              Other candidates
+              Top matches
             </p>
             <ul className="grid gap-2">
               {detection.candidates.map((c) => (
                 <li key={c.domainId}>
                   <button
                     type="button"
+                    aria-pressed={c.domainId === domainId}
                     onClick={() =>
                       useWorkspace.setState({ domainId: c.domainId, subDomainId: c.subDomain.id })
                     }
                     className={cn(
                       "w-full rounded-control border px-3 py-2 text-left transition-colors",
-                      c.domainId === shown.domainId
+                      c.domainId === domainId
                         ? "border-border-accent bg-accent-soft"
                         : "border-border hover:border-border-strong",
                     )}
@@ -271,6 +279,108 @@ function DetectionCard() {
   );
 }
 
+/**
+ * A chosen industry that is not among the top matches, or Generic (no
+ * registry entry), which detection picks itself when no industry scores 35%:
+ * no score or evidence of its own to show, so none is borrowed from the best
+ * match.
+ */
+function ChoiceDetail({ domain, top }: { domain: DomainListItem | undefined; top: DomainCandidate }) {
+  const generic = !domain;
+  const noFit = generic && top.confidence < 35;
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center gap-2">
+        <span className="grid size-8 place-items-center rounded-[9px] border border-border-accent bg-accent-soft">
+          <DomainIcon name={domain?.icon ?? "table"} className="size-4 text-accent" />
+        </span>
+        <Badge tone="accent">{noFit ? "No industry fits" : "Your choice"}</Badge>
+      </div>
+      <h2 className="font-display text-[40px] leading-none text-fg">{domain?.name ?? "Generic"}</h2>
+      <p className="max-w-xl text-sm text-fg-muted">
+        {generic
+          ? `${noFit ? `No industry matches this file well (the closest, ${top.name}, scores ${top.confidence}%), so the` : "The"} dashboard is built from the data's own structure: totals of its measures over time and by its categories, with no industry's KPIs assumed. Pick a top match instead if one fits.`
+          : "Not among the top matches for this file. Check & map shows which of its fields were found; KPIs that need a missing field will say so instead of guessing."}
+      </p>
+    </div>
+  );
+}
+
+/** A ranked candidate: confidence, data shape and the columns that matched its fields. */
+function CandidateDetail({ candidate: shown, best }: { candidate: DomainCandidate; best: boolean }) {
+  const domains = useWorkspace((s) => s.domains);
+  const meta = domains.find((d) => d.id === shown.domainId);
+  return (
+    <>
+      <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
+        <ConfidenceRing value={shown.confidence} />
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="grid size-8 place-items-center rounded-[9px] border border-border-accent bg-accent-soft">
+              <DomainIcon name={meta?.icon ?? "table"} className="size-4 text-accent" />
+            </span>
+            <Badge tone="accent">{best ? "Best match" : "Your choice"}</Badge>
+          </div>
+          <h2 className="mt-3 font-display text-[40px] leading-none text-fg">{shown.name}</h2>
+          <p className="mt-2 text-sm text-fg-muted">
+            {shown.subDomain.name} · {Math.round(shown.subDomain.coverage * 100)}% of its key fields found ·
+            grain: {shown.grain}
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-6">
+        <p className="mb-2 text-2xs font-medium tracking-[0.12em] text-fg-subtle uppercase">
+          Evidence · matched columns
+        </p>
+        <motion.ul
+          className="flex flex-wrap gap-1.5"
+          initial="hidden"
+          animate="show"
+          variants={{ show: { transition: { staggerChildren: 0.03 } } }}
+        >
+          {shown.evidence.slice(0, 16).map((e) => (
+            <motion.li
+              key={e.fieldId}
+              variants={{ hidden: { opacity: 0, y: 4 }, show: { opacity: 1, y: 0 } }}
+            >
+              <Tooltip
+                content={`Matched by ${e.via === "name" ? "column name" : e.via === "values" ? "cell values" : "name and values"} · score ${(e.score * 100).toFixed(0)}`}
+              >
+                {/* Focusable, so the tooltip opens from the keyboard too. */}
+                <span
+                  tabIndex={0}
+                  className="inline-flex h-7 items-center gap-1.5 rounded-full border border-border-strong bg-surface-2 pr-3 pl-2.5 text-2xs outline-none focus-visible:ring-2 focus-visible:ring-accent-ring"
+                >
+                  <span
+                    className={cn(
+                      "size-1.5 rounded-full",
+                      e.score >= 0.9 ? "bg-success" : e.score >= 0.7 ? "bg-accent" : "bg-warning",
+                    )}
+                    aria-hidden
+                  />
+                  <span className="text-fg-muted">{e.fieldLabel}</span>
+                  <span className="text-fg-subtle">←</span>
+                  <span className="font-figures text-fg">{e.column}</span>
+                  {e.via !== "name" ? (
+                    <Sparkles className="size-3 text-accent" aria-label="value evidence" />
+                  ) : null}
+                </span>
+              </Tooltip>
+            </motion.li>
+          ))}
+        </motion.ul>
+        {shown.missingSignals.length ? (
+          <p className="mt-3 text-ui text-fg-subtle">
+            Not found: {shown.missingSignals.map((m) => m.label).join(", ")}. KPIs that need them will say so
+            instead of guessing.
+          </p>
+        ) : null}
+      </div>
+    </>
+  );
+}
+
 function BusinessForm() {
   const domains = useWorkspace((s) => s.domains);
   const detection = useWorkspace((s) => s.detection);
@@ -295,10 +405,13 @@ function BusinessForm() {
     >
       <h2 className="text-base font-medium text-fg">Tell us about your business</h2>
       <p className="mt-1 text-ui text-fg-muted">
-        Detection is a starting point. Anything you set here wins, and the dashboard regenerates instantly.
+        Detection is a starting point. Anything you set here wins: the dashboard is built from it as soon as
+        you move on.
       </p>
+      {/* A container, so the goal and the two buttons lay out by the form's width rather than the
+          screen's; its one track may shrink below its widest child, so nothing pushes the card wider. */}
       <form
-        className="mt-5 grid gap-4"
+        className="@container mt-5 grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4"
         onSubmit={(e) => {
           e.preventDefault();
           if (domainId) void confirm(domainId, subDomainId, { goTo: "map" });
@@ -370,8 +483,10 @@ function BusinessForm() {
         </div>
         <div className="grid gap-1.5">
           <Label>Main goal</Label>
+          {/* Two by two in a narrow form (the 1024 px layout), one row of four where it fits. */}
           <Segmented
             ariaLabel="Main goal"
+            className="grid w-full grid-cols-2 @md:grid-cols-4"
             value={(business.goal as (typeof GOALS)[number]["value"]) ?? "growth"}
             onChange={(v) => setBusiness({ goal: v })}
             options={GOALS.map((g) => ({ value: g.value, label: g.label }))}
@@ -422,7 +537,10 @@ function BusinessForm() {
           </div>
         </div>
         {profileCurrency && !currencyOverride ? (
-          <p className="-mt-2 text-2xs text-fg-subtle">Currency source: {profileCurrency.source}.</p>
+          <p className="-mt-2 text-2xs text-fg-subtle">
+            Currency source: {profileCurrency.source}
+            {/[.!?]$/.test(profileCurrency.source) ? "" : "."}
+          </p>
         ) : null}
         <div className="grid gap-1.5">
           <Label htmlFor="notes">Anything else? (optional)</Label>
@@ -433,7 +551,7 @@ function BusinessForm() {
             onChange={(e) => setBusiness({ notes: e.target.value })}
           />
         </div>
-        <div className="mt-1 flex flex-col gap-2 sm:flex-row">
+        <div className="mt-1 flex flex-col gap-2 @md:flex-row">
           <Button
             type="submit"
             variant="primary"
@@ -464,6 +582,8 @@ const KIND_ICON = { number: Hash, date: Calendar, string: Type, boolean: ToggleL
 /** Every column header of the file, with the kind of values it holds and what is in it (step 2). */
 function ColumnsInFile() {
   const profile = useWorkspace((s) => s.profile);
+  // Subscribed, so the summaries follow a change of the number format.
+  const locale = useSettings((s) => s.numberLocale);
   if (!profile) return null;
   return (
     <Card className="mt-5 overflow-hidden">
@@ -473,12 +593,20 @@ function ColumnsInFile() {
             <Columns3 className="size-4 text-accent" aria-hidden /> Columns in your file
           </h2>
           <p className="mt-1 text-ui text-fg-muted">
-            {profile.columns.length} column headers, each read from its values. Next, check the data itself
-            row by row.
+            {profile.columns.length === 1
+              ? "1 column header, read from its values."
+              : `${profile.columns.length} column headers, each read from its values.`}{" "}
+            Next, check the data itself row by row.
           </p>
         </div>
       </div>
-      <div className="overflow-x-auto">
+      {/* A named, focusable region: the table scrolls sideways on narrow screens, and keyboards can scroll it too. */}
+      <div
+        className="overflow-x-auto outline-none focus-visible:ring-2 focus-visible:ring-accent-ring focus-visible:ring-inset"
+        tabIndex={0}
+        role="region"
+        aria-label="Columns in your file"
+      >
         <table className="w-full min-w-[720px] border-separate border-spacing-0 text-ui">
           <thead className="bg-surface-2 text-left text-fg-muted">
             <tr>
@@ -505,11 +633,17 @@ function ColumnsInFile() {
                   </td>
                   <td className="border-b border-border px-4 py-2">
                     <Tooltip content={c.roleReason}>
-                      <span className="cursor-default text-fg">{ROLE_LABEL[c.role]}</span>
+                      {/* Focusable, so the reason opens from the keyboard too. */}
+                      <span
+                        tabIndex={0}
+                        className="cursor-default rounded-[4px] text-fg outline-none focus-visible:ring-2 focus-visible:ring-accent-ring"
+                      >
+                        {ROLE_LABEL[c.role]}
+                      </span>
                     </Tooltip>
                   </td>
                   <td className="max-w-[420px] border-b border-border px-4 py-2 text-2xs leading-relaxed text-fg-muted">
-                    {dataSummary(c)}
+                    {dataSummary(c, locale)}
                   </td>
                 </tr>
               );

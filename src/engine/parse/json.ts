@@ -1,11 +1,15 @@
 /**
- * JSON / NDJSON ingestion: arrays of records, wrapped arrays, or array-of-arrays.
+ * JSON / NDJSON ingestion: arrays of records, wrapped arrays, array-of-arrays,
+ * and the layouts pandas writes (to_json's default "columns" orient, "index"
+ * and "split").
  *
  * Records are flattened (nested objects become dotted columns, up to four
  * levels; arrays become text) and then go through the same plan/accumulator
  * path as CSV. Columns are the union of keys across all records, in
- * first-seen order, so a field that only appears late is still kept. The
- * whole text is parsed in memory, so parse/index.ts caps the file size.
+ * first-seen order, so a field that only appears late is still kept. A list
+ * of plain values is refused in words, and entries that are not records are
+ * counted in the report rather than dropped silently. The whole text is
+ * parsed in memory, so parse/index.ts caps the file size.
  */
 import type { Dataset, IngestOptions, ParseReport } from "@/engine/core/types";
 import { cleanHeaders, createAccumulator, inferPlan, type ColumnPlan } from "./builder";
@@ -40,37 +44,89 @@ function flatten(
   return out;
 }
 
+/** Index labels as pandas writes them: row numbers, or epoch milliseconds for a date index. */
+const isIndexKey = (k: string): boolean => /^-?\d+$/.test(k);
+
 /**
- * Locates the record array: the root array, else a well-known wrapper key
- * (data, rows, records, …), else the first property holding an array of
- * objects or arrays. Null when there is none.
+ * pandas' object-of-objects layouts as records. "columns" (to_json's default
+ * for a DataFrame: {column: {index: value}}) is transposed; "index" ({index:
+ * {column: value}}) is its values. Told apart by which level's keys are index
+ * labels; every inner object must be flat. Null for anything else, such as a
+ * single record with nested objects.
  */
-function findRecords(root: Json): Json[] | null {
-  if (Array.isArray(root)) return root;
+function pandasFrame(root: { [k: string]: Json }): Json[] | null {
+  const outer = Object.keys(root);
+  const inner = Object.values(root);
+  if (outer.length < 1 || !inner.every(isRecord)) return null;
+  const objects = inner as Array<{ [k: string]: Json }>;
+  if (!objects.every((o) => Object.values(o).every((v) => !isRecord(v) && !Array.isArray(v)))) return null;
+  const innerKeys = [...new Set(objects.flatMap((o) => Object.keys(o)))];
+  if (innerKeys.length && innerKeys.every(isIndexKey) && !outer.every(isIndexKey)) {
+    // {column: {index: value}}: one record per index label, in the order the labels first appear.
+    return innerKeys.map((k) =>
+      Object.fromEntries(outer.map((c, j) => [c, (objects[j] as { [k: string]: Json })[k] ?? null])),
+    );
+  }
+  if (outer.length > 1 && outer.every(isIndexKey)) return objects;
+  return null;
+}
+
+/** What a JSON document holds: its rows, and the header when the rows are arrays (array-of-arrays). */
+interface JsonTable {
+  records: Json[];
+  /** Column names given apart from the rows (pandas' "split" layout); the first row is data then. */
+  header?: string[];
+}
+
+/**
+ * Locates the records: the root array; pandas' "split" ({columns, data}) and
+ * object-of-objects layouts; a well-known wrapper key (data, rows, records,
+ * …); else the first property holding an array of objects or arrays. Null
+ * when there is none.
+ */
+function findRecords(root: Json): JsonTable | null {
+  if (Array.isArray(root)) return { records: root };
   if (isRecord(root)) {
+    const columns = root.columns;
+    if (
+      Array.isArray(columns) &&
+      columns.every((c) => typeof c === "string" || typeof c === "number") &&
+      Array.isArray(root.data) &&
+      root.data.every((r) => Array.isArray(r))
+    )
+      return { records: root.data, header: columns.map(String) };
+    const frame = pandasFrame(root);
+    if (frame) return { records: frame };
     const preferred = ["data", "rows", "records", "items", "results", "values", "entries"];
     for (const key of preferred) {
       const v = root[key];
-      if (Array.isArray(v)) return v;
+      if (Array.isArray(v)) return { records: v };
     }
     for (const v of Object.values(root))
-      if (Array.isArray(v) && v.length && (isRecord(v[0] as Json) || Array.isArray(v[0]))) return v;
+      if (Array.isArray(v) && v.length && (isRecord(v[0] as Json) || Array.isArray(v[0])))
+        return { records: v };
   }
   return null;
 }
 
 /**
- * Parses a JSON document (records array, wrapper object, or a single object =
- * one row), falling back to NDJSON (one value per non-blank line). Throws a
- * user-facing error when neither works.
+ * Parses a JSON document (records array, wrapper object, a pandas layout, or
+ * a single object = one row), falling back to NDJSON (one value per non-blank
+ * line). Throws a user-facing error when neither works.
  */
 export function parseJsonText(text: string): Json[] {
+  return parseJsonTable(text).records;
+}
+
+/** parseJsonText, keeping a header given apart from the rows. */
+function parseJsonTable(text: string): JsonTable {
   const trimmed = text.trim();
+  if (!trimmed) throw new Error("This file is empty: it has no rows and no columns.");
   try {
     const root = JSON.parse(trimmed) as Json;
     const recs = findRecords(root);
     if (recs) return recs;
-    if (isRecord(root)) return [root];
+    if (isRecord(root)) return { records: [root] };
   } catch {
     // Fall through to NDJSON.
   }
@@ -83,7 +139,7 @@ export function parseJsonText(text: string): Json[] {
       throw new Error("This file isn't valid JSON or newline-delimited JSON.");
     }
   }
-  return out;
+  return { records: out };
 }
 
 /**
@@ -107,10 +163,19 @@ function sampleValues(
   return later;
 }
 
+/** "[1, 2, 3, …]": the start of a list of plain values, quoted in the error message. */
+function preview(values: readonly Json[]): string {
+  const shown = values.slice(0, 3).map((v) => JSON.stringify(v).slice(0, 24));
+  return `[${shown.join(", ")}${values.length > 3 ? ", …" : ""}]`;
+}
+
 /**
  * Builds a dataset from JSON text. An array of arrays uses its first row as
- * the header; otherwise entries are flattened records and non-object entries
- * are dropped. sampleEvery/maxRows apply to record positions.
+ * the header (unless the document gave the columns apart, as pandas' "split"
+ * layout does); otherwise entries are flattened records, and entries that are
+ * not records are left out with a note. Throws a user-facing error for a
+ * document with no records or only plain values. sampleEvery/maxRows apply to
+ * record positions.
  */
 export function ingestJson(
   text: string,
@@ -119,19 +184,32 @@ export function ingestJson(
   opts: IngestOptions,
 ): { dataset: Dataset; report: ParseReport } {
   const started = performance.now();
-  const records = parseJsonText(text);
-  if (records.length === 0) throw new Error("The JSON file contains no records.");
+  const table = parseJsonTable(text);
+  const records = table.records;
+  if (records.length === 0) throw new Error("This JSON file has no records: its list of rows is empty.");
+  const warnings: string[] = [];
 
   let header: string[];
   let rows: Array<Record<string, CellValue>>;
   if (Array.isArray(records[0])) {
-    const [first, ...rest] = records as Json[][];
+    const arrays = records.filter((r): r is Json[] => Array.isArray(r));
+    const [first, ...rest] = table.header ? [table.header, ...arrays] : arrays;
     header = cleanHeaders((first ?? []).map((h) => (h === null ? "" : String(h))));
     rows = rest.map((r) => Object.fromEntries(header.map((h, j) => [h, (r[j] ?? null) as CellValue])));
   } else {
     const keys: string[] = [];
     const seen = new Set<string>();
-    rows = records.filter(isRecord).map((r) => flatten(r));
+    const objects = records.filter(isRecord);
+    if (objects.length === 0)
+      throw new Error(
+        `This JSON is a list of plain values (${preview(records)}), not a table. Loupe reads a list of records, one object per row, such as [{"date": "2025-01-01", "sales": 120}, …].`,
+      );
+    const others = records.length - objects.length;
+    if (others > 0)
+      warnings.push(
+        `Left out ${others.toLocaleString("en-US")} ${others === 1 ? "entry that is" : "entries that are"} not a record (a plain value or a list) among the ${records.length.toLocaleString("en-US")} entries.`,
+      );
+    rows = objects.map((r) => flatten(r));
     // Column set = keys of every record, so a field that first appears late is kept.
     for (const r of rows) {
       for (const k of Object.keys(r)) {
@@ -143,6 +221,12 @@ export function ingestJson(
     }
     header = keys;
   }
+  if (header.length === 0)
+    throw new Error("This JSON file's records have no fields, so there are no columns.");
+  if (rows.length === 0)
+    throw new Error(
+      `This JSON file has column names (${header.slice(0, 6).join(", ")}) but no rows of data.`,
+    );
   const every = opts.sampleEvery && opts.sampleEvery > 1 ? opts.sampleEvery : 1;
   const maxRows = opts.maxRows ?? Infinity;
   // `names` are display names; values are still looked up by the keys in `header`, so record keys
@@ -201,9 +285,12 @@ export function ingestJson(
       headerDetected: true,
       dateFormats,
       columnNotes,
-      warnings: header.some((h) => h.includes("."))
-        ? ["Nested objects were flattened into dotted column names."]
-        : [],
+      warnings: [
+        ...(header.some((h) => h.includes("."))
+          ? ["Nested objects were flattened into dotted column names."]
+          : []),
+        ...warnings,
+      ],
       sampling:
         every > 1 || Number.isFinite(maxRows)
           ? {

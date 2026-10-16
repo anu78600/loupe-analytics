@@ -211,6 +211,13 @@ export interface ChartData {
    * figure in the slides and the PDF report. Absent when nothing can be said.
    */
   headline?: string;
+  /**
+   * The name of the category axis as drawn: the x axis's label, or the
+   * drilled level's column while drilled into. The table view and the
+   * chart's CSV head their first column with it. Absent for charts without
+   * a category axis (a single number, the analyses with columns of their own).
+   */
+  axisLabel?: string;
   /** Plain-language summary for screen readers. */
   altText: string;
   /** Caveats about the data behind the chart (clipped bands, hidden groups, partial period...). */

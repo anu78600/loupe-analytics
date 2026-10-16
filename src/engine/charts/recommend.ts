@@ -51,6 +51,31 @@ const colProfile = (profile: DatasetProfile, name: string | undefined): ColumnPr
   name ? profile.columns.find((c) => c.name === name) : undefined;
 
 /**
+ * The name of an ad-hoc aggregate of a column, in the analyst standards'
+ * words: "Total Amount", "Average Rating", "Lowest Price" and "Highest Price"
+ * (never Min and Max), "Median Price", "Distinct Customer", "Rows". The chart
+ * builder names its measures with it too, so a measure has one name.
+ */
+export function aggMeasureLabel(agg: string, column: string): string {
+  switch (agg) {
+    case "count":
+      return "Rows";
+    case "countDistinct":
+      return `Distinct ${friendly(column)}`;
+    case "avg":
+      return averageOf(column);
+    case "sum":
+      return totalOf(column);
+    case "min":
+      return `Lowest ${friendly(column)}`;
+    case "max":
+      return `Highest ${friendly(column)}`;
+    default:
+      return `${agg[0]?.toUpperCase()}${agg.slice(1)} ${friendly(column)}`;
+  }
+}
+
+/**
  * Display metadata for a measure id: the registry KPI's short name, format and
  * direction, or a label and format derived from an ad-hoc "agg:" id and the
  * column's profile. Unknown ids fall back to the raw id as a plain number.
@@ -62,16 +87,7 @@ export function measureMeta(id: string, domain: DomainDef, profile: DatasetProfi
   if (m) {
     const [, agg, column] = m as unknown as [string, string, string];
     const p = colProfile(profile, column);
-    const label =
-      agg === "count"
-        ? "Rows"
-        : agg === "countDistinct"
-          ? `Distinct ${friendly(column)}`
-          : agg === "avg"
-            ? averageOf(column)
-            : agg === "sum"
-              ? totalOf(column)
-              : `${agg[0]?.toUpperCase()}${agg.slice(1)} ${friendly(column)}`;
+    const label = aggMeasureLabel(agg, column);
     const format: KpiFormat =
       agg === "count" || agg === "countDistinct"
         ? "integer"

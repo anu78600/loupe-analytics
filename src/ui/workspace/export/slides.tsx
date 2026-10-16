@@ -25,7 +25,6 @@ import {
   formatCount,
   formatDelta,
   formatPointDelta,
-  formatValue,
   isFlatChange,
   type FormatOptions,
 } from "@/engine/core/format";
@@ -36,6 +35,7 @@ import { chartSubtitle, GRAIN_WORD, rendersWithECharts } from "@/ui/charts/optio
 import { DataTable } from "@/ui/charts/DataTable";
 import { Sparkline } from "@/ui/charts/Sparkline";
 import { Wordmark } from "@/ui/brand/logo";
+import { formatKpi } from "@/ui/common/kpiFormat";
 import { downloadBlob } from "@/lib/utils";
 import { renderOffscreen, StaticChart, type ReportChart, type ReportInput } from "./report";
 import { slideFileName, type Slide } from "./slidePlan";
@@ -242,21 +242,22 @@ function SlideKpi({
     change === null || change === undefined || meta.direction === "neutral" || isFlatChange(change)
       ? null
       : change > 0 === (meta.direction === "higher");
-  const compact = { ...fmt, compact: meta.format === "currency" };
+  // Written as the dashboard's card writes it (₹3.13Cr, 1.75L, 42.3%), so a number reads the same on both.
+  const show = (v: number | null | undefined) => formatKpi(v, meta.format, fmt);
   const spark = value?.spark.map((p) => p.v) ?? [];
   const grain = value ? GRAIN_WORD[value.sparkGrain] : undefined;
   return (
     <div className="flex min-h-0 flex-col rounded-[20px] border border-border bg-surface-1 px-7 py-6">
       <p className="truncate text-[17px] text-fg-muted">{kpiLabel(meta)}</p>
       <p className="mt-3 text-[50px] leading-none font-semibold tracking-[-0.025em] text-fg">
-        {formatValue(value?.value ?? null, meta.format, compact)}
+        {show(value?.value)}
       </p>
       {change !== null && change !== undefined ? (
         <p className="mt-4 line-clamp-2 text-[16px] leading-snug">
           {/* Over all time the change is the latest month's, so the card names that month and its value first. */}
           {value?.currentLabel ? (
             <span className="text-fg-subtle">
-              {value.currentLabel} {formatValue(value.current, meta.format, compact)}:{" "}
+              {value.currentLabel} {show(value.current)}:{" "}
             </span>
           ) : null}
           <span
@@ -268,7 +269,7 @@ function SlideKpi({
             {value?.currentLabel
               ? value.comparisonLabel
               : value?.previous !== null && value?.previous !== undefined
-                ? `from ${formatValue(value.previous, meta.format, compact)}`
+                ? `from ${show(value.previous)}`
                 : ""}
           </span>
         </p>

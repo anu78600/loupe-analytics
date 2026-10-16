@@ -13,6 +13,10 @@
  * every invalid cell keeps its original text (all are remembered, see
  * TypedAccumulator), while valid ones are re-rendered from the parsed value
  * ("₹1,234" → "1234", "12.5%" → "0.125").
+ *
+ * Blank spellings ("NA", "N/A", "-", …) are blanks only where a value must be
+ * a number, a date or a yes/no: a text column keeps them as written, since
+ * there they are often real values ("NA" for North America).
  */
 import type {
   BooleanColumn,
@@ -24,6 +28,7 @@ import type {
   StringColumn,
 } from "@/engine/core/types";
 import { DAY_MS, isoDate, isoDateTime } from "@/engine/core/dates";
+import type { DayMonthDecision } from "./dateOrder";
 import {
   type CellValue,
   detectNumberStyle,
@@ -222,7 +227,7 @@ export function inferPlan(samples: readonly CellValue[], columnName: string): Co
 export interface FinishedColumn {
   column: Column;
   note?: ColumnParseNote;
-  dateDecision?: DateFormatDecision;
+  dateDecision?: DateFormatDecision | DayMonthDecision;
 }
 
 export interface Accumulator {
@@ -246,14 +251,15 @@ const DEGRADE_RATIO = 0.05;
 
 /**
  * Canonical text of a cell for string columns and invalid-value examples;
- * null for missing values and null tokens. Booleans become TRUE/FALSE and
- * typed dates ISO text (with the time when present).
+ * null for missing values and empty text, and for null tokens unless
+ * `keepTokens` (a text column keeps "NA" as written). Booleans become
+ * TRUE/FALSE and typed dates ISO text (with the time when present).
  */
-function cellToText(v: CellValue): string | null {
+function cellToText(v: CellValue, keepTokens = false): string | null {
   if (v === null || v === undefined) return null;
   if (typeof v === "string") {
     const t = v.trim();
-    return isNullToken(t) ? null : t;
+    return t === "" || (!keepTokens && isNullToken(t)) ? null : t;
   }
   if (typeof v === "number") return Number.isFinite(v) ? String(v) : null;
   if (typeof v === "boolean") return v ? "TRUE" : "FALSE";
@@ -267,6 +273,13 @@ export class StringAccumulator implements Accumulator {
   private codes = new GrowI32();
   /** Values that had leading/trailing whitespace or control characters (trimmed by cellToText). */
   trimmed = 0;
+
+  /**
+   * @param blankTokens read "NA", "N/A", "-" … as blanks. Off for a text
+   *   column, which keeps them as written; on for a typed column that fell
+   *   back to text, whose earlier rows already read them as blanks.
+   */
+  constructor(private readonly blankTokens = false) {}
 
   get length(): number {
     return this.codes.len;
@@ -293,7 +306,7 @@ export class StringAccumulator implements Accumulator {
       const last = v.charCodeAt(v.length - 1);
       if (first <= 32 || last <= 32) this.trimmed++;
     }
-    this.pushText(cellToText(v));
+    this.pushText(cellToText(v, !this.blankTokens));
   }
 
   finish(name: string): FinishedColumn {
@@ -376,8 +389,8 @@ abstract class TypedAccumulator implements Accumulator {
 
   private degrade(): void {
     // Replay the rows so far: invalid cells get their original text back, valid ones are
-    // re-rendered from the typed value.
-    const s = new StringAccumulator();
+    // re-rendered from the typed value. Blank spellings stay blanks, as they were in the rows so far.
+    const s = new StringAccumulator(true);
     const rows = this.invalidRows.buf;
     const codes = this.invalidCodes.buf;
     const m = this.invalidRows.len;
@@ -610,9 +623,19 @@ export class BooleanAccumulator extends TypedAccumulator {
     return v === 1 ? this.label(true) : v === 0 ? this.label(false) : null;
   }
 
-  /** Most frequent spelling seen for this truth value, else "TRUE"/"FALSE". */
+  /** Most frequent spelling seen for this truth value; else the partner of the other value's ("No" → "Yes"), else "TRUE"/"FALSE". */
   private label(truthy: boolean): string {
-    let best = truthy ? "TRUE" : "FALSE";
+    const seen = this.spelling(truthy);
+    if (seen !== null) return seen;
+    // A column that only ever says "No" still gets a "Yes" of its own spelling, so its labels, the
+    // conditions written for it and the profile never show a TRUE the file does not use.
+    const other = this.spelling(!truthy);
+    return other !== null ? partnerLabel(other) : truthy ? "TRUE" : "FALSE";
+  }
+
+  /** Most frequent spelling seen for this truth value; null when there is none. */
+  private spelling(truthy: boolean): string | null {
+    let best: string | null = null;
     let count = 0;
     for (const [label, c] of this.labelCounts) {
       if (parseBooleanToken(label) === truthy && c > count) {
@@ -633,6 +656,24 @@ export class BooleanAccumulator extends TypedAccumulator {
     };
     return { column };
   }
+}
+
+/** Yes ↔ No, Y ↔ N, True ↔ False, T ↔ F, written in the same case as `label` (YES → NO, yes → no). */
+function partnerLabel(label: string): string {
+  const pairs: Record<string, string> = {
+    yes: "no",
+    no: "yes",
+    y: "n",
+    n: "y",
+    true: "false",
+    false: "true",
+    t: "f",
+    f: "t",
+  };
+  const other = pairs[label.toLowerCase()] ?? (parseBooleanToken(label) ? "false" : "true");
+  if (label === label.toUpperCase()) return other.toUpperCase();
+  if (label[0] === label[0]?.toUpperCase()) return other.charAt(0).toUpperCase() + other.slice(1);
+  return other;
 }
 
 /**
@@ -830,7 +871,7 @@ export class DateAccumulator extends TypedAccumulator {
       };
     }
     // Resolve day/month order from whole-column evidence. A manual override wins; one-sided
-    // evidence decides; no evidence falls back to the locale preference and is flagged ambiguous
+    // evidence decides; no evidence falls back to the caller's preference and is flagged ambiguous
     // so the user is told; conflicting evidence takes the majority (ties → day-first) and blanks
     // the minority rows.
     let dayFirst: boolean;
@@ -848,7 +889,11 @@ export class DateAccumulator extends TypedAccumulator {
     } else if (this.firstGt12 === 0 && this.secondGt12 === 0) {
       dayFirst = this.preferDayFirst;
       ambiguous = true;
-      evidence = `No valid date has a day above 12, so the order can't be proven. Assumed ${dayFirst ? "day-first" : "month-first"} from your number format setting.`;
+      // The preference comes from where the user is (the app passes the device's region), never
+      // from an earlier file, so the same file always reads the same way.
+      evidence = dayFirst
+        ? "No date has a day above 12, so the order can't be proven. Assumed day first (DD/MM), as dates are written where you are."
+        : "No date has a day above 12, so the order can't be proven. Assumed month first (MM/DD), as dates are written where you are.";
     } else {
       dayFirst = this.firstGt12 >= this.secondGt12;
       evidence = `Conflicting evidence: ${this.firstGt12} values look day-first and ${this.secondGt12} look month-first. Chose the majority; the minority rows were set to blank.`;
@@ -885,16 +930,16 @@ export class DateAccumulator extends TypedAccumulator {
     if (invalidAfter > 0) this.invalidCount += invalidAfter;
     const label = describeKind("nn-nn-y", dayFirst, this.hasTime);
     const column: DateColumn = { kind: "date", name, values: out, hasTime: this.hasTime, format: label };
-    return {
-      column,
-      dateDecision: {
-        column: name,
-        format: label,
-        evidence,
-        ambiguous,
-        alternative: describeKind("nn-nn-y", !dayFirst, this.hasTime),
-      },
+    const dateDecision: DayMonthDecision = {
+      column: name,
+      format: label,
+      evidence,
+      ambiguous,
+      alternative: describeKind("nn-nn-y", !dayFirst, this.hasTime),
+      // The dates real only in the order chosen are the ones the other order cannot read.
+      blankIfSwitched: dayFirst ? this.firstGt12 : this.secondGt12,
     };
+    return { column, dateDecision };
   }
 }
 
@@ -951,4 +996,47 @@ export function cleanHeaders(raw: readonly (string | null | undefined)[]): strin
     return true;
   });
   return names.map((name, i) => (keep[i] ? name : uniqueName(name || `Column ${i + 1}`, used)));
+}
+
+/**
+ * The parse-report sentence for headers cleanHeaders had to rename: repeats
+ * ("Amount" twice → "Amount (2)") and blank header cells ("Column 2"), so the
+ * user can see why a column is not called what the file says. Null when every
+ * header was kept. `skip` marks positions left out of the dataset.
+ */
+export function headerRenameNote(
+  raw: readonly (string | null | undefined)[],
+  names: readonly string[],
+  skip: ReadonlySet<number> = new Set(),
+): string | null {
+  const repeated: string[] = [];
+  const blank: string[] = [];
+  raw.forEach((h, i) => {
+    if (skip.has(i)) return;
+    const written = String(h ?? "")
+      .replace(/\s+/g, " ")
+      .trim();
+    const name = names[i] as string;
+    if (!written) blank.push(`"${name}"`);
+    else if (name !== written) repeated.push(`"${written}" → "${name}"`);
+  });
+  const parts: string[] = [];
+  if (repeated.length)
+    parts.push(
+      `repeated headers were numbered (${repeated.slice(0, 4).join(", ")}${repeated.length > 4 ? ", …" : ""})`,
+    );
+  if (blank.length)
+    parts.push(
+      `${blank.length === 1 ? "a column with no header was" : `${blank.length} columns with no header were`} named ${blank.slice(0, 4).join(", ")}${blank.length > 4 ? ", …" : ""}`,
+    );
+  if (!parts.length) return null;
+  const text = parts.join("; ");
+  return `${text.charAt(0).toUpperCase()}${text.slice(1)}.`;
+}
+
+/** True for a column with no value in any row (a blank string column, or numbers or dates that are all blank). */
+export function isEmptyColumn(col: Column): boolean {
+  if (col.kind === "string") return col.codes.every((c) => c < 0);
+  if (col.kind === "boolean") return col.values.every((v) => v < 0);
+  return col.values.every((v) => v !== v);
 }

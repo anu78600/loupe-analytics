@@ -12,7 +12,8 @@
  *
  * Each column header can hide its column from the analysis (the eye
  * button). A hidden column stays in the grid, dimmed and unmarked, because
- * the user keeps it as a reference; nothing computes from it.
+ * the user keeps it as a reference; nothing computes from it. Under its name
+ * each header gives the column's role, with a coloured icon as its marker.
  *
  * Browsers cap an element's height (about 33 million px, roughly a million
  * 32-px rows), so a view longer than BLOCK rows is shown one block at a time.
@@ -33,6 +34,11 @@ const BLOCK = 1_000_000;
 
 const STORAGE_ICON = { number: Hash, date: Calendar, string: Type, boolean: ToggleLeft } as const;
 
+/**
+ * The colour of each role's marker (the icon before its name in a column
+ * header). Only the icon is coloured: the name itself is in a text colour,
+ * because chart colours are too light for small text on the light theme.
+ */
 const ROLE_TONE: Record<string, string> = {
   identifier: "text-info",
   datetime: "text-chart-3",
@@ -222,8 +228,8 @@ export function VirtualGrid({
                     </p>
                   ) : (
                     <Tooltip content={`${ROLE_LABEL[c.role]} · ${c.roleReason}`}>
-                      <p className={cn("mt-0.5 inline-flex items-center gap-1 text-2xs", ROLE_TONE[c.role])}>
-                        <Icon className="size-3" aria-hidden />
+                      <p className="mt-0.5 inline-flex items-center gap-1 text-2xs text-fg-muted">
+                        <Icon className={cn("size-3 shrink-0", ROLE_TONE[c.role])} aria-hidden />
                         {ROLE_LABEL[c.role]}
                         {c.additivity && c.additivity !== "additive" ? (
                           <span className="text-fg-subtle">· {c.additivity}</span>

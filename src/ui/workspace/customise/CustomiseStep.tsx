@@ -13,6 +13,8 @@
  *   the real chart before it is added.
  * Every change reaches the dashboard straight away. "Back to recommended"
  * restores the recommended layout and keeps what the user built (with Undo).
+ * "Chart colours" opens the same colour panel as the dashboard toolbar, so
+ * the colours can be chosen while the charts are being arranged.
  */
 import * as React from "react";
 import { toast } from "sonner";
@@ -23,6 +25,7 @@ import { Button } from "@/ui/primitives/button";
 import { Badge } from "@/ui/primitives/badge";
 import { Eyebrow } from "@/ui/primitives/misc";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/primitives/tabs";
+import { ChartColoursButton } from "../ChartColours";
 import { KpiPlanner } from "./KpiPlanner";
 import { ChartList } from "./ChartList";
 import { ChartStudio } from "./ChartStudio";
@@ -76,6 +79,8 @@ export function CustomiseStep() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          {/* Sized like the buttons beside it (it is a small button elsewhere). */}
+          <ChartColoursButton label="Chart colours" className="h-10 px-4 text-sm" />
           <Button variant="ghost" onClick={reset}>
             <RotateCcw aria-hidden /> Back to recommended
           </Button>

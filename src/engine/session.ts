@@ -31,13 +31,7 @@ import {
   todayWallClock,
   type TimeGrain,
 } from "@/engine/core/dates";
-import {
-  currencySymbol,
-  formatPlain,
-  formatValue,
-  type FormatOptions,
-  type NumberLocale,
-} from "@/engine/core/format";
+import { currencySymbol, formatPlain, type FormatOptions, type NumberLocale } from "@/engine/core/format";
 import { ingestFile, workbookSheets, type IngestProgress } from "@/engine/parse";
 import { fileKindFromName } from "@/engine/parse";
 import { profileDataset } from "@/engine/profile/profile";
@@ -79,14 +73,8 @@ import type { Expr } from "@/engine/query/expr";
 import { customSpec, recommendCharts, type SkippedChart } from "@/engine/charts/recommend";
 import { computeChartData, type DrillState } from "@/engine/charts/data";
 import { specColumns } from "@/engine/charts/columnUsage";
-import {
-  askMeasure,
-  axisFor,
-  phrase,
-  type AskContext,
-  type AskOrder,
-  type ChartAsk,
-} from "@/engine/charts/ask";
+import { askMeasure, axisFor, type AskContext, type AskOrder, type ChartAsk } from "@/engine/charts/ask";
+import { answerHeadline, questionFilters, unplacedMessage } from "@/engine/charts/answer";
 import { questionSql, type QuestionKey } from "@/engine/compile/questionSql";
 import type { ChartData, ChartKind, ChartSpec } from "@/engine/charts/types";
 import { generateInsights, type Insight, type InsightKpi } from "@/engine/insights/insights";
@@ -94,14 +82,16 @@ import { generateSample, SAMPLES } from "@/engine/samples";
 import { compileNames } from "@/engine/export/names";
 import type { ExportContext } from "@/engine/export/context";
 import { buildPowerBiPackage, type PackageManifest } from "@/engine/export/powerbi";
+import { dashboardCharts } from "@/engine/export/dashboardCharts";
 import { generateSqlFile } from "@/engine/export/sqlFile";
 import { dateRelColumn, generateDaxFile } from "@/engine/export/daxFile";
 import { newColumnsFor, type NewColumn } from "@/engine/export/readme";
 import { dictionaryCsv, dictionaryMarkdown } from "@/engine/export/dictionary";
-import { datasetToCsvChunks, tableToCsv } from "@/engine/export/csv";
+import { datasetToCsvChunks, roundAggregate, tableToCsv } from "@/engine/export/csv";
 import { unpivotDataset } from "@/engine/parse/unpivot";
 import { DOMAINS, getDomain } from "@/registry";
 import type { DomainDef, FieldDef, KpiFormat, SubDomainDef, ValueClassDef } from "@/registry/schema";
+import type { DateCadence } from "@/engine/core/periods";
 
 /** Headline facts about the loaded dataset, for the UI chrome. */
 export interface DatasetSummary {
@@ -286,8 +276,12 @@ export interface ContextResult {
   skippedCharts: SkippedChart[];
   /** Original name of the primary date column; null when there is none or it did not parse as dates. */
   dateColumn: string | null;
-  /** Min/max of dateColumn (wall-clock epoch ms), ignoring blanks. */
-  dateBounds: { min: number; max: number } | null;
+  /**
+   * Min/max of dateColumn (wall-clock epoch ms), ignoring blanks, and how
+   * often its dates fall (monthly snapshots, daily events): presets finer
+   * than the cadence are not offered.
+   */
+  dateBounds: { min: number; max: number; cadence?: DateCadence } | null;
   /**
    * Profile after role overrides, without the hidden columns: the columns
    * every KPI, chart, filter and question can use.
@@ -783,7 +777,13 @@ export class Session {
       req.subDomainId && domain.subDomains.some((s) => s.id === req.subDomainId)
         ? req.subDomainId
         : (coverage.sort((a, b) => b.cov - a.cov)[0]?.id ?? domain.subDomains[0]?.id ?? "default");
-    let res = resolveKpis(domain, mapping, subDomainId);
+    // Fields a hidden column would fill, matched on the whole profile: a KPI that needs one then
+    // says the column is hidden, rather than asking for a column the file already has.
+    const hiddenFields = new Map<string, string>();
+    if (this.hidden.size && domain.id !== GENERIC_ID)
+      for (const a of assignFields(domain, profile.columns))
+        if (this.hidden.has(a.column) && !mapping.fields[a.fieldId]) hiddenFields.set(a.fieldId, a.column);
+    let res = resolveKpis(domain, mapping, subDomainId, hiddenFields);
 
     // Primary date: first mapped date field among the sub-domain's signals, then any mapped date field.
     const sub = domain.subDomains.find((s) => s.id === subDomainId);
@@ -814,7 +814,7 @@ export class Session {
         fields: { ...mapping.fields, ...mine.mapping },
         scores: { ...mapping.scores, ...Object.fromEntries(Object.keys(mine.mapping).map((f) => [f, 1])) },
       };
-      res = resolveKpis(domain, mapping, subDomainId);
+      res = resolveKpis(domain, mapping, subDomainId, hiddenFields);
     }
 
     // Measure columns that no KPI of this view reads get KPIs and charts of their own, computed
@@ -832,15 +832,31 @@ export class Session {
         fields: { ...mapping.fields, ...extras.mapping },
         scores: { ...mapping.scores, ...Object.fromEntries(Object.keys(extras.mapping).map((f) => [f, 1])) },
       };
-      res = resolveKpis(domain, mapping, subDomainId);
+      res = resolveKpis(domain, mapping, subDomainId, hiddenFields);
     }
     const selection = selectKpis(res);
-    const { specs, skipped } = recommendCharts({
+    const recommended = recommendCharts({
       domain,
       mapping,
       res,
       profile: active,
       subDomain: subDomainId,
+    });
+    const skipped = recommended.skipped;
+    // One name per KPI: a renamed KPI is called by its new name in every chart's measures (legends,
+    // table headers, "Why this chart") and in a default title that starts with its old name.
+    const specs = recommended.specs.map((s) => {
+      const measures = s.measures.map((m) => ({
+        ...m,
+        label: displayName(req.kpiRenames ?? {}, m.id, m.label),
+      }));
+      const was = s.measures[0]?.label;
+      const now = measures[0]?.label;
+      const title =
+        was && now && was !== now && (s.title === was || s.title.startsWith(`${was} `))
+          ? `${now}${s.title.slice(was.length)}`
+          : s.title;
+      return { ...s, title, measures };
     });
 
     const names = compileNames(ds, domain, req.kpiRenames);
@@ -1444,14 +1460,25 @@ export class Session {
       .map((m) => askMeasure(m, actx))
       .filter((m): m is NonNullable<typeof m> => Boolean(m))
       .slice(0, 4);
+    // The question's own rows ("in Maharashtra", "in 2026") on top of the dashboard's; one on the same
+    // column replaces the dashboard's, and the card says so.
+    const own = questionFilters(req.filters, req.ask.filters);
     const base = {
       id: req.id,
       question: req.question,
       understood: req.understood,
-      notes: req.notes,
+      notes: [
+        ...req.notes,
+        ...own.replaced
+          .map(
+            (f) =>
+              `The question names its own ${friendly(f.column)}, used instead of the dashboard's (${describeFilter(f, formatDay)}).`,
+          )
+          .filter((n) => !req.notes.includes(n)),
+      ],
       order: req.order,
       ask: req.ask,
-      filters: req.filters,
+      filters: own.filters,
       measures: measures.map((m) => ({ id: m.id, label: m.label, format: m.format })),
     };
     const failed = (error: string): QuestionAnswer => ({
@@ -1469,22 +1496,22 @@ export class Session {
       ...req.ask.measures.flatMap((m) => (m.kind === "column" ? [m.column] : [])),
       ...(req.ask.by.kind === "none" ? [] : [req.ask.by.column]),
       ...(req.ask.split ? [req.ask.split] : []),
+      ...(req.ask.filters ?? []).map((f) => f.column),
     ]);
     if (hiddenUsed.length)
       return failed(
         `This question uses ${hiddenUsed.map((h) => `"${h}"`).join(" and ")}, which you hid in Check & map.`,
       );
+    if (req.ask.unmatched?.length) return failed(unplacedMessage(req.ask.unmatched));
     if (!measures.length) return failed("Nothing in your file matches what to measure.");
     const exprs = measures.map((m) => ({ id: m.id, label: m.label, expr: ctx.resolver.kpi(m.id) }));
-    const show = (v: number | null, i: number) =>
-      formatValue(v, measures[i]?.format ?? "number", { ...fmt, compact: false });
     let key: QuestionKey = { kind: "none" };
     let keyLabel: string | null = null;
     let rows: QuestionAnswer["rows"] = [];
     let more = 0;
     let headline = "";
     const by = req.ask.by;
-    const filters = this.usable(req.filters);
+    const filters = this.usable(own.filters);
     if (by.kind === "none") {
       const ev = evaluateMany(ds, ctx.resolver, exprs, filters, ctx.dateColumn);
       const values = measures.map((m) => {
@@ -1492,7 +1519,7 @@ export class Session {
         return v !== undefined && Number.isFinite(v) ? v : null;
       });
       rows = [{ label: "All rows", raw: null, values }];
-      headline = measures.map((m, i) => `${m.label}: ${show(values[i] ?? null, i)}`).join(" · ");
+      headline = answerHeadline({ by, order: req.order, measures, rows, fmt });
     } else {
       // Every group as a table (no top N, no Others), sorted by the first measure; ranked and cut below.
       const x = axisFor(by);
@@ -1513,7 +1540,8 @@ export class Session {
         fmt,
         kind: "table",
       });
-      keyLabel = x.kind === "part" ? x.label : x.kind === "column" || x.kind === "time" ? x.column : null;
+      // The column read with spaces ("Customer state" for customer_state), as the table heading and the SQL's alias.
+      keyLabel = x.kind === "part" || x.kind === "column" || x.kind === "time" ? x.label : null;
       const all = data.categories.map((c, i) => ({
         label: c.label,
         raw: c.raw,
@@ -1532,9 +1560,6 @@ export class Session {
         rows = all.slice(0, limit);
         more = Math.max(0, all.length - limit);
         key = { kind: "column", column: by.column };
-        const [a, b] = rows;
-        if (a)
-          headline = `${a.label} has the ${req.order === "asc" ? "lowest" : "highest"} ${phrase(measures[0]?.label ?? "")}: ${show(a.values[0] ?? null, 0)}${b ? `, then ${b.label} (${show(b.values[0] ?? null, 0)})` : ""}.`;
       } else {
         rows = all;
         key =
@@ -1545,14 +1570,8 @@ export class Session {
                 grain: data.grain ?? (by.grain === "auto" ? "month" : by.grain),
               }
             : { kind: "part", column: by.column, part: by.part };
-        const withValue = rows.filter((r) => r.values[0] !== null);
-        const peak = [...withValue].sort((p, q) => (q.values[0] as number) - (p.values[0] as number))[0];
-        const last = withValue[withValue.length - 1];
-        const m0 = measures[0]?.label ?? "";
-        if (by.kind === "time" && last && peak)
-          headline = `${m0}: ${show(last.values[0] ?? null, 0)} in ${last.label}, the latest period; highest was ${peak.label} (${show(peak.values[0] ?? null, 0)}).`;
-        else if (peak) headline = `${m0} is highest at ${peak.label} (${show(peak.values[0] ?? null, 0)}).`;
       }
+      headline = answerHeadline({ by, order: req.order, measures, rows, data, keyLabel, fmt });
     }
     const sqlCtx = makeSqlContext(ds, ctx.mapping, ctx.res, {
       ...ctx.names,
@@ -1667,8 +1686,13 @@ export class Session {
    * Power BI package as zip bytes. Chart specs are narrowed to
    * `visibleSpecIds`, in that order (the dashboard as laid out); they drive
    * the README's visual list and the RFM/cohort views in kpis.sql.
-   * `configJson` is embedded verbatim as loupe-config.json. With
-   * `noNewColumns` the package adds no column (see exportContext).
+   * `configJson` is embedded verbatim as loupe-config.json, and the visual
+   * list follows it: the user's own charts and their Customise titles,
+   * chart types and Top N come from there (export/dashboardCharts.ts), so
+   * the README describes the dashboard the config restores. A custom chart
+   * the engine would refuse (a hidden column, a KPI that no longer resolves)
+   * is left out. With `noNewColumns` the package adds no column (see
+   * exportContext); otherwise `manifest.newColumns` lists the ones it adds.
    * `reportTheme` (the chart colours as a Power BI theme) is added as
    * loupe-theme.json. `folder` names the zip's top folder (the zip's own
    * name, so unzipping gives a folder that says what it holds).
@@ -1681,7 +1705,20 @@ export class Session {
     folder?: string,
   ): { zip: Uint8Array; manifest: PackageManifest } {
     const ec = this.exportContext(noNewColumns);
-    ec.specs = this.orderedSpecs(ec.specs, visibleSpecIds);
+    const ctx = this.requireCtx();
+    const canDraw = (spec: ChartSpec): boolean =>
+      !this.hiddenAmong(
+        specColumns(spec, (ref) => (ref.startsWith("col:") ? ref.slice(4) : ctx.mapping.fields[ref])),
+      ).length &&
+      spec.measures.every((m) => {
+        try {
+          ctx.resolver.kpi(m.id);
+          return true;
+        } catch {
+          return false;
+        }
+      });
+    ec.specs = this.orderedSpecs(dashboardCharts(ec.specs, configJson, canDraw), visibleSpecIds);
     if (reportTheme) ec.reportTheme = reportTheme;
     return buildPowerBiPackage(ec, configJson, folder);
   }
@@ -1741,14 +1778,22 @@ export class Session {
 
   /**
    * CSV of a chart exactly as last computed (current filters, drill, top N),
-   * shaped per analysis type. Empty string when the chart has not been
+   * shaped per analysis type. The first column is headed with the chart's
+   * axis (the drilled level's column while drilled into), and computed
+   * figures are rounded to 12 significant digits so float noise from summing
+   * doesn't read as precision. Empty string when the chart has not been
    * computed since the last configure().
    */
   chartCsv(specId: string): string {
     const data = this.lastCharts.get(specId);
     if (!data) return "";
+    const csv = (header: readonly string[], rows: ReadonlyArray<ReadonlyArray<string | number | null>>) =>
+      tableToCsv(
+        header,
+        rows.map((r) => r.map((c) => (typeof c === "number" ? roundAggregate(c) : c))),
+      );
     if (data.rfm)
-      return tableToCsv(
+      return csv(
         [
           "Segment",
           "Customers",
@@ -1771,28 +1816,28 @@ export class Session {
         ]),
       );
     if (data.cohorts)
-      return tableToCsv(
+      return csv(
         ["Cohort", "Customers", ...(data.cohorts[0]?.retention.map((_, i) => `Month ${i}`) ?? [])],
         data.cohorts.map((c) => [c.label, c.size, ...c.retention]),
       );
     if (data.basket)
-      return tableToCsv(
+      return csv(
         ["Item A", "Item B", "Orders together", "Support", "Confidence A→B", "Confidence B→A", "Lift"],
         data.basket.pairs.map((p) => [p.a, p.b, p.orders, p.support, p.confidenceAB, p.confidenceBA, p.lift]),
       );
     if (data.matrix && data.seriesCategories) {
-      return tableToCsv(
+      return csv(
         ["", ...data.categories.map((c) => c.label)],
         data.seriesCategories.map((s, i) => [s.label, ...(data.matrix?.[i] ?? [])]),
       );
     }
     if (data.funnel)
-      return tableToCsv(
+      return csv(
         ["Stage", "Value", "From previous", "From first"],
         data.funnel.map((f) => [f.label, f.value, f.fromPrev, f.fromFirst]),
       );
-    return tableToCsv(
-      ["Category", ...data.series.map((s) => s.label), "Rows"],
+    return csv(
+      [data.axisLabel ?? "Category", ...data.series.map((s) => s.label), "Rows"],
       data.categories.map((c, i) => [
         c.label,
         ...data.series.map((s) => s.values[i] ?? null),
@@ -1805,8 +1850,9 @@ export class Session {
    * Data + queries for verifying exported SQL in DuckDB-WASM on the main thread.
    * The CSV is unguarded and the column types are declared explicitly (no type
    * sniffing), so DuckDB reads the same values the engine computed from.
-   * `engine` is the engine's unfiltered value to compare against; KPIs whose
-   * SQL fails to compile are left out.
+   * `engine` is the engine's value over the whole file (no period, no
+   * filters: what the SQL views return), to compare against; KPIs whose SQL
+   * fails to compile are left out. Each KPI carries the name the user gave it.
    */
   verificationBundle(): {
     csv: Uint8Array;
@@ -1832,7 +1878,7 @@ export class Session {
           return [
             {
               id: r.def.id,
-              name: r.def.name,
+              name: displayName(ctx.kpiRenames, r.def.id, r.def.name),
               // The laid-out text, so the DuckDB check runs exactly what people read.
               sql: prettySql(
                 kpiQuery(r.variant?.expr as NonNullable<typeof r.variant>["expr"], {

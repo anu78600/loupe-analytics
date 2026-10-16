@@ -9,6 +9,11 @@
  * headline row holds at most MAX_HEADLINE. KPIs that can't be computed with
  * this file are listed with what they need. "Build a KPI" (KpiBuilder)
  * makes new ones from any column; the user's own can be edited or deleted.
+ * Any KPI on the dashboard can be renamed in place (KpiNameInput).
+ *
+ * Deleting one of the user's KPIs that their own charts show asks first,
+ * naming those charts, and offers to delete them with it: without the KPI
+ * they can't be drawn.
  *
  * The first change copies the recommended layout into the user's own
  * (setKpiLayout); from then on the dashboard shows exactly these lists.
@@ -16,7 +21,9 @@
  * (and so its insights) untouched.
  */
 import * as React from "react";
+import { toast } from "sonner";
 import { ArrowDown, ArrowUp, CircleSlash, Pencil, Plus, Sparkles, Trash2 } from "lucide-react";
+import type { ChartSpec } from "@/engine/charts/types";
 import type { KpiValue } from "@/engine/kpi/compute";
 import type { KpiMeta } from "@/engine/session";
 import { isUserKpiId, type UserKpi } from "@/engine/kpi/userKpis";
@@ -27,10 +34,20 @@ import { kpiLayoutOf, MAX_HEADLINE, useWorkspace, type KpiLayout } from "@/store
 import { Button } from "@/ui/primitives/button";
 import { Badge } from "@/ui/primitives/badge";
 import { Card } from "@/ui/primitives/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/ui/primitives/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/ui/primitives/select";
 import { Tooltip } from "@/ui/primitives/tooltip";
 import { useFmt } from "@/ui/common/hooks";
+import { chartsUsingKpi } from "./brokenCharts";
 import { KpiBuilder } from "./KpiBuilder";
+import { KpiNameInput } from "./KpiNameInput";
 
 type Slot = keyof KpiLayout;
 type Place = Slot | "off";
@@ -77,6 +94,10 @@ export function KpiPlanner() {
     open: false,
     kpi: null,
   });
+  // A KPI of the user's that their own charts show, waiting for "delete the charts too?".
+  const [deleting, setDeleting] = React.useState<{ id: string; name: string; charts: ChartSpec[] } | null>(
+    null,
+  );
 
   // Every available KPI's value under the dashboard's filters, for the lists below.
   React.useEffect(() => {
@@ -128,10 +149,22 @@ export function KpiPlanner() {
   const heroFull = layout.hero.length >= MAX_HEADLINE;
   const editUser = (id: string) =>
     setBuilder({ open: true, kpi: customKpis.find((k) => k.id === id) ?? null });
+  // Deleting a KPI the user's charts show asks first; one no chart shows goes at once.
+  const removeUser = (id: string) => {
+    const s = useWorkspace.getState();
+    const charts = chartsUsingKpi(s.customCharts, id);
+    const name = metas.get(id)?.name ?? customKpis.find((k) => k.id === id)?.name ?? id;
+    if (charts.length) setDeleting({ id, name, charts });
+    else {
+      removeCustomKpi(id);
+      toast(`Deleted “${name}”`);
+    }
+  };
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_400px]">
-      <div className="grid min-w-0 content-start gap-5">
+    // grid-cols-1 below lg: an implicit column would grow to the longest unbroken formula line.
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_400px]">
+      <div className="grid min-w-0 grid-cols-1 content-start gap-5">
         {SLOTS.map((slot) => (
           <Card key={slot.id} className="p-4">
             <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
@@ -145,7 +178,7 @@ export function KpiPlanner() {
               <p className="text-2xs text-fg-subtle">{slot.hint}</p>
             </div>
             {layout[slot.id].length ? (
-              <ol className="grid gap-1.5">
+              <ol className="grid grid-cols-1 gap-1.5">
                 {layout[slot.id].map((id, i) => {
                   const meta = metas.get(id);
                   if (!meta) return null;
@@ -161,7 +194,7 @@ export function KpiPlanner() {
                       onMove={(to) => move(id, to)}
                       onShift={(by) => shift(slot.id, id, by)}
                       onEdit={isUserKpiId(id) ? () => editUser(id) : undefined}
-                      onDelete={isUserKpiId(id) ? () => removeCustomKpi(id) : undefined}
+                      onDelete={isUserKpiId(id) ? () => removeUser(id) : undefined}
                       fmt={fmt}
                     />
                   );
@@ -175,7 +208,7 @@ export function KpiPlanner() {
           </Card>
         ))}
       </div>
-      <aside aria-label="KPIs not on the dashboard" className="grid min-w-0 content-start gap-4">
+      <aside aria-label="KPIs not on the dashboard" className="grid min-w-0 grid-cols-1 content-start gap-4">
         <Card className="p-4">
           <div className="flex items-start justify-between gap-3">
             <div>
@@ -196,13 +229,13 @@ export function KpiPlanner() {
             <span className="font-figures font-normal text-fg-subtle">· {pool.length}</span>
           </h2>
           {pool.length ? (
-            <div className="mt-3 grid gap-4">
+            <div className="mt-3 grid grid-cols-1 gap-4">
               {groups.map((g) => (
                 <div key={g}>
                   <p className="mb-1.5 text-2xs font-medium tracking-[0.12em] text-fg-subtle uppercase">
                     {g}
                   </p>
-                  <ul className="grid gap-1.5">
+                  <ul className="grid grid-cols-1 gap-1.5">
                     {pool
                       .filter((k) => k.group === g)
                       .map((k) => (
@@ -270,7 +303,7 @@ export function KpiPlanner() {
                 Can&apos;t be computed with this file{" "}
                 <span className="font-figures font-normal text-fg-subtle">· {unavailable.length}</span>
               </summary>
-              <ul className="mt-3 grid gap-2">
+              <ul className="mt-3 grid grid-cols-1 gap-2">
                 {unavailable.map((k) => (
                   <li key={k.id} className="flex items-start gap-2 text-2xs leading-relaxed">
                     <CircleSlash className="mt-0.5 size-3.5 shrink-0 text-fg-subtle" aria-hidden />
@@ -290,14 +323,14 @@ export function KpiPlanner() {
               <Sparkles className="size-4 text-warning" aria-hidden /> Your KPIs that can&apos;t be computed
               now
             </p>
-            <ul className="mt-2 grid gap-1.5">
+            <ul className="mt-2 grid grid-cols-1 gap-1.5">
               {context.customKpiIssues.map((x) => (
                 <li
                   key={x.id}
                   className="flex items-start justify-between gap-2 text-2xs leading-relaxed text-fg-muted"
                 >
                   <span>{x.reason}</span>
-                  <Button variant="ghost" size="xs" onClick={() => removeCustomKpi(x.id)}>
+                  <Button variant="ghost" size="xs" onClick={() => removeUser(x.id)}>
                     Delete
                   </Button>
                 </li>
@@ -313,7 +346,77 @@ export function KpiPlanner() {
         editing={builder.kpi}
         onOpenChange={(open) => setBuilder((b) => ({ ...b, open }))}
       />
+      <DeleteKpiDialog deleting={deleting} onClose={() => setDeleting(null)} />
     </div>
+  );
+}
+
+/**
+ * "Delete “Average shipping fee”?" for a KPI the user's own charts show:
+ * names the charts and offers to delete them with it (removeChart), or to
+ * keep them, flagged in the chart list as unable to draw, for another
+ * measure. Cancel keeps everything.
+ */
+function DeleteKpiDialog({
+  deleting,
+  onClose,
+}: {
+  deleting: { id: string; name: string; charts: ChartSpec[] } | null;
+  onClose: () => void;
+}) {
+  const widgets = useWorkspace((s) => s.widgets);
+  const removeCustomKpi = useWorkspace((s) => s.removeCustomKpi);
+  const removeChart = useWorkspace((s) => s.removeChart);
+  const charts = deleting?.charts ?? [];
+  const n = charts.length;
+  // The titles as the chart list and the dashboard show them (a rename included).
+  const titles = charts.map((c) => widgets.find((w) => w.id === c.id)?.title?.trim() || c.title);
+  const confirm = (withCharts: boolean) => {
+    if (!deleting) return;
+    removeCustomKpi(deleting.id);
+    if (withCharts) for (const c of charts) removeChart(c.id);
+    toast(
+      withCharts
+        ? `Deleted “${deleting.name}” and ${n === 1 ? "the chart" : `the ${n} charts`} showing it`
+        : `Deleted “${deleting.name}”. ${n === 1 ? "Its chart is" : `Its ${n} charts are`} marked in Charts: choose another measure there.`,
+    );
+    onClose();
+  };
+  return (
+    <Dialog
+      open={Boolean(deleting)}
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Delete “{deleting?.name}”?</DialogTitle>
+          <DialogDescription>
+            {n === 1 ? "One of your charts shows it" : `${n} of your charts show it`}. Without the KPI{" "}
+            {n === 1 ? "that chart" : "they"} can&apos;t be drawn.
+          </DialogDescription>
+        </DialogHeader>
+        <ul className="grid gap-1 rounded-control border border-border bg-surface-2 px-3 py-2 text-ui text-fg">
+          {titles.map((t, i) => (
+            <li key={charts[i]?.id ?? t} className="truncate">
+              {t}
+            </li>
+          ))}
+        </ul>
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button variant="secondary" onClick={() => confirm(false)}>
+            Delete the KPI only
+          </Button>
+          <Button variant="danger" onClick={() => confirm(true)}>
+            Delete it and {n === 1 ? "the chart" : `the ${n} charts`}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -355,13 +458,11 @@ function KpiRow({
     <li className="flex flex-wrap items-center gap-2 rounded-control border border-border bg-surface-1 px-3 py-2 sm:flex-nowrap">
       <span className="font-figures w-5 shrink-0 text-2xs text-fg-subtle">{index + 1}</span>
       <div className="min-w-0 flex-1">
-        <p className="flex items-center gap-1.5 text-ui font-medium text-fg">
-          <span className="truncate" title={meta.definition}>
-            {meta.name}
-          </span>
+        <div className="flex min-w-0 items-center gap-1.5">
+          <KpiNameInput id={meta.id} name={meta.name} title={meta.definition} />
           {isUserKpiId(meta.id) ? <Badge tone="accent">yours</Badge> : null}
-        </p>
-        <p className="truncate text-2xs text-fg-subtle" title={meta.formula}>
+        </div>
+        <p className="truncate px-1 text-2xs text-fg-subtle" title={meta.formula}>
           {meta.group} · {meta.formula}
         </p>
       </div>

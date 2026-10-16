@@ -11,6 +11,7 @@ import { DAY_MS, utc } from "@/engine/core/dates";
 import type { FormatOptions } from "@/engine/core/format";
 import { makeResolver } from "@/engine/kpi/context";
 import { runQuery } from "@/engine/query/run";
+import { binLabel } from "@/engine/query/groupby";
 import type { Filter } from "@/engine/query/filter";
 import { computeChartData } from "@/engine/charts/data";
 import { computeBasket } from "@/engine/charts/analyses";
@@ -473,5 +474,251 @@ describe("charts that would look broken", () => {
     expect(data.empty).toBe(false);
     expect(data.categories.map((c) => c.label)).toEqual(["DTDC", "Blue Dart"]);
     expect(data.notes).toContain("2 rows with no Courier and no value are left out.");
+  });
+});
+
+// ---------------------------------------------------------------- dashboard audit
+
+describe("what a chart says it shows (dashboard audit)", () => {
+  // 24 states, each with a rate that falls with its position, and fewer rows the further down.
+  const states = Array.from({ length: 24 }, (_, i) => `State ${String(i + 1).padStart(2, "0")}`);
+  const rows: Array<[string, number]> = [];
+  states.forEach((s, i) => {
+    for (let k = 0; k < 40; k++) rows.push([s, k < 24 - i ? 1 : 0]);
+  });
+  const ds = dataset([
+    strCol(
+      "Customer State",
+      rows.map((r) => r[0]),
+    ),
+    numCol(
+      "RTO",
+      rows.map((r) => r[1]),
+    ),
+  ]);
+  const resolver = resolverFor(ds);
+  const rate = {
+    id: "agg:avg:RTO",
+    label: "RTO rate",
+    format: "percent" as const,
+    direction: "lower" as const,
+  };
+  const chart = (over: Partial<ChartSpec>) =>
+    computeChartData({
+      ds,
+      resolver,
+      spec: spec({
+        kind: "hbar",
+        x: { kind: "column", column: "Customer State", label: "Customer State" },
+        measures: [rate],
+        ...over,
+      }),
+      filters: [],
+      dateColumn: null,
+      fmt,
+    });
+
+  it("notes a top N and calls the lowest bar the lowest of those shown", () => {
+    const data = chart({ topN: 12, others: false });
+    expect(data.categories).toHaveLength(12);
+    expect(data.notes[0]).toBe("Showing the top 12 of 24 customer states by RTO rate.");
+    expect(data.headline).toMatch(/is lowest of the 12 shown, at /);
+  });
+
+  it("says how many are folded into Others", () => {
+    const data = chart({ topN: 10, others: true });
+    expect(data.notes[0]).toBe(
+      "Showing the top 10 of 24 customer states by RTO rate; the other 14 are combined in Others.",
+    );
+  });
+
+  it("makes no such note when every group is drawn", () => {
+    const data = chart({ topN: 30 });
+    expect(data.notes.join(" ")).not.toContain("Showing the top");
+    expect(data.headline).toMatch(/is lowest at /);
+  });
+
+  it("heads its table and CSV with the axis as drawn", () => {
+    expect(chart({}).axisLabel).toBe("Customer State");
+  });
+});
+
+describe("two-key charts keep their axes' natural order", () => {
+  it("orders levels L1, L2 … L10, not as rows first show them", () => {
+    const levels = ["L1", "L10", "L4", "L2", "L3", "L1", "L4"];
+    const genders = ["Male", "Female", "Male", "Female", "Male", "Female", "Male"];
+    const ds = dataset([
+      strCol("Level", levels),
+      strCol("Gender", genders),
+      numCol("Salary", [1, 2, 3, 4, 5, 6, 7]),
+    ]);
+    const data = computeChartData({
+      ds,
+      resolver: resolverFor(ds),
+      spec: spec({
+        kind: "heatmap",
+        x: { kind: "column", column: "Level", label: "Level" },
+        series: { kind: "column", column: "Gender", label: "Gender" },
+        measures: [measure("agg:avg:Salary")],
+      }),
+      filters: [],
+      dateColumn: null,
+      fmt,
+    });
+    expect(data.categories.map((c) => c.label)).toEqual(["L1", "L2", "L3", "L4", "L10"]);
+    expect(data.seriesCategories?.map((c) => c.label)).toEqual(["Female", "Male"]);
+    // Each cell is still its own level's value (rows = genders, columns = levels).
+    expect(data.matrix?.[1]?.[0]).toBe(1); // Male, L1
+    expect(data.matrix?.[1]?.[3]).toBe(5); // Male, L4: the average of 3 and 7
+    expect(data.matrix?.[0]?.[4]).toBe(2); // Female, L10
+  });
+});
+
+describe("a measure that can't be computed any more", () => {
+  const ds = dataset([strCol("Channel", ["A", "B"]), numCol("Amount", [1, 2])]);
+  const run = (measureIssue?: (id: string) => string | undefined) =>
+    computeChartData({
+      ds,
+      resolver: resolverFor(ds),
+      spec: spec({
+        kind: "bar",
+        x: { kind: "column", column: "Channel", label: "Channel" },
+        measures: [{ id: "uk_margin", label: "My margin", format: "currency", direction: "higher" }],
+      }),
+      filters: [],
+      dateColumn: null,
+      fmt,
+      measureIssue,
+    });
+
+  it("is named, with why, in the Customise list's words", () => {
+    const data = run();
+    expect(data.empty).toBe(true);
+    expect(data.notes[0]).toMatch(/^It shows “My margin”, a KPI you made in Customise that was deleted/);
+    // The caller's own reason, when it knows it, is used as it is.
+    const known = "It shows “My margin”, a KPI you deleted. Choose another measure, or delete this chart.";
+    expect(run(() => known).notes[0]).toBe(known);
+  });
+
+  it("says which column a chart reads when the file doesn't have it", () => {
+    const data = computeChartData({
+      ds,
+      resolver: resolverFor(ds),
+      spec: spec({
+        kind: "bar",
+        x: { kind: "column", column: "Channel", label: "Channel" },
+        measures: [measure("agg:sum:Discount")],
+      }),
+      filters: [],
+      dateColumn: null,
+      fmt,
+    });
+    expect(data.notes[0]).toBe(
+      "It uses Discount, which isn't in this file. Delete this chart, or load the file it was made for.",
+    );
+  });
+});
+
+describe("time axes follow the data's cadence", () => {
+  // Monthly snapshots: one row per account per month, dated on the 1st.
+  const months = Array.from({ length: 12 }, (_, i) => utc(2025, 10 + i, 1));
+  const ds = dataset([
+    dateCol(
+      "Month",
+      months.flatMap((m) => [m, m]),
+    ),
+    numCol(
+      "MRR",
+      months.flatMap((_, i) => [100 + i, 50 + i]),
+    ),
+  ]);
+  it("never buckets monthly snapshots more finely than a month, whatever the filter's span", () => {
+    const last = months[months.length - 1] as number;
+    const data = computeChartData({
+      ds,
+      resolver: resolverFor(ds),
+      spec: spec({
+        kind: "line",
+        section: "trend",
+        x: { kind: "time", column: "Month", grain: "auto", label: "Month" },
+        measures: [measure("agg:sum:MRR")],
+      }),
+      filters: [{ kind: "dateRange", column: "Month", from: last - 60 * DAY_MS, to: last + 29 * DAY_MS }],
+      dateColumn: "Month",
+      fmt,
+      grain: "week",
+    });
+    expect(data.grain).toBe("month");
+    expect(
+      data.categories.every((c) => typeof c.raw === "number" && new Date(c.raw).getUTCDate() === 1),
+    ).toBe(true);
+  });
+
+  it("gives week labels their year when the weeks run into a second year", () => {
+    const days = [utc(2025, 12, 1), utc(2025, 12, 20), utc(2026, 1, 10), utc(2026, 2, 1)];
+    const wds = dataset([dateCol("Date", days), numCol("Amount", [1, 2, 3, 4])]);
+    const data = computeChartData({
+      ds: wds,
+      resolver: resolverFor(wds),
+      spec: spec({
+        kind: "bar",
+        section: "trend",
+        x: { kind: "time", column: "Date", grain: "week", label: "Date" },
+        measures: [measure("agg:sum:Amount")],
+      }),
+      filters: [],
+      dateColumn: "Date",
+      fmt,
+    });
+    expect(data.categories[0]?.label).toBe("Wk of 1 Dec 2025");
+    expect(data.categories[data.categories.length - 1]?.label).toBe("Wk of 26 Jan 2026");
+  });
+});
+
+describe("band labels", () => {
+  it("carry the currency on money bands and one number of decimals per band", () => {
+    expect(binLabel(0, 1000, "currency", { currencySymbol: "₹", locale: "IN" })).toBe("₹0–₹1K");
+    expect(binLabel(100000, 200000, "currency", { currencySymbol: "₹", locale: "IN" })).toBe("₹1L–₹2L");
+    expect(binLabel(0, 0.05, "percent")).toBe("0%–5%");
+    expect(binLabel(0.025, 0.05, "percent")).toBe("2.5%–5.0%");
+    expect(binLabel(1, 2, "number")).toBe("1–2");
+  });
+});
+
+describe("the session's chart outputs", () => {
+  it("heads a chart's CSV with its axis and rounds the float noise of sums", () => {
+    const s = new Session();
+    const load = s.ingestSample("ecommerce");
+    if (load.status !== "ok") throw new Error(load.status);
+    const top = load.detection.candidates[0];
+    if (!top) throw new Error("not detected");
+    const ctx = s.configure({ domainId: top.domainId, numberLocale: "IN", currency: null });
+    const spec = ctx.charts.find((c) => c.id === "revenue_by_state");
+    if (!spec) throw new Error("no state chart");
+    s.chart([], { specId: spec.id }, "IN");
+    const [header, first] = s.chartCsv(spec.id).split("\r\n");
+    expect(header).toBe("Customer State,Net revenue,Rows");
+    // At most two decimals for money summed over thousands of rows ("5028010.51000001" before).
+    expect(first).toMatch(/^[^,]+,\d+(\.\d{1,2})?,\d+$/);
+  });
+
+  it("calls a renamed KPI by its new name in every chart that shows it", () => {
+    const s = new Session();
+    const load = s.ingestSample("ecommerce");
+    if (load.status !== "ok") throw new Error(load.status);
+    const top = load.detection.candidates[0];
+    if (!top) throw new Error("not detected");
+    const ctx = s.configure({
+      domainId: top.domainId,
+      numberLocale: "IN",
+      currency: null,
+      kpiRenames: { net_revenue: "Sales" },
+    });
+    const uses = ctx.charts.filter((c) => c.measures.some((m) => m.id === "net_revenue"));
+    expect(uses.length).toBeGreaterThan(2);
+    for (const c of uses) expect(c.measures.find((m) => m.id === "net_revenue")?.label, c.id).toBe("Sales");
+    expect(ctx.charts.find((c) => c.id === "trend_revenue")?.title).toBe("Sales over time");
+    const table = s.chart([], { specId: "top_products" }, "IN");
+    expect(table?.series.map((x) => x.label)).toContain("Sales");
   });
 });

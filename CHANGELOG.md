@@ -5,6 +5,132 @@ Every step of building Loupe, newest first. Generated from `src/content/changelo
 - **MAJOR** (`x.0`): a new capability, subsystem or page.
 - **MINOR** (`x.y`): a refinement, fix or follow-up to that major version.
 
+## 37.0 · A one-page dashboard, the page you present
+
+*Major · 2026-10-16 20:20 UTC · Feature, Design, Tests, Docs*
+
+The dashboard now opens as a single landscape page, laid out the way analysts build a report page for an executive: slicers on the left, a title banner, six headline KPIs, five key charts with their takeaways and the key insights. Download it as one 4K image or a one-page PDF.
+
+- A sidebar of slicers: the period (with the calendar years in your data) and your main filters, each showing what is selected (“All”, “Apparel”, “3 selected”), and the file the numbers come from. Changing a slicer updates the whole page.
+- A banner with the page's title (click it to rename the page), what the page covers from its KPIs (“Revenue | Orders | Profitability | Fulfilment”), the period and what the changes compare with.
+- Six headline KPI tiles, each with an icon for its kind of measure, a tint from your chart colours, its value and its change.
+- Five charts picked from your dashboard: the main trend across two thirds of the page with a share of the whole beside it, then three breakdowns about different things. Each is led by its one-sentence takeaway.
+- Read without hovering: a short trend prints every month's value, and a donut lists its slices with their shares beside the ring, where they never overlap.
+- The key insights along the foot of the page, each with the sentence that holds its numbers.
+- Download page (PNG, 3840 × 2160) or PDF from the dashboard itself, or from Export, where a new One-page dashboard card shows the page in miniature with the charts it holds. The file is exactly the page on screen.
+- All charts switches to the full dashboard, by section, as before. The view and the page's title are saved with your settings. On a phone the page stacks into one column.
+- Charts keep one axis each: bars and a line on two different scales are never combined, because the shape they make depends on how the two scales happen to line up.
+
+Files: `src/ui/workspace/dashboard/page/pagePlan.ts`, `src/ui/workspace/dashboard/page/OnePage.tsx`, `src/ui/workspace/dashboard/page/PageView.tsx`, `src/ui/workspace/dashboard/DashboardStep.tsx`, `src/ui/workspace/ExportStep.tsx`, `src/ui/charts/options.ts`, `src/ui/workspace/export/report.tsx`, `src/store/workspace.ts`, `src/engine/export/config.ts`, `tests/one-page.test.ts`, `docs/ANALYST-STANDARDS.md`, `CLAUDE.md`
+
+## 36.6 · Home page: steady on phones, links that always work
+
+*Minor · 2026-10-16 20:19 UTC · Fix, Design, Performance*
+
+The home page no longer jumps while its figures count up on a phone, its trend lines draw end to end, every section link lands where it should, and its words match what the app does today.
+
+- On phones the page no longer jumps while the preview's figures count up (layout shift from 0.158 to 0.001), and the menu's links land exactly on their sections.
+- The preview's trend lines run all the way to the latest month; before, they stopped two thirds of the way across.
+- The header's frosted glass blurs again in Chrome, Edge and Firefox.
+- No sideways scrolling on 320 and 360 px phones; the header doesn't wrap between 768 and 1024 px; the “Make it yours” step fits its frame.
+- Section links in the footer and the hero always scroll to their section, even when clicked twice.
+- Animations pause when they are off screen, and the industries' moving rows have a Pause button.
+- The words match the app: presentation slides instead of PNG, the real names of the SQL checks, limits and date formats taken from the code, and SQL and DAX claimed for KPIs only.
+- The 404 page, the version log and the workspace have their own titles and social previews; there is now a favicon, an Apple touch icon and a social image.
+- Without JavaScript the preview shows its real figures, and the demo links open straight on the dashboard. The version log names its time zone and lists follow-ups newest first.
+
+Files: `src/ui/landing/HeroPreview.tsx`, `src/ui/landing/HeroStage.tsx`, `src/ui/landing/Pipeline.tsx`, `src/ui/landing/Bento.tsx`, `src/ui/landing/sections.tsx`, `src/ui/landing/motion.tsx`, `src/ui/landing/MarqueeGroup.tsx`, `src/ui/landing/preview-data.ts`, `src/ui/site/SectionLink.tsx`, `src/ui/site/SiteHeader.tsx`, `src/ui/site/SiteFooter.tsx`, `src/ui/site/CreditBar.tsx`, `src/ui/site/ChangelogTimeline.tsx`, `src/app/globals.css`, `src/app/layout.tsx`, `src/app/page.tsx`, `src/app/app/page.tsx`, `src/app/not-found.tsx`, `src/app/opengraph-image.tsx`, `src/app/apple-icon.tsx`, `src/app/brand-art.ts`, `src/app/favicon.ico`
+
+## 36.5 · Exports are the dashboard as you left it
+
+*Minor · 2026-10-16 20:18 UTC · Fix, Tests*
+
+The slides, the report and the insights now follow your Customise choices, leave out charts that can't be drawn, and write each KPI the way the dashboard does. The SQL check ends cleanly when it can't start and says exactly what it compares.
+
+- Slides, the report and the insights PDF follow your KPI layout and your chart titles from Customise.
+- A chart that can't be drawn now (a hidden column, a deleted KPI) is left out and named on the card, instead of being exported as an error message.
+- Large counts read 1.75L and 15.9Cr in every export, as on the dashboard.
+- Verify stops within seconds with a clear message when DuckDB can't be downloaded, instead of spinning forever. It says it compares Loupe's whole-file values (all 49,037 rows), not the dashboard's selection, and uses your KPI names.
+- Report figures no longer overlap their notes, and tables fill their space exactly.
+- In the four-a-slide deck, a long horizontal bar chart gets a slide of its own so every bar keeps its name.
+- The SQL file's example names a view that exists; the Power BI model builds every date column it promises; your own charts and titles appear in its README; measure names keep their acronyms (“Total MRR”).
+- The report has the same “other columns” switch as the slides, and the two slide densities download under different names.
+- Smaller fixes: no hidden tab stop, focus returns after the Power BI question, and the Verify table scrolls.
+
+Files: `src/ui/workspace/ExportStep.tsx`, `src/ui/workspace/export/exportCharts.ts`, `src/ui/workspace/export/slides.tsx`, `src/ui/workspace/export/slidePlan.ts`, `src/ui/workspace/export/report.tsx`, `src/ui/common/kpiFormat.ts`, `src/ui/workspace/NewColumnsDialog.tsx`, `src/lib/duckdb.ts`, `src/engine/export/sqlFile.ts`, `src/engine/export/tmdl.ts`, `src/engine/export/readme.ts`, `src/engine/export/names.ts`, `src/engine/export/powerbi.ts`, `src/engine/export/dashboardCharts.ts`, `src/engine/session.ts`, `tests/export-fixes.test.ts`, `tests/slides.test.ts`, `tests/export.test.ts`
+
+## 36.4 · Questions answered as asked, insights that hold up
+
+*Minor · 2026-10-16 20:17 UTC · Fix, Tests*
+
+A question that names a place, a status or a period is now answered for it, and a question Loupe can't fully read is refused, saying which words it couldn't read, rather than answered as a different question. Insights no longer compare things that can't be compared, and they follow your filters.
+
+- Values, statuses and periods in a question become filters: “net revenue in Maharashtra” gives ₹50.3L, as on the dashboard; “how many orders were cancelled” counts the cancelled ones; “in 2026” and “in September 2026” narrow the rows.
+- Words Loupe can't read are named and the question is refused (“nothing in your file matches ‘warehouse’…”), never quietly answered for everything.
+- A KPI named in a question is read as that KPI (“average order value” is ₹2.07K, as on its card), and typing a suggested question gives the same answer as clicking it.
+- The SQL check no longer reports a difference for a blank group, and a ranking with several measures returns the answer's rows.
+- Insights no longer compare per-customer or per-rep KPIs across segments (where the gaps were artefacts), merge repeats about the same pair, link only a chart that shows them, and follow the filters; an empty selection says so.
+- Answers reuse the chart takeaways, write money compactly and with one precision per sentence, and get a chart for lowest-first questions; every answer card has Edit.
+- The step says which rows the dashboard's filters keep. The AI summary sends rates in percentage points with a true minus sign.
+- The insights PDF writes numbers as the report does; the questions PDF keeps each heading with its text.
+- Ask for a chart: “top 5” draws five bars without an Others bar, and words it leaves out are said.
+
+Files: `src/engine/charts/ask.ts`, `src/engine/charts/answer.ts`, `src/engine/compile/questionSql.ts`, `src/engine/insights/insights.ts`, `src/engine/core/together.ts`, `src/engine/session.ts`, `src/ui/workspace/QuestionsStep.tsx`, `src/ui/workspace/InsightsStep.tsx`, `src/ui/workspace/AiSummary.tsx`, `src/ui/workspace/aiSummaryPayload.ts`, `src/ui/workspace/dashboard/AskChart.tsx`, `src/ui/workspace/export/documents.ts`, `src/ui/workspace/export/textPdf.ts`, `tests/questions.test.ts`, `tests/ask.test.ts`, `tests/insights.test.ts`, `tests/ai-payload.test.ts`
+
+## 36.3 · Dashboard and charts: takeaways that never overstate
+
+*Minor · 2026-10-16 20:16 UTC · Fix, Tests*
+
+Chart takeaways now say only what their chart can support, KPI changes always describe the number beside them, and filters work on phones.
+
+- Filters work on phones: a filter's list of values opens on screen.
+- A chart that shows only its top groups says “lowest of the 12 shown”, and the card says what was left out, instead of naming a false lowest.
+- A scatter's takeaway follows the direction of the fit (“attrition rate falls as engagement rises”); frequently-bought-together names its strongest pairing as such; a 100% stack speaks in shares.
+- A KPI card's change always describes the number beside it: over all time it names the month and that month's value. Year to date is compared with the same months a year earlier.
+- Monthly snapshot data (MRR) isn't offered day-based periods, and its trends aren't drawn finer than the data. KPI details say correctly whether a KPI adds up, counts distinct things, is a snapshot or is a ratio.
+- Monthly axes show the year even when every other month is shown; a one-day range reads “30 Sep 2026”.
+- Horizontal bars keep every name, labels wrap at spaces and treemap names no longer break mid-word.
+- A renamed KPI's new name reaches chart labels and tables. A chart's PNG carries its title, takeaway, unit and source; its CSV names the axis and rounds.
+- Rosters (HR): the no-comparison note is said once, there are no misleading trend lines, tenure is in years and job levels read in order.
+- Wording: weekdays in full, “on 27 Sep”, “Up 1,941%”, and percentages above 100% keep their decimal. An emptied chart offers Clear filters.
+
+Files: `src/engine/charts/headline.ts`, `src/engine/charts/data.ts`, `src/engine/charts/types.ts`, `src/engine/charts/recommend.ts`, `src/ui/charts/options.ts`, `src/ui/charts/ChartCard.tsx`, `src/ui/charts/DataTable.tsx`, `src/ui/charts/chartImage.ts`, `src/engine/core/dates.ts`, `src/engine/core/format.ts`, `src/engine/core/periods.ts`, `src/engine/query/groupby.ts`, `src/engine/kpi/compute.ts`, `src/engine/kpi/columnKpis.ts`, `src/engine/export/csv.ts`, `src/registry/domains/hr.json`, `src/ui/workspace/dashboard/KpiCards.tsx`, `src/ui/workspace/dashboard/KpiDetails.tsx`, `src/ui/workspace/dashboard/FilterRail.tsx`, `src/ui/workspace/dashboard/Inspector.tsx`, `tests/chart-headline.test.ts`, `tests/chart-options.test.ts`, `tests/charts-data.test.ts`, `tests/column-kpis.test.ts`, `tests/periods.test.ts`
+
+## 36.2 · Check & map and Customise: titles that follow the data
+
+*Minor · 2026-10-16 20:15 UTC · Fix, Design, Tests*
+
+A chart's automatic title now follows its data when you edit it, charts that can no longer be drawn are flagged, and the mapping says what each change does. A KPI whose column you hid says so.
+
+- Editing a chart's data keeps only a title you typed: change its measure or column and the automatic title, and its takeaway, follow.
+- Charts that can no longer be drawn (a hidden column, a deleted KPI) are flagged in the chart list with the reason; deleting a KPI that charts use asks what to do with them.
+- A KPI whose column you hid says “it needs “Order Status”, which you hid in Check & map”, instead of sending you to Value meanings.
+- Blood types A+ and A− are no longer reported as misspellings of each other.
+- Mapping a column that another field already uses says which field loses it, with Undo; “Used by” says what a field feeds.
+- Names Loupe makes read naturally (“Distinct customer ID”, “Total net sales by product category”). Column summaries follow your number format, show percentages as % and drop separators from years and IDs.
+- Rename KPIs in Customise (Enter saves); Chart colours in Customise; Undo when deleting your own chart; an edited copy keeps the original's place.
+- Phone layouts fit: the tabs, the KPI planner and the column popovers; the chart builder scrolls into view. Better screen-reader names and visible focus on tabs.
+
+Files: `src/ui/workspace/MapStep.tsx`, `src/ui/workspace/VirtualGrid.tsx`, `src/ui/workspace/columnSummary.ts`, `src/ui/workspace/customise/chartDraft.ts`, `src/ui/workspace/customise/brokenCharts.ts`, `src/ui/workspace/customise/ChartList.tsx`, `src/ui/workspace/customise/ChartStudio.tsx`, `src/ui/workspace/customise/CustomiseStep.tsx`, `src/ui/workspace/customise/KpiPlanner.tsx`, `src/ui/workspace/customise/KpiBuilder.tsx`, `src/ui/workspace/customise/KpiNameInput.tsx`, `src/ui/primitives/tabs.tsx`, `src/engine/kpi/userKpis.ts`, `src/engine/kpi/resolve.ts`, `src/engine/profile/quality.ts`, `tests/customise-charts.test.ts`, `tests/column-summary.test.ts`, `tests/data-check.test.ts`, `tests/hidden-columns.test.ts`
+
+## 36.1 · Getting data in: no stuck loads, files read as written
+
+*Minor · 2026-10-16 20:14 UTC · Fix, Tests*
+
+A page-by-page check of the app found problems in loading and detection; they are fixed. Loading never gets stuck, the industry you pick on Detect takes effect, and unusual files are read correctly or refused in plain words.
+
+- Loading never sticks on “Detecting the industry…”: progress messages that arrive after a file has loaded are ignored.
+- Switching the date order (DD/MM or MM/DD) keeps everything you set (industry, hidden columns, KPI layout, your KPIs and charts, filters) and stays on the step you were on. It is offered only when the order is uncertain, and asks first when switching would blank dates.
+- Changing the industry or data shape on Detect takes effect when you move on; going back with the same choice keeps your Customise layout.
+- Repeated or blank column names, and Excel's trailing commas, no longer throw the header away; the renames are noted.
+- Empty files, header-only files, images, PDFs and other non-tables are refused with a clear message; pandas' JSON layouts are read.
+- An order file is no longer read as returns or as a product catalogue, and “NA” in a text column (North America) stays as written.
+- An uncertain day/month order follows your device's time zone, not the previous file, and Detect says which order it assumed. A currency picked for one file no longer carries over to the next.
+- Demo links open the requested demo (asking before replacing your own file) and can open straight on the dashboard; Back works after them.
+- Start over asks first, and the page warns before a reload would lose your work. Figures that count up never show impossible values; “1 row”, “every 3rd row”, a Sampled badge, and keyboard access to the column list.
+
+Files: `src/store/workspace.ts`, `src/store/settings.ts`, `src/ui/workspace/Workspace.tsx`, `src/ui/workspace/Shell.tsx`, `src/ui/workspace/CommandPalette.tsx`, `src/ui/workspace/UploadStep.tsx`, `src/ui/workspace/DetectStep.tsx`, `src/ui/workspace/HealthPanel.tsx`, `src/ui/workspace/confirm.tsx`, `src/ui/common/hooks.ts`, `src/ui/common/words.ts`, `src/engine/parse/sniff.ts`, `src/engine/parse/csv.ts`, `src/engine/parse/json.ts`, `src/engine/parse/excel.ts`, `src/engine/parse/index.ts`, `src/engine/parse/builder.ts`, `src/engine/parse/dateOrder.ts`, `src/engine/parse/limits.ts`, `src/engine/detect/detect.ts`, `src/engine/profile/profile.ts`, `src/engine/profile/structure.ts`, `src/engine/profile/roles.ts`, `src/engine/samples/catalog.ts`, `src/engine/core/types.ts`, `tests/upload-and-detect.test.ts`, `tests/workspace-flow.test.ts`, `tests/detect.test.ts`
+
 ## 36.0 · Presentation slides, and a takeaway on every chart
 
 *Major · 2026-10-16 16:18 UTC · Feature, Design, Fix, Tests, Docs*

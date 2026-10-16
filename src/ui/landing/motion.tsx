@@ -16,16 +16,23 @@
  * - useCalm: whether the visitor asked for reduced motion, read so that the
  *   first client render matches the server HTML (Framer Motion's own hook
  *   reads it straight away, which breaks hydration for those visitors).
+ * - useHydrated: false in the server HTML and while hydrating, so a graphic
+ *   can be served finished (what crawlers and visitors without JavaScript
+ *   read) and then play from the start.
  * - useLive / useTicker: whether a graphic should be playing (in view, and the
  *   visitor hasn't asked for reduced motion), and a counter that steps while it
  *   is, so looping graphics stop off-screen.
+ * - PauseOffscreen: the same for the CSS loops. It marks every [data-loop]
+ *   host that is off screen with data-paused, which globals.css holds still.
+ * - DrawOn: draws an SVG line on from left to right by widening a clip
+ *   rectangle over it.
  *
  * Framer Motion already follows the OS reduced-motion setting for transforms
  * (MotionConfig in ui/common/providers.tsx); the hooks here also stop loops
  * and typing, which are not transforms.
  */
 import * as React from "react";
-import { animate, motion, useInView, useMotionValue, useTransform } from "framer-motion";
+import { animate, motion, useInView, useMotionValue, useTransform, type Transition } from "framer-motion";
 import { formatValue, type ValueFormat } from "@/engine/core/format";
 import { cn } from "@/lib/utils";
 
@@ -48,6 +55,91 @@ export function useCalm(): boolean {
     subscribeCalm,
     () => window.matchMedia(CALM_QUERY).matches,
     () => false,
+  );
+}
+
+const noSubscription = () => () => {};
+
+/**
+ * False on the server and while hydrating, true from then on. The landing
+ * page's own copy of the workspace hook (ui/common/hooks), which would bring
+ * the workspace stores into this bundle.
+ */
+export function useHydrated(): boolean {
+  return React.useSyncExternalStore(
+    noSubscription,
+    () => true,
+    () => false,
+  );
+}
+
+/**
+ * Holds the CSS loops of every [data-loop] host still while it is off screen,
+ * by marking it data-paused (globals.css pauses every animation inside it). A
+ * host resumes a little before it scrolls back into view. Mounted once by the
+ * landing page.
+ */
+export function PauseOffscreen() {
+  React.useEffect(() => {
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) e.target.toggleAttribute("data-paused", !e.isIntersecting);
+      },
+      { rootMargin: "120px 0px" },
+    );
+    for (const host of document.querySelectorAll("[data-loop]")) io.observe(host);
+    return () => io.disconnect();
+  }, []);
+  return null;
+}
+
+/**
+ * Draws an SVG line on from left to right by widening a clip rectangle over
+ * it. Framer's `pathLength` draws with a dash pattern instead, which a
+ * non-scaling stroke measures in screen pixels: on a stretched chart the line
+ * then stops part-way or breaks into dashes.
+ *
+ * `box` is the area to uncover in the SVG's user units ([x, y, width,
+ * height]), with room for the stroke. With `drawn` it is controlled (hiding is
+ * instant); without, it follows its motion parent's "hidden" and "show"
+ * variants.
+ */
+export function DrawOn({
+  box,
+  drawn,
+  transition,
+  children,
+}: {
+  box: readonly [number, number, number, number];
+  drawn?: boolean;
+  transition: Transition;
+  children: React.ReactNode;
+}) {
+  const id = `draw-${React.useId().replace(/[^\w-]/g, "")}`;
+  const [x, y, w, h] = box;
+  return (
+    <>
+      <clipPath id={id}>
+        {drawn === undefined ? (
+          <motion.rect
+            x={x}
+            y={y}
+            height={h}
+            variants={{ hidden: { width: 0 }, show: { width: w, transition } }}
+          />
+        ) : (
+          <motion.rect
+            x={x}
+            y={y}
+            height={h}
+            initial={false}
+            animate={{ width: drawn ? w : 0 }}
+            transition={drawn ? transition : { duration: 0 }}
+          />
+        )}
+      </clipPath>
+      <g clipPath={`url(#${id})`}>{children}</g>
+    </>
   );
 }
 

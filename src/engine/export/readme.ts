@@ -10,19 +10,27 @@
  * Axis instructions use the Date table only where it is right: it holds whole
  * days, is related to the primary date column alone, and has Year, Quarter,
  * Month, Year Month, Weekday and Day of Month columns. Anything else (an hour
- * of day, a part of another date column) needs a calculated column on the
- * data table; `newColumnsFor` lists those so the UI can ask first, and when
+ * of day, a part of another date column) needs a column on the data table:
+ * the TMDL model adds it (datePartColumns gives tmdl.ts its Power Query
+ * step) and the README shows how to add it by hand on Path A.
+ * `newColumnsFor` lists every such column so the UI can ask first, and when
  * the user declines (`ctx.noNewColumns`) the README uses Power BI's own date
  * hierarchy instead or says the visual can't be built without a column.
+ *
+ * The visual list is the dashboard as the user left it (Session.exportPowerBi
+ * reads it from the config): their titles, chart types and Top N, and their
+ * own charts, whose ad-hoc values ("Total Discount") are given as a measure
+ * to add, with its DAX, since the model discourages implicit measures.
  */
 import { formatValue } from "@/engine/core/format";
 import { formatRange } from "@/engine/core/dates";
 import { countsByFirstDate } from "@/engine/query/expr";
 import { dateBounds } from "@/engine/kpi/compute";
+import { aggIdToExpr, makeDaxContext } from "@/engine/kpi/context";
 import type { DatePart } from "@/engine/core/dates";
-import { daxColumn } from "@/engine/compile/dax";
+import { daxColumn, exprDax } from "@/engine/compile/dax";
 import type { ChartKind } from "@/registry/schema";
-import type { ChartSpec } from "@/engine/charts/types";
+import type { ChartMeasure, ChartSpec } from "@/engine/charts/types";
 import { DATE_TABLE, dateRelColumn } from "./daxFile";
 import type { ExportContext } from "./context";
 
@@ -64,23 +72,141 @@ const PBI_VISUAL: Record<ChartKind, string> = {
 };
 
 /**
- * Calculated columns a date part needs on the data table in Power BI (a
- * label column plus its sort column for weekday and month); empty when the
- * Date table already has the part.
+ * A column the package adds to the data table so a chart can use a part of a
+ * date (hour, weekday, month, day of month) as its axis: built by the TMDL
+ * model's Power Query step, or by hand as a calculated column on Path A.
  */
-export function datePartNewColumns(column: string, part: DatePart, ctx: ExportContext): string[] {
+export interface DatePartColumn {
+  /** Export-safe name, unique among the table's columns and measures ("order_date_hour"). */
+  name: string;
+  /** Power Query (M) expression over the row, for Table.AddColumn. */
+  m: string;
+  type: "number" | "text";
+  /** The same column as a DAX calculated column (Path A). */
+  dax: string;
+  /** The number column a weekday or month name is sorted by. */
+  sortBy?: string;
+  /** What it holds, for the model's description. */
+  holds: string;
+}
+
+/**
+ * `base`, or "<base>_2", "_3"… when a column, a measure or the date-link
+ * helper already has that name (compared case-insensitively, as Power BI does).
+ */
+function freeColumnName(base: string, ctx: ExportContext): string {
+  const taken = new Set(
+    [...ctx.names.columns.values(), ...ctx.names.measures.values(), dateRelColumn(ctx)].map((n) =>
+      n.toLowerCase(),
+    ),
+  );
+  let name = base;
+  for (let n = 2; taken.has(name.toLowerCase()); n++) name = `${base}_${n}`;
+  return name;
+}
+
+/**
+ * The columns a date part needs on the data table in Power BI (a label
+ * column plus its sort column for weekday and month); empty when the Date
+ * table already has the part. Weekday numbers run Monday = 1 to Sunday = 7,
+ * as the Date table's do; names are the en-US short forms ("Mon", "Jan").
+ */
+export function datePartColumns(column: string, part: DatePart, ctx: ExportContext): DatePartColumn[] {
   if (column === ctx.dateColumn && part !== "hour") return [];
   const clean = ctx.names.columns.get(column) ?? column;
+  const src = daxColumn(ctx.names.table, clean);
+  const field = `[${clean}]`;
+  // A blank date gives a blank part rather than an error in the refresh.
+  const orNull = (expr: string) => `if ${field} = null then null else ${expr}`;
+  const name = (suffix: string) => freeColumnName(`${clean}_${suffix}`, ctx);
   switch (part) {
-    case "hour":
-      return [`${clean}_hour`];
-    case "dow":
-      return [`${clean}_weekday`, `${clean}_weekday_number`];
-    case "month":
-      return [`${clean}_month`, `${clean}_month_number`];
+    case "hour": {
+      const col = ctx.ds.columns.find((c) => c.name === column);
+      const withTime = col?.kind === "date" && (col.hasTime || col.timeOnly === true);
+      return [
+        {
+          name: name("hour"),
+          m: orNull(withTime ? `Time.Hour(${field})` : `Time.Hour(DateTime.From(${field}))`),
+          type: "number",
+          dax: `HOUR ( ${src} )`,
+          holds: `Hour of day (0 to 23) of ${clean}.`,
+        },
+      ];
+    }
+    case "dow": {
+      const label = name("weekday");
+      const number = name("weekday_number");
+      return [
+        {
+          name: label,
+          m: orNull(`Text.Start(Date.DayOfWeekName(${field}, "en-US"), 3)`),
+          type: "text",
+          dax: `FORMAT ( ${src}, "ddd" )`,
+          sortBy: number,
+          holds: `Weekday of ${clean} (Mon to Sun), sorted by ${number}.`,
+        },
+        {
+          name: number,
+          m: orNull(`Date.DayOfWeek(${field}, Day.Monday) + 1`),
+          type: "number",
+          dax: `WEEKDAY ( ${src}, 2 )`,
+          holds: `Weekday number of ${clean}, Monday = 1 to Sunday = 7.`,
+        },
+      ];
+    }
+    case "month": {
+      const label = name("month");
+      const number = name("month_number");
+      return [
+        {
+          name: label,
+          m: orNull(`Text.Start(Date.MonthName(${field}, "en-US"), 3)`),
+          type: "text",
+          dax: `FORMAT ( ${src}, "MMM" )`,
+          sortBy: number,
+          holds: `Month of ${clean} (Jan to Dec), sorted by ${number}.`,
+        },
+        {
+          name: number,
+          m: orNull(`Date.Month(${field})`),
+          type: "number",
+          dax: `MONTH ( ${src} )`,
+          holds: `Month number of ${clean}, 1 to 12.`,
+        },
+      ];
+    }
     case "dom":
-      return [`${clean}_day_of_month`];
+      return [
+        {
+          name: name("day_of_month"),
+          m: orNull(`Date.Day(${field})`),
+          type: "number",
+          dax: `DAY ( ${src} )`,
+          holds: `Day of the month (1 to 31) of ${clean}.`,
+        },
+      ];
   }
+}
+
+/** Names of the columns a date part needs on the data table (datePartColumns). */
+export function datePartNewColumns(column: string, part: DatePart, ctx: ExportContext): string[] {
+  return datePartColumns(column, part, ctx).map((c) => c.name);
+}
+
+/**
+ * Every date-part column the charts in `specs` need, once each, in chart
+ * order: the columns the TMDL model adds. None when the user chose not to
+ * add columns.
+ */
+export function datePartColumnsFor(ctx: ExportContext, specs: ChartSpec[]): DatePartColumn[] {
+  if (ctx.noNewColumns) return [];
+  const out = new Map<string, DatePartColumn>();
+  for (const s of specs)
+    for (const axis of [s.x, s.series])
+      if (axis?.kind === "part")
+        for (const c of datePartColumns(axis.column, axis.part, ctx))
+          if (!out.has(c.name)) out.set(c.name, c);
+  return [...out.values()];
 }
 
 /** A column the Power BI package would add, or tell the user to add, to their data table. */
@@ -135,12 +261,12 @@ export function newColumnsFor(ctx: ExportContext, specs: ChartSpec[]): NewColumn
  * comes from in Power BI, as "<column> (how to get it)". Weekday and month of
  * the primary date are Date-table columns; day of month needs a column added
  * to the Date table; an hour (the Date table holds whole days) and every part
- * of another date column need calculated columns on the fact table.
+ * of another date column need columns on the fact table, which the TMDL model
+ * (Path B) already has and Path A adds as calculated columns.
  */
 export function datePartSource(column: string, part: DatePart, ctx: ExportContext): string {
   const table = ctx.names.table;
   const clean = ctx.names.columns.get(column) ?? column;
-  const src = daxColumn(table, clean);
   if (column === ctx.dateColumn) {
     if (part === "dow") return `${DATE_TABLE}[Weekday] (sorted by Weekday Number)`;
     if (part === "month") return `${DATE_TABLE}[Month] (sorted by Month Number)`;
@@ -153,15 +279,41 @@ export function datePartSource(column: string, part: DatePart, ctx: ExportContex
     if (part === "dom") return `${table}[${clean}] (its date hierarchy, Day level)`;
     return `not built: ${part === "hour" ? "an hour of day" : "a weekday"} would need a new column, and you chose not to add columns`;
   }
+  const [first, second] = datePartColumns(column, part, ctx);
+  if (!first) return `${table}[${clean}]`;
+  const calc = (c: DatePartColumn) => `\`${c.name} = ${c.dax}\``;
+  const inModel = "the TMDL model (Path B) already has";
   switch (part) {
     case "hour":
-      return `${table}[${clean}_hour] (add it to ${table} as a calculated column, \`${clean}_hour = HOUR ( ${src} )\`; the Date table holds whole days, so it has no hours)`;
+      return `${table}[${first.name}] (add it to ${table} as a calculated column, ${calc(first)}; the Date table holds whole days, so it has no hours; ${inModel} it)`;
     case "dow":
-      return `${table}[${clean}_weekday] (add calculated columns \`${clean}_weekday = FORMAT ( ${src}, "ddd" )\` and \`${clean}_weekday_number = WEEKDAY ( ${src}, 2 )\`, and sort the first by the second)`;
     case "month":
-      return `${table}[${clean}_month] (add calculated columns \`${clean}_month = FORMAT ( ${src}, "MMM" )\` and \`${clean}_month_number = MONTH ( ${src} )\`, and sort the first by the second)`;
+      return `${table}[${first.name}] (add calculated columns ${calc(first)}${second ? ` and ${calc(second)}, and sort the first by the second` : ""}; ${inModel} them)`;
     case "dom":
-      return `${table}[${clean}_day_of_month] (add it as a calculated column, \`${clean}_day_of_month = DAY ( ${src} )\`)`;
+      return `${table}[${first.name}] (add it as a calculated column, ${calc(first)}; ${inModel} it)`;
+  }
+}
+
+/**
+ * A chart value as the reader adds it to a visual: the KPI's measure, or for
+ * an ad-hoc aggregate from the chart builder ("Total Discount") a measure to
+ * create, with its DAX, since the model discourages implicit measures.
+ */
+function valueText(m: ChartMeasure, ctx: ExportContext): string {
+  const measure = ctx.names.measures.get(m.id);
+  if (measure) return `[${measure}]`;
+  const expr = aggIdToExpr(m.id);
+  if (!expr) return `[${m.label}]`;
+  try {
+    const dax = exprDax(
+      expr,
+      makeDaxContext(ctx.ds, ctx.mapping, ctx.res, ctx.names, {
+        dateTable: ctx.dateColumn ? DATE_TABLE : null,
+      }),
+    );
+    return `[${m.label}] (a new measure: \`${m.label} = ${dax}\`)`;
+  } catch {
+    return `[${m.label}]`;
   }
 }
 
@@ -202,7 +354,7 @@ export function generateReadme(ctx: ExportContext, specs: ChartSpec[], symbol: s
   out.push(`# Power BI package · ${ds.source.fileName}`);
   out.push("");
   out.push(
-    `Generated by Loupe on ${ctx.generatedAt}. Domain: **${domain.name}${ctx.subDomain ? ` › ${ctx.subDomain.name}` : ""}**. ${ds.rowCount.toLocaleString("en-US")} rows, ${ds.columns.length} columns.`,
+    `Generated by Loupe on ${ctx.generatedAt}. Industry: **${domain.name}${ctx.subDomain ? ` › ${ctx.subDomain.name}` : ""}**. ${ds.rowCount.toLocaleString("en-US")} rows, ${ds.columns.length} columns.`,
   );
   out.push("");
   out.push("## Why there is no .pbix file");
@@ -298,6 +450,16 @@ export function generateReadme(ctx: ExportContext, specs: ChartSpec[], symbol: s
   out.push(
     `The \`${names.table}.SemanticModel/definition\` folder is a TMDL model. Before opening it, set the \`DataFile\` parameter in \`expressions.tmdl\` to the full path of \`data.csv\`.`,
   );
+  // The columns the model adds itself (Path A adds them by hand, as the steps and visuals say).
+  const added = [
+    ...(rel && ctx.dateColumn && rel !== (names.columns.get(ctx.dateColumn) ?? ctx.dateColumn) ? [rel] : []),
+    ...datePartColumnsFor(ctx, specs).map((c) => c.name),
+  ];
+  if (added.length)
+    out.push(
+      "",
+      `The model already has the ${added.length === 1 ? "column" : "columns"} that Path A and the visual list below have you add by hand: ${added.map((c) => `\`${c}\``).join(", ")}.`,
+    );
   out.push("");
   out.push(
     "- **Tabular Editor 2/3:** File → Open → From Folder → select the `definition` folder, then deploy or save to your model.",
@@ -361,7 +523,7 @@ export function generateReadme(ctx: ExportContext, specs: ChartSpec[], symbol: s
       out.push(`- Legend / rows: ${names.table}[${names.columns.get(s.series.column) ?? s.series.column}]`);
     if (s.series && s.series.kind === "part")
       out.push(`- Rows: ${datePartSource(s.series.column, s.series.part, ctx)}`);
-    out.push(`- Values: ${s.measures.map((m) => `[${names.measures.get(m.id) ?? m.label}]`).join(", ")}`);
+    out.push(`- Values: ${s.measures.map((m) => valueText(m, ctx)).join(", ")}`);
     if (s.topN)
       out.push(
         `- Filter: Top N = ${s.topN} by ${names.measures.get(s.measures[0]?.id ?? "") ?? s.measures[0]?.label}${s.others ? ` (Loupe also shows an "Others" ${s.kind === "donut" || s.kind === "pie" ? "slice" : s.kind === "treemap" ? "tile" : "bar"}; in Power BI use a group or leave it out)` : ""}`,

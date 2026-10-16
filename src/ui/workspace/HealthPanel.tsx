@@ -2,21 +2,27 @@
 
 /**
  * Data health and parse details. HealthPanel shows the 0–100 score, passed
- * checks and fixable issues. ParseReportPanel shows encoding, delimiter, header
- * row and how each date column was read (DD/MM or MM/DD, with the evidence),
- * plus a switch that re-reads the file with the other order when the evidence
- * was ambiguous.
+ * checks and fixable issues. ParseReportPanel shows encoding, delimiter, the
+ * header's line (or sheet row) and how each date column was read (DD/MM or
+ * MM/DD, with the evidence), plus DateOrderSwitch, which re-reads the file
+ * with the other order: straight away when nothing proves the order (no date
+ * is lost either way), after a yes that says how many dates would become
+ * blank when the order is proven or contested. The user's settings are kept
+ * across the re-read.
  */
 import { AlertTriangle, CheckCircle2, Info, XCircle } from "lucide-react";
 import type { HealthReport } from "@/engine/profile/quality";
-import type { ParseReport } from "@/engine/core/types";
-import { formatBytes, formatCount } from "@/engine/core/format";
+import type { DateFormatDecision, ParseReport } from "@/engine/core/types";
+import { formatBytes, formatCount, type NumberLocale } from "@/engine/core/format";
+import { blanksIfSwitched } from "@/engine/parse/dateOrder";
 import { useWorkspace } from "@/store/workspace";
 import { useSettings } from "@/store/settings";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/ui/primitives/badge";
 import { Button } from "@/ui/primitives/button";
+import { countOf, ordinal } from "@/ui/common/words";
 import { ConfidenceRing } from "./ConfidenceRing";
+import { askConfirm } from "./confirm";
 
 const SEVERITY = {
   critical: { icon: XCircle, tone: "text-danger", label: "Critical" },
@@ -72,6 +78,71 @@ export function HealthPanel({ health, compact = false }: { health: HealthReport;
   );
 }
 
+/**
+ * Re-reads the file with the other day/month order for one column. When some
+ * dates exist only in the order chosen (13/05/2019 has no 13th month), it
+ * first says how many would become blank and asks.
+ */
+export async function switchDateOrder(d: DateFormatDecision, locale: NumberLocale): Promise<void> {
+  if (!d.alternative) return;
+  const s = useWorkspace.getState();
+  const blanks = blanksIfSwitched(d) ?? 0;
+  if (blanks > 0) {
+    const col = s.profile?.columns.find((c) => c.name === d.column);
+    const filled = col ? (s.profile?.rowCount ?? 0) - col.nullCount : 0;
+    const share = filled
+      ? ` (${Math.round((blanks / filled) * 100)}% of ${formatCount(filled, locale)})`
+      : "";
+    const ok = await askConfirm({
+      title: `Read “${d.column}” as ${d.alternative}?`,
+      body: `${countOf(blanks, "date", locale)}${share} can only be ${d.format}: read as ${d.alternative} they are not real dates, so they would become blank.`,
+      note: "The file is read again; your industry, mappings, hidden columns, KPIs and charts are kept.",
+      confirmLabel: `Switch and blank ${countOf(blanks, "date", locale)}`,
+      cancelLabel: `Keep ${d.format}`,
+      tone: "danger",
+    });
+    if (!ok) return;
+  }
+  await s.setDateOrder(d.column, d.alternative.startsWith("MM") ? "MDY" : "DMY");
+}
+
+/** The button for switchDateOrder; nothing when the file can't be read again (a demo) or there is no other order. */
+export function DateOrderSwitch({
+  decision,
+  className,
+}: {
+  decision: DateFormatDecision;
+  className?: string;
+}) {
+  const canReload = useWorkspace((s) => Boolean(s.lastFile));
+  const busy = useWorkspace((s) => Boolean(s.loading));
+  const locale = useSettings((s) => s.numberLocale);
+  if (!decision.alternative || !canReload) return null;
+  const costly = (blanksIfSwitched(decision) ?? 0) > 0;
+  return (
+    <Button
+      size="xs"
+      variant={costly ? "ghost" : "outline"}
+      className={className}
+      disabled={busy}
+      onClick={() => void switchDateOrder(decision, locale)}
+    >
+      Use {decision.alternative}
+      {costly ? "…" : ""}
+    </Button>
+  );
+}
+
+/** Where the header was found, as the user would look for it: a line of a text file, a row of a sheet. */
+function headerPlace(report: ParseReport): string {
+  if (!report.headerDetected) return "None detected";
+  if (report.kind === "json") return "Keys of each record";
+  if (report.kind === "sample" || report.kind === "derived") return "Built in";
+  return report.kind === "csv" || report.kind === "tsv"
+    ? `Line ${report.headerRowIndex + 1}`
+    : `Row ${report.headerRowIndex + 1}`;
+}
+
 export function ParseReportPanel({
   report,
   timings,
@@ -79,8 +150,6 @@ export function ParseReportPanel({
   report: ParseReport;
   timings: Record<string, number>;
 }) {
-  const setDateOrder = useWorkspace((s) => s.setDateOrder);
-  const canReload = useWorkspace((s) => Boolean(s.lastFile));
   const locale = useSettings((s) => s.numberLocale);
   const facts: Array<[string, string]> = [
     ["File", report.fileName],
@@ -103,7 +172,7 @@ export function ParseReportPanel({
         ]
       : []),
     ...(report.sheet ? [["Sheet", report.sheet] as [string, string]] : []),
-    ["Header", report.headerDetected ? `Row ${report.headerRowIndex + 1}` : "None detected"],
+    ["Header", headerPlace(report)],
   ];
   const t = Object.entries(timings)
     .map(([k, v]) => `${k} ${v < 1000 ? `${v} ms` : `${(v / 1000).toFixed(1)} s`}`)
@@ -123,8 +192,10 @@ export function ParseReportPanel({
       {report.sampling ? (
         <p className="rounded-control border border-warning/30 bg-warning-soft px-3 py-2 text-ui text-fg">
           Sampled: {formatCount(report.sampling.keptRows, locale)} of about{" "}
-          {formatCount(report.sampling.estimatedTotalRows, locale)} rows (
-          {report.sampling.strategy === "systematic" ? `every ${report.sampling.every}th row` : "first rows"}
+          {countOf(report.sampling.estimatedTotalRows, "row", locale)} (
+          {report.sampling.strategy === "systematic" && report.sampling.every
+            ? `every ${ordinal(report.sampling.every)} row`
+            : "the first rows"}
           ). Totals describe the sample, not the whole file.
         </p>
       ) : null}
@@ -146,17 +217,7 @@ export function ParseReportPanel({
                   </p>
                   <p className="mt-0.5 text-ui text-fg-muted">{d.evidence}</p>
                 </div>
-                {d.alternative && canReload ? (
-                  <Button
-                    size="xs"
-                    variant="outline"
-                    onClick={() =>
-                      void setDateOrder(d.column, d.alternative?.startsWith("MM") ? "MDY" : "DMY")
-                    }
-                  >
-                    Use {d.alternative}
-                  </Button>
-                ) : null}
+                <DateOrderSwitch decision={d} />
               </li>
             ))}
           </ul>

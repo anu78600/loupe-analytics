@@ -2,7 +2,9 @@
 
 /**
  * "How this is calculated" for one KPI: definition, formula, the fields and
- * value meanings used, grain, filters and period, benchmark and pitfalls; a
+ * value meanings used, grain, filters and period, how it adds up (from the
+ * engine's reading of its definition: a sum, a distinct count, a balance, a
+ * count of new entities or a ratio), benchmark and pitfalls; a
  * time-intelligence tab (MTD, QTD, YTD, YoY, MoM, rolling windows, moving
  * average) computed in the worker; and the SQL and DAX with copy buttons. The
  * SQL is the card's own: the KPI over the card's period and filters, so it
@@ -12,7 +14,7 @@
 import * as React from "react";
 import { Check, Copy, Info, Loader2, TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
-import type { TimeIntelValue } from "@/engine/kpi/compute";
+import type { KpiAggregation, TimeIntelValue } from "@/engine/kpi/compute";
 import { formatDelta, formatPointDelta, formatValue } from "@/engine/core/format";
 import { formatRange } from "@/engine/core/dates";
 import { PRESET_LABEL } from "@/engine/core/periods";
@@ -28,6 +30,22 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/primitives/tabs";
 import { useFmt } from "@/ui/common/hooks";
 import { CodeLegend, HighlightedCode, languageOf } from "@/ui/common/code";
 import { DeltaChip } from "./KpiCards";
+
+/**
+ * How a KPI adds up, by the engine's reading of its definition
+ * (kpiAggregation, carried on the time intelligence's moving-average row).
+ */
+const AGGREGATION: Record<KpiAggregation, string> = {
+  additive: "Additive: a sum or a count, so its totals add up across segments and periods.",
+  distinct:
+    "A distinct count: someone in two segments or periods is counted in each, but once overall, so the parts can add up to more than the total. Recomputed for every period and segment, never summed.",
+  snapshot:
+    "Semi-additive: a balance read on the latest date of each period. It adds up across segments on one date, never across periods.",
+  firstDate:
+    "Counted by first-ever date: someone is new only in the period of their first record, so the value depends on the window it is read over. Recomputed for every period and segment, never summed.",
+  ratio:
+    "Not additive (a ratio or an average): recomputed from its own rows for every period and segment, never summed or averaged across them.",
+};
 
 /**
  * SQL or DAX in colour (ui/common/code.tsx), with what the colours mean and a
@@ -121,7 +139,14 @@ export function KpiDetails({ kpiId }: { kpiId: string }) {
 
   if (!context || !meta) return null;
   const period = preset === "custom" && custom ? formatRange(custom.from, custom.to) : PRESET_LABEL[preset];
-  const nonAdditive = ["percent", "ratio"].includes(meta.format) || /÷|per |rate|average/i.test(meta.formula);
+  // How the KPI adds up, from the engine (only this KPI's own answer, never the previous one's while
+  // a new request runs). Without it (no date column), a rate or ratio is still known not to add up.
+  const basis = ti?.key === tiKey ? ti.values.find((t) => t.key === "ma7")?.basis : undefined;
+  const aggregation = basis
+    ? AGGREGATION[basis]
+    : meta.format === "percent" || meta.format === "ratio"
+      ? AGGREGATION.ratio
+      : null;
   const inStrip =
     context.selection.hero.includes(kpiId) ||
     context.selection.supporting.includes(kpiId) ||
@@ -225,11 +250,7 @@ export function KpiDetails({ kpiId }: { kpiId: string }) {
               : "no filters"}{" "}
             · {period}
           </Row>
-          <Row label="Aggregation">
-            {nonAdditive
-              ? "A ratio: recomputed from its totals for every period and segment, never summed or averaged across rows."
-              : "Additive: totals can be summed across segments and periods."}
-          </Row>
+          {aggregation ? <Row label="Aggregation">{aggregation}</Row> : null}
           {meta.benchmark ? (
             <Row label="Indicative range">
               {meta.benchmark.low !== undefined && meta.benchmark.high !== undefined

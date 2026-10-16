@@ -15,6 +15,12 @@
  * cohort, basket, funnel) and "Others" are not clickable. Data arrives
  * through the workspace store; this component only renders it and
  * dispatches store actions.
+ *
+ * A PNG download is framed like a slide (title, takeaway, unit line, then
+ * the source and slice under the plot; chartImage.ts), so it says what it
+ * shows once it leaves the app. An empty chart offers to clear the filters
+ * when filters are what emptied it. The takeaway is never cut short on a
+ * phone, where its figures would be lost.
  */
 import * as React from "react";
 import {
@@ -38,8 +44,8 @@ import { bucketLabel, endOfBucket, formatRange, isoDate } from "@/engine/core/da
 import { formatCount, type NumberLocale } from "@/engine/core/format";
 import { UTF8_BOM } from "@/engine/export/csv";
 import { CHART_TYPES } from "@/engine/charts/catalogue";
-import { PRESET_LABEL } from "@/engine/core/periods";
-import { useWorkspace, type Widget } from "@/store/workspace";
+import { defaultPreset, PRESET_LABEL } from "@/engine/core/periods";
+import { isRosterView, useWorkspace, type Widget } from "@/store/workspace";
 import { engine } from "@/lib/engine-client";
 import { cn, downloadBlob, downloadDataUrl, exportFileName } from "@/lib/utils";
 import { Button } from "@/ui/primitives/button";
@@ -62,6 +68,9 @@ import { EChart, type ChartClick, type EChartHandle } from "./EChart";
 import { DataTable } from "./DataTable";
 import { buildOption, chartSubtitle, rendersWithECharts, type GeoTileDatum } from "./options";
 import { readChartTokens } from "./tokens";
+import { framedChartPng } from "./chartImage";
+import { deleteWithUndo } from "@/ui/workspace/customise/ChartList";
+import { chartProblem } from "@/ui/workspace/customise/brokenCharts";
 
 /** User-facing name of each chart kind (kind menus and labels). */
 /**
@@ -142,6 +151,17 @@ export function ChartCard({
   const setDatePreset = useWorkspace((s) => s.setDatePreset);
   const removeChart = useWorkspace((s) => s.removeChart);
   const caption = useCaption(data, fmt.locale);
+  const context = useWorkspace((s) => s.context);
+  const userKpis = useWorkspace((s) => s.customKpis);
+  const clearFilters = useWorkspace((s) => s.clearFilters);
+  // Whether clearing the filters would change what the chart is computed over: a dimension or
+  // cross-filter, or a period other than the one a fresh dashboard opens on.
+  const filtered = useWorkspace(
+    (s) =>
+      s.dimFilters.length > 0 ||
+      s.crossFilter !== null ||
+      s.datePreset !== (isRosterView(s.context) ? "all" : defaultPreset(s.context?.dateBounds ?? null)),
+  );
 
   const drillLevel = drillPath.length;
   const canDrill = Boolean(spec.drill && drillLevel < (spec.drill?.length ?? 0) - 1);
@@ -155,19 +175,23 @@ export function ChartCard({
   // When this chart is the cross-filter source it keeps all categories and highlights the chosen one.
   const sourceHighlight = crossFilter && crossFilter.sourceId === spec.id ? crossFilter.value : null;
 
-  // The chart's width in 40px steps, so category labels get the characters their slot holds
-  // without the option being rebuilt on every pixel of a resize.
-  const [width, setWidth] = React.useState<number | undefined>(undefined);
+  // The chart's size in 20px steps, so category labels get the characters (and bar names the
+  // rows) their slots hold, without the option being rebuilt on every pixel of a resize.
+  const [box, setBox] = React.useState<{ width: number; height: number } | undefined>(undefined);
   React.useEffect(() => {
     const el = bodyRef.current;
     if (!el) return;
     const ro = new ResizeObserver(([entry]) => {
-      const w = Math.round((entry?.contentRect.width ?? 0) / 40) * 40;
-      if (w) setWidth((prev) => (prev === w ? prev : w));
+      const width = Math.round((entry?.contentRect.width ?? 0) / 20) * 20;
+      const height = Math.round((entry?.contentRect.height ?? 0) / 20) * 20;
+      if (width && height)
+        setBox((prev) => (prev && prev.width === width && prev.height === height ? prev : { width, height }));
     });
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
+  const width = box?.width;
+  const height = box?.height;
 
   const subtitle = chartSubtitle(spec, data, fmt, kind);
 
@@ -184,8 +208,9 @@ export function ChartCard({
       highlight: sourceHighlight,
       animate,
       width,
+      height,
     });
-  }, [data, kind, spec, fmt, themeKey, sourceHighlight, animate, width]);
+  }, [data, kind, spec, fmt, themeKey, sourceHighlight, animate, width, height]);
 
   // Sets a date range picked on this chart. Undo puts back exactly the period
   // that was active before (named preset or custom range), not "all time".
@@ -243,21 +268,38 @@ export function ChartCard({
   // Single charts follow the export naming: "{dataset}_{chart title}_{date}.{ext}".
   const fileName = (ext: string, suffix = "") =>
     exportFileName(useWorkspace.getState().summary?.name, `${chartTitle}${suffix}`, ext);
+  // The plot (or the table view) framed like a slide: title, takeaway and unit above it, the file
+  // and the slice of it the chart shows below it.
   const exportPng = async (transparent: boolean) => {
     const name = fileName("png", transparent ? " transparent" : "");
+    const tokens = readChartTokens();
+    const background = transparent ? undefined : tokens.surface;
+    let image: string | null = null;
     if (option && chartRef.current && !tableView) {
-      const bg = readChartTokens().surface;
-      const url = chartRef.current.toPng({ transparent, background: bg });
-      if (url) downloadDataUrl(url, name);
-      return;
-    }
-    if (bodyRef.current) {
+      image = chartRef.current.toPng({ transparent, background: tokens.surface });
+    } else if (bodyRef.current) {
       const { toPng } = await import("html-to-image");
-      const url = await toPng(bodyRef.current, {
-        pixelRatio: 2,
-        backgroundColor: transparent ? undefined : readChartTokens().surface,
+      image = await toPng(bodyRef.current, { pixelRatio: 2, backgroundColor: background });
+    }
+    if (!image) return;
+    const file = useWorkspace.getState().summary?.fileName;
+    try {
+      const framed = await framedChartPng({
+        image,
+        scale: 2,
+        title: drillPath.length
+          ? `${chartTitle.replace(/ by [^›]+$/, "")} · ${drillPath.join(" › ")}`
+          : chartTitle,
+        headline: data && !data.empty ? data.headline : undefined,
+        subtitle: subtitle || undefined,
+        footer: `Source: ${file ? `${file} · ` : ""}${caption}`,
+        tokens,
+        background,
       });
-      downloadDataUrl(url, name);
+      downloadDataUrl(framed, name);
+    } catch {
+      // The plot on its own is still worth having if the frame can't be drawn.
+      downloadDataUrl(image, name);
     }
   };
 
@@ -291,6 +333,10 @@ export function ChartCard({
     : chartTitle;
   const showTable = tableView || (data && !rendersWithECharts(kind, data));
   const notes = data?.notes ?? [];
+  // Why one of the user's own charts can't be drawn (a hidden or missing column, a deleted KPI),
+  // in the same words as the Customise step's chart list.
+  const problem =
+    data?.empty && context && spec.source === "custom" ? chartProblem(spec, context, userKpis) : null;
 
   return (
     <section
@@ -328,9 +374,10 @@ export function ChartCard({
           </div>
           {/* What the chart says (its takeaway, computed from this data), then the unit: the title
               says what the chart is about, this line what it shows. */}
+          {/* Two lines on wider cards; on a phone it is never cut, so its figures are always read. */}
           {data?.headline && !data.empty ? (
             <p
-              className="mt-1 line-clamp-2 border-l-2 border-accent pl-2 text-ui leading-snug text-fg"
+              className="mt-1 border-l-2 border-accent pl-2 text-ui leading-snug text-fg sm:line-clamp-2"
               title={data.headline}
             >
               {data.headline}
@@ -448,7 +495,12 @@ export function ChartCard({
                   <DropdownMenuItem onSelect={() => select({ type: "chart", id: spec.id })}>
                     <SlidersHorizontal aria-hidden /> Edit in inspector
                   </DropdownMenuItem>
-                  <DropdownMenuItem onSelect={() => removeChart(spec.id)}>
+                  {/* Deleting one of the user's own charts can be undone from its toast, back in place. */}
+                  <DropdownMenuItem
+                    onSelect={() =>
+                      spec.source === "custom" ? deleteWithUndo(spec.id, chartTitle) : removeChart(spec.id)
+                    }
+                  >
                     <EyeOff aria-hidden /> {spec.source === "custom" ? "Delete chart" : "Hide chart"}
                   </DropdownMenuItem>
                 </>
@@ -464,7 +516,15 @@ export function ChartCard({
         ) : data.empty ? (
           <div className="flex h-full flex-col items-center justify-center gap-1 text-center">
             <Layers className="size-5 text-fg-subtle" aria-hidden />
-            <p className="text-ui text-fg-muted">{data.notes[0] ?? "No data for the current filters."}</p>
+            <p className="text-ui text-fg-muted">
+              {problem ?? data.notes[0] ?? "No data for the current filters."}
+            </p>
+            {/* When filters (or a narrower period) emptied it, the way back is one click. */}
+            {filtered && !problem ? (
+              <Button size="xs" variant="secondary" className="mt-2" onClick={clearFilters}>
+                Clear filters
+              </Button>
+            ) : null}
           </div>
         ) : showTable ? (
           <DataTable spec={spec} data={data} fmt={fmt} caption={chartTitle} />

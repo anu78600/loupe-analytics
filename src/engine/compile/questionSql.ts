@@ -5,23 +5,27 @@
  * same rows on DuckDB or PostgreSQL, against the table of the SQL export.
  *
  * Shape: one SELECT grouping by the question's key (a category column, a
- * DATE_TRUNC period, or a date part through EXTRACT), with the dashboard's
- * filters as WHERE, sorted (highest first by the first measure, or in time
- * order) and limited to the top N. Every measure is the KPI's own expression
- * (compile/sql.ts), so the numbers match the KPI cards' definitions:
+ * DATE_TRUNC period, or a date part through EXTRACT), with the filters (the
+ * dashboard's and the question's own) as WHERE, sorted (highest first by the
+ * first measure, or in time order) and limited to the top N. Every measure
+ * is the KPI's own expression (compile/sql.ts), so the numbers match the KPI
+ * cards' definitions:
  *  - simple measures (sums, counts, averages, ratios of them) share that one
  *    SELECT;
- *  - per-entity and latest-balance KPIs need CTEs, so each gets its own
- *    query (kpiQuery grouped by the same key) with the filtered rows in a
- *    `filtered` CTE;
+ *  - per-entity and latest-balance KPIs need CTEs (kpiQuery grouped by the
+ *    same key) with the filtered rows in a `filtered` CTE. Over time or
+ *    overall each gets its own query, which returns every period anyway; in
+ *    a ranking they are joined with the simple measures into one statement,
+ *    so the top N groups are the answer's, ranked by its first measure;
  *  - a KPI built on each entity's first date (new customers) has no exact
  *    per-category or filtered SQL; it is listed as skipped, with why, rather
  *    than approximated.
  *
  * Conventions mirror the engine: filters are inclusive and ANDed, blanks fail
  * date ranges, "(blank)" in an "in" filter means NULL, rows without a date
- * are left out of time groupings, and weekday is ISO (1 = Monday). Proven
- * equal to the engine in DuckDB by tests/questions.test.ts.
+ * are left out of time groupings, a blank category whose values are all
+ * blank or zero is left out (data.ts does, with a note), and weekday is ISO
+ * (1 = Monday). Proven equal to the engine in DuckDB by tests/questions.test.ts.
  */
 import { prettySql } from "./sqlFormat";
 import { wordLabels } from "@/engine/core/booleans";
@@ -190,53 +194,19 @@ export function questionSql(input: QuestionSqlInput, ds: Dataset, ctx: SqlContex
     else simple.push(m);
   }
 
-  const statements: string[] = [];
-  if (simple.length) {
-    const select = [
-      ...(keyExpr ? [`${keyExpr} AS ${keyAlias}`] : []),
-      ...simple.map((m) => `${simpleExprSql(m.expr, ctx)} AS ${quoteIdent(m.label)}`),
-    ];
-    statements.push(
-      [
-        `SELECT ${select.join(",\n       ")}`,
-        `FROM ${ctx.table}`,
-        ...(where.length ? [`WHERE ${where.join("\n  AND ")}`] : []),
-        ...(keyExpr ? ["GROUP BY 1"] : []),
-        ...(orderBy ? [orderBy] : []),
-        ...(limit ? [limit] : []),
-      ].join("\n") + ";",
-    );
-  }
-  for (const m of complex) {
-    // The filtered rows become a CTE so every part of the KPI (base and leaves) reads the same rows.
-    const filtered = where.length
-      ? `filtered AS (\n  SELECT * FROM ${ctx.table}\n  WHERE ${where.join("\n    AND ")}\n)`
-      : "";
-    const fctx: SqlContext = where.length ? { ...ctx, table: "filtered" } : ctx;
+  // The filtered rows become a CTE so every part of a complex KPI (base and leaves) reads the same rows.
+  const filtered = where.length
+    ? `filtered AS (\n  SELECT * FROM ${ctx.table}\n  WHERE ${where.join("\n    AND ")}\n)`
+    : "";
+  const fctx: SqlContext = where.length ? { ...ctx, table: "filtered" } : ctx;
+  /** A complex measure's own query (period, value), or null when it can't be grouped this way (then skipped). */
+  const innerOf = (m: QuestionMeasure): string | null => {
     try {
-      const inner =
-        key.kind === "none"
-          ? kpiQuery(m.expr, fctx)
-          : key.kind === "time"
-            ? kpiQuery(m.expr, fctx, { dateCol: ctx.col(`col:${key.column}`), grain: key.grain }, false)
-            : kpiQuery(m.expr, fctx, { dateCol: "", grain: "day", keySql: keyExpr as string }, false);
-      const merged = filtered
-        ? inner.startsWith("WITH ")
-          ? `WITH ${filtered},\n${inner.slice(5)}`
-          : `WITH ${filtered}\n${inner}`
-        : inner;
-      const indented = merged.replace(/\n/g, "\n  ");
-      statements.push(
-        [
-          `-- ${m.label}: computed per entity or on the latest date, so it has its own query`,
-          `SELECT ${keyExpr ? `period AS ${keyAlias}, ` : ""}value AS ${quoteIdent(m.label)}`,
-          `FROM (\n  ${indented}\n) AS q`,
-          ...(keyExpr
-            ? [ordered ? `ORDER BY 2 ${input.order === "asc" ? "ASC" : "DESC"} NULLS LAST` : "ORDER BY 1"]
-            : []),
-          ...(limit ? [limit] : []),
-        ].join("\n") + ";",
-      );
+      return key.kind === "none"
+        ? kpiQuery(m.expr, fctx)
+        : key.kind === "time"
+          ? kpiQuery(m.expr, fctx, { dateCol: ctx.col(`col:${key.column}`), grain: key.grain }, false)
+          : kpiQuery(m.expr, fctx, { dateCol: "", grain: "day", keySql: keyExpr as string }, false);
     } catch (e) {
       skipped.push({
         label: m.label,
@@ -245,6 +215,127 @@ export function questionSql(input: QuestionSqlInput, ds: Dataset, ctx: SqlContex
             ? e.message
             : "Its SQL couldn't be written for this question.",
       });
+      return null;
+    }
+  };
+  // A "(blank)" group whose values are all blank or zero is left out of the answer (it would be a label
+  // with no bar), so the SQL leaves it out too; it can only occur when the column has blanks.
+  const keyCol = key.kind === "column" ? cols.get(key.column) : undefined;
+  const blankable = Boolean(keyCol && hasBlank(keyCol));
+  const keepGroup = (keyRef: string, values: string[]) =>
+    `${keyRef} IS NOT NULL\n   OR ${values.map((v) => `COALESCE(${v}, 0) <> 0`).join("\n   OR ")}`;
+  const blankNote = `-- A blank ${input.keyLabel} with no value is left out, as in the answer.`;
+
+  const statements: string[] = [];
+  const inners = complex
+    .map((m) => ({ m, inner: innerOf(m) }))
+    .filter((x): x is { m: QuestionMeasure; inner: string } => x.inner !== null);
+  if (ordered && (inners.length > 1 || (inners.length && simple.length))) {
+    // A ranking with measures that need their own queries: one statement, so every measure comes back for
+    // the same groups, ranked by the answer's first measure and cut to its top N.
+    const src = where.length ? "filtered" : ctx.table;
+    const names = new Set<string>(["filtered", "answer_groups", "simple_measures"]);
+    const cteName = (label: string) => {
+      const base =
+        label
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "_")
+          .replace(/^_+|_+$/g, "") || "measure";
+      let name = /^\d/.test(base) ? `m_${base}` : base;
+      for (let i = 2; names.has(name); i++) name = `${base}_${i}`;
+      names.add(name);
+      return name;
+    };
+    const ctes = [
+      ...(filtered ? [filtered] : []),
+      `answer_groups AS (\n  SELECT DISTINCT ${keyExpr} AS period\n  FROM ${src}\n)`,
+      ...(simple.length
+        ? [
+            `simple_measures AS (\n  SELECT ${keyExpr} AS period,\n         ${simple.map((m) => `${simpleExprSql(m.expr, ctx)} AS ${quoteIdent(m.label)}`).join(",\n         ")}\n  FROM ${src}\n  GROUP BY 1\n)`,
+          ]
+        : []),
+    ];
+    const joins: string[] = [];
+    const valueOf = new Map<QuestionMeasure, string>();
+    for (const { m, inner } of inners) {
+      const name = cteName(m.label);
+      ctes.push(`${name} AS (\n  ${inner.replace(/\n/g, "\n  ")}\n)`);
+      joins.push(`LEFT JOIN ${name} ON ${name}.period IS NOT DISTINCT FROM g.period`);
+      valueOf.set(m, `${name}.value`);
+    }
+    if (simple.length) joins.push("LEFT JOIN simple_measures AS s ON s.period IS NOT DISTINCT FROM g.period");
+    for (const m of simple) valueOf.set(m, `s.${quoteIdent(m.label)}`);
+    // In the answer's order, so the first measure is column 2 and ranks the rows.
+    const shown = input.measures.filter((m) => valueOf.has(m));
+    const first = input.measures[0];
+    statements.push(
+      [
+        first && !valueOf.has(first)
+          ? `-- Ranked by ${shown[0]?.label}: the answer ranks by ${first.label}, which has no SQL here.`
+          : `-- Ranked by ${shown[0]?.label}, as the answer is; each measure keeps its own definition.`,
+        ...(blankable ? [blankNote] : []),
+        `WITH ${ctes.join(",\n")}`,
+        `SELECT g.period AS ${keyAlias},\n       ${shown.map((m) => `${valueOf.get(m)} AS ${quoteIdent(m.label)}`).join(",\n       ")}`,
+        "FROM answer_groups AS g",
+        ...joins,
+        ...(blankable
+          ? [
+              `WHERE ${keepGroup(
+                "g.period",
+                shown.map((m) => valueOf.get(m) as string),
+              )}`,
+            ]
+          : []),
+        orderBy,
+        ...(limit ? [limit] : []),
+      ].join("\n") + ";",
+    );
+  } else {
+    if (simple.length) {
+      const select = [
+        ...(keyExpr ? [`${keyExpr} AS ${keyAlias}`] : []),
+        ...simple.map((m) => `${simpleExprSql(m.expr, ctx)} AS ${quoteIdent(m.label)}`),
+      ];
+      const grouped = [
+        `SELECT ${select.join(",\n       ")}`,
+        `FROM ${ctx.table}`,
+        ...(where.length ? [`WHERE ${where.join("\n  AND ")}`] : []),
+        ...(keyExpr ? ["GROUP BY 1"] : []),
+      ].join("\n");
+      statements.push(
+        (blankable
+          ? [
+              blankNote,
+              "SELECT *",
+              `FROM (\n  ${grouped.replace(/\n/g, "\n  ")}\n) AS answer`,
+              `WHERE ${keepGroup(
+                keyAlias,
+                simple.map((m) => quoteIdent(m.label)),
+              )}`,
+              orderBy,
+              ...(limit ? [limit] : []),
+            ]
+          : [grouped, ...(orderBy ? [orderBy] : []), ...(limit ? [limit] : [])]
+        ).join("\n") + ";",
+      );
+    }
+    for (const { m, inner } of inners) {
+      const merged = filtered
+        ? inner.startsWith("WITH ")
+          ? `WITH ${filtered},\n${inner.slice(5)}`
+          : `WITH ${filtered}\n${inner}`
+        : inner;
+      statements.push(
+        [
+          `-- ${m.label}: computed per entity or on the latest date, so it has its own query`,
+          ...(blankable ? [blankNote] : []),
+          `SELECT ${keyExpr ? `period AS ${keyAlias}, ` : ""}value AS ${quoteIdent(m.label)}`,
+          `FROM (\n  ${merged.replace(/\n/g, "\n  ")}\n) AS q`,
+          ...(blankable ? [`WHERE ${keepGroup("period", ["value"])}`] : []),
+          ...(keyExpr ? [orderBy] : []),
+          ...(limit ? [limit] : []),
+        ].join("\n") + ";",
+      );
     }
   }
   if (!statements.length) return { sql: "", skipped };
@@ -257,4 +348,11 @@ export function questionSql(input: QuestionSqlInput, ds: Dataset, ctx: SqlContex
     ...skipped.map((s) => `-- Not in SQL: ${s.label}. ${s.reason}`),
   ];
   return { sql: `${header.join("\n")}\n\n${statements.map((st) => prettySql(st)).join("\n\n")}`, skipped };
+}
+
+/** True when the column has a blank cell (a null code, NaN or -1), so a "(blank)" group can occur. */
+function hasBlank(col: Column): boolean {
+  if (col.kind === "string") return col.codes.includes(-1);
+  if (col.kind === "boolean") return col.values.includes(-1);
+  return col.values.some((v) => v !== v);
 }

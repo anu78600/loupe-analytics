@@ -38,6 +38,59 @@ export function detectEncoding(bytes: Uint8Array): TextEncodingName {
   }
 }
 
+/** What a file's first bytes say it is, when that is not text (see binaryKind). */
+export type BinaryKind = "pdf" | "image" | "zip" | "office" | "binary";
+
+const startsWith = (bytes: Uint8Array, sig: readonly number[]): boolean =>
+  bytes.length >= sig.length && sig.every((b, i) => bytes[i] === b);
+
+/**
+ * Recognises files that are not text, from their first bytes: a PDF, an
+ * image, a zip-based file (an .xlsx, .docx or .zip), an old Office file
+ * (.xls, .doc), or anything else holding NUL bytes or many control
+ * characters. Null when the bytes read as text; UTF-16 with a byte-order mark
+ * is text even though half its bytes are NUL.
+ */
+export function binaryKind(bytes: Uint8Array): BinaryKind | null {
+  if (startsWith(bytes, [0x25, 0x50, 0x44, 0x46, 0x2d])) return "pdf";
+  if (
+    startsWith(bytes, [0x89, 0x50, 0x4e, 0x47]) ||
+    startsWith(bytes, [0xff, 0xd8, 0xff]) ||
+    startsWith(bytes, [0x47, 0x49, 0x46, 0x38]) ||
+    (startsWith(bytes, [0x52, 0x49, 0x46, 0x46]) && startsWith(bytes.subarray(8), [0x57, 0x45, 0x42, 0x50]))
+  )
+    return "image";
+  if (startsWith(bytes, [0x50, 0x4b, 0x03, 0x04])) return "zip";
+  if (startsWith(bytes, [0xd0, 0xcf, 0x11, 0xe0])) return "office";
+  if (startsWith(bytes, [0xff, 0xfe]) || startsWith(bytes, [0xfe, 0xff])) return null;
+  const head = bytes.subarray(0, 8192);
+  let control = 0;
+  for (const b of head) {
+    if (b === 0) return "binary";
+    // Tab, line feed, form feed and carriage return are text; other C0 controls are not.
+    if (b < 0x20 && b !== 0x09 && b !== 0x0a && b !== 0x0c && b !== 0x0d) control++;
+  }
+  return head.length && control / head.length > 0.05 ? "binary" : null;
+}
+
+/** The user-facing reason a file of `kind` (named `fileName`) cannot be read as a table. */
+export function binaryMessage(kind: BinaryKind, fileName: string): string {
+  const ext = /\.([^.]+)$/.exec(fileName)?.[1]?.toLowerCase();
+  const named = ext ? ` It is named ".${ext}", but its contents are not a text table.` : "";
+  switch (kind) {
+    case "pdf":
+      return `This is a PDF, not a table.${named} Export the table to CSV or Excel from where it came from (or copy it into a spreadsheet) and upload that.`;
+    case "image":
+      return `This is an image, not a table.${named} Upload the data itself as CSV, Excel or JSON.`;
+    case "zip":
+      return `This is a zip-based file, such as an Excel workbook, a Word document or a zip archive.${named} If it is an Excel workbook, give it the .xlsx extension and upload it again.`;
+    case "office":
+      return `This is an older Office file (Excel 97–2003 or Word).${named} If it is a workbook, give it the .xls extension and upload it again.`;
+    case "binary":
+      return `This file holds binary data, not text, so it can't be read as a table.${named} Upload a CSV, TSV, Excel or JSON file.`;
+  }
+}
+
 /** Delimiters tried, in order; on an equal score the earlier one wins. */
 const CANDIDATES = [",", "\t", ";", "|"] as const;
 
@@ -111,10 +164,14 @@ export interface HeaderDetection {
  *
  * Looks at the first 60 rows. The candidate is the first row at least 80% as
  * wide as the usual width with at least 60% non-blank cells. It is a header
- * when ≥ 80% of its cells are text, the labels are unique (case-insensitive),
- * and some text label sits above a column whose non-blank cells in the next
- * 25 rows are ≥ 80% numbers or dates, or the body has no numbers or dates at
- * all. A candidate with no rows below it counts as a header.
+ * when ≥ 80% of its non-blank cells are text, its labels are distinct
+ * (case-insensitive) apart from at most one repeat in four, and some text
+ * label sits above a column whose non-blank cells in the next 25 rows are
+ * ≥ 80% numbers or dates, or the body has no numbers or dates at all. Blank
+ * cells (Excel's trailing commas, an unnamed column) and the odd repeated
+ * label ("Amount, Amount") don't stop a row being the header: cleanHeaders
+ * names and numbers them. A candidate with no rows below it counts as a
+ * header.
  */
 export function detectHeader(rows: readonly string[][]): HeaderDetection {
   const head = rows.slice(0, 60);
@@ -133,7 +190,9 @@ export function detectHeader(rows: readonly string[][]): HeaderDetection {
     return { headerIndex: idx, hasHeader: true, columnCount: Math.max(width, candidate.length) };
 
   const headerKinds = candidate.map((c) => cellKind(c));
-  const distinct = new Set(candidate.map((c) => c.trim().toLowerCase())).size;
+  // Labels are compared without the blank cells, which say nothing either way.
+  const labels = candidate.map((c) => c.trim().toLowerCase()).filter(Boolean);
+  const repeats = labels.length - new Set(labels).size;
   // Share of the column below that holds numbers (dates excluded), for period labels.
   const numericBelow = (j: number): number => {
     const kinds = body.map((r) => cellKind(r[j] ?? "")).filter((k) => k !== "empty");
@@ -169,8 +228,10 @@ export function detectHeader(rows: readonly string[][]): HeaderDetection {
     )
       typeContrast++;
   }
-  const mostlyText = textCells / Math.max(1, candidate.length) >= 0.8;
-  const unique = distinct === candidate.length;
+  const filled = headerKinds.filter((k) => k !== "empty").length;
+  const mostlyText = filled > 0 && textCells / filled >= 0.8;
+  // A header may repeat a label now and then; a row of data repeats its text far more often.
+  const unique = labels.length > 0 && repeats <= Math.floor(labels.length / 4);
   // Labels: mostly text, unique, and typed columns underneath (or no typed columns at all).
   const bodyHasTyped = candidate.some((_, j) =>
     body.some((r) => {

@@ -4,8 +4,13 @@
  * by weekday and by hour, with the dashboard's filters as WHERE, for simple
  * KPIs, column aggregates, per-entity KPIs (repeat rate) and latest-balance
  * KPIs (MRR). KPIs counted by first-ever date (new customers) are listed as
- * skipped rather than approximated. Also checks how questions are read and
- * that every suggested question can be answered.
+ * skipped rather than approximated. Also checks how questions are read: a
+ * value, period or status named becomes a filter (never ignored, never a
+ * hidden column's), a KPI named is kept, words nothing matches are reported
+ * instead of answering another question, and typing a suggested question
+ * reads to the ask clicking it sends, on every demo. And that the SQL keeps
+ * the answer's groups (a ranking led by a per-entity KPI, an empty blank
+ * group) and the answer's sentence reads like an analyst's.
  */
 import { afterAll, describe, expect, it } from "vitest";
 import type { DuckDBConnection } from "@duckdb/node-api";
@@ -20,6 +25,7 @@ import {
 import { presetRange } from "@/engine/core/periods";
 import type { Filter } from "@/engine/query/filter";
 import type { ExportContext } from "@/engine/export/context";
+import { SAMPLES } from "@/engine/samples/catalog";
 import { close, loadIntoDuckDB } from "./helpers/duck";
 
 const connections: DuckDBConnection[] = [];
@@ -320,4 +326,239 @@ describe("reading business questions", async () => {
     });
     expect(read("Show me the bottom 3 sales reps by revenue").order).toBe("asc");
   });
+
+  it("keeps a KPI whose name holds 'per', 'average' or 'value' rather than a column", () => {
+    const kpi = (name: string) => (ctx.kpis.find((k) => k.name === name) as { id: string }).id;
+    expect(read("average invoice value by region").ask).toEqual({
+      measures: [{ kind: "kpi", id: kpi("Average invoice value") }],
+      by: { kind: "column", column: "Region" },
+    });
+    expect(read("revenue per customer by segment").ask).toEqual({
+      measures: [{ kind: "kpi", id: kpi("Revenue per customer") }],
+      by: { kind: "column", column: "Customer Segment" },
+    });
+  });
+
+  it("reads a value named in the question as a filter, with the column named beside it", () => {
+    const r = read("What is the revenue in the South region?");
+    expect(r.unmatched).toEqual([]);
+    expect(r.ask.by).toEqual({ kind: "none" });
+    expect(r.ask.filters).toEqual([{ kind: "in", column: "Region", values: ["South"] }]);
+    expect(read("revenue for enterprise customers by region").ask).toMatchObject({
+      by: { kind: "column", column: "Region" },
+      filters: [{ kind: "in", column: "Customer Segment", values: ["Enterprise"] }],
+    });
+    expect(read("revenue for enterprise customers by region").unmatched).toEqual([]);
+  });
+});
+
+/** The statements of an answer's SQL, without comment lines. */
+const sqlStatements = (sql: string) =>
+  sql
+    .split(/;\s*(?:\n|$)/)
+    .map((x) =>
+      x
+        .split("\n")
+        .filter((l) => !l.trim().startsWith("--"))
+        .join("\n")
+        .trim(),
+    )
+    .filter(Boolean);
+
+describe("questions that name values, periods and statuses (e-commerce)", async () => {
+  const { s, ctx, conn, ask } = await setup("ecommerce");
+  const date = ctx.dateColumn as string;
+  const actx = ctx as AskContext;
+  const card = (filters: Filter[], id = "net_revenue") =>
+    s.kpiBatch(filters, [id], "INTL").values[0]?.value ?? null;
+  const year2026: Filter = {
+    kind: "dateRange",
+    column: date,
+    from: Date.UTC(2026, 0, 1),
+    to: Date.UTC(2027, 0, 1) - 1,
+  };
+
+  it("answers for the value or period named, never over every row", async () => {
+    const cases: Array<[string, Filter[]]> = [
+      [
+        "What is the net revenue in Maharashtra?",
+        [{ kind: "in", column: "Customer State", values: ["Maharashtra"] }],
+      ],
+      ["What is net revenue for Apparel?", [{ kind: "in", column: "Category", values: ["Apparel"] }]],
+      ["Net revenue where channel is Website", [{ kind: "in", column: "Channel", values: ["Website"] }]],
+      ["net revenue in 2026", [year2026]],
+    ];
+    for (const [q, filters] of cases) {
+      const { reading, answer } = ask(q);
+      expect(reading.unmatched, q).toEqual([]);
+      expect(reading.ask.measures, q).toEqual([{ kind: "kpi", id: "net_revenue" }]);
+      expect(reading.ask.filters, q).toEqual(filters);
+      expect(answer.filters, q).toEqual(filters);
+      // The dashboard's Net revenue under the same filter, and the SQL agrees in DuckDB.
+      expect(answer.rows[0]?.values[0] as number, q).toBeCloseTo(card(filters) as number, 2);
+      expect(answer.rows[0]?.values[0] as number, q).toBeLessThan(card([]) as number);
+      await expectSqlMatches(conn, answer);
+    }
+  });
+
+  it("counts the status named", async () => {
+    const { reading, answer } = ask("How many orders were cancelled?");
+    expect(reading.ask).toEqual({
+      measures: [{ kind: "kpi", id: "orders" }],
+      by: { kind: "none" },
+      filters: [{ kind: "in", column: "Order Status", values: ["Cancelled"] }],
+    });
+    expect(reading.notes).toEqual([]);
+    expect(answer.rows[0]?.values[0]).toBe(card(reading.ask.filters ?? [], "orders"));
+    await expectSqlMatches(conn, answer);
+  });
+
+  it("ranks within the period named", async () => {
+    const { reading, answer } = ask("Which state has the highest net revenue in September 2026?");
+    expect(reading.ask).toEqual({
+      measures: [{ kind: "kpi", id: "net_revenue" }],
+      by: { kind: "column", column: "Customer State" },
+      filters: [
+        { kind: "dateRange", column: date, from: Date.UTC(2026, 8, 1), to: Date.UTC(2026, 9, 1) - 1 },
+      ],
+    });
+    await expectSqlMatches(conn, answer);
+  });
+
+  it("uses the question's period instead of the dashboard's, and says so", () => {
+    const last12m: Filter = {
+      kind: "dateRange",
+      column: date,
+      from: Date.UTC(2025, 9, 1),
+      to: Date.UTC(2026, 9, 1) - 1,
+    };
+    const reading = readQuestion("net revenue in 2026", actx);
+    const a = s.answerQuestion(
+      {
+        id: "p",
+        question: "net revenue in 2026",
+        understood: "",
+        notes: [],
+        ask: reading.ask,
+        order: "desc",
+        filters: [last12m],
+      },
+      "INTL",
+    );
+    expect(a.filters).toEqual([year2026]);
+    expect(a.notes.join(" ")).toMatch(/names its own Order Date, used instead of the dashboard's/);
+  });
+
+  it("names the words it can't place instead of answering another question", () => {
+    expect(readQuestion("Total net revenue by warehouse", actx).unmatched).toEqual(["warehouse"]);
+    expect(readQuestion("asdkjh qwe zzz", actx).unmatched).toEqual(["asdkjh qwe zzz"]);
+    expect(readQuestion("net revenue in 2024 and 2026", actx).unmatched).toEqual(["2026"]);
+    const board = readQuestion(
+      "I would like to understand, for the purposes of the quarterly board meeting that our chief executive officer is going to chair next Tuesday afternoon in the main conference room, which of the many different sales channels that we currently operate across the country has been generating the highest total net revenue for the business over the whole of the period covered by this particular file",
+      actx,
+    );
+    expect(board.unmatched.length).toBeGreaterThan(0);
+  });
+
+  it("reads date parts typed in full, and the other suggested forms", () => {
+    const by = (q: string) => readQuestion(q, actx).ask.by;
+    expect(by("orders by day of the week")).toEqual({ kind: "part", column: date, part: "dow" });
+    expect(by("net revenue by hour of the day")).toEqual({ kind: "part", column: date, part: "hour" });
+    expect(by("net revenue by month of year")).toEqual({ kind: "part", column: date, part: "month" });
+    expect(by("net revenue by day of month")).toEqual({ kind: "part", column: date, part: "dom" });
+    expect(readQuestion("At what hour of the day is gross sales highest?", actx).ask).toEqual({
+      measures: [{ kind: "kpi", id: "gross_sales" }],
+      by: { kind: "part", column: date, part: "hour" },
+    });
+    expect(readQuestion("How do categories compare on discounts?", actx).ask).toEqual({
+      measures: [{ kind: "kpi", id: "discounts" }],
+      by: { kind: "column", column: "Category" },
+    });
+  });
+
+  it("keeps a KPI named in the question", () => {
+    expect(readQuestion("What is the average order value?", actx).ask).toEqual({
+      measures: [{ kind: "kpi", id: "aov" }],
+      by: { kind: "none" },
+    });
+    expect(readQuestion("How has net revenue changed month by month?", actx).ask).toEqual({
+      measures: [{ kind: "kpi", id: "net_revenue" }],
+      by: { kind: "time", column: date, grain: "month" },
+    });
+  });
+
+  it("leaves an empty blank group out of the answer and of its SQL alike", async () => {
+    for (const q of ["net revenue by courier", "Which courier has the lowest net revenue?"]) {
+      const { answer } = ask(q);
+      expect(
+        answer.rows.some((r) => r.raw === null),
+        q,
+      ).toBe(false);
+      expect(answer.sql, q).toMatch(/A blank Courier with no value is left out/);
+      await expectSqlMatches(conn, answer);
+    }
+  });
+
+  it("returns the answer's own groups when the first measure needs its own query", async () => {
+    const { answer } = ask("repeat purchase rate and orders by state");
+    expect(answer.measures.map((m) => m.id)).toEqual(["repeat_rate", "orders"]);
+    const statements = sqlStatements(answer.sql);
+    expect(statements).toHaveLength(1);
+    const rows = (await conn.runAndReadAll(statements[0] as string)).getRowObjectsJson();
+    expect(rows.map((r) => r["Customer State"])).toEqual(answer.rows.map((r) => r.label));
+    await expectSqlMatches(conn, answer);
+  });
+
+  it("writes its answer the way an analyst would", () => {
+    expect(ask("orders by day of the week").answer.headline).toMatch(
+      /^Orders are highest on [A-Z][a-z]+day \([\d,]+\) and lowest on [A-Z][a-z]+day \([\d,]+\)\.$/,
+    );
+    const trend = ask("How has net revenue changed month by month?").answer.headline;
+    expect(trend).toMatch(/^Net revenue: (up|down|flat)/);
+    expect(trend).not.toMatch(/latest period/);
+    // Money in a sentence is compact; a blank group never leads.
+    expect(ask("What is the net revenue in Maharashtra?").answer.headline).toMatch(
+      /^Net revenue: ₹[\d.]+[KMB]$/,
+    );
+    expect(ask("orders by return reason").answer.headline).not.toMatch(/^\(blank\)/);
+    // Zero throughout: no group "has the highest" of nothing.
+    expect(ask("net revenue by state for cancelled orders").answer.headline).toBe(
+      "Net revenue is ₹0 for every customer state in these rows.",
+    );
+    // A split is left out of an answer, so "Read as" doesn't claim it.
+    const split = readQuestion("net revenue by state split by channel", actx);
+    expect(split.understood).toBe("Net revenue by Customer State");
+    expect(split.notes.join(" ")).toMatch(/split by Channel is left out/);
+  });
+
+  it("never reads a value of a hidden column", () => {
+    const h = new Session();
+    h.ingestSample("ecommerce");
+    const hctx = h.configure({
+      domainId: "ecommerce",
+      numberLocale: "INTL",
+      currency: null,
+      hiddenColumns: ["Channel"],
+    });
+    const r = readQuestion("Net revenue where channel is Website", hctx as AskContext);
+    expect(r.ask.filters ?? []).toEqual([]);
+    expect(r.unmatched.length).toBeGreaterThan(0);
+  });
+});
+
+describe("typing a suggested question", () => {
+  for (const sample of SAMPLES)
+    it(`reads to the same request as clicking it, on ${sample.id}`, () => {
+      const t = new Session();
+      if (t.ingestSample(sample.id).status !== "ok") throw new Error(sample.id);
+      const c = t.configure({ domainId: sample.domain, numberLocale: "INTL", currency: null }) as AskContext;
+      const suggested = suggestQuestions(c);
+      expect(suggested.length).toBeGreaterThan(3);
+      for (const q of suggested) {
+        const r = readQuestion(q.text, c);
+        expect(r.unmatched, q.text).toEqual([]);
+        expect(r.ask, q.text).toEqual(q.ask);
+        expect(r.order, q.text).toBe(q.order);
+      }
+    });
 });

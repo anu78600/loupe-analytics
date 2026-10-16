@@ -237,10 +237,23 @@ function countWhere(col: Column, test: (v: number) => boolean): { count: number;
  * Spelling-variant key: lower-cased, runs of spaces, dots, underscores and
  * hyphens → one space, other punctuation removed (Unicode-aware), trimmed.
  * "New-Delhi", "new delhi" and "New Delhi." share a key.
+ *
+ * Signs are read as words first, because they change the meaning: "A+" and
+ * "A-" are different blood groups, "<5" and ">5" different bands, "-5" is not
+ * "5". A minus is a hyphen at the end of the value (after its letters or
+ * digits) or one before a number with nothing in front of it; a hyphen inside
+ * a name ("New-Delhi", "18-25") stays a separator.
  */
-function normalizeCategory(s: string): string {
+export function normalizeCategory(s: string): string {
   return s
     .toLowerCase()
+    .trim()
+    .replace(/\+/g, " plus ")
+    .replace(/−|-(?=[^\p{L}\p{N}]*$)|(?<![\p{L}\p{N}])-(?=\d)/gu, " minus ")
+    .replace(/≤/g, " at most ")
+    .replace(/≥/g, " at least ")
+    .replace(/</g, " under ")
+    .replace(/>/g, " over ")
     .replace(/[\s._-]+/g, " ")
     .replace(/[^\p{L}\p{N} ]/gu, "")
     .trim();

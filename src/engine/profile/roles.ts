@@ -231,6 +231,12 @@ const SEMI_ADDITIVE = new Set([
   "payable",
   "backlog",
 ]);
+/**
+ * Rate words whose value is a share of a whole (clicks of impressions, rooms
+ * occupied of rooms): stored as fractions between 0 and 1 they are
+ * percentages. Scores, averages and multipliers (ROAS) are not shares.
+ */
+const SHARE_RATE_TOKENS = new Set(["rate", "ratio", "ctr", "cvr", "utilization", "utilisation", "occupancy"]);
 /** Ratios, averages and scores: averaged, never summed. */
 const RATE_TOKENS = new Set([
   "rate",
@@ -600,9 +606,10 @@ function numericRole(x: RoleInput): RoleDecision {
       percentScale: 100,
     });
   }
-  // Rates, averages and scores are never summed; a fractional 0–1 "rate"/"ratio" is shown as a percentage.
+  // Rates, averages and scores are never summed; a fractional 0–1 share ("rate", "ratio", or a rate
+  // abbreviation such as CTR) is shown as a percentage, so a CTR of 0.12 reads 12%, not 0.12.
   if (has(t, RATE_TOKENS) && !has(t, ADDITIVE_OVERRIDE)) {
-    if (s && min >= 0 && max <= 1 && !integer && (t.includes("rate") || t.includes("ratio"))) {
+    if (s && min >= 0 && max <= 1 && !integer && has(t, SHARE_RATE_TOKENS)) {
       return decide("percentage", 0.8, "A rate stored as a fraction between 0 and 1.", {
         additivity: "non-additive",
         percentScale: 1,

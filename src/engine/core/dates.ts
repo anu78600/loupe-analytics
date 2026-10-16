@@ -232,8 +232,12 @@ export function formatDay(t: number): string {
   return `${d.getUTCDate()} ${MONTHS_SHORT[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
 }
 
-/** Compact range that drops a repeated month/year: "3–17 Jan 2025", "3 Jan – 2 Feb 2025". */
+/**
+ * Compact range that drops a repeated month/year: "3–17 Jan 2025", "3 Jan – 2 Feb 2025".
+ * A range within one day is that day ("30 Sep 2026"), never "30–30 Sep 2026".
+ */
 export function formatRange(from: number, to: number): string {
+  if (startOfDay(from) === startOfDay(to)) return formatDay(from);
   const a = new Date(from);
   const b = new Date(to);
   if (a.getUTCFullYear() === b.getUTCFullYear()) {

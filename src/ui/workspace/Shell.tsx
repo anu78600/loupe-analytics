@@ -4,7 +4,8 @@
  * Workspace chrome: the top bar (wordmark, dataset summary, the step
  * Stepper, command palette and settings buttons) and step gating. Every step
  * after Upload needs a dataset; opening Check & map or a later step first
- * builds the analysis for the chosen industry (the store's setStep).
+ * builds the analysis for the chosen industry (the store's setStep). "Start
+ * over" asks first, since it drops the dataset and everything set up for it.
  */
 import * as React from "react";
 import Link from "next/link";
@@ -12,7 +13,6 @@ import { Check, Command, Database, RotateCcw, Settings2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { STEPS, useWorkspace, type Step } from "@/store/workspace";
 import { useSettings } from "@/store/settings";
-import { formatCount } from "@/engine/core/format";
 import { cn, isMac } from "@/lib/utils";
 import { LoupeMark, Wordmark } from "@/ui/brand/logo";
 import { Badge } from "@/ui/primitives/badge";
@@ -20,12 +20,63 @@ import { Button } from "@/ui/primitives/button";
 import { Kbd } from "@/ui/primitives/misc";
 import { Tooltip } from "@/ui/primitives/tooltip";
 import { ThemeToggle } from "@/ui/common/theme-toggle";
+import { countOf } from "@/ui/common/words";
+import { SAMPLES } from "@/engine/samples/catalog";
+import { askConfirm } from "./confirm";
 
-function stepEnabled(step: Step, hasData: boolean, hasDomain: boolean): boolean {
+/** Whether a step can be opened: Upload always; Detect and Check & map with data; the rest once an industry is chosen. */
+export function stepEnabled(step: Step, hasData: boolean, hasDomain: boolean): boolean {
   if (step === "upload") return true;
   if (!hasData) return false;
   if (step === "detect" || step === "map") return true;
   return hasDomain;
+}
+
+/**
+ * Opens a demo (from a link, the command palette or the demo cards), on
+ * `goTo` when given. The store outlives a visit to the landing page, so the
+ * demo may already be open: a link then only changes the step, keeping what
+ * was set up for it, while `fresh` (an explicit "load this demo") loads it
+ * again. Another demo is simply replaced; the user's own file only after a
+ * yes.
+ */
+export async function openDemo(id: string, goTo?: Step, fresh = false): Promise<void> {
+  const info = SAMPLES.find((s) => s.id === id);
+  if (!info) return;
+  const ws = useWorkspace.getState();
+  if (!fresh && ws.summary?.sampleId === id) {
+    if (goTo) ws.setStep(goTo);
+    return;
+  }
+  if (ws.summary && !ws.summary.isDemo) {
+    const ok = await askConfirm({
+      title: `Open the “${info.name}” demo?`,
+      body: `It replaces ${ws.summary.fileName} and everything you set up for it in this tab.`,
+      note: "Your file itself stays on your computer, so you can upload it again at any time.",
+      confirmLabel: "Open the demo",
+      cancelLabel: "Keep my file",
+      tone: "danger",
+    });
+    if (!ok) return;
+  }
+  await useWorkspace.getState().loadSample(id, { goTo });
+}
+
+/** "Start over", after a yes: it drops the dataset and everything set up for it. */
+export async function confirmStartOver(): Promise<void> {
+  const s = useWorkspace.getState();
+  if (!s.summary) return;
+  const ok = await askConfirm({
+    title: "Start over?",
+    body: s.summary.isDemo
+      ? "This closes the demo and everything you set up for it: the industry, mappings, KPIs, charts and questions."
+      : `This clears ${s.summary.fileName} from memory with everything you set up for it: the industry, mappings, hidden columns, KPIs, charts and questions.`,
+    note: s.summary.isDemo ? undefined : "Your file itself stays on your computer.",
+    confirmLabel: "Start over",
+    cancelLabel: "Keep working",
+    tone: "danger",
+  });
+  if (ok) useWorkspace.getState().startOver();
 }
 
 /**
@@ -34,7 +85,10 @@ function stepEnabled(step: Step, hasData: boolean, hasDomain: boolean): boolean 
  * every label from xl, only the current step's label below that (the others
  * keep their number, a tooltip and their name for screen readers). If it
  * still doesn't fit, the row scrolls and keeps the current step in view; it
- * never pushes the buttons beside it off the screen.
+ * never pushes the buttons beside it off the screen. On phones the steps sit
+ * closer and the row's edges fade, so a step half out of view reads as "more
+ * this way" rather than as a number cut in two, and the current step is
+ * scrolled to the middle.
  */
 export function Stepper() {
   const step = useWorkspace((s) => s.step);
@@ -44,11 +98,12 @@ export function Stepper() {
   const currentIndex = STEPS.findIndex((s) => s.id === step);
   const activeRef = React.useRef<HTMLButtonElement>(null);
   React.useEffect(() => {
-    activeRef.current?.scrollIntoView({ block: "nearest", inline: "nearest" });
+    const narrow = window.matchMedia("(max-width: 639px)").matches;
+    activeRef.current?.scrollIntoView({ block: "nearest", inline: narrow ? "center" : "nearest" });
   }, [step]);
   return (
     <nav aria-label="Workspace steps" className="min-w-0">
-      <ol className="flex [scrollbar-width:none] items-center gap-0.5 overflow-x-auto">
+      <ol className="flex [scrollbar-width:none] items-center gap-0.5 overflow-x-auto max-sm:[mask-image:linear-gradient(to_right,transparent,black_14px,black_calc(100%-14px),transparent)] max-sm:px-3">
         {STEPS.map((s, i) => {
           const enabled = stepEnabled(s.id, hasData, hasDomain);
           const active = s.id === step;
@@ -63,7 +118,7 @@ export function Stepper() {
                 title={s.label}
                 onClick={() => setStep(s.id)}
                 className={cn(
-                  "relative inline-flex h-8 items-center gap-1.5 rounded-[9px] px-2 text-ui font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40",
+                  "relative inline-flex h-8 items-center gap-1.5 rounded-[9px] px-2 text-ui font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 max-sm:px-1.5",
                   active ? "text-fg" : "text-fg-muted hover:text-fg",
                 )}
               >
@@ -117,7 +172,7 @@ export function WorkspaceTopBar({
   onOpenSettings: () => void;
 }) {
   const summary = useWorkspace((s) => s.summary);
-  const startOver = useWorkspace((s) => s.startOver);
+  const sampled = useWorkspace((s) => Boolean(s.report?.sampling));
   const stepIndex = useWorkspace((s) => STEPS.findIndex((x) => x.id === s.step));
   const locale = useSettings((s) => s.numberLocale);
   // The platform is only known in the browser; the server render assumes non-Mac (Ctrl+K).
@@ -141,7 +196,7 @@ export function WorkspaceTopBar({
           // which is clipped, so the summary never runs into the steps.
           <div
             className="hidden h-6 min-w-0 flex-1 basis-0 flex-wrap items-center gap-x-2.5 overflow-hidden lg:flex"
-            title={`${summary.fileName}${summary.sheet ? ` · sheet "${summary.sheet}"` : ""} · ${formatCount(summary.rowCount, locale)} rows${summary.isDemo ? " · demo data" : ""}`}
+            title={`${summary.fileName}${summary.sheet ? ` · sheet "${summary.sheet}"` : ""} · ${countOf(summary.rowCount, "row", locale)}${sampled ? " (a sample of the file)" : ""}${summary.isDemo ? " · demo data" : ""}`}
           >
             <span className="inline-flex h-6 max-w-[280px] min-w-0 items-center gap-2">
               <Database className="size-3.5 shrink-0 text-fg-subtle" aria-hidden />
@@ -157,8 +212,14 @@ export function WorkspaceTopBar({
                 {summary.isDemo ? "Demo data" : "Your file"}
               </Badge>
             </span>
+            {/* A sample is never mistaken for the whole file: totals describe the rows loaded. */}
+            {sampled ? (
+              <span className="flex h-6 shrink-0 items-center">
+                <Badge tone="warning">Sampled</Badge>
+              </span>
+            ) : null}
             <span className="font-figures h-6 shrink-0 text-2xs leading-6 whitespace-nowrap text-fg-subtle">
-              {formatCount(summary.rowCount, locale)} rows
+              {countOf(summary.rowCount, "row", locale)}
             </span>
           </div>
         ) : null}
@@ -183,7 +244,12 @@ export function WorkspaceTopBar({
           </Tooltip>
           {summary ? (
             <Tooltip content="Start over (clears the data from memory)">
-              <Button variant="ghost" size="icon" onClick={startOver} aria-label="Start over">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => void confirmStartOver()}
+                aria-label="Start over"
+              >
                 <RotateCcw aria-hidden />
               </Button>
             </Tooltip>

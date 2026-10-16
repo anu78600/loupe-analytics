@@ -6,13 +6,19 @@
  * it, change its type (every type that can draw its data, each with the
  * line on what it suits), its width and height, its place in the section,
  * and "Edit data" (the chart builder, prefilled; a recommended chart is
- * saved as the user's own copy). The user's own charts can be deleted;
- * recommended ones are only hidden, so they can come back.
+ * saved as the user's own copy). The user's own charts can be deleted, with
+ * Undo; recommended ones are only hidden, so they can come back.
  * Changes go through the store (updateWidget, moveWidget, removeChart), so
  * the dashboard follows at once.
+ *
+ * One of the user's own charts that can't be drawn any more (a column it
+ * reads was hidden, a KPI it shows was deleted) is flagged in the list with
+ * the reason (brokenCharts.ts), so it is found here, not only on the
+ * dashboard.
  */
 import * as React from "react";
-import { ArrowDown, ArrowUp, Pencil, Plus, Trash2 } from "lucide-react";
+import { toast } from "sonner";
+import { AlertTriangle, ArrowDown, ArrowUp, Pencil, Plus, Trash2 } from "lucide-react";
 import type { ChartKind, ChartSpec, LayoutMode } from "@/engine/charts/types";
 import { CHART_TYPES, chartType } from "@/engine/charts/catalogue";
 import { isKindCompatible } from "@/engine/charts/recommend";
@@ -27,6 +33,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/ui/primitives/switch";
 import { Tooltip } from "@/ui/primitives/tooltip";
 import { SECTIONS } from "../dashboard/sections";
+import { chartProblem } from "./brokenCharts";
 import { CHART_ICON } from "./chartIcons";
 
 const WIDTHS: Array<{ w: number; label: string }> = [
@@ -57,6 +64,7 @@ export function ChartList({ onEdit, onCreate }: { onEdit: (spec: ChartSpec) => v
   const context = useWorkspace((s) => s.context);
   const widgets = useWorkspace((s) => s.widgets);
   const customCharts = useWorkspace((s) => s.customCharts);
+  const customKpis = useWorkspace((s) => s.customKpis);
   const mode = useWorkspace((s) => s.mode);
   const setMode = useWorkspace((s) => s.setMode);
   if (!context) return null;
@@ -65,6 +73,7 @@ export function ChartList({ onEdit, onCreate }: { onEdit: (spec: ChartSpec) => v
   const rows = widgets
     .map((w) => ({ w, spec: specOf.get(w.id) }))
     .filter((r): r is { w: Widget; spec: ChartSpec } => Boolean(r.spec?.modes.includes(mode)));
+  const broken = rows.filter((r) => chartProblem(r.spec, context, customKpis)).length;
 
   return (
     <div className="grid gap-5">
@@ -90,6 +99,17 @@ export function ChartList({ onEdit, onCreate }: { onEdit: (spec: ChartSpec) => v
           <Plus aria-hidden /> Create a chart
         </Button>
       </div>
+      {broken ? (
+        <p
+          role="status"
+          className="flex items-start gap-2 rounded-control border border-warning bg-warning-soft px-3 py-2.5 text-ui leading-relaxed text-fg"
+        >
+          <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden />
+          {broken === 1
+            ? "One of your charts can't be drawn any more; it is marked below with the reason."
+            : `${broken} of your charts can't be drawn any more; they are marked below with the reason.`}
+        </p>
+      ) : null}
       {SECTIONS.map((sec) => {
         const list = rows.filter((r) => r.spec.section === sec.id);
         if (!list.length) return null;
@@ -109,6 +129,7 @@ export function ChartList({ onEdit, onCreate }: { onEdit: (spec: ChartSpec) => v
                   spec={r.spec}
                   prev={list[i - 1]?.w.id}
                   next={list[i + 1]?.w.id}
+                  problem={chartProblem(r.spec, context, customKpis)}
                   onEdit={() => onEdit(r.spec)}
                 />
               ))}
@@ -120,22 +141,54 @@ export function ChartList({ onEdit, onCreate }: { onEdit: (spec: ChartSpec) => v
   );
 }
 
+/**
+ * Deletes one of the user's charts, with Undo in the toast: Undo adds the
+ * same chart back with its card's size, type, Top N, title and visibility,
+ * in its old place (before the chart that followed it). Exported so every
+ * place that deletes a custom chart can offer the same Undo.
+ */
+export function deleteWithUndo(id: string, title: string): void {
+  const before = useWorkspace.getState();
+  const spec = before.customCharts.find((c) => c.id === id);
+  const at = before.widgets.findIndex((x) => x.id === id);
+  const widget = before.widgets[at];
+  const following = before.widgets[at + 1]?.id;
+  before.removeChart(id);
+  if (!spec || !widget) return;
+  toast(`Deleted “${title}”`, {
+    action: {
+      label: "Undo",
+      onClick: () => {
+        const s = useWorkspace.getState();
+        if (s.customCharts.some((c) => c.id === id)) return;
+        s.addCustomChart(spec, { select: false });
+        const { id: _id, ...card } = widget;
+        s.updateWidget(id, card);
+        if (following && useWorkspace.getState().widgets.some((x) => x.id === following))
+          useWorkspace.getState().moveWidget(id, following);
+      },
+    },
+  });
+}
+
 function ChartRow({
   widget: w,
   spec,
   prev,
   next,
+  problem,
   onEdit,
 }: {
   widget: Widget;
   spec: ChartSpec;
   prev?: string;
   next?: string;
+  /** Why this chart (one of the user's) can't be drawn now; null when it can. */
+  problem: string | null;
   onEdit: () => void;
 }) {
   const updateWidget = useWorkspace((s) => s.updateWidget);
   const moveWidget = useWorkspace((s) => s.moveWidget);
-  const removeChart = useWorkspace((s) => s.removeChart);
   const categoryCount = useWorkspace((s) => s.charts[spec.id]?.categories.length);
   const kind = w.kind ?? spec.kind;
   const Icon = CHART_ICON[kind];
@@ -143,10 +196,12 @@ function ChartRow({
   const title = w.title?.trim() || spec.title;
   const own = spec.source === "custom";
   const widthLabel = WIDTHS.find((x) => x.w === w.w)?.label ?? `${w.w} of 12 columns`;
+  const problemId = `chart-problem-${spec.id}`;
   return (
     <li
       className={cn(
-        "grid gap-2 rounded-control border border-border bg-surface-1 px-3 py-2.5 lg:grid-cols-[auto_minmax(0,1fr)_auto] lg:items-center",
+        "grid gap-2 rounded-control border bg-surface-1 px-3 py-2.5 lg:grid-cols-[auto_minmax(0,1fr)_auto] lg:items-center",
+        problem ? "border-warning" : "border-border",
         w.hidden && "bg-surface-2/60",
       )}
     >
@@ -165,6 +220,7 @@ function ChartRow({
             key={title}
             defaultValue={title}
             aria-label={`Title of ${title}`}
+            aria-describedby={problem ? problemId : undefined}
             onBlur={(e) => {
               const v = e.target.value.trim();
               if (v !== title) updateWidget(w.id, { title: v && v !== spec.title ? v : undefined });
@@ -178,10 +234,21 @@ function ChartRow({
             )}
           />
           {own ? <Badge tone="accent">yours</Badge> : null}
+          {problem ? (
+            <Badge tone="warning" className="shrink-0">
+              <AlertTriangle aria-hidden /> Can&apos;t be drawn
+            </Badge>
+          ) : null}
         </div>
-        <p className="truncate px-1.5 text-2xs text-fg-subtle" title={chartType(kind).bestFor}>
-          {chartType(kind).name}: {chartType(kind).bestFor}
-        </p>
+        {problem ? (
+          <p id={problemId} className="px-1.5 text-2xs leading-relaxed text-fg">
+            {problem}
+          </p>
+        ) : (
+          <p className="truncate px-1.5 text-2xs text-fg-subtle" title={chartType(kind).bestFor}>
+            {chartType(kind).name}: {chartType(kind).bestFor}
+          </p>
+        )}
       </div>
       <div className="flex flex-wrap items-center gap-1.5 lg:flex-nowrap">
         <Select
@@ -254,7 +321,7 @@ function ChartRow({
           <Button
             variant="ghost"
             size="icon-sm"
-            onClick={() => removeChart(w.id)}
+            onClick={() => deleteWithUndo(w.id, title)}
             aria-label={`Delete ${title}`}
           >
             <Trash2 aria-hidden />

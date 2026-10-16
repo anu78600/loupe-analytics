@@ -138,7 +138,8 @@ export function formatCompact(value: number, locale: NumberLocale): string {
 
 /**
  * Formats a value for display. Default decimals: currency 0 at ≥ 1,000 or for
- * integers (else 2); percent 1 below 100% (else 0); number 0 for integers, 1
+ * integers (else 2); percent 1 below 1,000% (else 0), so rates around 100%
+ * keep their decimal (NRR 100.4% vs 99.7%); number 0 for integers, 1
  * at ≥ 100, else 2; ratio and decimal 2; days 1. With `compact`, currency
  * switches to short units from 1,000 and number/integer from 100,000 (one
  * lakh). `signed` adds "+" to positive values only.
@@ -168,7 +169,9 @@ function formatValueText(value: number | null | undefined, format: ValueFormat, 
     }
     case "percent": {
       const pct = value * 100;
-      const decimals = opts.decimals ?? (Math.abs(pct) >= 100 ? 0 : 1);
+      // Rates near 100% (net revenue retention, occupancy) move by tenths: "100%" beside "+0.4 pp
+      // from 100%" says nothing. Only four-figure percentages drop the decimal.
+      const decimals = opts.decimals ?? (Math.abs(pct) >= 1000 ? 0 : 1);
       return `${sign}${formatPlain(pct, decimals, opts.locale)}%`;
     }
     case "ratio":

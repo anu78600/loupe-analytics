@@ -7,14 +7,22 @@
  * its columns → detect the industry → compute KPIs and charts). Every value is
  * the build-time snapshot from preview-data.ts, so the animation only reveals
  * real engine output. Visitors can switch the date range (12M / 6M / 90D), and
- * figures tween between snapshots. With reduced motion the panel shows its
- * final state at once.
+ * figures tween between snapshots. HeroStage holds the chosen range, so the
+ * figures floating beside the panel follow it.
  *
- * Numbers animate through Framer Motion values rendered as text, so a count-up
- * updates the DOM directly instead of re-rendering React on every frame.
+ * The server HTML is the finished panel (what crawlers and visitors without
+ * JavaScript read, with every figure in place); once hydrated it rewinds and
+ * plays from the start, out of sight while the panel fades in. With reduced
+ * motion it stays finished.
+ *
+ * Nothing in it moves the layout: a counting figure is drawn over an invisible
+ * copy of its final text, which holds the width, and the stage pills keep a
+ * slot for their icon. Numbers animate through Framer Motion values rendered
+ * as text, so a count-up updates the DOM directly instead of re-rendering
+ * React on every frame.
  */
 import * as React from "react";
-import { animate, motion, useInView, useMotionValue, useReducedMotion, useTransform } from "framer-motion";
+import { animate, motion, useInView, useMotionValue, useTransform, type Transition } from "framer-motion";
 import {
   AlertTriangle,
   ArrowDownRight,
@@ -25,12 +33,13 @@ import {
   Minus,
   TrendingUp,
 } from "lucide-react";
-import { formatValue, type ValueFormat } from "@/engine/core/format";
+import { currencySymbol, formatValue, type ValueFormat } from "@/engine/core/format";
+import { MONTHS_SHORT } from "@/engine/core/dates";
 import { ConfidenceRing } from "@/ui/workspace/ConfidenceRing";
 import { cn } from "@/lib/utils";
+import { DrawOn, EASE, useCalm, useHydrated } from "./motion";
 import type { LandingData, PreviewKpi, PreviewPresetId, PreviewState } from "./preview-data";
 
-const EASE = [0.22, 1, 0.36, 1] as const;
 const FMT = { locale: "IN" as const, currency: "INR", compact: true };
 
 /** Pipeline stages shown in the title bar; index 0 means "not started". */
@@ -48,10 +57,15 @@ const ROLE_DOT: Record<string, string> = {
   "Free text": "var(--fg-subtle)",
 };
 
-const PRESET_SHORT: Record<PreviewPresetId, string> = { last12m: "12M", last6m: "6M", last90d: "90D" };
+/** The date-range switch's short labels; the floating figures (HeroStage) wear them too. */
+export const PRESET_SHORT: Record<PreviewPresetId, string> = { last12m: "12M", last6m: "6M", last90d: "90D" };
 
-/** Below this width the trend chart is drawn on a narrower canvas so its labels stay readable. */
-const NARROW_QUERY = "(max-width: 640px)";
+/**
+ * Below Tailwind's sm breakpoint the trend chart is drawn on a narrower canvas so its labels stay
+ * readable. Its box takes the matching aspect ratio from CSS, so the switch after hydration never
+ * changes its height.
+ */
+const NARROW_QUERY = "(max-width: 639.98px)";
 function subscribeNarrow(onChange: () => void): () => void {
   const mq = window.matchMedia(NARROW_QUERY);
   mq.addEventListener("change", onChange);
@@ -59,11 +73,20 @@ function subscribeNarrow(onChange: () => void): () => void {
 }
 const isNarrow = () => window.matchMedia(NARROW_QUERY).matches;
 
+/** A reveal's transition while showing; hiding (the rewind after hydration) and reduced motion are instant. */
+function reveal(on: boolean, calm: boolean, t: Transition): Transition {
+  return on && !calm ? t : { duration: 0 };
+}
+
 /* ------------------------------------------------------------------ */
 /* Small animated primitives                                           */
 /* ------------------------------------------------------------------ */
 
-/** A number that tweens to `value` once `active`, formatted like the dashboard. */
+/**
+ * A number that counts up from zero to `value` once `active`, formatted like
+ * the dashboard, and tweens when `value` changes. It starts at the final
+ * figure, so the server HTML carries it.
+ */
 function TweenNumber({
   value,
   format,
@@ -75,18 +98,21 @@ function TweenNumber({
   active: boolean;
   delay?: number;
 }) {
-  const reduce = useReducedMotion();
-  const mv = useMotionValue(0);
+  const calm = useCalm();
+  const mv = useMotionValue(value);
   const text = useTransform(mv, (v) => formatValue(v, format, FMT));
   React.useEffect(() => {
-    if (!active) return;
-    if (reduce) {
+    if (!active) {
+      mv.set(0);
+      return;
+    }
+    if (calm) {
       mv.set(value);
       return;
     }
     const controls = animate(mv, value, { duration: 1, delay, ease: EASE });
     return () => controls.stop();
-  }, [active, value, delay, reduce, mv]);
+  }, [active, value, delay, calm, mv]);
   return <motion.span>{text}</motion.span>;
 }
 
@@ -100,13 +126,12 @@ function linePath(values: number[], w: number, h: number, max: number): string {
 
 /** Sparkline in the series colour; good/bad status is carried by the delta chip, not the line. */
 function Sparkline({ values, active }: { values: number[]; active: boolean }) {
-  const reduce = useReducedMotion();
+  const calm = useCalm();
   const max = Math.max(...values, 0) || 1;
   const min = Math.min(...values);
   // Spread the line over the full height: sparklines show shape, not magnitude.
   const norm = values.map((v) => (v - min) / (max - min || 1));
   const d = linePath(norm, 100, 26, 1);
-  const color = "var(--chart-1)";
   return (
     <svg
       viewBox="-1 -2 102 30"
@@ -114,18 +139,22 @@ function Sparkline({ values, active }: { values: number[]; active: boolean }) {
       className="h-7 w-full overflow-visible"
       aria-hidden
     >
-      <motion.path
-        d={d}
-        fill="none"
-        stroke={color}
-        strokeWidth={1.5}
-        vectorEffect="non-scaling-stroke"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        initial={false}
-        animate={{ pathLength: active ? 1 : 0, opacity: active ? 1 : 0 }}
-        transition={{ duration: reduce ? 0 : 1.1, ease: EASE, delay: reduce ? 0 : 0.25 }}
-      />
+      {/* The stroke keeps its width however far the tile stretches the line. */}
+      <DrawOn
+        box={[-4, -8, 110, 44]}
+        drawn={active}
+        transition={reveal(active, calm, { duration: 1.1, ease: EASE, delay: 0.25 })}
+      >
+        <path
+          d={d}
+          fill="none"
+          stroke="var(--chart-1)"
+          strokeWidth={1.5}
+          vectorEffect="non-scaling-stroke"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </DrawOn>
     </svg>
   );
 }
@@ -143,7 +172,7 @@ function DeltaChip({ kpi }: { kpi: PreviewKpi }) {
   return (
     <span
       className={cn(
-        "font-figures inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[11px] font-medium",
+        "font-figures inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[11px] font-medium whitespace-nowrap",
         tone,
       )}
     >
@@ -169,21 +198,29 @@ function KpiTile({
   index: number;
   comparison: string;
 }) {
-  const reduce = useReducedMotion();
+  const calm = useCalm();
   return (
-    <div className="grid min-w-0 gap-1.5 rounded-card border border-border bg-surface-2/60 p-3">
-      <p className="truncate text-2xs font-medium tracking-[0.1em] text-fg-subtle uppercase">{kpi.name}</p>
-      <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-1">
-        <p className="font-figures text-[21px] leading-none font-medium tracking-[-0.02em] text-fg">
-          <span aria-hidden>
-            <TweenNumber value={kpi.value ?? 0} format={kpi.format} active={active} delay={index * 0.08} />
+    <div className="grid min-w-0 content-start gap-1.5 rounded-card border border-border bg-surface-2/60 p-3">
+      {/* Names wrap rather than truncate; on phones every name keeps two lines, so the figures line up. */}
+      <p className="min-h-8 text-2xs font-medium tracking-[0.1em] text-fg-subtle uppercase sm:min-h-0">
+        {kpi.name}
+      </p>
+      {/* On phones the change sits under the figure; from sm there is room beside it. */}
+      <div className="flex flex-col items-start gap-1 sm:flex-row sm:flex-wrap sm:items-baseline sm:justify-between sm:gap-x-2">
+        <p className="font-figures text-[21px] leading-none font-medium tracking-[-0.02em] whitespace-nowrap text-fg">
+          {/* The count runs over an invisible copy of the final figure, which holds the width. */}
+          <span aria-hidden className="relative inline-block">
+            <span className="invisible">{kpi.display}</span>
+            <span className="absolute inset-y-0 left-0">
+              <TweenNumber value={kpi.value ?? 0} format={kpi.format} active={active} delay={index * 0.08} />
+            </span>
           </span>
           <span className="sr-only">{kpi.display}</span>
         </p>
         <motion.span
           initial={false}
           animate={{ opacity: active ? 1 : 0, y: active ? 0 : 4 }}
-          transition={reduce ? { duration: 0 } : { duration: 0.4, delay: active ? 0.6 + index * 0.08 : 0 }}
+          transition={reveal(active, calm, { duration: 0.4, delay: 0.6 + index * 0.08 })}
           title={`vs ${comparison}`}
         >
           <DeltaChip kpi={kpi} />
@@ -198,23 +235,71 @@ function KpiTile({
 /* Trend chart                                                         */
 /* ------------------------------------------------------------------ */
 
-function niceMax(v: number): number {
-  if (v <= 0) return 1;
-  const exp = Math.pow(10, Math.floor(Math.log10(v)));
-  const n = v / exp;
-  const nice = n <= 1 ? 1 : n <= 2 ? 2 : n <= 2.5 ? 2.5 : n <= 5 ? 5 : 10;
-  return nice * exp;
+/**
+ * Round ticks from zero in steps of 1, 2, 2.5 or 5 × 10ⁿ (about a quarter of
+ * the largest value): ₹0, ₹10L … ₹50L rather than thirds of a rounded maximum
+ * (₹16.7L, ₹33.3L). The top leaves about 15% above the largest value, so the
+ * line stays clear of the tooltip at the top of the chart.
+ */
+function niceTicks(largest: number): number[] {
+  if (!(largest > 0)) return [0, 1];
+  const raw = largest / 4;
+  const pow = Math.pow(10, Math.floor(Math.log10(raw)));
+  const f = raw / pow;
+  const step = (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * pow;
+  const count = Math.max(1, Math.ceil((largest * 1.15) / step));
+  return Array.from({ length: count + 1 }, (_, i) => i * step);
+}
+
+const UNITS: Array<[number, string]> = [
+  [1e7, "Cr"],
+  [1e5, "L"],
+  [1e3, "K"],
+];
+
+/**
+ * Money axis labels in the one unit the top tick needs ("₹0, ₹10L … ₹40L",
+ * never "₹90K" beside "₹1.2L"), as the dashboard's charts print them
+ * (axisTicks in ui/charts/options.ts).
+ */
+function axisLabeller(top: number): (v: number) => string {
+  const sym = currencySymbol(FMT.currency);
+  const unit = UNITS.find(([u]) => top >= u * 0.9995);
+  if (!unit) return (v) => formatValue(v, "currency", FMT);
+  const [size, suffix] = unit;
+  return (v) => {
+    if (v === 0) return `${sym}0`;
+    const scaled = v / size;
+    const digits = scaled >= 100 ? 0 : scaled >= 10 ? 1 : 2;
+    const fixed = scaled.toFixed(digits);
+    const text = digits ? fixed.replace(/0+$/, "").replace(/\.$/, "") : fixed;
+    return `${sym}${text}${suffix}`;
+  };
+}
+
+/**
+ * A time-axis label that gives the year once per year: "Nov 2025", "Jan 2026",
+ * "Mar" for months; "6 Jul 2026", "3 Aug" for weeks.
+ */
+function timeLabel(start: number, grain: string, withYear: boolean, fallback: string): string {
+  if (!(start > 0)) return fallback.replace(/^Wk of /, "");
+  const d = new Date(start);
+  const month = MONTHS_SHORT[d.getUTCMonth()] ?? "";
+  const base = grain === "month" ? month : `${d.getUTCDate()} ${month}`;
+  return withYear ? `${base} ${d.getUTCFullYear()}` : base;
 }
 
 function TrendChart({ state, active }: { state: PreviewState; active: boolean }) {
-  const reduce = useReducedMotion();
-  const { values, labels, display, peak, partialLast } = state.trend;
+  const calm = useCalm();
+  const { values, labels, starts, display, peak, partialLast, grain } = state.trend;
   const [hover, setHover] = React.useState<number | null>(null);
   // SVG text scales with the viewBox: a narrower canvas on phones keeps axis labels near 10 px.
   const narrow = React.useSyncExternalStore(subscribeNarrow, isNarrow, () => false);
   const W = narrow ? 320 : 560;
   const H = narrow ? 150 : 168;
-  const max = niceMax(Math.max(...values, 0) * 1.08);
+  const ticks = niceTicks(Math.max(...values, 0));
+  const max = ticks[ticks.length - 1] ?? 1;
+  const tickText = axisLabeller(max);
   const n = values.length;
   const x = (i: number) => (n > 1 ? (i / (n - 1)) * W : W / 2);
   const y = (v: number) => H - (v / max) * H;
@@ -229,10 +314,11 @@ function TrendChart({ state, active }: { state: PreviewState; active: boolean })
     n > 1
       ? `${values.map((v, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join("")}L${W},${H}L0,${H}Z`
       : "";
-  const ticks = [0, 1 / 3, 2 / 3, 1].map((f) => f * max);
   // Label every k-th period counted back from the latest, so the last label never collides with its neighbour.
   const labelEvery = Math.max(1, Math.ceil(n / (narrow ? 4 : 6)));
-  const gradId = React.useId().replace(/:/g, "");
+  const shownTicks = labels.map((_, i) => i).filter((i) => (n - 1 - i) % labelEvery === 0);
+  const yearOf = (i: number) => new Date(starts[i] ?? 0).getUTCFullYear();
+  const gradId = `trend-${React.useId().replace(/[^\w-]/g, "")}`;
 
   const onMove = (e: React.PointerEvent<SVGRectElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -245,12 +331,13 @@ function TrendChart({ state, active }: { state: PreviewState; active: boolean })
     <figure className="grid min-w-0 gap-2" aria-label={`${state.trend.title}, ${state.label}`}>
       <figcaption className="flex items-baseline justify-between gap-3">
         <span className="truncate text-ui font-medium text-fg">{state.trend.title}</span>
-        <span className="font-figures shrink-0 text-2xs text-fg-subtle">by {state.trend.grain}</span>
+        <span className="font-figures shrink-0 text-2xs text-fg-subtle">by {grain}</span>
       </figcaption>
       <div className="relative">
+        {/* Its CSS ratio matches the viewBox at each width, so its height is right before hydration. */}
         <svg
           viewBox={`-46 -10 ${W + 58} ${H + 32}`}
-          className="h-auto w-full overflow-visible"
+          className="block aspect-[378/182] h-auto w-full overflow-visible sm:aspect-[618/200]"
           role="img"
           aria-label={`Peak ${display[peak]} in ${labels[peak]}`}
         >
@@ -260,8 +347,8 @@ function TrendChart({ state, active }: { state: PreviewState; active: boolean })
               <stop offset="100%" stopColor="var(--chart-1)" stopOpacity={0} />
             </linearGradient>
           </defs>
-          {ticks.map((t, i) => (
-            <g key={i}>
+          {ticks.map((t) => (
+            <g key={t}>
               <line x1={0} x2={W} y1={y(t)} y2={y(t)} stroke="var(--chart-grid)" strokeWidth={1} />
               <text
                 x={-10}
@@ -272,12 +359,14 @@ function TrendChart({ state, active }: { state: PreviewState; active: boolean })
                 fontSize={10.5}
                 fill="var(--chart-label)"
               >
-                {formatValue(t, "currency", FMT)}
+                {tickText(t)}
               </text>
             </g>
           ))}
-          {labels.map((l, i) =>
-            (n - 1 - i) % labelEvery === 0 ? (
+          {shownTicks.map((i, k) => {
+            const prev = shownTicks[k - 1];
+            const withYear = prev === undefined || yearOf(prev) !== yearOf(i);
+            return (
               <text
                 key={i}
                 x={x(i)}
@@ -286,16 +375,16 @@ function TrendChart({ state, active }: { state: PreviewState; active: boolean })
                 fontSize={10.5}
                 fill="var(--chart-label)"
               >
-                {l.replace(/^Wk of /, "")}
+                {timeLabel(starts[i] ?? 0, grain, withYear, labels[i] ?? "")}
               </text>
-            ) : null,
-          )}
+            );
+          })}
           <motion.path
             d={area}
             fill={`url(#${gradId})`}
             initial={false}
             animate={{ opacity: active ? 1 : 0 }}
-            transition={{ duration: reduce ? 0 : 0.8, delay: reduce ? 0 : 0.5 }}
+            transition={reveal(active, calm, { duration: 0.8, delay: 0.5 })}
           />
           <motion.path
             d={solidPath}
@@ -306,7 +395,7 @@ function TrendChart({ state, active }: { state: PreviewState; active: boolean })
             strokeLinecap="round"
             initial={false}
             animate={{ pathLength: active ? 1 : 0 }}
-            transition={{ duration: reduce ? 0 : 1.3, ease: EASE }}
+            transition={reveal(active, calm, { duration: 1.3, ease: EASE })}
           />
           {dashedPath ? (
             <motion.path
@@ -317,7 +406,7 @@ function TrendChart({ state, active }: { state: PreviewState; active: boolean })
               strokeDasharray="4 4"
               initial={false}
               animate={{ opacity: active ? 1 : 0 }}
-              transition={{ delay: reduce ? 0 : 1.2 }}
+              transition={reveal(active, calm, { delay: 1.2 })}
             />
           ) : null}
           {active && n > 0 ? (
@@ -335,7 +424,7 @@ function TrendChart({ state, active }: { state: PreviewState; active: boolean })
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
                 transition={{
-                  delay: hover === null && !reduce ? 1.2 : 0,
+                  delay: hover === null && !calm ? 1.2 : 0,
                   type: "spring",
                   stiffness: 400,
                   damping: 22,
@@ -384,7 +473,7 @@ function TrendChart({ state, active }: { state: PreviewState; active: boolean })
 /* ------------------------------------------------------------------ */
 
 function CategoryBars({ state, active }: { state: PreviewState; active: boolean }) {
-  const reduce = useReducedMotion();
+  const calm = useCalm();
   const max = Math.max(...state.categories.map((c) => c.share), 0.0001);
   return (
     <figure
@@ -398,19 +487,21 @@ function CategoryBars({ state, active }: { state: PreviewState; active: boolean 
             key={c.label}
             className="grid grid-cols-[minmax(0,7.5rem)_1fr_auto] items-center gap-2.5 text-ui"
           >
-            <span className="truncate text-fg-muted" title={c.label}>
-              {c.label}
-            </span>
+            {/* Category names wrap to a second line rather than lose their end. */}
+            <span className="leading-tight text-fg-muted">{c.label}</span>
             <span className="relative h-2.5 overflow-hidden rounded-r-[4px] bg-surface-3/60">
               <motion.span
                 className="absolute inset-y-0 left-0 rounded-r-[4px] bg-[var(--chart-1)]"
                 initial={false}
                 animate={{ width: active ? `${(c.share / max) * 100}%` : "0%" }}
-                transition={{ duration: reduce ? 0 : 0.9, delay: reduce ? 0 : 0.35 + i * 0.07, ease: EASE }}
+                transition={reveal(active, calm, { duration: 0.9, delay: 0.35 + i * 0.07, ease: EASE })}
               />
             </span>
-            <span className="font-figures w-14 text-right text-[11.5px] text-fg">
-              {active ? c.display : ""}
+            {/* Hidden, not removed, until computed: its line sets the row's height either way. */}
+            <span
+              className={cn("font-figures w-14 text-right text-[11.5px] text-fg", !active && "invisible")}
+            >
+              {c.display}
             </span>
           </li>
         ))}
@@ -428,7 +519,7 @@ function StateTiles({
   tiles: LandingData["tiles"];
   active: boolean;
 }) {
-  const reduce = useReducedMotion();
+  const calm = useCalm();
   const byPos = new Map(state.states.map((s) => [`${s.row}:${s.col}`, s]));
   const outline = new Map(tiles.map((t) => [`${t.row}:${t.col}`, t]));
   const rows = 8;
@@ -474,7 +565,7 @@ function StateTiles({
               style={{ background: `var(--seq-${step})` }}
               initial={false}
               animate={{ opacity: active ? 1 : 0.12, scale: active ? 1 : 0.85 }}
-              transition={{ duration: reduce ? 0 : 0.5, delay: reduce ? 0 : 0.4 + (k % cols) * 0.035 }}
+              transition={reveal(active, calm, { duration: 0.5, delay: 0.4 + (k % cols) * 0.035 })}
             />
           );
         })}
@@ -497,7 +588,7 @@ function StateTiles({
 /* ------------------------------------------------------------------ */
 
 function InsightList({ state, active }: { state: PreviewState; active: boolean }) {
-  const reduce = useReducedMotion();
+  const calm = useCalm();
   return (
     <ul className="grid gap-2.5" aria-label="Insights">
       {state.insights.slice(0, 2).map((ins, i) => {
@@ -521,9 +612,7 @@ function InsightList({ state, active }: { state: PreviewState; active: boolean }
             className="flex gap-2.5 rounded-card border border-border bg-surface-2/60 p-3"
             initial={false}
             animate={{ opacity: active ? 1 : 0, y: active ? 0 : 6 }}
-            transition={
-              reduce ? { duration: 0 } : { duration: 0.45, delay: active ? 1.1 + i * 0.15 : 0, ease: EASE }
-            }
+            transition={reveal(active, calm, { duration: 0.45, delay: 1.1 + i * 0.15, ease: EASE })}
           >
             <Icon className={cn("mt-0.5 size-4 shrink-0", color)} aria-hidden />
             <div className="min-w-0">
@@ -538,44 +627,109 @@ function InsightList({ state, active }: { state: PreviewState; active: boolean }
 }
 
 /* ------------------------------------------------------------------ */
+/* Detection ring                                                      */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The detection ring as plain markup, for the server HTML: ConfidenceRing
+ * counts up from 0 and so would print "0%" to crawlers and to visitors
+ * without JavaScript. Same geometry and colours, without the motion.
+ */
+function StillRing({ value, size, label }: { value: number; size: number; label: string }) {
+  const stroke = 7;
+  const r = (size - stroke) / 2;
+  const c = 2 * Math.PI * r;
+  const color = value >= 70 ? "var(--accent)" : value >= 50 ? "var(--warning)" : "var(--danger)";
+  return (
+    <div
+      className="relative shrink-0"
+      style={{ width: size, height: size }}
+      role="img"
+      aria-label={`${Math.round(value)}% ${label}`}
+    >
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="-rotate-90">
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={r}
+          fill="none"
+          stroke="var(--surface-3)"
+          strokeWidth={stroke}
+        />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={r}
+          fill="none"
+          stroke={color}
+          strokeWidth={stroke}
+          strokeLinecap="round"
+          strokeDasharray={c}
+          strokeDashoffset={c * (1 - value / 100)}
+        />
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <span className="tabular text-[30px] leading-none font-semibold tracking-[-0.03em] text-fg">
+          {Math.round(value)}
+          <span className="text-[15px] font-medium text-fg-muted">%</span>
+        </span>
+        <span className="mt-1 text-2xs tracking-[0.12em] text-fg-subtle uppercase">{label}</span>
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /* Panel                                                               */
 /* ------------------------------------------------------------------ */
 
 export function HeroPreview({
   data,
+  presetIndex,
+  onPresetChange,
 }: {
   data: Pick<LandingData, "file" | "detection" | "columns" | "states" | "tiles">;
+  /** The chosen date range (an index into data.states); HeroStage holds it. */
+  presetIndex: number;
+  onPresetChange: (index: number) => void;
 }) {
-  const reduce = useReducedMotion();
+  const calm = useCalm();
+  const hydrated = useHydrated();
   const ref = React.useRef<HTMLDivElement>(null);
   const inView = useInView(ref, { once: true, amount: 0.25 });
   const [stage, setStage] = React.useState(0);
-  const [presetIndex, setPresetIndex] = React.useState(0);
   const state = data.states[presetIndex] ?? data.states[0];
+  // The server HTML (crawlers, no JavaScript) and reduced motion get the finished panel at once.
+  const shown = !hydrated || calm ? STAGES.length : stage;
 
   // Run the pipeline sequence once, when the panel first scrolls into view.
   React.useEffect(() => {
-    if (!inView) return;
-    const timers = STAGE_AT.map((at, i) => window.setTimeout(() => setStage(i + 1), reduce ? 0 : at));
+    if (!inView || calm) return;
+    const timers = STAGE_AT.map((at, i) => window.setTimeout(() => setStage(i + 1), at));
     return () => timers.forEach((t) => window.clearTimeout(t));
-  }, [inView, reduce]);
+  }, [inView, calm]);
 
-  const rows = useMotionValue(0);
-  const rowsText = useTransform(rows, (v) => formatValue(v, "integer", { locale: "IN", currency: "INR" }));
   const totalRows = Number(data.file.rows.replace(/[^\d]/g, ""));
+  const rows = useMotionValue(totalRows);
+  const rowsText = useTransform(rows, (v) => formatValue(v, "integer", { locale: "IN", currency: "INR" }));
+  const read = shown >= 1;
   React.useEffect(() => {
-    if (stage < 1) return;
-    if (reduce) {
+    if (!read) {
+      rows.set(0);
+      return;
+    }
+    if (calm || !hydrated) {
       rows.set(totalRows);
       return;
     }
     const c = animate(rows, totalRows, { duration: 0.6, ease: EASE });
     return () => c.stop();
-  }, [stage, reduce, rows, totalRows]);
+  }, [read, calm, hydrated, rows, totalRows]);
 
   if (!state) return null;
-  const computed = stage >= 4;
-  const detected = stage >= 3;
+  const computed = shown >= 4;
+  const detected = shown >= 3;
+  const profiled = shown >= 2;
 
   return (
     <div ref={ref} className="relative">
@@ -585,6 +739,7 @@ export function HeroPreview({
         className="pointer-events-none absolute -inset-x-10 -top-16 bottom-0 -z-10 bg-[radial-gradient(60%_55%_at_50%_20%,var(--mesh-1),transparent_70%)]"
       />
       <motion.div
+        data-reveal
         role="figure"
         aria-label="Preview of a Loupe dashboard computed from the demo e-commerce dataset"
         initial={{ opacity: 0, y: 28 }}
@@ -606,8 +761,8 @@ export function HeroPreview({
             aria-label="Pipeline progress"
           >
             {STAGES.map((label, i) => {
-              const done = stage > i + 1 || (computed && i === STAGES.length - 1);
-              const current = stage === i + 1 && !done;
+              const done = shown > i + 1 || (computed && i === STAGES.length - 1);
+              const current = shown === i + 1 && !done;
               return (
                 <li key={label} className="flex items-center gap-1">
                   {i ? (
@@ -615,7 +770,7 @@ export function HeroPreview({
                       aria-hidden
                       className={cn(
                         "hidden h-px w-4 sm:block",
-                        stage > i ? "bg-accent/60" : "bg-border-strong",
+                        shown > i ? "bg-accent/60" : "bg-border-strong",
                       )}
                     />
                   ) : null}
@@ -630,11 +785,14 @@ export function HeroPreview({
                     )}
                     aria-current={current ? "step" : undefined}
                   >
-                    {done ? (
-                      <Check className="size-3" aria-hidden />
-                    ) : current ? (
-                      <span className="size-1.5 animate-pulse rounded-full bg-accent" aria-hidden />
-                    ) : null}
+                    {/* The icon's slot is always there, so a pill never changes width as it fills. */}
+                    <span aria-hidden className="grid size-3 shrink-0 place-items-center">
+                      {done ? (
+                        <Check className="size-3" />
+                      ) : current ? (
+                        <span className="size-1.5 animate-pulse rounded-full bg-accent" />
+                      ) : null}
+                    </span>
                     {label}
                   </span>
                 </li>
@@ -651,8 +809,10 @@ export function HeroPreview({
                 key={s.id}
                 type="button"
                 aria-pressed={i === presetIndex}
+                // The full name, after the visible one so speech input ("click 12M") still matches.
+                aria-label={`${PRESET_SHORT[s.id]} (${s.label})`}
                 title={s.label}
-                onClick={() => setPresetIndex(i)}
+                onClick={() => onPresetChange(i)}
                 className={cn(
                   "font-figures rounded-[7px] px-2 py-0.5 text-2xs transition-colors",
                   i === presetIndex
@@ -671,7 +831,9 @@ export function HeroPreview({
           <aside className="grid content-start gap-4 border-b border-border p-4 lg:border-r lg:border-b-0">
             <div className="flex items-center gap-4 lg:grid lg:justify-items-start lg:gap-3">
               <div className="relative size-[92px] shrink-0">
-                {detected ? (
+                {!hydrated ? (
+                  <StillRing value={data.detection.confidence} size={92} label="match" />
+                ) : detected ? (
                   <ConfidenceRing value={data.detection.confidence} size={92} label="match" />
                 ) : (
                   <div className="size-[92px] rounded-full border-[6px] border-surface-3" aria-hidden />
@@ -681,7 +843,7 @@ export function HeroPreview({
                 className="min-w-0"
                 initial={false}
                 animate={{ opacity: detected ? 1 : 0.15 }}
-                transition={{ duration: 0.5 }}
+                transition={reveal(detected, calm, { duration: 0.5 })}
               >
                 <p className="text-2xs font-medium tracking-[0.12em] text-fg-subtle uppercase">Detected</p>
                 <p className="font-display text-[26px] leading-tight text-fg">{data.detection.domain}</p>
@@ -694,7 +856,7 @@ export function HeroPreview({
               <p className="mb-2 flex items-baseline justify-between text-2xs font-medium tracking-[0.12em] text-fg-subtle uppercase">
                 Columns profiled
                 <span className="font-figures tracking-normal normal-case">
-                  {stage >= 2 ? data.columns.length : 0}
+                  {profiled ? data.columns.length : 0}
                 </span>
               </p>
               <ul className="mask-fade-b grid max-h-[248px] gap-px overflow-hidden" aria-label="Column roles">
@@ -703,8 +865,8 @@ export function HeroPreview({
                     key={c.name}
                     className="flex items-center justify-between gap-3 rounded-[6px] px-1.5 py-[3px] text-[11.5px]"
                     initial={false}
-                    animate={{ opacity: stage >= 2 ? 1 : 0, x: stage >= 2 ? 0 : -6 }}
-                    transition={{ duration: 0.25, delay: stage >= 2 && !reduce ? i * 0.032 : 0 }}
+                    animate={{ opacity: profiled ? 1 : 0, x: profiled ? 0 : -6 }}
+                    transition={reveal(profiled, calm, { duration: 0.25, delay: i * 0.032 })}
                   >
                     <span className="flex min-w-0 items-center gap-2">
                       <span

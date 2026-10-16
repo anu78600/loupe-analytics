@@ -19,8 +19,14 @@
  *  - Purely visual changes (selection, highlight, resizing, KPI targets)
  *    touch no engine state.
  * Everything derived from a dataset (including the business context, whose
- * `period` sets the trend grain) is reset when a new dataset is adopted, and
- * "Start over" returns the whole store to its initial state.
+ * `period` sets the trend grain, and a currency chosen for it) is reset when a
+ * new dataset is adopted, and "Start over" returns the whole store to its
+ * initial state. Reading the same file again (a day/month order fix) keeps
+ * the user's choices and rebuilds the analysis with them.
+ *
+ * Loads run one at a time and each has a token: progress messages travel on
+ * their own channel and can arrive after the result, so once a load has
+ * settled (or a newer one has started) its messages change nothing.
  */
 import { create } from "zustand";
 import { Comlink, engine, resetEngine } from "@/lib/engine-client";
@@ -177,6 +183,14 @@ interface WorkspaceState {
 
   /** Layout mode; a chart is shown only when its spec lists this mode. */
   mode: LayoutMode;
+  /**
+   * How the dashboard step shows the dashboard: "page" is the one-page view
+   * (a single landscape page, as an analyst builds one for an executive);
+   * "full" is every chart, by section, in the layout mode above.
+   */
+  dashView: "page" | "full";
+  /** The user's name for the one-page dashboard; null shows the automatic title. */
+  pageTitle: string | null;
   /** Dashboard order and sizes; also the order of the Power BI visual list. */
   widgets: Widget[];
   /** User-built charts. The worker does not know them, so their full spec is sent with each request. */
@@ -205,6 +219,10 @@ interface WorkspaceState {
   lastCompute: { ms: number; rows: number } | null;
   /** null = not computed for the current filters; cleared whenever filters change. */
   insights: Insight[] | null;
+  /**
+   * True from the moment insights are asked for until they match the current
+   * selection, the wait for a dashboard refresh included (see loadInsights).
+   */
   insightsLoading: boolean;
   /**
    * Business questions asked in step 5, newest first, each with its answer,
@@ -219,12 +237,25 @@ interface WorkspaceState {
   highlight: string | null;
 
   // actions
-  /** Navigating to Dashboard/Insights/Export before a domain is configured confirms the current domain first. */
+  /**
+   * Every step after Detect works on the analysis of the industry and data
+   * shape chosen on Detect: navigating there builds it first when it is
+   * missing, or when the choice changed since it was built.
+   */
   setStep: (step: Step) => void;
-  /** Parses a file in the worker. Day-first dates are preferred under the Indian number format unless `opts` says otherwise. */
+  /**
+   * Parses a file in the worker. Unproven day/month orders follow where the
+   * user is (assumeDayFirst) unless `opts` says otherwise.
+   */
   loadFile: (file: File, opts?: IngestOptions) => Promise<void>;
-  loadSample: (id: string) => Promise<void>;
-  /** Re-parses the last file with a day/month order fixed for one column; overrides and layout reset. */
+  /** Loads a demo; with `goTo` (a step after Detect) it also builds the detected industry and opens that step. */
+  loadSample: (id: string, opts?: { goTo?: Step }) => Promise<void>;
+  /**
+   * Re-reads the last file with a day/month order fixed for one column. The
+   * user's choices (industry, overrides, hidden columns, KPI layout, their
+   * KPIs and charts, filters) are kept and the analysis is rebuilt with them,
+   * on the step the user is on; asked questions are answered again.
+   */
   setDateOrder: (column: string, order: "DMY" | "MDY") => Promise<void>;
   chooseSheet: (sheet: string) => Promise<void>;
   /** Loads the pending large file with the chosen sampling options; null cancels. */
@@ -247,7 +278,12 @@ interface WorkspaceState {
     scope: "dashboard" | "file";
   }) => Promise<void>;
   removeQuestion: (id: string) => void;
-  /** Configures the domain, resets filters, drill and mode, then refreshes. Errors land in `error`; it does not throw. */
+  /**
+   * Configures the domain and refreshes. Another industry or data shape than
+   * the analysis had starts from its recommendation (filters, drill, mode, KPI
+   * layout, answers); confirming the same one again keeps them. Errors land
+   * in `error`; it does not throw.
+   */
   confirmDomain: (domainId: string, subDomainId?: string | null, opts?: { goTo?: Step }) => Promise<void>;
   /** Refreshes only when `period` (the trend grain) is part of the patch. */
   setBusiness: (patch: Partial<BusinessContext>) => void;
@@ -266,9 +302,17 @@ interface WorkspaceState {
   /** null or a non-finite value clears the target. No refresh: targets are display-only. */
   setTarget: (id: string, value: number | null) => void;
   setSubDomain: (id: string) => void;
-  /** Re-runs configure in the worker with the current overrides, keeping the layout of known charts. */
+  /**
+   * Re-runs configure in the worker with the current overrides, keeping the
+   * layout of known charts, and answers the asked questions again under the
+   * new definitions. An industry chosen on Detect but not built yet goes
+   * through confirmDomain instead.
+   */
   reconfigure: () => Promise<void>;
   setMode: (mode: LayoutMode) => void;
+  setDashView: (view: "page" | "full") => void;
+  /** Blank restores the automatic title. */
+  setPageTitle: (title: string) => void;
   /** `custom` is used only with the "custom" preset. */
   setDatePreset: (preset: DatePreset, custom?: { from: number; to: number }) => void;
   /** Replaces the column's filter; an empty list removes it. */
@@ -305,7 +349,12 @@ interface WorkspaceState {
   focusChart: (id: string) => void;
   /** Debounced (90 ms) recompute of KPIs and visible charts; see the implementation for the abort protocol. */
   refresh: () => void;
-  /** Insights are computed from the worker's last refresh results, so call after refresh(). */
+  /**
+   * Computes the insights for the current selection. They are read from the
+   * worker's last dashboard results, so a pending or running refresh is waited
+   * for (again if the selection changes meanwhile); `insightsLoading` is true
+   * throughout. A second call while one runs joins it.
+   */
   loadInsights: () => Promise<void>;
   /** Restores a saved config onto the loaded file. Check the fingerprint first; this does not. */
   applyConfig: (cfg: LoupeConfig) => Promise<void>;
@@ -352,6 +401,9 @@ function initialData(): WorkspaceData {
     context: null,
     configuring: false,
     mode: "analyst",
+    // The dashboard opens as the one-page view, the page to present; every chart is one click away.
+    dashView: "page",
+    pageTitle: null,
     widgets: [],
     customCharts: [],
     datePreset: "all",
@@ -386,6 +438,64 @@ function plainFilter(f: LoupeConfig["dashboard"]["filters"][number]): Filter {
 let requestSeq = 0;
 let refreshTimer: ReturnType<typeof setTimeout> | null = null;
 
+/** Token of the newest file or demo load: progress and results of an older load change nothing. */
+let loadSeq = 0;
+/**
+ * Loads run one after another, so the dataset the worker ends with is the one
+ * the newest load adopted. Reset by "Start over", whose terminated worker
+ * never answers the calls still queued.
+ */
+let loadChain: Promise<unknown> = Promise.resolve();
+
+/** Bumped by every refresh(): insights computed before a newer dashboard result describe an older selection. */
+let refreshGen = 0;
+/** Settles once no dashboard refresh is pending or running; insights are read from the last one. */
+let refreshIdle: Promise<void> = Promise.resolve();
+let markRefreshIdle: (() => void) | null = null;
+
+function refreshStarted(): void {
+  refreshGen++;
+  if (!markRefreshIdle) refreshIdle = new Promise<void>((resolve) => (markRefreshIdle = resolve));
+}
+
+function refreshSettled(): void {
+  const settle = markRefreshIdle;
+  markRefreshIdle = null;
+  settle?.();
+}
+
+/** The insights load in progress (a second request joins it) and its token, retired by a new dataset. */
+let insightsLoad: Promise<void> | null = null;
+let insightsSeq = 0;
+/** Token of the newest re-answering of the questions; an older one stops. */
+let answerSeq = 0;
+
+/**
+ * IANA time zones of the places that write dates month first: the United
+ * States (with the legacy US/… and EST5EDT-style names) and the Philippines.
+ */
+const MONTH_FIRST_ZONE =
+  /^(?:America\/(?:New_York|Detroit|Kentucky\/\w+|Indiana\/\w+|Chicago|Menominee|North_Dakota\/\w+|Denver|Boise|Phoenix|Los_Angeles|Anchorage|Juneau|Sitka|Metlakatla|Yakutat|Nome|Adak)|US\/\w+|Pacific\/Honolulu|Asia\/Manila|EST5EDT|CST6CDT|MST7MDT|PST8PDT)$/;
+
+/**
+ * The day/month order assumed for a date column nothing proves (no day above
+ * 12): month first where dates are written that way, read from the device's
+ * time zone, else day first, as most of the world writes them. It never
+ * depends on an earlier file (the automatic number format does), so the same
+ * file always reads the same way.
+ */
+export function assumeDayFirst(timeZone?: string): boolean {
+  let zone = timeZone;
+  if (zone === undefined) {
+    try {
+      zone = Intl.DateTimeFormat().resolvedOptions().timeZone ?? "";
+    } catch {
+      zone = "";
+    }
+  }
+  return !MONTH_FIRST_ZONE.test(zone);
+}
+
 const PHASE_TITLE: Record<string, string> = {
   reading: "Reading file",
   parsing: "Parsing rows",
@@ -415,12 +525,53 @@ function defaultPresetFor(ctx: ContextResult | null): DatePreset {
   return isRosterView(ctx) ? "all" : defaultPreset(ctx?.dateBounds ?? null);
 }
 
+/**
+ * The data shape a request for `domainId` means: the one asked for, else the
+ * one detection picked for that industry ("Auto (best match)"), else none
+ * (the engine then ranks the shapes itself).
+ */
+function shapeFor(
+  s: Pick<WorkspaceState, "detection">,
+  domainId: string,
+  subDomainId: string | null,
+): string | null {
+  return subDomainId ?? s.detection?.shapes[domainId] ?? null;
+}
+
+/**
+ * True when the industry or data shape chosen on Detect is not the one the
+ * current analysis was built for (the choice is only remembered until the
+ * next step is opened or Next is pressed).
+ */
+export function choiceChanged(
+  s: Pick<WorkspaceState, "context" | "domainId" | "subDomainId" | "detection">,
+): boolean {
+  const ctx = s.context;
+  if (!ctx || !s.domainId) return false;
+  if (s.domainId !== ctx.domain.id) return true;
+  const wanted = shapeFor(s, s.domainId, s.subDomainId);
+  return wanted !== null && wanted !== ctx.subDomainId;
+}
+
 export const useWorkspace = create<WorkspaceState>()((set, get) => {
+  // Retires everything still in flight for the current dataset: a pending or running dashboard
+  // refresh (its results would land on the next one), an insights load and a re-answering.
+  const retireRequests = () => {
+    if (refreshTimer) clearTimeout(refreshTimer);
+    refreshTimer = null;
+    requestSeq++;
+    refreshSettled();
+    insightsSeq++;
+    insightsLoad = null;
+    answerSeq++;
+  };
+
   // Applies a LoadResult: either parks the file for a user decision, or
   // adopts the new dataset and resets everything derived from the old one,
   // the business context included (its period would otherwise set the trend
-  // grain of an unrelated dataset).
-  const handleLoad = (res: LoadResult, file: File | null) => {
+  // grain of an unrelated dataset) and the currency chosen for the old file
+  // (`keepCurrency` for an unpivot, which reshapes the same file).
+  const handleLoad = (res: LoadResult, file: File | null, keepCurrency = false) => {
     if (res.status === "needs-sheet") {
       set({ loading: null, sheets: res.sheets, pendingFile: file });
       return;
@@ -429,6 +580,12 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
       set({ loading: null, largeFile: res.assessment, pendingFile: file });
       return;
     }
+    retireRequests();
+    if (!keepCurrency) useSettings.getState().setCurrencyOverride(null);
+    // The automatic number format follows this file's currency from Detect on, not the last file's.
+    useSettings
+      .getState()
+      .applyAutoNumberLocale(useSettings.getState().currencyOverride ?? res.profile.currency.code);
     const top = res.detection.candidates[0];
     set({
       loading: null,
@@ -456,8 +613,11 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
       context: null,
       charts: {},
       kpiBatch: null,
+      computing: false,
       insights: null,
+      insightsLoading: false,
       questions: [],
+      questionsLoading: false,
       dimFilters: [],
       crossFilter: null,
       drill: {},
@@ -465,15 +625,74 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
       extraKpis: [],
       kpiLayout: null,
       customKpis: [],
+      // A new file gets the automatic page title again.
+      pageTitle: null,
       selected: null,
+      highlight: null,
       step: "detect",
     });
   };
 
-  // Wrapped in Comlink.proxy so the worker can call back across the thread boundary.
-  // Row counts follow the number-format setting (Indian or international grouping).
-  const onProgress = (fileName: string) =>
-    Comlink.proxy((p: IngestProgress) => {
+  // Adopts a re-read of the same file (a day/month order fixed): the data, its profile and
+  // detection are new, but the user's choices stay, and the analysis is rebuilt with them on the
+  // step the user is on. Asked questions are answered again on the new dates.
+  const adoptReread = async (res: LoadResult) => {
+    if (res.status !== "ok") {
+      // The file was read before with these options, so it never asks again; nothing to adopt.
+      set({ loading: null });
+      return;
+    }
+    const before = get();
+    retireRequests();
+    set({
+      error: null,
+      summary: res.summary,
+      report: res.report,
+      profile: res.profile,
+      health: res.health,
+      detection: res.detection,
+      domains: res.domains,
+      timings: res.timings,
+      replaced: res.replaced,
+      // Results computed from the old reading of the dates go.
+      charts: {},
+      kpiBatch: null,
+      computing: false,
+      insights: null,
+      insightsLoading: false,
+      questionsLoading: false,
+    });
+    if (!before.context || !before.domainId) {
+      set({ loading: null });
+      return;
+    }
+    // The worker dropped its analysis with the old copy of the data: build it again, same choices.
+    set({
+      loading: {
+        phase: "configuring",
+        title: "Rebuilding your analysis…",
+        detail: "Same industry and settings, with the dates read the new way",
+        progress: null,
+      },
+    });
+    try {
+      await configureNow(before.domainId, before.subDomainId);
+      set({ loading: null });
+      get().refresh();
+      if (before.questions.length) await reanswer(before.questions);
+    } catch {
+      set({ loading: null });
+    }
+  };
+
+  // Progress callback for one load, wrapped in Comlink.proxy so the worker can call back across the
+  // thread boundary. It travels on the proxy's own message channel, so it can arrive after the
+  // load's result: once the load has settled (close) or a newer load has started, it changes
+  // nothing. Row counts follow the number-format setting (Indian or international grouping).
+  const progressFor = (fileName: string, token: number) => {
+    let open = true;
+    const callback = Comlink.proxy((p: IngestProgress) => {
+      if (!open || token !== loadSeq) return;
       const rows = formatCount(p.rows, useSettings.getState().numberLocale);
       const pct =
         p.totalBytes > 0 && (p.phase === "parsing" || p.phase === "reading")
@@ -490,13 +709,83 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
       set({
         loading: {
           phase: p.phase,
-          title: `${PHASE_TITLE[p.phase] ?? "Working"}${p.phase === "profiling" ? ` ${rows} rows` : ""}…`,
+          // The row count is in the detail line; the title names the phase only.
+          title: `${PHASE_TITLE[p.phase] ?? "Working"}…`,
           detail,
           progress: pct,
           fileName,
         },
       });
     });
+    return {
+      callback,
+      close: () => {
+        open = false;
+      },
+    };
+  };
+
+  // Queues a load behind the ones before it (loadChain) and runs `work` with its token, unless a
+  // newer load was asked for while it waited. `start` is the loading state shown meanwhile.
+  const queueLoad = (start: LoadingState, work: (token: number) => Promise<void>): Promise<void> => {
+    const token = ++loadSeq;
+    set({ loading: start, error: null });
+    const run = loadChain.then(() => (token === loadSeq ? work(token) : undefined));
+    loadChain = run.catch(() => undefined);
+    return run;
+  };
+
+  // Reads a file in the worker: a new dataset, or the same file again with other options ("reread").
+  const readFile = (file: File, opts: IngestOptions, mode: "new" | "reread"): Promise<void> =>
+    queueLoad(
+      { phase: "reading", title: "Reading file…", progress: 0, fileName: file.name },
+      async (token) => {
+        const merged: IngestOptions = { preferDayFirst: assumeDayFirst(), ...opts };
+        const progress = progressFor(file.name, token);
+        try {
+          const res = await engine().ingest(file, merged, progress.callback);
+          progress.close();
+          if (token !== loadSeq) return;
+          if (res.status === "ok") set({ lastFile: file, lastOptions: merged });
+          if (mode === "reread") await adoptReread(res);
+          else handleLoad(res, file);
+        } catch (e) {
+          progress.close();
+          if (token === loadSeq) set({ loading: null, error: toError(e) });
+        }
+      },
+    );
+
+  // Answers the asked questions again after the analysis was rebuilt, in place and in their order;
+  // one that no longer applies comes back with its reason (QuestionAnswer.error). A later rebuild
+  // supersedes this one.
+  const reanswer = async (asked: readonly QuestionAnswer[]) => {
+    const token = ++answerSeq;
+    set({ questionsLoading: true });
+    const locale = useSettings.getState().numberLocale;
+    const fresh = new Map<string, QuestionAnswer>();
+    try {
+      for (const q of asked) {
+        const answer = await engine().answerQuestion(
+          {
+            id: q.id,
+            question: q.question,
+            understood: q.understood,
+            notes: q.notes,
+            ask: q.ask,
+            order: q.order,
+            filters: q.filters,
+          },
+          locale,
+        );
+        if (token !== answerSeq) return;
+        fresh.set(q.id, answer);
+      }
+      set((st) => ({ questions: st.questions.map((q) => fresh.get(q.id) ?? q), questionsLoading: false }));
+    } catch (e) {
+      if (token === answerSeq) set({ questionsLoading: false, error: toError(e) });
+    }
+  };
 
   // Sends the current overrides to the worker and stores the new context.
   // Sets `error` and rethrows on failure, so callers can stop their flow.
@@ -512,7 +801,8 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
     try {
       const context = await engine().configure({
         domainId,
-        subDomainId: subDomainId ?? undefined,
+        // "Auto" means the shape detection picked for this industry, so every path reads it the same way.
+        subDomainId: shapeFor(s, domainId, subDomainId) ?? undefined,
         mappingOverrides: s.mappingOverrides,
         classOverrides: s.classOverrides,
         roleOverrides: s.roleOverrides,
@@ -545,17 +835,10 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
 
     setStep: (step) => {
       const s = get();
-      // Every step after Detect works on the confirmed analysis, so it is built first when missing.
-      if (
-        (step === "map" ||
-          step === "customise" ||
-          step === "dashboard" ||
-          step === "questions" ||
-          step === "insights" ||
-          step === "export") &&
-        !s.context &&
-        s.domainId
-      ) {
+      // Every step after Detect works on the analysis of the industry chosen on Detect, so it is
+      // built first when missing, and rebuilt when the choice changed since (a change on Detect is
+      // only remembered until then; applying it later, on an unrelated change, would surprise).
+      if (step !== "upload" && step !== "detect" && s.domainId && (!s.context || choiceChanged(s))) {
         void get().confirmDomain(s.domainId, s.subDomainId, { goTo: step });
         return;
       }
@@ -563,58 +846,53 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
       if (step === "insights" && !s.insights) void get().loadInsights();
     },
 
-    loadFile: async (file, opts = {}) => {
-      set({
-        loading: { phase: "reading", title: "Reading file…", progress: 0, fileName: file.name },
-        error: null,
-      });
-      try {
-        const merged: IngestOptions = {
-          preferDayFirst: useSettings.getState().numberLocale === "IN",
-          ...opts,
-        };
-        const res = await engine().ingest(file, merged, onProgress(file.name));
-        if (res.status === "ok") set({ lastFile: file, lastOptions: merged });
-        handleLoad(res, file);
-      } catch (e) {
-        set({ loading: null, error: toError(e) });
-      }
-    },
+    loadFile: (file, opts = {}) => readFile(file, opts, "new"),
 
-    loadSample: async (id) => {
-      set({
-        loading: {
+    loadSample: (id, opts) =>
+      queueLoad(
+        {
           phase: "generating",
           title: "Generating demo data…",
           detail: "Deterministic, seeded and clearly labelled as demo",
           progress: null,
         },
-        error: null,
-      });
-      try {
-        const res = await engine().ingestSample(id);
-        // A demo has no file to re-parse: forget any earlier one, or a date-order fix would reload it.
-        if (res.status === "ok") set({ lastFile: null, lastOptions: {} });
-        handleLoad(res, null);
-      } catch (e) {
-        set({ loading: null, error: toError(e) });
-      }
-    },
+        async (token) => {
+          try {
+            const res = await engine().ingestSample(id);
+            if (token !== loadSeq) return;
+            // A demo has no file to re-parse: forget any earlier one, or a date-order fix would reload it.
+            if (res.status === "ok") set({ lastFile: null, lastOptions: {} });
+            handleLoad(res, null);
+          } catch (e) {
+            if (token === loadSeq) set({ loading: null, error: toError(e) });
+            return;
+          }
+          // A link such as /app?sample=sales&step=dashboard opens the demo on that step.
+          const goTo = opts?.goTo;
+          const s = get();
+          if (goTo && goTo !== "upload" && goTo !== "detect" && s.domainId)
+            await get().confirmDomain(s.domainId, s.subDomainId, { goTo });
+        },
+      ),
 
     setDateOrder: async (column, order) => {
       const s = get();
       if (!s.lastFile) return;
-      await get().loadFile(s.lastFile, {
-        ...s.lastOptions,
-        dateOrderOverrides: { ...(s.lastOptions.dateOrderOverrides ?? {}), [column]: order },
-      });
+      await readFile(
+        s.lastFile,
+        {
+          ...s.lastOptions,
+          dateOrderOverrides: { ...(s.lastOptions.dateOrderOverrides ?? {}), [column]: order },
+        },
+        "reread",
+      );
     },
 
     chooseSheet: async (sheet) => {
       const file = get().pendingFile;
       if (!file) return;
       set({ sheets: null });
-      await get().loadFile(file, { sheet });
+      await readFile(file, { sheet }, "new");
     },
 
     resolveLargeFile: async (opts) => {
@@ -624,25 +902,29 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
         set({ pendingFile: null });
         return;
       }
-      await get().loadFile(file, opts);
+      await readFile(file, opts, "new");
     },
 
-    unpivot: async () => {
-      set({ loading: { phase: "profiling", title: "Unpivoting columns…", progress: null } });
-      try {
-        handleLoad(await engine().unpivot(), null);
-      } catch (e) {
-        set({ loading: null, error: toError(e) });
-      }
-    },
+    unpivot: () =>
+      queueLoad({ phase: "profiling", title: "Unpivoting columns…", progress: null }, async (token) => {
+        try {
+          const res = await engine().unpivot();
+          // The same file reshaped: the currency chosen for it stays.
+          if (token === loadSeq) handleLoad(res, null, true);
+        } catch (e) {
+          if (token === loadSeq) set({ loading: null, error: toError(e) });
+        }
+      }),
 
     startOver: () => {
       resetEngine();
-      // Calls in flight on the old worker never settle; drop a pending refresh
-      // and retire the current request id so nothing from the old session lands.
-      if (refreshTimer) clearTimeout(refreshTimer);
-      refreshTimer = null;
-      requestSeq++;
+      // Calls in flight on the old worker never settle: retire the dashboard request, the insights
+      // and answers and any load, and start a fresh load queue (the old one would wait forever).
+      retireRequests();
+      loadSeq++;
+      loadChain = Promise.resolve();
+      // The currency chosen for this file goes with it.
+      useSettings.getState().setCurrencyOverride(null);
       // Everything goes, the last file (and its reference to the user's data) included.
       set(initialData());
     },
@@ -656,22 +938,35 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
           progress: null,
         },
       });
+      const before = get().context;
       try {
         await configureNow(domainId, subDomainId ?? null);
         const ctx = get().context;
+        // Confirming the industry and data shape the analysis already has (Next on Detect after a
+        // look back) keeps the user's layout, mode, filters and answers. Another industry has other
+        // KPIs and charts, and another shape other headline KPIs: they start from the recommendation.
+        const same =
+          before !== null &&
+          ctx !== null &&
+          before.domain.id === ctx.domain.id &&
+          before.subDomainId === ctx.subDomainId;
         set({
           loading: null,
           step: opts?.goTo ?? "dashboard",
-          datePreset: defaultPresetFor(ctx),
-          customRange: null,
-          dimFilters: [],
-          crossFilter: null,
-          drill: {},
-          insights: null,
-          questions: [],
-          mode: "analyst",
-          // Another industry has other KPI ids: its layout starts from the recommendation.
-          kpiLayout: null,
+          ...(same
+            ? {}
+            : {
+                datePreset: defaultPresetFor(ctx),
+                customRange: null,
+                dimFilters: [],
+                crossFilter: null,
+                drill: {},
+                insights: null,
+                questions: [],
+                mode: "analyst" as const,
+                kpiLayout: null,
+                extraKpis: [],
+              }),
         });
         get().refresh();
         if (opts?.goTo === "insights") void get().loadInsights();
@@ -743,11 +1038,20 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
     reconfigure: async () => {
       const s = get();
       if (!s.domainId || !s.summary) return;
+      // An industry chosen on Detect but not built yet is built the way confirming builds it (from
+      // its recommendation), never slipped in by an unrelated change such as the currency.
+      if (s.context && s.domainId !== s.context.domain.id) {
+        await get().confirmDomain(s.domainId, s.subDomainId, { goTo: s.step });
+        return;
+      }
       try {
         await configureNow(s.domainId, s.subDomainId);
         get().refresh();
-        // Mapping, roles and names changed, so earlier answers may no longer hold.
-        set({ insights: null, questions: [] });
+        // Mapping, roles and names changed: the insights are recomputed, and every question asked
+        // is answered again under the new definitions rather than dropped.
+        set({ insights: null });
+        const asked = get().questions;
+        if (asked.length) await reanswer(asked);
       } catch {
         /* error already in state */
       }
@@ -757,6 +1061,10 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
       set({ mode });
       get().refresh();
     },
+
+    setDashView: (dashView) => set({ dashView }),
+
+    setPageTitle: (title) => set({ pageTitle: title.trim() || null }),
 
     setDatePreset: (preset, custom) => {
       set({ datePreset: preset, customRange: preset === "custom" ? (custom ?? null) : null, insights: null });
@@ -937,12 +1245,32 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
     select: (selected) => set({ selected }),
 
     focusChart: (id) => {
-      set({ highlight: id, step: "dashboard" });
-      // Give the dashboard a moment to render before scrolling; drop the
-      // highlight later unless another chart has been focused meanwhile.
-      setTimeout(() => {
-        document.getElementById(`chart-${id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
-      }, 80);
+      // Every chart is on the full dashboard (the one-page view holds only five), so a chart is
+      // always focused there.
+      set({ highlight: id, step: "dashboard", dashView: "full" });
+      // The dashboard mounts only after the previous step's exit animation, so look for the chart
+      // frame by frame (for up to about 2 s) rather than after a fixed delay, then bring it to the
+      // middle of the screen. Charts above it can still grow as their data arrives, so its place is
+      // checked once more after the scroll.
+      const started = performance.now();
+      const seek = () => {
+        const el = document.getElementById(`chart-${id}`);
+        if (!el) {
+          if (performance.now() - started < 2000) requestAnimationFrame(seek);
+          return;
+        }
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        setTimeout(() => {
+          const r = el.getBoundingClientRect();
+          if (
+            el.isConnected &&
+            Math.abs(r.top + r.height / 2 - window.innerHeight / 2) > window.innerHeight / 4
+          )
+            el.scrollIntoView({ behavior: "smooth", block: "center" });
+        }, 700);
+      };
+      requestAnimationFrame(seek);
+      // Drop the highlight later unless another chart has been focused meanwhile.
       setTimeout(() => {
         if (get().highlight === id) set({ highlight: null });
       }, 2600);
@@ -971,11 +1299,17 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
     refresh: () => {
       // Trailing debounce: a burst of changes (e.g. several quick filter
       // clicks) costs one recompute, read from the state at fire time.
+      // Insights wait until the newest run has finished (refreshIdle).
+      refreshStarted();
       if (refreshTimer) clearTimeout(refreshTimer);
       refreshTimer = setTimeout(async () => {
+        refreshTimer = null;
         const s = get();
         const ctx = s.context;
-        if (!ctx) return;
+        if (!ctx) {
+          refreshSettled();
+          return;
+        }
         // Abort protocol: every run gets a new id. begin(id) tells the worker
         // this run is the newest, so an older in-flight run stops at its next
         // chart; any result tagged with an older id is ignored below.
@@ -1022,10 +1356,15 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
           );
           if (id === requestSeq && !res.aborted) {
             set({ computing: false, lastCompute: { ms: res.ms, rows: res.rows } });
+            // Settled unless another refresh was asked for meanwhile (that one settles it).
+            if (!refreshTimer) refreshSettled();
             if (get().step === "insights") void get().loadInsights();
           }
         } catch (e) {
-          if (id === requestSeq) set({ computing: false, error: toError(e) });
+          if (id === requestSeq) {
+            set({ computing: false, error: toError(e) });
+            if (!refreshTimer) refreshSettled();
+          }
         }
       }, 90);
     },
@@ -1062,15 +1401,38 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
 
     removeQuestion: (id) => set((s) => ({ questions: s.questions.filter((q) => q.id !== id) })),
 
-    loadInsights: async () => {
-      if (!get().context) return;
+    loadInsights: () => {
+      if (!get().context) return Promise.resolve();
+      if (insightsLoad) return insightsLoad;
+      const token = ++insightsSeq;
       set({ insightsLoading: true });
-      try {
-        const insights = await engine().insights(useSettings.getState().numberLocale);
-        set({ insights, insightsLoading: false });
-      } catch (e) {
-        set({ insightsLoading: false, error: toError(e) });
-      }
+      const run = async () => {
+        try {
+          for (;;) {
+            // Insights are read from the worker's last dashboard results, so a refresh still pending
+            // or running would make them describe the previous selection (after "Clear all", the
+            // filtered one): wait for it, and once more if the selection changes while computing.
+            await refreshIdle;
+            const ctx = get().context;
+            if (token !== insightsSeq) return;
+            if (!ctx) break;
+            const gen = refreshGen;
+            const insights = await engine().insights(useSettings.getState().numberLocale);
+            if (token !== insightsSeq) return;
+            if (gen === refreshGen && get().context === ctx) {
+              set({ insights, insightsLoading: false });
+              return;
+            }
+          }
+          set({ insightsLoading: false });
+        } catch (e) {
+          if (token === insightsSeq) set({ insightsLoading: false, error: toError(e) });
+        } finally {
+          if (token === insightsSeq) insightsLoad = null;
+        }
+      };
+      insightsLoad = run();
+      return insightsLoad;
     },
 
     applyConfig: async (cfg) => {
@@ -1145,6 +1507,9 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
       set({
         widgets: ordered,
         mode: cfg.dashboard.mode,
+        // Configs saved before the one-page view have neither: keep the current view and the automatic title.
+        ...(cfg.dashboard.view ? { dashView: cfg.dashboard.view } : {}),
+        pageTitle: cfg.dashboard.pageTitle?.trim() || null,
         datePreset: cfg.dashboard.datePreset as DatePreset,
         customRange:
           cfg.dashboard.datePreset === "custom" && dateRange && dateRange.kind === "dateRange"

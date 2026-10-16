@@ -2,17 +2,19 @@
 
 /**
  * Client shell for /app. Switches between the steps (STEPS) with a short fade,
- * binds Ctrl/⌘+K, opens a demo from /app?sample=<id>, turns errors after the
- * upload step into toasts, and reconfigures the session when the number
- * format or currency changes (worker-side text such as chart descriptions and
- * exports depends on them).
+ * binds Ctrl/⌘+K, opens a demo from /app?sample=<id> (on a given step with
+ * &step=<step>, e.g. dashboard), turns errors after the upload step into
+ * toasts, asks before a reload or leaving the page would drop a loaded
+ * dataset, hosts the confirmation dialog (askConfirm), and reconfigures the
+ * session when the number format or currency changes (worker-side text such
+ * as chart descriptions and exports depends on them).
  */
 import * as React from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { toast } from "sonner";
-import { useWorkspace } from "@/store/workspace";
+import { STEPS, useWorkspace } from "@/store/workspace";
 import { useSettings } from "@/store/settings";
-import { WorkspaceTopBar } from "./Shell";
+import { openDemo, WorkspaceTopBar } from "./Shell";
 import { UploadStep } from "./UploadStep";
 import { DetectStep } from "./DetectStep";
 import { MapStep } from "./MapStep";
@@ -24,6 +26,7 @@ import { CommandPalette } from "./CommandPalette";
 import { SettingsSheet } from "./SettingsSheet";
 import { CustomiseStep } from "./customise/CustomiseStep";
 import { ChartColoursSheet } from "./ChartColours";
+import { ConfirmHost } from "./confirm";
 
 export function Workspace({ version }: { version: string }) {
   const step = useWorkspace((s) => s.step);
@@ -50,14 +53,34 @@ export function Workspace({ version }: { version: string }) {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  // Deep link: /app?sample=ecommerce opens a demo dataset straight away.
+  // Deep link: /app?sample=ecommerce opens a demo dataset straight away, and &step=dashboard opens
+  // it on that step. The query then leaves the address bar, so a reload keeps the work instead of
+  // reopening the demo; Next's own state for the history entry is kept (replacing it with null
+  // left Back showing the landing page under /app).
   React.useEffect(() => {
-    const sample = new URLSearchParams(window.location.search).get("sample");
-    if (sample && !useWorkspace.getState().summary) {
-      void useWorkspace.getState().loadSample(sample);
-      window.history.replaceState(null, "", window.location.pathname);
-    }
+    const params = new URLSearchParams(window.location.search);
+    const sample = params.get("sample");
+    if (!sample) return;
+    window.history.replaceState(window.history.state, "", window.location.pathname);
+    const step = params.get("step");
+    const goTo = STEPS.find((s) => s.id === step)?.id;
+    void openDemo(sample, goTo);
   }, []);
+
+  // Nothing is stored: a reload or leaving the page drops the dataset and everything set up for
+  // it, so the browser asks first while one is loaded. Not under automation (navigator.webdriver),
+  // where nobody could answer and every scripted reload would stall.
+  const hasData = useWorkspace((s) => Boolean(s.summary));
+  React.useEffect(() => {
+    if (!hasData || navigator.webdriver) return;
+    const warn = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      // Older browsers ask only when returnValue is set.
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [hasData]);
 
   // Errors after the upload step surface as toasts (the upload step shows them inline).
   React.useEffect(() => {
@@ -145,6 +168,7 @@ export function Workspace({ version }: { version: string }) {
       />
       <SettingsSheet open={settingsOpen} onOpenChange={setSettingsOpen} version={version} />
       <ChartColoursSheet />
+      <ConfirmHost />
     </div>
   );
 }

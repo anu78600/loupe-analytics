@@ -306,7 +306,8 @@ function booleanStats(col: BooleanColumn): BaseStats {
     distinct: (t > 0 ? 1 : 0) + (f > 0 ? 1 : 0),
     booleanStats: { trueCount: t, falseCount: f },
     patterns: [],
-    examples: [col.trueLabel, col.falseLabel],
+    // Only the values the column holds: a column that only says "No" never shows a "Yes" (or TRUE).
+    examples: [...(t > 0 ? [col.trueLabel] : []), ...(f > 0 ? [col.falseLabel] : [])],
   };
 }
 
@@ -385,9 +386,29 @@ const NAME_CURRENCY: Record<string, string> = {
 };
 
 /**
+ * Currency symbols in column names ("Betrag €", "Price (₹)"), longer forms
+ * first so "A$" is not read as "$". Tokenising drops symbols, so the raw name
+ * is searched.
+ */
+const NAME_SYMBOL: Array<[string, string]> = [
+  ["US$", "USD"],
+  ["HK$", "HKD"],
+  ["NZ$", "NZD"],
+  ["A$", "AUD"],
+  ["C$", "CAD"],
+  ["S$", "SGD"],
+  ["₹", "INR"],
+  ["€", "EUR"],
+  ["£", "GBP"],
+  ["¥", "JPY"],
+  ["$", "USD"],
+];
+
+/**
  * Dataset currency, by strength of evidence: symbols or codes in the values
- * (the code found in most columns), a currency word in a money column's name,
- * Indian vs US geography, and finally the caller's hint (INR by default).
+ * (the code found in most columns), a currency word or symbol in a money
+ * column's name, Indian vs US geography, and finally the caller's hint (INR
+ * by default).
  */
 export function detectCurrency(cols: ColumnProfile[], hint = "INR"): CurrencyInfo {
   const tally = new Map<string, number>();
@@ -397,11 +418,13 @@ export function detectCurrency(cols: ColumnProfile[], hint = "INR"): CurrencyInf
     return { code, source: "Currency symbols found in the values", confidence: 0.95 };
   }
   for (const c of cols) {
+    if (c.role !== "currency" && c.role !== "measure") continue;
     for (const t of c.tokens) {
       const code = NAME_CURRENCY[t];
-      if (code && (c.role === "currency" || c.role === "measure"))
-        return { code, source: `Column name "${c.name}"`, confidence: 0.85 };
+      if (code) return { code, source: `Column name "${c.name}"`, confidence: 0.85 };
     }
+    const symbol = NAME_SYMBOL.find(([s]) => c.name.toUpperCase().includes(s));
+    if (symbol) return { code: symbol[1], source: `Column name "${c.name}"`, confidence: 0.85 };
   }
   const geoIN = cols.some(
     (c) => c.geoRegion === "IN" || c.patterns.some((p) => p.kind === "pincode" && p.share > 0.8),

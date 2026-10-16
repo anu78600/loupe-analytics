@@ -13,6 +13,9 @@
  * on it, has a Pause button (WCAG 2.2.2), and doesn't advance by itself under
  * reduced motion. The tabs follow the WAI-ARIA tabs pattern (arrow keys, Home
  * and End move and select).
+ *
+ * Below lg the tabs sit above the stage, so every caption stays open there: a
+ * caption opening and another closing would move the stage at every step.
  */
 import * as React from "react";
 import { AnimatePresence, motion, useInView, type Variants } from "framer-motion";
@@ -46,7 +49,7 @@ import {
 } from "lucide-react";
 import { ConfidenceRing } from "@/ui/workspace/ConfidenceRing";
 import { cn } from "@/lib/utils";
-import { EASE, useCalm, useLive, useTicker } from "./motion";
+import { DrawOn, EASE, useCalm, useLive, useTicker } from "./motion";
 import type { LandingData, PreviewKpi, PreviewState } from "./preview-data";
 
 /** How long each step plays before the next, in ms. */
@@ -213,11 +216,14 @@ function DetectVisual({ data }: { data: PipelineData }) {
   const { detection } = data;
   return (
     <Root className="grid max-w-[480px] gap-6">
-      <div className="flex items-center gap-5">
-        <ConfidenceRing value={detection.confidence} size={118} label="match" />
+      {/* On the narrowest phones the ring and the name shrink, so the name keeps to one line. */}
+      <div className="flex items-center gap-4 sm:gap-5">
+        <div className="shrink-0 max-[379.98px]:[zoom:0.8]">
+          <ConfidenceRing value={detection.confidence} size={118} label="match" />
+        </div>
         <motion.div variants={RISE} className="min-w-0">
           <p className="text-2xs font-medium tracking-[0.12em] text-fg-subtle uppercase">Detected</p>
-          <p className="font-display text-[34px] leading-tight text-fg">{detection.domain}</p>
+          <p className="font-display text-[28px] leading-tight text-fg sm:text-[34px]">{detection.domain}</p>
           <p className="text-ui text-fg-muted">
             {detection.subDomain} · one row per {detection.grain}
           </p>
@@ -379,7 +385,8 @@ function CustomiseVisual({ data }: { data: PipelineData }) {
   const turn = Math.floor(tick / 3) % Math.max(1, names.length);
   const order = names.map((_, i) => names[(i + turn) % names.length] as string);
   return (
-    <Root className="grid max-w-[480px] gap-5">
+    // Flat tiles keep the whole visual, with its third KPI row, inside the stage and clear of the Pause button.
+    <Root className="grid max-w-[480px] gap-4">
       <div ref={ref} className="grid grid-cols-4 gap-2.5">
         {GALLERY.map((g, i) => {
           const on = i === picked;
@@ -391,7 +398,7 @@ function CustomiseVisual({ data }: { data: PipelineData }) {
                 show: { opacity: 1, scale: 1, transition: { duration: 0.4, ease: EASE } },
               }}
               className={cn(
-                "grid aspect-[4/3] place-items-center rounded-card border transition-[border-color,background-color,color,box-shadow] duration-300",
+                "grid aspect-[5/2] place-items-center rounded-card border transition-[border-color,background-color,color,box-shadow] duration-300",
                 on
                   ? "border-border-accent bg-accent-soft text-accent shadow-[0_0_0_4px_var(--accent-soft)]"
                   : "border-border bg-surface-2/70 text-fg-subtle",
@@ -407,7 +414,8 @@ function CustomiseVisual({ data }: { data: PipelineData }) {
         <span className="text-fg-muted">
           <span className="font-figures text-fg">{data.chartTypes}</span> chart types, each explained
         </span>
-        <span className="rounded-full border border-border-accent bg-accent-soft px-3 py-1 text-accent">
+        {/* As wide as the longest name, so the pill doesn't move as the names change. */}
+        <span className="min-w-36 shrink-0 rounded-full border border-border-accent bg-accent-soft px-3 py-1 text-center text-accent">
           {GALLERY[picked]?.name}
         </span>
       </motion.div>
@@ -470,7 +478,7 @@ function PresentVisual({ data }: { data: PipelineData }) {
   return (
     <Root className="grid max-w-[500px] gap-3">
       <div className="grid grid-cols-2 gap-2.5">
-        {state.kpis.slice(0, 4).map((k) => (
+        {state.kpis.slice(0, 4).map((k, i) => (
           <motion.div
             key={k.id}
             variants={{
@@ -482,11 +490,14 @@ function PresentVisual({ data }: { data: PipelineData }) {
                 transition: { type: "spring", stiffness: 260, damping: 22 },
               },
             }}
-            className="rounded-card border border-border bg-surface-2/80 px-3.5 py-3"
+            // On a phone two cards are enough: with four, the wrapped names and changes push the
+            // visual past the stage and under the Pause button.
+            className={cn(
+              "rounded-card border border-border bg-surface-2/80 px-3.5 py-3",
+              i >= 2 && "max-sm:hidden",
+            )}
           >
-            <p className="truncate text-2xs font-medium tracking-[0.1em] text-fg-subtle uppercase">
-              {k.name}
-            </p>
+            <p className="text-2xs font-medium tracking-[0.1em] text-fg-subtle uppercase">{k.name}</p>
             <p className="mt-1 flex flex-wrap items-baseline justify-between gap-x-2 gap-y-1">
               <span className="font-figures text-[20px] leading-none font-medium tracking-[-0.02em] text-fg">
                 {k.display}
@@ -503,27 +514,26 @@ function PresentVisual({ data }: { data: PipelineData }) {
         <figure className="min-w-0" aria-label={`${state.trend.title}, ${state.label}`}>
           <figcaption className="truncate text-2xs text-fg-subtle">{state.trend.title}</figcaption>
           <svg viewBox={`0 -4 ${W} ${H + 8}`} className="mt-2 h-auto w-full overflow-visible" aria-hidden>
-            <motion.path
-              d={line}
-              fill="none"
-              stroke="var(--chart-1)"
-              strokeWidth={2}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              vectorEffect="non-scaling-stroke"
-              variants={{
-                hidden: { pathLength: 0 },
-                show: { pathLength: 1, transition: { duration: 1.4, delay: 0.7, ease: EASE } },
-              }}
-            />
+            <DrawOn box={[-4, -10, W + 8, H + 20]} transition={{ duration: 1.4, delay: 0.7, ease: EASE }}>
+              <path
+                d={line}
+                fill="none"
+                stroke="var(--chart-1)"
+                strokeWidth={2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                vectorEffect="non-scaling-stroke"
+              />
+            </DrawOn>
           </svg>
         </figure>
         <ul className="grid content-center gap-2" aria-label={`Net revenue by category, ${state.label}`}>
           {cats.map((c, i) => (
             <li key={c.label} className="grid gap-1 text-[10.5px]">
-              <span className="flex justify-between gap-2">
-                <span className="truncate text-fg-muted">{c.label}</span>
-                <span className="font-figures text-fg">{c.display}</span>
+              {/* The name may wrap; the figure keeps its place at the end. */}
+              <span className="flex items-baseline justify-between gap-2">
+                <span className="min-w-0 text-fg-muted">{c.label}</span>
+                <span className="font-figures shrink-0 text-fg">{c.display}</span>
               </span>
               <span className="h-1.5 overflow-hidden rounded-full bg-surface-3">
                 <motion.span
@@ -661,13 +671,14 @@ export function Pipeline({ data }: { data: PipelineData }) {
                     {s.title}
                   </span>
                 </span>
-                {/* The caption opens with a CSS grid-row transition, not Framer's `height: auto`, which
-                    resets the scroll position to measure and so would stop a smooth scroll mid-way. */}
+                {/* From lg the caption opens with a CSS grid-row transition, not Framer's `height: auto`,
+                    which resets the scroll position to measure and so would stop a smooth scroll mid-way.
+                    Below lg every caption stays open, so the stage under the tabs never moves. No caption
+                    is hidden from assistive technology, so a tab's name always holds the text it shows. */}
                 <span
-                  aria-hidden={!selected}
                   className={cn(
-                    "grid transition-[grid-template-rows,opacity] duration-300 ease-[var(--ease-out-quint)]",
-                    selected ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0",
+                    "grid grid-rows-[1fr] transition-[grid-template-rows,opacity] duration-300 ease-[var(--ease-out-quint)]",
+                    selected ? "opacity-100" : "opacity-100 lg:grid-rows-[0fr] lg:opacity-0",
                   )}
                 >
                   <span className="overflow-hidden">
@@ -714,7 +725,8 @@ export function Pipeline({ data }: { data: PipelineData }) {
         <AnimatePresence mode="wait" initial={false}>
           <motion.div
             key={step.id}
-            className="absolute inset-0 grid place-items-center p-5 sm:p-8"
+            // One column as wide as the stage: an auto column would grow to a visual's widest line.
+            className="absolute inset-0 grid grid-cols-[minmax(0,1fr)] place-items-center p-5 sm:p-8"
             initial={{ opacity: 0, y: 16, filter: "blur(8px)" }}
             animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
             exit={{ opacity: 0, y: -12, filter: "blur(8px)" }}

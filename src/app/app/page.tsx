@@ -8,7 +8,9 @@ import { Workspace } from "@/ui/workspace/Workspace";
 
 export const metadata: Metadata = {
   title: "Workspace",
-  description: "Upload a clean table and get an analyst-grade dashboard. Everything runs in your browser.",
+  // "Open", not "upload": the file is read in the browser and never leaves the device.
+  description:
+    "Open a clean table (CSV, Excel or JSON) and get an analyst-grade dashboard. Everything runs in your browser; nothing is uploaded.",
 };
 
 export default function WorkspacePage() {

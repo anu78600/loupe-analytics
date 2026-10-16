@@ -18,7 +18,7 @@ import {
   type TimeGrain,
   truncate,
 } from "@/engine/core/dates";
-import { formatCompact, formatPlain } from "@/engine/core/format";
+import { formatCompact, formatPlain, type NumberLocale } from "@/engine/core/format";
 import type { RowExpr } from "./expr";
 import { BLANK_LABEL } from "./filter";
 
@@ -30,7 +30,13 @@ export type GroupKey =
   /** Fixed calendar slots, all present even when empty: dow (0 = Monday), hour, month (0 = January), dom (1–31). */
   | { kind: "datePart"; column: string; part: DatePart }
   /** Bins over a number/date column; `edges` ascending, values beyond them fold into the end bins. */
-  | { kind: "bin"; column: string; edges: number[]; format?: "number" | "currency" | "percent" }
+  | {
+      kind: "bin";
+      column: string;
+      edges: number[];
+      format?: "number" | "currency" | "percent";
+      labels?: BinLabelOptions;
+    }
   /** Bins over a row expression; buildGrouping needs its compiled getter in `opts.getters`. */
   | {
       kind: "binExpr";
@@ -38,7 +44,15 @@ export type GroupKey =
       edges: number[];
       format?: "number" | "currency" | "percent";
       label: string;
+      labels?: BinLabelOptions;
     };
+
+/** How band labels are written: the currency symbol of money bands and the number grouping (L/Cr or K/M). */
+export interface BinLabelOptions {
+  /** Put before each end of a currency band ("₹0–₹1K"). */
+  currencySymbol?: string;
+  locale?: NumberLocale;
+}
 
 export interface GroupLabel {
   label: string;
@@ -59,18 +73,33 @@ export interface Grouping {
 
 export type RowGetter = (r: number) => number;
 
-/** Bin range label "a–b", formatted for the axis (percent bins hold fractions). */
+/** Whole percentage points need no decimal; anything else gets one (2.5%). */
+const pctDecimals = (x: number): number => (Math.abs(x * 100 - Math.round(x * 100)) < 1e-9 ? 0 : 1);
+
+/**
+ * Bin range label "a–b", formatted for the axis (percent bins hold
+ * fractions). Both ends take the same decimals ("0%–5%", "2.5%–5.0%", never
+ * "0%–5.0%"), money bands carry the currency symbol at each end ("₹0–₹1K"),
+ * and large ends use the locale's units (1L, or 100K).
+ */
 export function binLabel(
   a: number,
   b: number,
   format: "number" | "currency" | "percent" | undefined,
+  opts: BinLabelOptions = {},
 ): string {
-  const f = (x: number) =>
-    format === "percent"
-      ? `${formatPlain(x * 100, Math.abs(x) < 0.1 && x !== 0 ? 1 : 0, "INTL")}%`
-      : Math.abs(x) >= 1000
-        ? formatCompact(x, "INTL")
-        : formatPlain(x, Number.isInteger(x) ? 0 : 2, "INTL");
+  const locale = opts.locale ?? "INTL";
+  const sym = format === "currency" ? (opts.currencySymbol ?? "") : "";
+  if (format === "percent") {
+    const d = Math.max(pctDecimals(a), pctDecimals(b));
+    return `${formatPlain(a * 100, d, locale)}%–${formatPlain(b * 100, d, locale)}%`;
+  }
+  const d = Number.isInteger(a) && Number.isInteger(b) ? 0 : 2;
+  const f = (x: number) => {
+    const body =
+      Math.abs(x) >= 1000 ? formatCompact(Math.abs(x), locale) : formatPlain(Math.abs(x), d, locale);
+    return `${x < 0 ? "−" : ""}${sym}${body}`;
+  };
   return `${f(a)}–${f(b)}`;
 }
 
@@ -121,7 +150,10 @@ function groupSingle(ds: Dataset, key: GroupKey, rows: Int32Array, getter?: RowG
     }
     const labels: GroupLabel[] = [];
     for (let g = 0; g < G; g++)
-      labels.push({ label: binLabel(edges[g] as number, edges[g + 1] as number, key.format), raw: g });
+      labels.push({
+        label: binLabel(edges[g] as number, edges[g + 1] as number, key.format, key.labels),
+        raw: g,
+      });
     return { codes, G, labels, periodStart: null };
   }
 
@@ -160,10 +192,17 @@ function groupSingle(ds: Dataset, key: GroupKey, rows: Int32Array, getter?: RowG
       const b = bucketOf[i] as number;
       codes[i] = b === b ? (index.get(b) ?? -1) : -1;
     }
+    // Day and week labels carry no year ("Wk of 29 Sep"); when the buckets run into a second year
+    // the same label would name two weeks, so every label then gets its year ("Wk of 29 Sep 2025").
+    const spansYears =
+      (grain === "day" || grain === "week") &&
+      starts.length > 0 &&
+      new Date(starts[0] as number).getUTCFullYear() !==
+        new Date(starts[starts.length - 1] as number).getUTCFullYear();
     return {
       codes,
       G: starts.length,
-      labels: starts.map((s) => ({ label: bucketLabel(s, grain), raw: s })),
+      labels: starts.map((s) => ({ label: bucketLabel(s, grain, spansYears), raw: s })),
       periodStart: Float64Array.from(starts),
     };
   }

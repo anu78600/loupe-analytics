@@ -4,10 +4,16 @@
  * serialised payload must not contain any email, phone number, web address,
  * street address, identifier or person's name verbatim, in the sample rows
  * or the top values, while low-cardinality categories, numbers, dates and
- * aggregates still arrive.
+ * aggregates still arrive. The executive summary's KPI lines are written as
+ * the cards write them: rates in percentage points, a true minus, the base.
  */
 import { describe, expect, it } from "vitest";
 import { Session } from "@/engine/session";
+import { formatPointDelta } from "@/engine/core/format";
+import { defaultPreset, presetRange } from "@/engine/core/periods";
+import type { Filter } from "@/engine/query/filter";
+import { formatKpi } from "@/ui/common/kpiFormat";
+import { summaryKpis } from "@/ui/workspace/aiSummaryPayload";
 
 const N = 60;
 const REPS = ["Priya Sharma", "Arjun Nair", "Meera Iyer", "Kabir Singh", "Divya Reddy"];
@@ -153,5 +159,35 @@ describe("AI payload", async () => {
     expect(payload.sample[0]?.Notes).toBe("«text»");
     expect(payload.sample[0]?.Website).toBe("«url»");
     expect(payload.privacy).toMatch(/pseudonyms/);
+  });
+});
+
+describe("AI summary payload", () => {
+  it("sends each KPI as its card writes it: rates in points, a true minus, and the base", () => {
+    const s = new Session();
+    if (s.ingestSample("ecommerce").status !== "ok") throw new Error("ecommerce");
+    const ctx = s.configure({ domainId: "ecommerce", numberLocale: "IN", currency: null });
+    const range = ctx.dateBounds ? presetRange(defaultPreset(ctx.dateBounds), ctx.dateBounds) : null;
+    const filters: Filter[] =
+      range && ctx.dateColumn
+        ? [{ kind: "dateRange", column: ctx.dateColumn, from: range.from, to: range.to }]
+        : [];
+    const ids = [...ctx.selection.hero, ...ctx.selection.supporting];
+    const batch = s.kpiBatch(filters, ids, "IN");
+    const fmt = { locale: "IN" as const, currency: ctx.currency };
+    const lines = summaryKpis(batch.values, ctx.kpis, ids, fmt);
+    expect(lines.length).toBe(batch.values.length);
+    const rates = lines.filter((l) => ctx.kpis.find((k) => k.name === l.name)?.format === "percent");
+    expect(rates.length).toBeGreaterThan(0);
+    for (const l of lines) {
+      const k = ctx.kpis.find((x) => x.name === l.name);
+      const v = batch.values.find((x) => x.id === k?.id);
+      expect(l.value, l.name).toBe(formatKpi(v?.value ?? null, k?.format ?? "number", fmt));
+      if (l.change === null) continue;
+      expect(l.change, l.name).not.toMatch(/^-/);
+      expect(l.from, l.name).toBe(formatKpi(v?.previous ?? null, k?.format ?? "number", fmt));
+      if (k?.format === "percent") expect(l.change, l.name).toBe(formatPointDelta(v?.deltaAbs, "IN"));
+      else expect(l.change, l.name).toMatch(/^[+−][\d,.]+%$|^0\.0%$/);
+    }
   });
 });

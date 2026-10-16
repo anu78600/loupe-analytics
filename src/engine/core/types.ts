@@ -172,7 +172,8 @@ export interface ParseReport {
   delimiter?: string;
   /**
    * 0-based header row (or first data row when no header was found).
-   * Delimited files count non-blank rows; workbooks use the physical sheet row.
+   * Delimited files give the 0-based line of the file (blank lines counted);
+   * workbooks use the physical sheet row.
    */
   headerRowIndex: number;
   /** False when the top row read like data and columns were named Column 1, Column 2, … */

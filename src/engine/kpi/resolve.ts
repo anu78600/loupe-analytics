@@ -45,8 +45,16 @@ export type KpiResolutionMap = Map<string, KpiResolution>;
  * Resolves the domain's KPIs against the mapping. With `subDomain`, KPIs
  * tagged only for other sub-domains are left out of the result, unless an
  * in-scope KPI refers to one: then it stays, flagged `dependencyOnly`.
+ * `hidden` maps a field to the column that would fill it but that the user
+ * hid in Check & map, so a KPI that needs it says so instead of asking for a
+ * column the file already has.
  */
-export function resolveKpis(domain: DomainDef, mapping: Mapping, subDomain?: string): KpiResolutionMap {
+export function resolveKpis(
+  domain: DomainDef,
+  mapping: Mapping,
+  subDomain?: string,
+  hidden?: ReadonlyMap<string, string>,
+): KpiResolutionMap {
   const defs = new Map(domain.kpis.map((k) => [k.id, k]));
   const labels = new Map(domain.fields.map((f) => [f.id, f.label]));
   const classLabels = new Map<string, string>();
@@ -128,6 +136,15 @@ export function resolveKpis(domain: DomainDef, mapping: Mapping, subDomain?: str
         .filter((v) => v !== b.variant)
         .map((v) => ({ v, missing: [...fieldsOf(v.expr)].filter((f) => !mapping.fields[f]) }))
         .sort((x, y) => x.missing.length - y.missing.length)[0];
+      // A missing field (or the field behind a missing value class) whose column the user hid.
+      const fieldOf = (cls: string) => cls.split(".")[0] ?? cls;
+      const hiddenColumns = [
+        ...new Set(
+          [...b.missingFields, ...b.missingClasses.map(fieldOf)]
+            .map((f) => hidden?.get(f))
+            .filter((c): c is string => Boolean(c)),
+        ),
+      ];
       chosen = {
         def,
         available: false,
@@ -136,11 +153,15 @@ export function resolveKpis(domain: DomainDef, mapping: Mapping, subDomain?: str
         missingFields: b.missingFields,
         missingClasses: b.missingClasses,
         missingKpis: b.missingKpis,
-        unavailableReason: `Unavailable: needs ${needs.join(", ")}.`,
-        substitute:
-          alternatives && alternatives.missing.length
+        unavailableReason: hiddenColumns.length
+          ? `Unavailable: it needs ${hiddenColumns.map((c) => `"${c}"`).join(" and ")}, which you hid in Check & map.`
+          : `Unavailable: needs ${needs.join(", ")}.`,
+        substitute: hiddenColumns.length
+          ? "Show the column again in Check & map to use this KPI."
+          : alternatives && alternatives.missing.length
             ? `Or map ${alternatives.missing.map((f) => labels.get(f) ?? f).join(" + ")} to use "${alternatives.v.label}".`
-            : b.missingClasses.length
+            : // Value meanings only help when the class's field has a column to take values from.
+              b.missingClasses.some((c) => mapping.fields[fieldOf(c)])
               ? "Assign the matching values in Check & map › Value meanings."
               : undefined,
       };

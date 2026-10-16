@@ -17,8 +17,14 @@
  * chart, computed by the engine under the dashboard's filters, previews
  * below; a combination the type can't draw says why instead.
  *
- * Editing a chart starts from it: the user's own chart is changed in place;
- * a recommended chart is saved as the user's copy and the original hidden.
+ * Editing a chart starts from it as its card shows it (type and Top N
+ * included): the user's own chart is changed in place; a recommended chart
+ * is saved as the user's copy, in the original's place, and the original
+ * hidden. Only a title the user typed carries over (chartDraft.ts), so a
+ * chart whose data changes is never left with the old chart's title.
+ *
+ * Below the xl breakpoint the builder sits under the gallery, so picking a
+ * type brings it into view (and moves focus to it).
  */
 import * as React from "react";
 import { toast } from "sonner";
@@ -50,8 +56,10 @@ import {
   adapt,
   AGGS,
   buildSpec,
+  DEFAULT_TOP,
   draftFromSpec,
   firstCategory,
+  followSize,
   GRAINS,
   lower,
   missing,
@@ -84,12 +92,27 @@ export function ChartStudio({ editing, onDone }: { editing: ChartSpec | null; on
     () => (draft && context ? buildSpec(JSON.parse(key) as Draft, context, "studio_preview") : null),
     [key, context, draft],
   );
+  const builder = React.useRef<HTMLElement>(null);
   if (!context || !cols) return null;
 
-  const pick = (kind: ChartKind) =>
+  const pick = (kind: ChartKind) => {
     setDraft((d) =>
       d && d.kind !== kind ? adapt(d, kind, context, cols) : (d ?? newDraft(kind, context, cols)),
     );
+    // Beside the gallery (xl and up) the builder is already in view; below it, it sits under every
+    // type, thousands of pixels down on a phone, so it is brought into view once it has rendered.
+    if (window.matchMedia("(min-width: 1280px)").matches) return;
+    const calm = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    requestAnimationFrame(() => {
+      const el = builder.current;
+      el?.scrollIntoView({ behavior: calm ? "auto" : "smooth", block: "start" });
+      el?.querySelector<HTMLElement>("[data-builder-heading]")?.focus({ preventScroll: true });
+    });
+  };
+
+  // Every edit in the builder keeps the height following the number of bars, until the user sets one.
+  const edit: React.Dispatch<React.SetStateAction<Draft>> = (action) =>
+    setDraft((d) => (d ? followSize(d, typeof action === "function" ? action(d) : action, cols) : d));
 
   const save = () => {
     if (!draft) return;
@@ -100,17 +123,24 @@ export function ChartStudio({ editing, onDone }: { editing: ChartSpec | null; on
     const spec = out.spec;
     const ws = useWorkspace.getState();
     if (editing?.source === "custom") {
+      // The card's own type, Top N and title were part of the draft, so the saved spec carries them now.
       useWorkspace.setState({
         customCharts: ws.customCharts.map((c) => (c.id === editing.id ? spec : c)),
         widgets: ws.widgets.map((w) =>
-          w.id === editing.id ? { ...w, w: draft.w, h: draft.h, kind: undefined, title: undefined } : w,
+          w.id === editing.id
+            ? { ...w, w: draft.w, h: draft.h, kind: undefined, topN: undefined, title: undefined }
+            : w,
         ),
       });
       ws.refresh();
       toast.success(`Saved “${spec.title}”`);
     } else {
       addCustomChart(spec, { select: false });
-      if (editing) ws.updateWidget(editing.id, { hidden: true });
+      if (editing) {
+        // The copy takes the original's place in the dashboard order; the original is hidden after it.
+        ws.moveWidget(spec.id, editing.id);
+        ws.updateWidget(editing.id, { hidden: true });
+      }
       toast.success(
         editing
           ? `Saved “${spec.title}” as your chart; the original is hidden`
@@ -195,11 +225,15 @@ export function ChartStudio({ editing, onDone }: { editing: ChartSpec | null; on
           </div>
         ))}
       </section>
-      <aside aria-label="Chart builder" className="min-w-0 xl:sticky xl:top-20 xl:self-start">
+      <aside
+        ref={builder}
+        aria-label="Chart builder"
+        className="min-w-0 scroll-mt-20 xl:sticky xl:top-20 xl:self-start"
+      >
         {draft ? (
           <Builder
             draft={draft}
-            setDraft={setDraft as React.Dispatch<React.SetStateAction<Draft>>}
+            setDraft={edit}
             context={context}
             cols={cols}
             problem={built?.problem ?? null}
@@ -262,7 +296,14 @@ function Builder({
           <Icon className="size-4.5" aria-hidden />
         </span>
         <div className="min-w-0">
-          <h2 className="text-sm font-medium text-fg">{t.name}</h2>
+          {/* Focus lands here after a type is picked on a narrow screen (ChartStudio.pick). */}
+          <h2
+            data-builder-heading
+            tabIndex={-1}
+            className="rounded-[6px] text-sm font-medium text-fg focus-visible:ring-2 focus-visible:ring-accent-ring focus-visible:outline-none"
+          >
+            {t.name}
+          </h2>
           <p className="text-2xs leading-relaxed text-fg-muted">
             {t.shows} Best for: {lower(t.bestFor)}
           </p>
@@ -516,7 +557,7 @@ function Builder({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Default (top 15)</SelectItem>
+                <SelectItem value="all">Default (top {DEFAULT_TOP})</SelectItem>
                 {TOPNS.map((n) => (
                   <SelectItem key={n} value={String(n)}>
                     Top {n}

@@ -1,20 +1,23 @@
 /**
  * Footer for the marketing pages. Shows the copyright (content/credits.ts)
  * and the current version from the version log (src/content/changelog.ts) so
- * visitors can see what changed and when.
+ * visitors can see what changed and when. Its links to the home page's
+ * sections are SectionLinks, so they scroll in place there (see
+ * SectionLink.tsx).
  */
 import Link from "next/link";
 import { ShieldCheck } from "lucide-react";
 import { Wordmark } from "@/ui/brand/logo";
 import { CURRENT_RELEASE } from "@/content/changelog";
 import { AUTHOR, copyrightLine } from "@/content/credits";
+import { SectionLink } from "./SectionLink";
 
 const COLUMNS: Array<{ title: string; links: Array<{ href: string; label: string }> }> = [
   {
     title: "Product",
     links: [
       { href: "/app", label: "Open the workspace" },
-      { href: "/app?sample=ecommerce", label: "Live e-commerce demo" },
+      { href: "/app?sample=ecommerce&step=dashboard", label: "Live e-commerce demo" },
       { href: "/#how", label: "How it works" },
       { href: "/#industries", label: "Industries" },
     ],
@@ -30,6 +33,7 @@ const COLUMNS: Array<{ title: string; links: Array<{ href: string; label: string
 ];
 
 export function SiteFooter() {
+  const version = `v${CURRENT_RELEASE.version} · ${CURRENT_RELEASE.title}`;
   return (
     <footer className="border-t border-border bg-bg-subtle">
       <div className="mx-auto grid max-w-6xl gap-10 px-4 py-14 sm:px-6 md:grid-cols-[1.6fr_1fr_1fr]">
@@ -46,13 +50,13 @@ export function SiteFooter() {
           <nav key={col.title} aria-label={col.title} className="grid content-start gap-3">
             <p className="text-2xs font-medium tracking-[0.12em] text-fg-subtle uppercase">{col.title}</p>
             {col.links.map((l) => (
-              <Link
+              <SectionLink
                 key={l.href}
                 href={l.href}
                 className="w-fit text-ui text-fg-muted transition-colors hover:text-fg"
               >
                 {l.label}
-              </Link>
+              </SectionLink>
             ))}
           </nav>
         ))}
@@ -67,11 +71,13 @@ export function SiteFooter() {
               Demo datasets are synthetic and generated in the browser. No real customers or transactions.
             </p>
           </div>
+          {/* One line, cut short with an ellipsis on a phone: a pill that wraps reads as two. */}
           <Link
             href="/changelog"
-            className="font-figures rounded-full border border-border px-2.5 py-1 transition-colors hover:border-border-accent hover:text-fg"
+            title={version}
+            className="font-figures max-w-full truncate rounded-full border border-border px-2.5 py-1 transition-colors hover:border-border-accent hover:text-fg"
           >
-            v{CURRENT_RELEASE.version} · {CURRENT_RELEASE.title}
+            {version}
           </Link>
         </div>
       </div>

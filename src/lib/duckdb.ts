@@ -9,8 +9,62 @@
  * in-memory file buffer and never leaves the browser. One database (and its
  * own worker) is shared per tab and survives across calls; each
  * verification reloads the table from a fresh engine bundle.
+ *
+ * When the CDN can't be reached (offline, a firewall, a blocking extension)
+ * the start fails within START_TIMEOUT_MS with DuckDbUnavailableError, which
+ * says so in words, instead of waiting for ever: the worker's script fails to
+ * load without the DuckDB client ever hearing of it.
  */
 import type { AsyncDuckDB, AsyncDuckDBConnection } from "@duckdb/duckdb-wasm";
+
+/** How long DuckDB may take to download and start before the check gives up and says why. */
+export const START_TIMEOUT_MS = 30_000;
+
+/** DuckDB could not be downloaded or started; the message is written to be shown as it is. */
+export class DuckDbUnavailableError extends Error {
+  constructor() {
+    super(
+      "DuckDB couldn't be downloaded from cdn.jsdelivr.net. Check your connection, or whether something blocks that site, and try again.",
+    );
+    this.name = "DuckDbUnavailableError";
+  }
+}
+
+/**
+ * Settles as `work` does, or rejects with DuckDbUnavailableError when the
+ * worker reports an error first (its script failed to load, as it does
+ * offline) or `ms` pass first. A browser reports a failed importScripts()
+ * only as an error event on the Worker, which DuckDB's client doesn't listen
+ * for, so without this a start that can never finish would wait for ever.
+ */
+export function startWithin<T>(
+  work: Promise<T>,
+  worker: Pick<Worker, "addEventListener" | "removeEventListener">,
+  ms: number,
+): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    function done() {
+      clearTimeout(timer);
+      worker.removeEventListener("error", fail);
+    }
+    function fail() {
+      done();
+      reject(new DuckDbUnavailableError());
+    }
+    const timer = setTimeout(fail, ms);
+    worker.addEventListener("error", fail);
+    work.then(
+      (v) => {
+        done();
+        resolve(v);
+      },
+      (e: unknown) => {
+        done();
+        reject(e);
+      },
+    );
+  });
+}
 
 /** One KPI query from Session.verificationBundle(); `engine` is Loupe's own value for it. */
 export interface VerificationQuery {
@@ -35,7 +89,11 @@ let dbPromise: Promise<{ db: AsyncDuckDB; worker: Worker }> | null = null;
 /** Name of the table loadTable() last created; runSql() refuses to run before one exists. */
 let loadedTable: string | null = null;
 
-/** The shared database, created on first use. A failed start is forgotten so the next call retries. */
+/**
+ * The shared database, created on first use. A failed start (CDN out of
+ * reach, a timeout, a failed instantiate) stops its worker and is forgotten,
+ * so the next call starts afresh.
+ */
 async function getDb(onStatus?: (s: string) => void): Promise<{ db: AsyncDuckDB; worker: Worker }> {
   if (!dbPromise) {
     dbPromise = (async () => {
@@ -49,17 +107,30 @@ async function getDb(onStatus?: (s: string) => void): Promise<{ db: AsyncDuckDB;
         new Blob([`importScripts("${bundle.mainWorker}");`], { type: "text/javascript" }),
       );
       const worker = new Worker(workerUrl);
-      const db = new duckdb.AsyncDuckDB(new duckdb.VoidLogger(), worker);
-      onStatus?.("Starting DuckDB…");
-      await db.instantiate(bundle.mainModule, bundle.pthreadWorker);
-      URL.revokeObjectURL(workerUrl);
-      return { db, worker };
-    })().catch((e) => {
+      try {
+        const db = new duckdb.AsyncDuckDB(new duckdb.VoidLogger(), worker);
+        onStatus?.("Starting DuckDB…");
+        await startWithin(db.instantiate(bundle.mainModule, bundle.pthreadWorker), worker, START_TIMEOUT_MS);
+        return { db, worker };
+      } catch (e) {
+        // Nothing will answer from a worker that failed to start: stop it rather than leave it waiting.
+        worker.terminate();
+        throw e;
+      } finally {
+        URL.revokeObjectURL(workerUrl);
+      }
+    })().catch((e: unknown) => {
       dbPromise = null;
-      throw e;
+      // The CDN fetch itself failing (rather than the worker's) is the same problem for the user.
+      throw e instanceof DuckDbUnavailableError || !isNetworkError(e) ? e : new DuckDbUnavailableError();
     });
   }
   return dbPromise;
+}
+
+/** A failed fetch or script load ("Failed to fetch", "NetworkError…", "Load failed"), as browsers word it. */
+function isNetworkError(e: unknown): boolean {
+  return e instanceof Error && /failed to fetch|networkerror|load failed|importScripts/i.test(e.message);
 }
 
 // 64-bit integers arrive as JS bigint; anything else non-numeric goes through Number(String(v)).

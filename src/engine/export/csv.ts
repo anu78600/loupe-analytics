@@ -138,6 +138,19 @@ export function datasetToCsv(ds: Dataset, opts: CsvOptions = {}): string {
 }
 
 /**
+ * A computed figure (a chart's total, share or average) for a CSV cell,
+ * rounded to 12 significant digits: summing thousands of amounts leaves
+ * binary noise in the last digits ("5028010.51000001"), which a reader takes
+ * for real precision. Whole numbers below 10^12 are unchanged. Only for
+ * computed values: the file's own numbers are written as they are
+ * (formatNumberCell).
+ */
+export function roundAggregate(v: number | null): number | null {
+  if (v === null || !Number.isFinite(v) || v === 0) return v;
+  return Number(v.toPrecision(12));
+}
+
+/**
  * Generic CSV for a small table of already-formatted values. Every string
  * cell, the header included, is always guarded: these tables carry labels
  * taken from the data (category names, segments).

@@ -3,9 +3,10 @@
  * own KPIs, columns and the template's vocabulary, and the designed charts
  * follow the dataviz rules: averages for rates and scores (even when a total
  * is asked), separate charts for different units, a scatter for "A vs B",
- * stacked columns for a split, top N, and a note for every choice made on
- * the user's behalf. Every designed chart computes, and a single additive
- * measure adds up to its overall value.
+ * stacked columns for a split, top N (without Others when the user asks for
+ * the top N), a category with a period drawn over time and split, and a note
+ * for every choice made on the user's behalf. Every designed chart computes,
+ * and a single additive measure adds up to its overall value.
  */
 import { describe, expect, it } from "vitest";
 import { Session } from "@/engine/session";
@@ -154,6 +155,47 @@ describe("asking the sales demo", () => {
       expect(d.reading.unmatched, e).toEqual([]);
       expect(d.charts.length, e).toBeGreaterThan(0);
     }
+  });
+});
+
+describe("asking the e-commerce demo", () => {
+  const { ctx, design, compute } = setup("ecommerce");
+
+  it("shows just the top N when the user asks for the top N, without an Others bar", () => {
+    const { charts } = design("top 5 products by units");
+    const spec = charts[0]?.spec;
+    expect(spec?.topN).toBe(5);
+    expect(spec?.others).toBe(false);
+    expect(charts[0]?.why).not.toMatch(/Others/);
+    const data = compute(spec);
+    expect(data?.categories.some((c) => c.isOthers)).toBe(false);
+    expect(data?.categories).toHaveLength(5);
+    // The same chart read back keeps "no Others".
+    expect(askFromSpec(spec as NonNullable<typeof spec>)?.others).toBe(false);
+    // Without "top N" the long tail is still summed as Others.
+    expect(design("units by product").charts[0]?.spec.others).toBe(true);
+  });
+
+  it("draws a category with a period over time, split by the category, and says so", () => {
+    const { reading, charts } = design("net revenue by courier and month");
+    expect(reading.unmatched).toEqual([]);
+    expect(reading.ask.by).toMatchObject({ kind: "time", grain: "month" });
+    expect(reading.ask.split).toBe("Courier");
+    expect(reading.notes.join(" ")).toMatch(/Shown by month, split by Courier/);
+    expect(charts[0]?.spec.series).toMatchObject({ kind: "column", column: "Courier" });
+  });
+
+  it("reports a value it can't put on a chart, and keeps whole KPI names", () => {
+    const r = readAsk("net revenue by state in maharashtra", ctx as AskContext);
+    expect(r.unmatched).toEqual([]);
+    expect(r.filterLabels).toEqual(["Customer State: Maharashtra"]);
+    expect(readAsk("average order value by channel", ctx as AskContext).ask.measures).toEqual([
+      { kind: "kpi", id: "aov" },
+    ]);
+    // "average discount" averages the Discount column: the Discounts KPI is a total.
+    expect(readAsk("average discount by brand", ctx as AskContext).ask.measures).toEqual([
+      { kind: "column", column: "Discount", agg: "avg" },
+    ]);
   });
 });
 

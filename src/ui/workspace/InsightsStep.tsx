@@ -4,6 +4,13 @@
  * Step 5, Insights: ranked findings from the rules engine, each with its
  * numbers, its basis and a link that jumps to the chart it describes. The
  * optional AI executive summary sits on top when the AI layer is switched on.
+ *
+ * Insights describe the dashboard's selection, said in words above them
+ * ("for the last 12 months, 1 Oct 2025 – 30 Sep 2026"). While they are
+ * recomputed for a new selection the list says so and is dimmed (or shows
+ * placeholders the first time); a selection with no rows says that instead
+ * of showing anything. Each insight keeps its overall rank when the list is
+ * narrowed to one type.
  */
 import * as React from "react";
 import { motion } from "framer-motion";
@@ -25,7 +32,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { INSIGHT_KIND_LABEL, type Insight, type InsightKind } from "@/engine/insights/insights";
-import { PRESET_LABEL } from "@/engine/core/periods";
+import { PRESET_LABEL, presetRange, type DatePreset } from "@/engine/core/periods";
 import { formatRange } from "@/engine/core/dates";
 import { stepNumber, useWorkspace } from "@/store/workspace";
 import { useSettings } from "@/store/settings";
@@ -55,9 +62,26 @@ const TONE: Record<Insight["tone"], { label: string; className: string; icon: Lu
   warning: { label: "Watch", className: "text-warning bg-warning-soft", icon: AlertTriangle },
 };
 
+/** The selected period in words: "the last 12 months (1 Oct 2025 – 30 Sep 2026)", "all your data". */
+function periodWords(
+  preset: DatePreset,
+  custom: { from: number; to: number } | null,
+  bounds: { min: number; max: number } | null,
+): string {
+  if (preset === "custom" && custom) return formatRange(custom.from, custom.to);
+  if (preset === "all" || !bounds)
+    return bounds ? `all your data (${formatRange(bounds.min, bounds.max)})` : "all your data";
+  const range = presetRange(preset, bounds);
+  const name = PRESET_LABEL[preset].toLowerCase();
+  return `the ${name}${range ? ` (${formatRange(range.from, range.to)})` : ""}`;
+}
+
 export function InsightsStep() {
   const insights = useWorkspace((s) => s.insights);
   const loading = useWorkspace((s) => s.insightsLoading);
+  const computing = useWorkspace((s) => s.computing);
+  const rows = useWorkspace((s) => s.lastCompute?.rows ?? null);
+  const bounds = useWorkspace((s) => s.context?.dateBounds ?? null);
   const load = useWorkspace((s) => s.loadInsights);
   const preset = useWorkspace((s) => s.datePreset);
   const custom = useWorkspace((s) => s.customRange);
@@ -66,6 +90,9 @@ export function InsightsStep() {
   React.useEffect(() => {
     if (!insights && !loading) void load();
   }, [insights, loading, load]);
+  // Insights wait for the dashboard's refresh: until they match the selection they are being worked on.
+  const updating = loading || computing || insights === null;
+  const noRows = !updating && rows === 0;
   const kinds = [...new Set((insights ?? []).map((i) => i.kind))];
   const shown = (insights ?? []).filter((i) => kind === "all" || i.kind === kind);
   return (
@@ -76,20 +103,30 @@ export function InsightsStep() {
           <h1 className="mt-2 font-display text-display-sm text-fg">What the data says</h1>
           <p className="mt-2 max-w-2xl text-ui text-fg-muted">
             Ranked by impact. Every number below was computed from your data for{" "}
-            {preset === "custom" && custom
-              ? formatRange(custom.from, custom.to)
-              : PRESET_LABEL[preset].toLowerCase()}
-            ; nothing is estimated or written by a model unless you ask for the optional AI summary.
+            {periodWords(preset, custom, bounds)}, with the filters below; nothing is estimated or written by
+            a model unless you ask for the optional AI summary.
           </p>
         </div>
-        <Button variant="secondary" size="sm" onClick={() => void load()} disabled={loading}>
-          {loading ? <Loader2 className="animate-spin" aria-hidden /> : <RefreshCw aria-hidden />} Recompute
+        <Button variant="secondary" size="sm" onClick={() => void load()} disabled={updating}>
+          {updating ? <Loader2 className="animate-spin" aria-hidden /> : <RefreshCw aria-hidden />} Recompute
         </Button>
       </div>
       <div className="mb-4">
         <ActiveFilters inline />
       </div>
-      {kinds.length > 1 ? (
+      <p className="sr-only" aria-live="polite">
+        {updating
+          ? "Updating insights for this selection…"
+          : noRows
+            ? "No rows match the current filters."
+            : ""}
+      </p>
+      {updating && insights?.length ? (
+        <p className="mb-3 flex items-center gap-2 text-2xs text-fg-muted">
+          <Loader2 className="size-3.5 animate-spin" aria-hidden /> Updating for this selection…
+        </p>
+      ) : null}
+      {kinds.length > 1 && !noRows ? (
         <div className="mb-5 flex flex-wrap gap-1.5" role="tablist" aria-label="Insight type">
           {(["all", ...kinds] as Array<InsightKind | "all">).map((k) => (
             <button
@@ -110,17 +147,30 @@ export function InsightsStep() {
           ))}
         </div>
       ) : null}
-      {aiEnabled && insights?.length ? <AiSummary insights={insights} /> : null}
-      {loading && !insights ? (
-        <div className="grid gap-3">
+      {aiEnabled && insights?.length && !updating && !noRows ? <AiSummary insights={insights} /> : null}
+      {noRows ? (
+        <Card className="flex flex-col items-center gap-2 p-10 text-center">
+          <Lightbulb className="size-6 text-fg-subtle" aria-hidden />
+          <p className="text-sm text-fg">No rows match the current filters.</p>
+          <p className="max-w-md text-ui text-fg-muted">
+            There is nothing to find in an empty selection. Remove a filter or widen the date range to see
+            insights.
+          </p>
+        </Card>
+      ) : updating && !insights?.length ? (
+        <div className="grid gap-3" aria-busy="true">
           {[0, 1, 2, 3].map((i) => (
             <Skeleton key={i} className="h-28 w-full rounded-card" />
           ))}
         </div>
       ) : shown.length ? (
-        <ol className="grid gap-3">
-          {shown.map((i, idx) => (
-            <InsightCard key={i.id} insight={i} index={idx} />
+        <ol
+          className={cn("grid gap-3 transition-opacity", updating ? "opacity-60" : "")}
+          aria-busy={updating}
+        >
+          {shown.map((i) => (
+            // The overall rank, also when the list shows one type of insight.
+            <InsightCard key={i.id} insight={i} rank={(insights ?? []).indexOf(i) + 1} />
           ))}
         </ol>
       ) : (
@@ -137,7 +187,7 @@ export function InsightsStep() {
   );
 }
 
-function InsightCard({ insight, index }: { insight: Insight; index: number }) {
+function InsightCard({ insight, rank }: { insight: Insight; rank: number }) {
   const focusChart = useWorkspace((s) => s.focusChart);
   const k = KIND[insight.kind];
   const tone = TONE[insight.tone];
@@ -145,15 +195,15 @@ function InsightCard({ insight, index }: { insight: Insight; index: number }) {
     <motion.li
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.035, type: "spring", stiffness: 380, damping: 34 }}
+      transition={{ delay: Math.min(rank, 12) * 0.035, type: "spring", stiffness: 380, damping: 34 }}
     >
       <Card className="flex gap-4 p-5">
         <div className="flex flex-col items-center gap-2">
           <span className={cn("grid size-9 place-items-center rounded-[10px]", tone.className)}>
             <k.icon className="size-4" aria-hidden />
           </span>
-          <span className="font-figures text-2xs text-fg-subtle" aria-label={`Rank ${index + 1}`}>
-            #{index + 1}
+          <span className="font-figures text-2xs text-fg-subtle" aria-label={`Rank ${rank}`}>
+            #{rank}
           </span>
         </div>
         <div className="min-w-0 flex-1">

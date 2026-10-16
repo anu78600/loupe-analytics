@@ -110,7 +110,9 @@ export function useCountUp(target: number | null, duration = 700): number | null
     const start = performance.now();
     let raf = 0;
     const tick = (now: number) => {
-      const t = Math.min(1, (now - start) / duration);
+      // A frame's timestamp can be earlier than `start` (it is when the frame began), and the eased
+      // curve below goes negative for t < 0: 0% → −69% → 98% on the confidence ring. Clamp to [0, 1].
+      const t = Math.max(0, Math.min(1, (now - start) / duration));
       const v = origin + (target - origin) * (1 - Math.pow(1 - t, 3));
       shown.current = v;
       setFrame(v);

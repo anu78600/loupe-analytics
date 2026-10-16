@@ -11,27 +11,45 @@
  * evaluated over their own rows, so distinct counts and ratios are never
  * summed from parts. Histogram bins are clipped at p1–p99 when outliers would
  * squash the rest, with the end bins absorbing the tails. A time axis flags an
- * incomplete first or last bucket, which the peak/low annotations then skip.
+ * incomplete first or last bucket, which the peak/low annotations then skip,
+ * and is never bucketed more finely than the date column's own cadence
+ * (monthly snapshots stay monthly under a 30-day filter).
+ *
+ * A chart that draws only its top groups says so in a note ("Showing the top
+ * 12 of 24 customer states by RTO rate"), and its takeaway names the lowest
+ * bar as the lowest of those shown. Two-key charts (heatmaps, stacks) order
+ * their text categories naturally (L1, L2 … L10), not by first appearance.
+ * A measure that can't be computed any more is named, with the reason.
  * Values pass through finite(), so the UI only sees numbers or null.
  */
 import type { Column, Dataset } from "@/engine/core/types";
 import { autoGrain, bucketLabel, DAY_MS, endOfBucket, isoDate, type TimeGrain } from "@/engine/core/dates";
-import { formatCount, formatValue, type FormatOptions } from "@/engine/core/format";
+import { currencySymbol, formatCount, formatValue, type FormatOptions } from "@/engine/core/format";
+import { atLeastGrain, cadenceGrain } from "@/engine/core/periods";
+import { friendly } from "@/engine/core/labels";
 import { linearRegression, niceBins, quantileSorted } from "@/engine/core/stats";
 import { isAdditiveExpr, type Expr } from "@/engine/query/expr";
 import { selectRowsCached, type Filter } from "@/engine/query/filter";
-import { compileRowExpr, evaluate, kpiOrUndefined, type Resolver, type Scope } from "@/engine/query/evaluate";
+import {
+  compileRowExpr,
+  evaluate,
+  kpiOrUndefined,
+  MissingFieldError,
+  type Resolver,
+  type Scope,
+} from "@/engine/query/evaluate";
 import { buildGrouping, compactRows, type GroupKey } from "@/engine/query/groupby";
 import { OTHERS_LABEL, periodScope, runQuery, type ResultGroup } from "@/engine/query/run";
 import { evaluateMany, dateBounds } from "@/engine/kpi/compute";
 import type { ChartKind } from "@/registry/schema";
 import { computeBasket, computeCohorts, computeRfm } from "./analyses";
-import { chartHeadline } from "./headline";
+import { chartHeadline, type HeadlineTraits } from "./headline";
 import {
   MAX_DONUT_SLICES,
   type Annotation,
   type ChartCategory,
   type ChartData,
+  type ChartMeasure,
   type ChartSpec,
   type ResolvedAxis,
 } from "./types";
@@ -53,6 +71,12 @@ export interface ChartDataInput {
   topN?: number;
   kind?: ChartKind;
   grain?: TimeGrain;
+  /**
+   * Why a measure id no longer resolves, as a whole sentence, when the caller
+   * knows (a KPI the user deleted, one whose column is hidden: brokenCharts'
+   * chartProblem). Without it the reason is inferred from the kind of id.
+   */
+  measureIssue?: (id: string) => string | undefined;
 }
 
 const finite = (x: number | undefined): number | null => (x !== undefined && Number.isFinite(x) ? x : null);
@@ -63,6 +87,18 @@ const MAX_STACK = 8;
 /** Descending order for nullable values; blanks sort last. */
 const desc = (a: number | null, b: number | null): number =>
   a === null ? (b === null ? 0 : 1) : b === null ? -1 : b - a;
+
+/**
+ * An axis's own order: time buckets, date parts and bands by their raw
+ * number, text by its label with digits compared as numbers ("L2" before
+ * "L10"); blanks last.
+ */
+function naturalOrder(a: ChartCategory, b: ChartCategory): number {
+  if (a.raw === null) return b.raw === null ? 0 : 1;
+  if (b.raw === null) return -1;
+  if (typeof a.raw === "number" && typeof b.raw === "number") return a.raw - b.raw;
+  return a.label.localeCompare(b.label, "en", { numeric: true, sensitivity: "base" });
+}
 
 /** An empty result carrying a note; also the base object the analysis results extend. */
 function emptyData(spec: ChartSpec, kind: ChartKind, note: string, totalRows = 0): ChartData {
@@ -82,12 +118,63 @@ function emptyData(spec: ChartSpec, kind: ChartKind, note: string, totalRows = 0
   };
 }
 
-/** Auto grain for a time axis: from the date filter's span, else the column's full span. */
+/**
+ * Auto grain for a time axis: from the date filter's span, else the column's
+ * full span; never finer than the column's cadence (monthly snapshots bucketed
+ * by week would show empty weeks between them).
+ */
 function spanGrain(ds: Dataset, column: string, filters: readonly Filter[]): TimeGrain {
   const df = filters.find((f) => f.kind === "dateRange" && f.column === column);
-  if (df && df.kind === "dateRange") return autoGrain((df.to - df.from) / DAY_MS);
   const b = dateBounds(ds, column);
-  return b ? autoGrain((b.max - b.min) / DAY_MS) : "month";
+  const g =
+    df && df.kind === "dateRange"
+      ? autoGrain((df.to - df.from) / DAY_MS)
+      : b
+        ? autoGrain((b.max - b.min) / DAY_MS)
+        : "month";
+  return atLeastGrain(g, cadenceGrain(b?.cadence));
+}
+
+/** A lower-case plural for a note ("Customer State" → "customer states", "Category" → "categories"); acronyms keep their capitals. */
+function pluralNoun(label: string): string {
+  const words = friendly(label)
+    .split(" ")
+    .map((w) => (/^[A-Z0-9%]{2,}$/.test(w) ? w : w.toLowerCase()));
+  const last = words.pop() ?? "";
+  const plural = /[^aeiou]y$/.test(last)
+    ? `${last.slice(0, -1)}ies`
+    : /(s|x|z|ch|sh)$/.test(last)
+      ? `${last}es`
+      : `${last}s`;
+  return [...words, plural].join(" ");
+}
+
+/** A measure's name inside a sentence: "average MRP", but "RTO rate" keeps its capitals. */
+function measureInSentence(label: string): string {
+  const [first = "", ...rest] = label.split(" ");
+  return /^[A-Z0-9%]{2,}$/.test(first) ? label : [first.toLowerCase(), ...rest].join(" ");
+}
+
+/**
+ * Why a chart's measure can't be computed, naming it, in the words the
+ * Customise step's chart list uses (ui/workspace/customise/brokenCharts.ts):
+ * the reason the caller knows (ChartDataInput.measureIssue, a whole
+ * sentence), else what the kind of id says. A KPI made in Customise ("uk_…")
+ * was deleted or reads a hidden column; a KPI summarising one of the file's
+ * other columns ("yc_…") goes when its column is hidden or an industry KPI
+ * starts reading it; a template KPI needs a column the mapping no longer
+ * gives it.
+ */
+function unavailableNote(missing: ChartMeasure[], known: (id: string) => string | undefined): string {
+  const first = missing[0];
+  const reason = first ? known(first.id) : undefined;
+  if (reason) return reason;
+  const names = missing.map((m) => `“${m.label}”`).join(" and ");
+  if (first?.id.startsWith("uk_"))
+    return `It shows ${names}, a KPI you made in Customise that was deleted or reads a column you hid in Check & map. Choose another measure, or delete this chart.`;
+  if (first?.id.startsWith("yc_"))
+    return `It shows ${names}, which is no longer computed: its column is hidden in Check & map, or one of the industry's KPIs now reads it. Show the column again, or delete this chart.`;
+  return `It shows ${names}, which can't be computed with the current mapping. Map the columns ${missing.length > 1 ? "they need" : "it needs"} in Check & map, or delete this chart.`;
 }
 
 function binEdges(
@@ -120,18 +207,25 @@ function binEdges(
   return { edges, clipped };
 }
 
-/** GroupKey for a resolved axis; bin edges are computed from the selected rows. */
+/**
+ * GroupKey for a resolved axis; bin edges are computed from the selected
+ * rows. A grain asked for (the dashboard's trend grain) is still never finer
+ * than the date column's cadence; a calendar's day cells are the exception.
+ */
 function axisKey(
   ds: Dataset,
   resolver: Resolver,
   axis: ResolvedAxis,
   filters: readonly Filter[],
   rows: Int32Array,
+  fmt: FormatOptions,
   grain?: TimeGrain,
+  exactGrain = false,
 ): { key: GroupKey | null; grain?: TimeGrain; note?: string } {
   switch (axis.kind) {
     case "time": {
-      const g = grain ?? (axis.grain === "auto" ? spanGrain(ds, axis.column, filters) : axis.grain);
+      const asked = grain ?? (axis.grain === "auto" ? spanGrain(ds, axis.column, filters) : axis.grain);
+      const g = exactGrain ? asked : atLeastGrain(asked, cadenceGrain(dateBounds(ds, axis.column)?.cadence));
       return { key: { kind: "time", column: axis.column, grain: g }, grain: g };
     }
     case "column":
@@ -141,7 +235,15 @@ function axisKey(
     case "bins": {
       const { edges, clipped } = binEdges(ds, resolver, axis, rows);
       return {
-        key: { kind: "binExpr", expr: axis.expr, edges, format: axis.format, label: axis.label },
+        key: {
+          kind: "binExpr",
+          expr: axis.expr,
+          edges,
+          format: axis.format,
+          label: axis.label,
+          // Money bands carry the currency ("₹0–₹1K") and every band the user's number units.
+          labels: { currencySymbol: currencySymbol(fmt.currency), locale: fmt.locale },
+        },
         note: clipped ? "The first and last bands include the extreme 1% of values." : undefined,
       };
     }
@@ -237,18 +339,40 @@ function othersByX(
  * definition, since the chart data alone can't tell a sum from an average.
  */
 export function computeChartData(input: ChartDataInput): ChartData {
-  const data = chartDataFor(input);
+  const groups: { info?: HeadlineTraits["groups"] } = {};
+  let data: ChartData;
+  try {
+    data = chartDataFor(input, groups);
+  } catch (e) {
+    // A column the chart reads isn't in this file at all (a layout saved from another file):
+    // say which, rather than "Field col:… is not mapped".
+    if (!(e instanceof MissingFieldError)) throw e;
+    const raw = e.field.startsWith("col:");
+    const name = friendly(e.field.replace(/^col:/, ""));
+    return emptyData(
+      input.spec,
+      input.kind ?? input.spec.kind,
+      raw
+        ? `It uses ${name}, which isn't in this file. Delete this chart, or load the file it was made for.`
+        : `It needs ${name}, which isn't mapped to a column. Map it in Check & map, or delete this chart.`,
+    );
+  }
   const first = input.spec.measures[0];
   const expr = first ? kpiOrUndefined(input.resolver, first.id) : undefined;
   const headline = chartHeadline(input.spec, data, input.fmt, {
     additive: expr ? isAdditiveExpr(expr, (id) => kpiOrUndefined(input.resolver, id)) : false,
     distinct: expr ? countsDistinct(expr, input.resolver) : false,
+    groups: groups.info,
   });
   if (headline) data.headline = headline;
   return data;
 }
 
-function chartDataFor(input: ChartDataInput): ChartData {
+/**
+ * The chart's data. `out.info` is set when the chart draws only some of its
+ * axis's groups, for the takeaway (chartHeadline) to qualify what it claims.
+ */
+function chartDataFor(input: ChartDataInput, out: { info?: HeadlineTraits["groups"] }): ChartData {
   const { ds, resolver, spec, dateColumn, fmt } = input;
   const kind = input.kind ?? spec.kind;
   const filters: Filter[] = [...input.filters];
@@ -259,7 +383,8 @@ function chartDataFor(input: ChartDataInput): ChartData {
     const level = Math.min(input.drill.path.length, spec.drill.length - 1);
     for (let i = 0; i < level; i++)
       filters.push({ kind: "in", column: spec.drill[i] as string, values: [input.drill.path[i] as string] });
-    x = { kind: "column", column: spec.drill[level] as string, label: spec.drill[level] as string };
+    const column = spec.drill[level] as string;
+    x = { kind: "column", column, label: friendly(column) };
   }
 
   const measures = spec.measures.map((m) => {
@@ -270,7 +395,14 @@ function chartDataFor(input: ChartDataInput): ChartData {
     }
   });
   if (measures.some((m) => m === null))
-    return emptyData(spec, kind, "A measure for this chart is no longer available with the current mapping.");
+    return emptyData(
+      spec,
+      kind,
+      unavailableNote(
+        spec.measures.filter((_, i) => measures[i] === null),
+        (id) => input.measureIssue?.(id),
+      ),
+    );
   const ms = measures as Array<{ id: string; expr: ReturnType<Resolver["kpi"]> }>;
   const notes: string[] = [];
 
@@ -387,13 +519,14 @@ function chartDataFor(input: ChartDataInput): ChartData {
   const selected = selectRowsCached(ds, filters);
   if (selected.length === 0) return emptyData(spec, kind, "No rows match the current filters.");
   // A calendar has one cell per day, whatever grain the dashboard uses.
-  const xk = axisKey(ds, resolver, x, filters, selected, kind === "calendar" ? "day" : input.grain);
+  const calendar = kind === "calendar";
+  const xk = axisKey(ds, resolver, x, filters, selected, fmt, calendar ? "day" : input.grain, calendar);
   if (!xk.key) return emptyData(spec, kind, "This chart has no axis.");
   if (xk.note) notes.push(xk.note);
   const keys: GroupKey[] = [xk.key];
   let seriesKey: GroupKey | null = null;
   if (spec.series && SPLIT_KINDS.has(kind)) {
-    const sk = axisKey(ds, resolver, spec.series, filters, selected);
+    const sk = axisKey(ds, resolver, spec.series, filters, selected, fmt);
     if (sk.key) {
       keys.push(sk.key);
       seriesKey = sk.key;
@@ -457,6 +590,25 @@ function chartDataFor(input: ChartDataInput): ChartData {
       );
     }
   }
+  // A top N (or groups too small to compare) leaves some of the axis's values out, or folds them
+  // into Others. Count them: the note says how many are shown, and the takeaway never calls the
+  // lowest bar drawn the lowest overall.
+  if (categorical && x.kind === "column" && (topN || suppressed)) {
+    const shown = groups.filter((g) => !g.isOthers && g.labels[0]?.raw !== null).length;
+    const all = buildGrouping(ds, [xk.key], selected).labels.filter((l) => l[0]?.raw !== null).length;
+    if (shown < all) {
+      // runQuery ranks by the first measure, so the groups drawn are its highest.
+      out.info = { shown, total: all, rankedByValue: true };
+      // More groups qualified than were drawn: the top N cut them (groups too small to compare
+      // have a note of their own).
+      if (all - suppressed > shown) {
+        const others = groups.some((g) => g.isOthers);
+        notes.unshift(
+          `Showing the top ${shown} of ${all} ${pluralNoun(x.label)} by ${measureInSentence(spec.measures[0]?.label ?? "value")}${others ? `; the other ${all - shown} are combined in Others` : ""}.`,
+        );
+      }
+    }
+  }
   const folded = groups.find((g) => g.isOthers)?.foldedGroups;
 
   const data: ChartData = {
@@ -475,6 +627,7 @@ function chartDataFor(input: ChartDataInput): ChartData {
     notes,
     empty: groups.length === 0,
     totalRows: q.totalRows,
+    ...(x.kind !== "none" ? { axisLabel: x.label } : {}),
   };
 
   if (isTwoKey) {
@@ -498,6 +651,13 @@ function chartDataFor(input: ChartDataInput): ChartData {
         yCats.push({ label: b.label, raw: b.raw });
       }
     }
+    // Groups come in the order rows first show them (L1, L4, L2…): both axes are put in their
+    // natural order instead, periods and bands by time and size, text with its numbers read as
+    // numbers (L2 before L10).
+    xCats.sort(naturalOrder);
+    yCats.sort(naturalOrder);
+    xCats.forEach((c, i) => xIdx.set(String(c.raw), i));
+    yCats.forEach((c, i) => yIdx.set(String(c.raw), i));
     const matrix: Array<Array<number | null>> = yCats.map(() => xCats.map(() => null));
     for (const g of groups) {
       const xi = xIdx.get(String(g.labels[0]?.raw));

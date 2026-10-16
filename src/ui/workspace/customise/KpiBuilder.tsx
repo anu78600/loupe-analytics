@@ -17,6 +17,7 @@ import type { ColumnProfile } from "@/engine/profile/types";
 import type { KpiFormat } from "@/registry/schema";
 import {
   aggregateLabel,
+  ratioLabel,
   slugOf,
   USER_KPI_PREFIX,
   type UserAgg,
@@ -100,7 +101,7 @@ export function KpiBuilder({
   const [saving, setSaving] = React.useState(false);
   if (!context) return null;
 
-  const autoName = ratio ? `${aggregateLabel(value)} ÷ ${aggregateLabel(per)}` : aggregateLabel(value);
+  const autoName = ratio ? ratioLabel(value, per) : aggregateLabel(value);
   const autoFormat = ratio ? ratioFormat(formatOf(value, cols), formatOf(per, cols)) : formatOf(value, cols);
   const ready = (a: UserAggregate) => a.agg === "count" || Boolean(a.column);
   const heroFull = kpiLayoutOf(useWorkspace.getState()).hero.length >= MAX_HEADLINE;

@@ -6,12 +6,18 @@
  *
  * Loupe suggests questions built from the file's own KPIs and columns
  * (suggestQuestions); the user can type their own ("Which city has the
- * highest average rating?"), read as they type (readQuestion). Each answer
- * card shows a one-line headline, the answer table and a chart, and the SQL
- * (engine/compile/questionSql.ts), with "Check this SQL on your data", which
- * runs it in DuckDB in this tab and compares every row with the answer. The
- * answers use the dashboard's date and filter selections, or the whole file.
- * Answered questions also go into the SQL PDF on the Export step.
+ * highest average rating?", "net revenue in Maharashtra in 2026"), read as
+ * they type (readQuestion). Values and periods a question names become its
+ * own filters. A question with words nothing in the file matches is not
+ * answered: its card names the words, because answering the rest would
+ * answer another question. Each answer card shows a one-line headline, the
+ * answer table and a chart of the same rows, and the SQL
+ * (engine/compile/questionSql.ts), with "Check this SQL on your data",
+ * which runs it in DuckDB in this tab and compares every row with the
+ * answer. The answers use the dashboard's date and filter selections (said
+ * beside the choice; a chart's click-to-filter is not applied), or the whole
+ * file. A card can be put back in the box to edit it. Answered questions also
+ * go into the SQL PDF on the Export step.
  */
 import * as React from "react";
 import {
@@ -22,6 +28,7 @@ import {
   Lightbulb,
   Loader2,
   MessageSquareText,
+  Pencil,
   Plus,
   Trash2,
   XCircle,
@@ -34,10 +41,12 @@ import {
   suggestQuestions,
   type AskContext,
   type ChartAsk,
+  type QuestionReading,
 } from "@/engine/charts/ask";
 import { formatDay } from "@/engine/core/dates";
 import { formatValue } from "@/engine/core/format";
-import { describeFilter } from "@/engine/query/filter";
+import { columnDecimals } from "@/engine/core/together";
+import { BLANK_LABEL, describeFilter, type Filter } from "@/engine/query/filter";
 import type { QuestionAnswer } from "@/engine/session";
 import { engine } from "@/lib/engine-client";
 import { cn } from "@/lib/utils";
@@ -65,40 +74,80 @@ function describeAsk(ask: ChartAsk, ctx: AskContext): string {
   return `${what} by ${by.column}`;
 }
 
+/** How a typed question was read, with its order and its own filters: "Net revenue by Channel, highest first · Order Date: 2026". */
+function readAs(r: QuestionReading): string {
+  return `${r.understood}${r.ask.by.kind === "column" ? `, ${r.order === "asc" ? "lowest" : "highest"} first` : ""}${r.filterLabels.length ? ` · ${r.filterLabels.join(" · ")}` : ""}`;
+}
+
+const quoted = (words: readonly string[]) => words.map((w) => `“${w}”`).join(", ");
+
 export function QuestionsStep() {
   const context = useWorkspace((s) => s.context);
   const questions = useWorkspace((s) => s.questions);
   const loading = useWorkspace((s) => s.questionsLoading);
   const askQuestion = useWorkspace((s) => s.askQuestion);
+  const removeQuestion = useWorkspace((s) => s.removeQuestion);
   const setStep = useWorkspace((s) => s.setStep);
+  // What "the dashboard's filters" stands for, said beside the choice.
+  const datePreset = useWorkspace((s) => s.datePreset);
+  const customRange = useWorkspace((s) => s.customRange);
+  const dimFilters = useWorkspace((s) => s.dimFilters);
+  const crossFilter = useWorkspace((s) => s.crossFilter);
   const [text, setText] = React.useState("");
   const [scope, setScope] = React.useState<"dashboard" | "file">("dashboard");
+  const inputRef = React.useRef<HTMLInputElement>(null);
   const actx = context as AskContext | null;
   const suggestions = React.useMemo(() => (actx ? suggestQuestions(actx) : []), [actx]);
   const reading = React.useMemo(() => (actx && text.trim() ? readQuestion(text, actx) : null), [actx, text]);
+  const dashboardRows = React.useMemo(() => {
+    void datePreset;
+    void customRange;
+    void dimFilters;
+    void context;
+    return useWorkspace
+      .getState()
+      .filters()
+      .filter((f) => !("sourceId" in f))
+      .map((f) => describeFilter(f, formatDay));
+  }, [datePreset, customRange, dimFilters, context]);
   if (!context || !actx) return null;
-  const asked = new Set(questions.map((q) => q.question));
+  const asked = new Set(questions.filter((q) => !q.error).map((q) => q.question));
 
   const submit = () => {
     if (!reading) return;
-    if (!reading.ask.measures.length) {
+    if (!reading.ask.measures.length && !reading.unmatched.length) {
       toast.error("Name something to measure: a KPI or one of your columns, e.g. “total revenue by region”.");
       return;
     }
+    const question = text.trim();
+    // Asking again replaces a card that couldn't be answered for the same words.
+    for (const q of questions) if (q.error && q.question === question) removeQuestion(q.id);
     void askQuestion({
-      question: text.trim(),
-      understood: `${reading.understood}${reading.ask.by.kind === "column" ? `, ${reading.order === "asc" ? "lowest" : "highest"} first` : ""}`,
-      notes: [
-        ...reading.notes,
-        ...(reading.unmatched.length
-          ? [`Not found in your file: ${reading.unmatched.map((u) => `"${u}"`).join(", ")}.`]
-          : []),
-      ],
-      ask: reading.ask,
+      question,
+      understood: readAs(reading),
+      notes: reading.notes,
+      // Words nothing matched go with the request, so the answer refuses it (and keeps refusing it).
+      ask: reading.unmatched.length ? { ...reading.ask, unmatched: reading.unmatched } : reading.ask,
       order: reading.order,
       scope,
     });
     setText("");
+  };
+
+  // Focus follows a removed card: the next card, else the one before, else the question box.
+  const remove = (id: string) => {
+    const i = questions.findIndex((q) => q.id === id);
+    const next = questions[i + 1] ?? questions[i - 1];
+    removeQuestion(id);
+    requestAnimationFrame(() => {
+      const target = next ? document.getElementById(`answer-${next.id}`) : inputRef.current;
+      target?.focus();
+    });
+  };
+  const edit = (question: string) => {
+    setText(question);
+    inputRef.current?.focus();
+    inputRef.current?.scrollIntoView({ block: "center" });
   };
 
   return (
@@ -128,10 +177,11 @@ export function QuestionsStep() {
           <Label htmlFor="question-input">Your question</Label>
           <div className="flex flex-col gap-2 sm:flex-row">
             <Input
+              ref={inputRef}
               id="question-input"
               value={text}
               onChange={(e) => setText(e.target.value)}
-              placeholder="e.g. Which region has the highest revenue? How many orders by weekday?"
+              placeholder="e.g. Which region has the highest revenue? Net revenue in 2026 by channel?"
               autoComplete="off"
               spellCheck={false}
             />
@@ -140,26 +190,50 @@ export function QuestionsStep() {
               Answer with SQL
             </Button>
           </div>
-          <p className="min-h-5 text-2xs text-fg-muted" aria-live="polite">
-            {reading
-              ? reading.ask.measures.length
-                ? `Read as: ${reading.understood}${reading.ask.by.kind === "column" ? `, ${reading.order === "asc" ? "lowest" : "highest"} first` : ""}${reading.unmatched.length ? ` · not found: ${reading.unmatched.join(", ")}` : ""}`
-                : `Nothing to measure found yet${reading.unmatched.length ? ` (not found: ${reading.unmatched.join(", ")})` : ""}.`
-              : " "}
+          <p className="min-h-5 text-2xs" aria-live="polite">
+            {reading ? (
+              <>
+                <span className="text-fg-muted">
+                  {reading.ask.measures.length
+                    ? `Read as: ${readAs(reading)}`
+                    : "Nothing to measure found yet."}
+                </span>
+                {reading.unmatched.length ? (
+                  <span className="text-warning">
+                    {" "}
+                    · Not in your file: {quoted(reading.unmatched)}. A question is answered only when every
+                    word is placed.
+                  </span>
+                ) : null}
+              </>
+            ) : (
+              " "
+            )}
           </p>
         </form>
-        <div className="flex flex-wrap items-center gap-3">
-          <span className="text-2xs text-fg-muted">Answer with</span>
-          <Segmented<"dashboard" | "file">
-            ariaLabel="Which rows to use"
-            size="sm"
-            value={scope}
-            onChange={setScope}
-            options={[
-              { value: "dashboard", label: "The dashboard's filters" },
-              { value: "file", label: "The whole file" },
-            ]}
-          />
+        <div className="grid gap-1.5">
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="text-2xs text-fg-muted">Answer with</span>
+            <Segmented<"dashboard" | "file">
+              ariaLabel="Which rows to use"
+              size="sm"
+              value={scope}
+              onChange={setScope}
+              options={[
+                { value: "dashboard", label: "The dashboard's filters" },
+                { value: "file", label: "The whole file" },
+              ]}
+            />
+          </div>
+          <p className="text-2xs text-fg-subtle">
+            {scope === "dashboard"
+              ? `Rows used: ${dashboardRows.length ? dashboardRows.join(" · ") : "every row (the dashboard has no filters)"}. `
+              : "Rows used: every row of your file. "}
+            {crossFilter
+              ? `The chart click on ${crossFilter.column}: ${crossFilter.value} is not applied to answers.`
+              : "A chart click on the dashboard is never applied to answers."}{" "}
+            A value or period the question names (“in 2026”) narrows the rows further.
+          </p>
         </div>
         {suggestions.length ? (
           <div>
@@ -199,7 +273,9 @@ export function QuestionsStep() {
           </p>
         ) : null}
         {questions.length ? (
-          questions.map((a) => <AnswerCard key={a.id} answer={a} ctx={actx} />)
+          questions.map((a) => (
+            <AnswerCard key={a.id} answer={a} ctx={actx} onRemove={remove} onEdit={edit} />
+          ))
         ) : (
           <Card className="flex items-start gap-3 p-6 text-ui text-fg-muted">
             <MessageSquareText className="mt-0.5 size-5 shrink-0 text-fg-subtle" aria-hidden />
@@ -239,25 +315,59 @@ function engineKey(v: string | number | null, a: QuestionAnswer): string {
 const same = (x: number | null, y: number | null) =>
   x === null || y === null ? x === y : Math.abs(x - y) <= 1e-6 * Math.max(1, Math.abs(x), Math.abs(y));
 
+/** Blank or zero: what a group with no rows, or an empty "(blank)" group, holds. */
+const empty = (v: number | null | undefined) => v === null || v === undefined || v === 0;
+
 /** The dataset the DuckDB copy was loaded from, so each check after the first reuses it. */
 let duckFor: string | null = null;
 
 type CheckState = { status: "idle" | "running" | "ok" | "differs" | "error"; message: string };
 
-function AnswerCard({ answer: a, ctx }: { answer: QuestionAnswer; ctx: AskContext }) {
+function AnswerCard({
+  answer: a,
+  ctx,
+  onRemove,
+  onEdit,
+}: {
+  answer: QuestionAnswer;
+  ctx: AskContext;
+  onRemove: (id: string) => void;
+  onEdit: (question: string) => void;
+}) {
   const fmt = useFmt();
   const summary = useWorkspace((s) => s.summary);
-  const removeQuestion = useWorkspace((s) => s.removeQuestion);
   const addCustomChart = useWorkspace((s) => s.addCustomChart);
   const focusChart = useWorkspace((s) => s.focusChart);
   const [check, setCheck] = React.useState<CheckState>({ status: "idle", message: "" });
-  const chart = React.useMemo(() => {
-    if (a.keyLabel === null || a.error || a.order === "asc") return null;
-    return designAsk(a.ask, ctx, () => `q_${a.id}_chart`).charts[0]?.spec ?? null;
+  // The chart draws the rows the table lists: a ranking's groups exactly (the lowest too, and no
+  // Others), and no split, which an answer leaves out ("Add chart to dashboard" keeps it).
+  const preview = React.useMemo(() => {
+    if (a.keyLabel === null || a.error || !a.rows.length) return null;
+    const by = a.ask.by;
+    const ask: ChartAsk = { measures: a.ask.measures, by };
+    if (by.kind !== "column") {
+      const spec = designAsk(ask, ctx, () => `q_${a.id}_chart`).charts[0]?.spec;
+      return spec ? { spec, filters: a.filters } : null;
+    }
+    const spec = designAsk({ ...ask, topN: a.rows.length, others: false }, ctx, () => `q_${a.id}_chart`)
+      .charts[0]?.spec;
+    const listed: Filter = {
+      kind: "in",
+      column: by.column,
+      values: a.rows.map((r) => (r.raw === null ? BLANK_LABEL : String(r.raw))),
+    };
+    return spec ? { spec, filters: [...a.filters, listed] } : null;
   }, [a, ctx]);
-  const filters = a.filters.length
+  const rowsUsed = a.filters.length
     ? a.filters.map((f) => describeFilter(f, formatDay)).join("; ")
     : "every row of your file";
+  // One precision per column: ₹663 beside ₹2,712, never ₹662.75.
+  const decimals = a.measures.map((m, i) =>
+    columnDecimals(
+      a.rows.map((r) => r.values[i] ?? null),
+      m.format,
+    ),
+  );
 
   const runCheck = async () => {
     setCheck({ status: "running", message: "Starting DuckDB…" });
@@ -286,25 +396,34 @@ function AnswerCard({ answer: a, ctx }: { answer: QuestionAnswer; ctx: AskContex
       for (const stmt of statements) {
         const res = await duck.runSql(stmt, 100_000);
         const keyAt = a.keyLabel === null ? -1 : res.columns.indexOf(a.keyLabel);
+        // The measures this statement returns: a measure with its own query is checked by that query.
+        const here = a.measures
+          .map((m, i) => ({ m, i, at: res.columns.indexOf(m.label) }))
+          .filter((x) => x.at >= 0);
         const seen = new Set<string>();
         for (const row of a.keyLabel === null ? res.rows.slice(0, 1) : res.rows) {
-          const key = keyAt < 0 ? "null" : engineKey(row[keyAt] ?? null, a);
+          const raw = keyAt < 0 ? null : (row[keyAt] ?? null);
+          const key = keyAt < 0 ? "null" : engineKey(raw, a);
           seen.add(key);
           const e = a.keyLabel === null ? a.rows[0] : engineRows.get(key);
-          a.measures.forEach((m, i) => {
-            const at = res.columns.indexOf(m.label);
-            if (at < 0) return;
+          const values = here.map(({ at }) => {
             const v = row[at];
-            const sqlValue = v === null || v === undefined ? null : Number(v);
+            return v === null || v === undefined ? null : Number(v);
+          });
+          // A group with nothing in it, or a blank group with no value, is left out of the answer.
+          if (!e && values.every(empty)) continue;
+          here.forEach(({ m, i }, j) => {
             compared++;
-            if (!e || !same(sqlValue, e.values[i] ?? null))
-              problems.push(`${m.label} for ${String(row[keyAt] ?? "all rows")}`);
+            if (!e || !same(values[j] ?? null, e.values[i] ?? null))
+              problems.push(
+                `${m.label} for ${raw === null ? (a.keyLabel === null ? "all rows" : BLANK_LABEL) : String(raw)}`,
+              );
           });
         }
         // A group with no rows has no SQL row; the answer lists it with an empty value (0 or blank).
         if (a.keyLabel !== null)
           for (const [key, e] of engineRows)
-            if (!seen.has(key) && !e.values.every((v) => v === null || v === 0))
+            if (!seen.has(key) && !here.every(({ i }) => empty(e.values[i])))
               problems.push(`group ${e.label}`);
       }
       setCheck(
@@ -328,10 +447,16 @@ function AnswerCard({ answer: a, ctx }: { answer: QuestionAnswer; ctx: AskContex
     let i = 0;
     const out = designAsk(a.ask, ctx, () => `custom_${base}_${i++}`);
     for (const c of out.charts) addCustomChart(c.spec, { select: false });
+    const own = a.ask.filters ?? [];
     toast.success(
       out.charts.length === 1
         ? "Chart added to the dashboard"
         : `${out.charts.length} charts added to the dashboard`,
+      own.length
+        ? {
+            description: `It follows the dashboard's filters, not the question's own (${own.map((f) => describeFilter(f, formatDay)).join("; ")}): set them in the filter bar to match.`,
+          }
+        : undefined,
     );
     const last = out.charts[out.charts.length - 1];
     if (last) setTimeout(() => focusChart(last.spec.id), 200);
@@ -341,9 +466,15 @@ function AnswerCard({ answer: a, ctx }: { answer: QuestionAnswer; ctx: AskContex
     <Card className="grid gap-4 p-5">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h2 className="text-base font-medium text-fg">{a.question}</h2>
+          <h2
+            id={`answer-${a.id}`}
+            tabIndex={-1}
+            className="rounded-[4px] text-base font-medium text-fg focus-visible:ring-2 focus-visible:ring-accent-ring focus-visible:outline-none"
+          >
+            {a.question}
+          </h2>
           <p className="mt-1 text-2xs text-fg-muted">
-            Read as: {a.understood} · Rows used: {filters}
+            Read as: {a.understood} · Rows used: {rowsUsed}
           </p>
           {a.notes.map((n) => (
             <p key={n} className="mt-1 text-2xs text-fg-subtle">
@@ -351,17 +482,32 @@ function AnswerCard({ answer: a, ctx }: { answer: QuestionAnswer; ctx: AskContex
             </p>
           ))}
         </div>
-        <Button
-          size="icon-sm"
-          variant="ghost"
-          aria-label={`Remove "${a.question}"`}
-          onClick={() => removeQuestion(a.id)}
-        >
-          <Trash2 aria-hidden />
-        </Button>
+        <div className="flex shrink-0 items-center gap-1">
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            aria-label={`Edit "${a.question}"`}
+            onClick={() => onEdit(a.question)}
+          >
+            <Pencil aria-hidden />
+          </Button>
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            aria-label={`Remove "${a.question}"`}
+            onClick={() => onRemove(a.id)}
+          >
+            <Trash2 aria-hidden />
+          </Button>
+        </div>
       </div>
       {a.error ? (
         <p className="text-ui text-warning">{a.error}</p>
+      ) : !a.rows.length ? (
+        <p className="rounded-card border border-border bg-surface-2 px-4 py-3 text-ui text-fg-muted">
+          No rows match {a.filters.length ? `these filters (${rowsUsed})` : "this question"}, so there is
+          nothing to answer. Widen the filters or ask about the whole file.
+        </p>
       ) : (
         <>
           {a.headline ? (
@@ -369,8 +515,13 @@ function AnswerCard({ answer: a, ctx }: { answer: QuestionAnswer; ctx: AskContex
               {a.headline}
             </p>
           ) : null}
-          <div className={cn("grid gap-4", chart ? "lg:grid-cols-2" : "")}>
-            <div className="max-h-[360px] overflow-auto rounded-card border border-border">
+          <div className={cn("grid gap-4", preview ? "lg:grid-cols-2" : "")}>
+            <div
+              tabIndex={0}
+              role="region"
+              aria-label={`Answer table: ${a.question}`}
+              className="max-h-[360px] overflow-auto rounded-card border border-border focus-visible:ring-2 focus-visible:ring-accent-ring focus-visible:outline-none"
+            >
               <table className="w-full border-separate border-spacing-0 text-ui">
                 <thead className="sticky top-0 bg-surface-2 text-left text-fg-muted">
                   <tr>
@@ -406,7 +557,10 @@ function AnswerCard({ answer: a, ctx }: { answer: QuestionAnswer; ctx: AskContex
                           key={i}
                           className="font-figures border-b border-border px-3 py-1.5 text-right text-fg"
                         >
-                          {formatValue(v, a.measures[i]?.format ?? "number", fmt)}
+                          {formatValue(v, a.measures[i]?.format ?? "number", {
+                            ...fmt,
+                            ...(decimals[i] !== undefined ? { decimals: decimals[i] } : {}),
+                          })}
                         </td>
                       ))}
                     </tr>
@@ -415,11 +569,12 @@ function AnswerCard({ answer: a, ctx }: { answer: QuestionAnswer; ctx: AskContex
               </table>
               {a.more ? (
                 <p className="px-3 py-2 text-2xs text-fg-subtle">
-                  {a.more} more {a.more === 1 ? "group" : "groups"} ranked lower, not listed.
+                  {a.more} more {a.more === 1 ? "group" : "groups"} with{" "}
+                  {a.order === "asc" ? "higher" : "lower"} values, not listed.
                 </p>
               ) : null}
             </div>
-            {chart ? <ChartPreview spec={chart} filters={a.filters} /> : null}
+            {preview ? <ChartPreview spec={preview.spec} filters={preview.filters} /> : null}
           </div>
           {a.sql ? <CodeBlock code={a.sql} language="SQL · DuckDB / PostgreSQL" label="SQL query" /> : null}
           {a.skipped.map((s) => (

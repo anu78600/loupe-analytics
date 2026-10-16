@@ -8,16 +8,15 @@
  * page you are. A soft highlight slides between the links under the pointer,
  * and a brass underline marks the section you are reading.
  *
- * On the home page the section links scroll there themselves (smoothly, unless
- * motion is reduced) instead of leaving it to the browser, which ignores a
- * click on a link whose #section is already in the address bar. They clear
- * the pinned bar (each section's scroll margin), keep the address bar in step
- * so the link can be shared, and hand keyboard focus to the section. From
- * another page they open the home page at that section. The logo scrolls the
- * home page back to the top.
+ * The section links and the logo are SectionLinks: on the home page they
+ * scroll in place (the logo back to the top), from another page they open the
+ * home page at that section. While a scroll started by any section link runs,
+ * the underline stays on its target instead of passing every section.
  *
- * Below the md breakpoint the links collapse into a disclosure panel. The
- * workspace (/app) has its own top bar (ui/workspace/Shell).
+ * Below the lg breakpoint the links collapse into a disclosure panel, which
+ * closes on Escape, on a tap outside it and when a link is chosen. (Between md
+ * and lg the six links would wrap.) The workspace (/app) has its own top bar
+ * (ui/workspace/Shell).
  */
 import * as React from "react";
 import Link from "next/link";
@@ -28,6 +27,7 @@ import { Wordmark } from "@/ui/brand/logo";
 import { ThemeToggle } from "@/ui/common/theme-toggle";
 import { Button } from "@/ui/primitives/button";
 import { cn } from "@/lib/utils";
+import { onSectionScroll, SectionLink } from "./SectionLink";
 
 const LINKS = [
   { href: "/#how", label: "How it works" },
@@ -42,12 +42,6 @@ const LINKS = [
 const SECTIONS = ["how", "features", "industries", "privacy", "demo", "faq"];
 const LINKED = new Set(LINKS.map((l) => l.href.slice(2)));
 
-const calm = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-/** A plain left click, not one meant to open the link in a new tab or window. */
-const isPlainClick = (e: React.MouseEvent) =>
-  e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey;
-
 export function SiteHeader() {
   const pathname = usePathname();
   const onHome = pathname === "/";
@@ -55,6 +49,7 @@ export function SiteHeader() {
   const [open, setOpen] = React.useState(false);
   const [hovered, setHovered] = React.useState<string | null>(null);
   const [section, setSection] = React.useState<string | null>(null);
+  const headerRef = React.useRef<HTMLElement>(null);
   // While a click's smooth scroll runs, the underline stays on its target instead of passing every section.
   const heading = React.useRef<string | null>(null);
   const { scrollYProgress } = useScroll();
@@ -66,6 +61,22 @@ export function SiteHeader() {
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
+
+  // A section link anywhere on the page (here, the footer, the hero) has started a scroll.
+  React.useEffect(
+    () =>
+      onSectionScroll((id) => {
+        heading.current = id ?? "top";
+        const release = () => {
+          heading.current = null;
+        };
+        window.addEventListener("scrollend", release, { once: true });
+        window.setTimeout(release, 1400);
+        setSection(id && LINKED.has(id) ? id : null);
+        setOpen(false);
+      }),
+    [],
+  );
 
   // The section under a reading line about a third of the way down the screen.
   React.useEffect(() => {
@@ -87,51 +98,20 @@ export function SiteHeader() {
     return () => io.disconnect();
   }, [onHome]);
 
-  // Close the mobile menu with Escape.
+  // Close the mobile menu with Escape, or a tap or click anywhere outside the header.
   React.useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open]);
-
-  /** Scrolls the home page to a section (or to the top for null) and keeps the address bar in step. */
-  const scrollTo = (id: string | null) => {
-    const el = id ? document.getElementById(id) : null;
-    heading.current = id ?? "top";
-    const release = () => {
-      heading.current = null;
+    const onDown = (e: PointerEvent) => {
+      if (!headerRef.current?.contains(e.target as Node)) setOpen(false);
     };
-    window.addEventListener("scrollend", release, { once: true });
-    window.setTimeout(release, 1400);
-    setSection(id);
-    setOpen(false);
-    const behavior: ScrollBehavior = calm() ? "auto" : "smooth";
-    if (el && id) {
-      el.scrollIntoView({ behavior, block: "start" });
-      if (window.location.hash !== `#${id}`) window.history.pushState(null, "", `#${id}`);
-      // Keyboard and screen-reader users carry on from the section they asked for.
-      if (!el.hasAttribute("tabindex")) el.setAttribute("tabindex", "-1");
-      el.focus({ preventScroll: true });
-    } else {
-      window.scrollTo({ top: 0, behavior });
-      if (window.location.hash) window.history.replaceState(null, "", "/");
-    }
-  };
-
-  /** On the home page, section links and the logo scroll in place; elsewhere they navigate. */
-  const onLinkClick = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
-    if (!onHome || !isPlainClick(e)) return;
-    if (href === "/") {
-      e.preventDefault();
-      scrollTo(null);
-      return;
-    }
-    const id = href.startsWith("/#") ? href.slice(2) : null;
-    if (!id || !document.getElementById(id)) return;
-    e.preventDefault();
-    scrollTo(id);
-  };
+    window.addEventListener("keydown", onKey);
+    document.addEventListener("pointerdown", onDown);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.removeEventListener("pointerdown", onDown);
+    };
+  }, [open]);
 
   /** Which link reads as current: the section in view on the home page, the page itself elsewhere. */
   const currentOf = (href: string): "location" | "page" | undefined => {
@@ -141,38 +121,33 @@ export function SiteHeader() {
 
   return (
     <header
+      ref={headerRef}
       className={cn(
         "sticky top-0 z-50 border-b transition-[background-color,border-color,backdrop-filter] duration-300",
         scrolled || open ? "glass border-border" : "border-transparent",
       )}
     >
       <div className="mx-auto flex h-16 max-w-6xl items-center gap-6 px-4 sm:px-6">
-        <Link
-          href="/"
-          aria-label="Loupe home"
-          className="rounded-control"
-          onClick={(e) => onLinkClick(e, "/")}
-        >
+        <SectionLink href="/" aria-label="Loupe home" className="rounded-control">
           <Wordmark size="sm" />
-        </Link>
+        </SectionLink>
         <nav
           aria-label="Primary"
-          className="hidden items-center gap-0.5 md:flex"
+          className="hidden items-center gap-0.5 lg:flex"
           onPointerLeave={() => setHovered(null)}
         >
           {LINKS.map((l) => {
             const current = currentOf(l.href);
             return (
-              <Link
+              <SectionLink
                 key={l.href}
                 href={l.href}
                 aria-current={current}
-                onClick={(e) => onLinkClick(e, l.href)}
                 onPointerEnter={() => setHovered(l.href)}
                 onFocus={() => setHovered(l.href)}
                 onBlur={() => setHovered(null)}
                 className={cn(
-                  "relative rounded-control px-3 py-2 text-ui transition-colors hover:text-fg",
+                  "relative rounded-control px-3 py-2 text-ui whitespace-nowrap transition-colors hover:text-fg",
                   current ? "text-fg" : "text-fg-muted",
                 )}
               >
@@ -193,7 +168,7 @@ export function SiteHeader() {
                   />
                 ) : null}
                 {l.label}
-              </Link>
+              </SectionLink>
             );
           })}
         </nav>
@@ -207,7 +182,7 @@ export function SiteHeader() {
           <Button
             variant="ghost"
             size="icon"
-            className="md:hidden"
+            className="lg:hidden"
             aria-expanded={open}
             aria-controls="site-menu"
             aria-label={open ? "Close menu" : "Open menu"}
@@ -235,20 +210,17 @@ export function SiteHeader() {
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
             // Solid: a frosted panel inside the frosted header can't blur the page behind it.
-            className="absolute inset-x-0 top-full border-y border-border bg-bg shadow-pop md:hidden"
+            className="absolute inset-x-0 top-full border-y border-border bg-bg shadow-pop lg:hidden"
           >
             <div className="grid gap-1 px-4 py-3">
               {LINKS.map((l) => {
                 const current = currentOf(l.href);
                 return (
-                  <Link
+                  <SectionLink
                     key={l.href}
                     href={l.href}
                     aria-current={current}
-                    onClick={(e) => {
-                      onLinkClick(e, l.href);
-                      setOpen(false);
-                    }}
+                    onClick={() => setOpen(false)}
                     className={cn(
                       "flex items-center justify-between rounded-control px-3 py-2.5 text-sm hover:bg-surface-2 hover:text-fg",
                       current ? "bg-surface-2 text-fg" : "text-fg-muted",
@@ -256,7 +228,7 @@ export function SiteHeader() {
                   >
                     {l.label}
                     {current ? <span aria-hidden className="size-1.5 rounded-full bg-accent" /> : null}
-                  </Link>
+                  </SectionLink>
                 );
               })}
               <Button asChild variant="primary" size="md" className="mt-2">

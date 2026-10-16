@@ -13,7 +13,9 @@
  * - A request typed in words becomes the real breakdown.
  *
  * Every figure is from the build-time snapshot (preview-data.ts). Loops play
- * only while a tile is on screen and stop under reduced motion.
+ * only while a tile is on screen and stop under reduced motion: the JavaScript
+ * ones through useLive, the CSS ones (a caret, the scan, the pulse) through
+ * their [data-loop] host (PauseOffscreen).
  */
 import * as React from "react";
 import { AnimatePresence, motion } from "framer-motion";
@@ -31,7 +33,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { EASE, Reveal, Spotlight, Typewriter, useLive, useTicker } from "./motion";
+import { DrawOn, EASE, Reveal, Spotlight, Typewriter, useLive, useTicker } from "./motion";
 import type { LandingData, PreviewState } from "./preview-data";
 
 export interface BentoData {
@@ -102,7 +104,7 @@ function CodeTile({ kpi }: { kpi: LandingData["showcase"]["kpi"] }) {
   const lang = chosen ?? (tick % 2 === 0 ? "sql" : "dax");
   const code = lang === "sql" ? kpi.sql : kpi.dax;
   return (
-    <div ref={ref} className="grid min-w-0 gap-3">
+    <div ref={ref} data-loop className="grid min-w-0 gap-3">
       <p className="text-ui text-fg-muted">
         <span className="font-medium text-fg">{kpi.name}</span>{" "}
         <span className="font-figures text-fg">= {kpi.formula}</span>
@@ -404,7 +406,7 @@ function ProfileTile({
     .filter((c): c is NonNullable<typeof c> => Boolean(c));
   const list = picks.length >= 4 ? picks : columns.slice(0, 5);
   return (
-    <div className="relative mt-auto grid gap-3">
+    <div data-loop className="relative mt-auto grid gap-3">
       <div className="relative overflow-hidden rounded-card border border-border bg-bg">
         <span
           aria-hidden
@@ -463,22 +465,24 @@ function InsightTile({ state, title }: { state: PreviewState; title: string }) {
         <TrendingUp className="mt-0.5 size-4 shrink-0 text-success" aria-hidden />
         {title}
       </p>
-      <svg viewBox={`-4 -6 ${W + 8} ${H + 12}`} className="h-auto w-full overflow-visible" aria-hidden>
-        <motion.path
-          d={line}
-          fill="none"
-          stroke="var(--chart-1)"
-          strokeWidth={2}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          vectorEffect="non-scaling-stroke"
-          variants={{
-            hidden: { pathLength: 0 },
-            show: { pathLength: 1, transition: { duration: 1.4, ease: EASE } },
-          }}
-        />
-        {last ? (
-          <>
+      <div data-loop className="relative">
+        <svg
+          viewBox={`-4 -6 ${W + 8} ${H + 12}`}
+          className="block h-auto w-full overflow-visible"
+          aria-hidden
+        >
+          <DrawOn box={[-8, -12, W + 16, H + 24]} transition={{ duration: 1.4, ease: EASE }}>
+            <path
+              d={line}
+              fill="none"
+              stroke="var(--chart-1)"
+              strokeWidth={2}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              vectorEffect="non-scaling-stroke"
+            />
+          </DrawOn>
+          {last ? (
             <motion.circle
               cx={last[0]}
               cy={last[1]}
@@ -489,16 +493,22 @@ function InsightTile({ state, title }: { state: PreviewState; title: string }) {
                 show: { scale: 1, transition: { delay: 1.3, type: "spring" } },
               }}
             />
-            <circle
-              cx={last[0]}
-              cy={last[1]}
-              r={4}
-              fill="var(--chart-1)"
-              className="origin-center animate-[ping-soft_2.2s_ease-out_infinite] [transform-box:fill-box]"
-            />
-          </>
+          ) : null}
+        </svg>
+        {last ? (
+          // The pulse is an HTML layer over the end point, the size of the dot: a CSS loop on an
+          // SVG shape is restyled and laid out every frame, a layer's is only composited.
+          <span
+            aria-hidden
+            className="absolute aspect-square -translate-x-1/2 -translate-y-1/2 animate-[ping-soft_2.2s_ease-out_infinite] rounded-full bg-[var(--chart-1)]"
+            style={{
+              left: `${((last[0] + 4) / (W + 8)) * 100}%`,
+              top: `${((last[1] + 6) / (H + 12)) * 100}%`,
+              width: `${(8 / (W + 8)) * 100}%`,
+            }}
+          />
         ) : null}
-      </svg>
+      </div>
       <p className="text-2xs text-fg-subtle">
         From the chart: {state.trend.title} · {state.label}
       </p>
@@ -510,7 +520,15 @@ function InsightTile({ state, title }: { state: PreviewState; title: string }) {
 /* Exports                                                             */
 /* ------------------------------------------------------------------ */
 
-const FORMATS = ["Power BI package", "SQL", "PDF report", "PNG", "Data dictionary", "Settings file"];
+/** What the Export step makes (ui/workspace/ExportStep.tsx), by its names there. */
+const FORMATS = [
+  "Power BI package",
+  "SQL",
+  "PDF report",
+  "Presentation slides",
+  "Data dictionary",
+  "Settings file",
+];
 
 function ExportTile() {
   const { ref, live } = useLive<HTMLDivElement>(0.45);
@@ -571,7 +589,7 @@ function AskTile({ state }: { state: PreviewState }) {
   const top = Math.max(...cats.map((c) => c.share), 0.0001);
   const typed = REQUEST.length / 18;
   return (
-    <div ref={ref} className="mt-auto grid gap-4">
+    <div ref={ref} data-loop className="mt-auto grid gap-4">
       <div className="flex items-center gap-2.5 rounded-card border border-border-strong bg-bg px-3.5 py-2.5 text-ui text-fg">
         <Sparkles className="size-4 shrink-0 text-accent" aria-hidden />
         <Typewriter key={`${tick}-${live}`} text={REQUEST} active={live} charsPerSecond={18} />
@@ -615,7 +633,7 @@ export function Bento({ data }: { data: BentoData }) {
       <Tile
         icon={Braces}
         title="Every KPI shows its working"
-        line="The formula, SQL and DAX behind every number."
+        line="The formula, SQL and DAX behind every KPI."
         className="lg:col-span-4"
       >
         <CodeTile kpi={data.showcase.kpi} />
@@ -658,7 +676,7 @@ export function Bento({ data }: { data: BentoData }) {
       <Tile
         icon={FileDown}
         title="Exports that fit your stack"
-        line="One click to Power BI, SQL, PDF and PNG."
+        line="Power BI, SQL, a PDF report and presentation slides."
         className="lg:col-span-3"
       >
         <ExportTile />

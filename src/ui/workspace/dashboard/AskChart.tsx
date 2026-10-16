@@ -11,10 +11,13 @@
  * aggregation, the chart type or top N). The designed chart(s) preview live
  * with the dashboard's filters, each with the reason for its type and every
  * choice made on the user's behalf, then "Add to dashboard" adds them as
- * custom charts. Nothing is added until the user asks.
+ * custom charts. Nothing is added until the user asks. "Top 5 products" is
+ * those five, without an Others bar (the Show picker offers both). Rows the
+ * request names ("in Maharashtra", "in 2026") are said, not applied: a
+ * dashboard chart follows the dashboard's filters.
  *
  * Your charts: every chart on the dashboard with a switch to show or hide
- * it, and Remove for charts the user added.
+ * it, and Remove, with Undo, for charts the user added.
  *
  * With `edit`, the panel opens on that chart's picks: an added chart is
  * replaced in place, a recommended one gets a changed copy (the original
@@ -47,6 +50,7 @@ import { DataTable } from "@/ui/charts/DataTable";
 import { buildOption, rendersWithECharts } from "@/ui/charts/options";
 import { readChartTokens } from "@/ui/charts/tokens";
 import { KIND_LABEL } from "@/ui/charts/ChartCard";
+import { deleteWithUndo } from "@/ui/workspace/customise/ChartList";
 import { Button } from "@/ui/primitives/button";
 import { Badge } from "@/ui/primitives/badge";
 import { Input, Label } from "@/ui/primitives/input";
@@ -179,7 +183,10 @@ function AskPanel({ onDone, edit }: { onDone: () => void; edit?: ChartSpec }) {
     const r = readAsk(phrase, actx);
     setText(phrase);
     setReading(r);
-    setAsk(r.ask);
+    // A chart follows the dashboard's filters; the rows a request names are said in the reading instead.
+    const { filters: _named, ...ask } = r.ask;
+    void _named;
+    setAsk(ask);
   };
   const add = () => {
     if (!ask) return;
@@ -263,6 +270,13 @@ function AskPanel({ onDone, edit }: { onDone: () => void; edit?: ChartSpec }) {
             <p className="text-warning">
               Not found in your file: {reading.unmatched.map((u) => `"${u}"`).join(", ")}. Pick the column
               below instead.
+            </p>
+          ) : null}
+          {reading.filterLabels.length ? (
+            <p className="text-warning">
+              {`A chart shows every row the dashboard's filters keep, so ${reading.filterLabels.join(" and ")} ${
+                reading.filterLabels.length > 1 ? "aren't" : "isn't"
+              } applied here: set ${reading.filterLabels.length > 1 ? "them" : "it"} in the filter bar, or ask it on Questions & SQL.`}
             </p>
           ) : null}
           {reading.notes.map((n) => (
@@ -541,16 +555,28 @@ function AskEditor({
         </div>
         <div className="grid gap-1.5">
           <Label htmlFor="ask-top">Show</Label>
-          <Select value={String(ask.topN ?? 10)} onValueChange={(v) => onChange({ ...ask, topN: Number(v) })}>
+          {/* "Top 5" is just those five; "+ Others" adds the rest summed into one grey bar. */}
+          <Select
+            value={`${ask.topN ?? 10}${ask.others === false ? ":only" : ""}`}
+            onValueChange={(v) => {
+              const [n, only] = v.split(":");
+              const { others: _o, ...rest } = ask;
+              void _o;
+              onChange(only ? { ...rest, topN: Number(n), others: false } : { ...rest, topN: Number(n) });
+            }}
+          >
             <SelectTrigger id="ask-top" size="sm" disabled={ask.by.kind !== "column"}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {[5, 10, 15, 20, 30].map((n) => (
+              {[5, 10, 15, 20, 30].flatMap((n) => [
+                <SelectItem key={`${n}:only`} value={`${n}:only`}>
+                  Top {n}
+                </SelectItem>,
                 <SelectItem key={n} value={String(n)}>
                   Top {n} + Others
-                </SelectItem>
-              ))}
+                </SelectItem>,
+              ])}
             </SelectContent>
           </Select>
         </div>
@@ -625,7 +651,6 @@ function ManageCharts() {
   const widgets = useWorkspace((s) => s.widgets);
   const mode = useWorkspace((s) => s.mode);
   const updateWidget = useWorkspace((s) => s.updateWidget);
-  const removeChart = useWorkspace((s) => s.removeChart);
   if (!context) return null;
   const specs = allSpecs({ context, customCharts });
   const byId = new Map(specs.map((s) => [s.id, s]));
@@ -664,7 +689,8 @@ function ManageCharts() {
                     size="icon-sm"
                     variant="ghost"
                     aria-label={`Remove ${spec.title}`}
-                    onClick={() => removeChart(w.id)}
+                    // With Undo, as everywhere a chart the user made is deleted.
+                    onClick={() => deleteWithUndo(w.id, spec.title)}
                   >
                     <Trash2 aria-hidden />
                   </Button>

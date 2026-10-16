@@ -117,7 +117,8 @@ function tableFor(spec: ChartSpec, data: ChartData, fmt: FormatOptions): { cols:
       rows: data.seriesCategories.map((s, i) => [s.label, ...(data.matrix?.[i] ?? [])]),
     };
   }
-  const label = spec.x.kind === "none" ? "Item" : spec.x.label;
+  // The axis as drawn: while drilled into, the drilled level's column, not the top level's.
+  const label = data.axisLabel ?? (spec.x.kind === "none" ? "Item" : spec.x.label);
   return {
     cols: [
       { key: "cat", label, numeric: false },

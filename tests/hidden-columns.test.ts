@@ -290,3 +290,29 @@ describe("which columns look replaced", () => {
     }
   });
 });
+
+describe("a KPI whose column is hidden", () => {
+  it("says the column is hidden, not that the file lacks it", () => {
+    const s = new Session();
+    const load = s.ingestSample("ecommerce");
+    if (load.status !== "ok") throw new Error(load.status);
+    const top = load.detection.candidates[0];
+    if (!top) throw new Error("not detected");
+    const ctx = s.configure({
+      domainId: top.domainId,
+      numberLocale: "IN",
+      currency: null,
+      hiddenColumns: ["Order Status"],
+    });
+    const affected = ctx.kpis.filter((k) => !k.available && k.unavailableReason?.includes("Order Status"));
+    expect(affected.length).toBeGreaterThan(0);
+    for (const k of affected) {
+      expect(k.unavailableReason, k.id).toMatch(/needs "Order Status", which you hid in Check & map\.$/);
+      expect(k.substitute, k.id).toBe("Show the column again in Check & map to use this KPI.");
+    }
+    // No KPI points at Value meanings for a field it has no column for.
+    for (const k of ctx.kpis.filter((x) => !x.available))
+      if (k.substitute?.includes("Value meanings"))
+        expect(k.unavailableReason ?? "", k.id).not.toMatch(/Order status/i);
+  });
+});

@@ -58,6 +58,8 @@ export interface PreviewState {
   trend: {
     title: string;
     labels: string[];
+    /** Start of each period (UTC ms), so the axis can print the year once per year. */
+    starts: number[];
     values: number[];
     display: string[];
     peak: number;
@@ -228,6 +230,9 @@ export function buildLandingData(): LandingData {
       trend: {
         title: trendSpec?.title ?? "Trend",
         labels: (trend?.categories ?? []).slice(firstFull).map((c) => c.label),
+        starts: (trend?.categories ?? [])
+          .slice(firstFull)
+          .map((c) => (typeof c.raw === "number" ? c.raw : 0)),
         values: trendValues,
         display: trendValues.map((v) => formatValue(v, trendFormat, { ...LOCALE_OPTS, compact: true })),
         peak,

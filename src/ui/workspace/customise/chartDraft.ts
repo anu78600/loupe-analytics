@@ -8,12 +8,30 @@
  *   draft from an existing chart, and a draft carried over to another type;
  * - buildSpec(): the ChartSpec a draft describes, through customSpec(), or
  *   a plain sentence on what the chosen type needs instead;
- * - autoTitle(): the title a chart gets when the user doesn't name it.
+ * - autoTitle(): the title a chart gets when the user doesn't name it, in
+ *   sentence case with the columns read with spaces ("Net revenue by
+ *   product category", never "by Product_Category").
+ *
+ * A draft's title is "" unless the user typed one. Reopening a chart keeps
+ * only a typed title (a rename from the chart list, or a custom chart's own
+ * title that isn't its automatic one), so after "Edit data" the title
+ * follows the data instead of naming what the chart no longer shows.
+ *
+ * Sizes start from the type, and horizontal bars from how many bars they
+ * draw: a top 15 gets the height its bars need (sizeFor, followSize).
  */
 import type { ChartKind, ChartMeasure, ChartSection, ChartSpec, ResolvedAxis } from "@/engine/charts/types";
 import { chartType, type ChartTypeInfo } from "@/engine/charts/catalogue";
 import { customSpec, isKindCompatible } from "@/engine/charts/recommend";
-import { askMeasure, axisFor, type AskAgg, type AskContext, type AskMeasure } from "@/engine/charts/ask";
+import {
+  askMeasure,
+  axisFor,
+  phrase,
+  type AskAgg,
+  type AskContext,
+  type AskMeasure,
+} from "@/engine/charts/ask";
+import { friendly } from "@/engine/core/labels";
 import { fieldsOf } from "@/engine/query/expr";
 import type { DatePart, TimeGrain } from "@/engine/core/dates";
 import type { ColumnProfile } from "@/engine/profile/types";
@@ -65,6 +83,8 @@ export const AGGS: Array<{ id: AskAgg; label: string; numeric: boolean }> = [
   { id: "count", label: "Number of rows", numeric: false },
 ];
 export const TOPNS = [5, 10, 15, 20, 30];
+/** Categories a chart shows when no Top N is chosen: what the engine draws (charts/data.ts). */
+export const DEFAULT_TOP = 15;
 
 /** The columns each slot of the builder can use. */
 export interface Columns {
@@ -206,13 +226,45 @@ function sectionFor(kind: ChartKind, axis: AxisChoice): ChartSection {
   return axis.type === "time" ? "trend" : kind === "table" ? "detail" : "breakdown";
 }
 
-/** The size a chart starts at: wide types full width, single figures a third, the rest half. */
-function sizeFor(kind: ChartKind): { w: number; h: number } {
+/**
+ * How many bars a chart of named categories draws: its Top N (DEFAULT_TOP
+ * when none is chosen), or every value of the column when it has fewer.
+ * 0 for any other axis.
+ */
+export function barCount(d: Pick<Draft, "axis" | "topN">, cols: Columns): number {
+  if (d.axis.type !== "column") return 0;
+  const column = d.axis.column;
+  const top = d.topN ?? DEFAULT_TOP;
+  const c = cols.categories.find((x) => x.name === column) ?? cols.states.find((x) => x.name === column);
+  return c ? Math.min(top, c.distinct) : top;
+}
+
+/**
+ * The size a chart starts at: wide types full width, single figures a third,
+ * the rest half, four rows tall. Horizontal bars take their height from
+ * their number, as the templates do (a top 10 gets five rows): up to 8 bars
+ * fit four rows, up to 12 five, more six. A column chart of more than ten
+ * named categories is drawn horizontally too (ui/charts/options.ts).
+ */
+export function sizeFor(kind: ChartKind, bars = 0): { w: number; h: number } {
   const wide = kind === "table" || kind === "calendar" || kind === "sankey";
+  const horizontal = kind === "hbar" || kind === "lollipop" || (kind === "bar" && bars > 10);
   return {
     w: wide ? 12 : kind === "bigNumber" || kind === "gauge" ? 4 : 6,
-    h: kind === "bigNumber" ? 3 : 4,
+    h: kind === "bigNumber" ? 3 : horizontal && bars > 12 ? 6 : horizontal && bars > 8 ? 5 : 4,
   };
+}
+
+/**
+ * A draft after an edit in the builder. While its height is still the one
+ * its bars gave it (the user never chose another), the height follows the
+ * new number of bars, so choosing a top 15 makes room for fifteen bars. A
+ * change of type goes through adapt(), which sizes the new type itself.
+ */
+export function followSize(before: Draft, after: Draft, cols: Columns): Draft {
+  if (before.kind !== after.kind || before.h !== sizeFor(before.kind, barCount(before, cols)).h) return after;
+  const h = sizeFor(after.kind, barCount(after, cols)).h;
+  return h === after.h ? after : { ...after, h };
 }
 
 /** A first draft of a chart type, from the file's columns. */
@@ -254,14 +306,20 @@ export function newDraft(kind: ChartKind, ctx: ContextResult, cols: Columns): Dr
     target: "",
     title: "",
     section: sectionFor(kind, axis),
-    ...sizeFor(kind),
+    ...sizeFor(kind, barCount({ axis, topN: null }, cols)),
   };
 }
 
-/** A draft that starts from an existing chart, for editing. */
+/**
+ * A draft that starts from an existing chart, for editing, as the user sees
+ * it on the dashboard: the type and Top N chosen for its card win over the
+ * spec's. Only a title the user typed is kept (see the file header); an
+ * automatic one, the template's included, is left blank so the placeholder
+ * and the saved title follow the data.
+ */
 export function draftFromSpec(
   spec: ChartSpec,
-  widget: { w: number; h: number; title?: string } | undefined,
+  widget: { w: number; h: number; title?: string; kind?: ChartKind; topN?: number } | undefined,
   ctx: ContextResult,
 ): Draft {
   const x = spec.x;
@@ -285,34 +343,67 @@ export function draftFromSpec(
     const [, agg, ...rest] = m.id.split(":");
     return { kind: "column", agg: agg as AskAgg, column: rest.join(":") };
   });
-  return {
-    kind: spec.kind,
+  const draft: Draft = {
+    kind: widget?.kind ?? spec.kind,
     axis,
     split: spec.series?.kind === "column" ? spec.series.column : null,
     measures,
-    topN: spec.topN ?? null,
+    topN: widget?.topN ?? spec.topN ?? null,
     target: spec.target !== undefined ? String(spec.target) : "",
-    title: widget?.title?.trim() || spec.title,
+    title: "",
     section: spec.section,
     w: widget?.w ?? spec.size.w,
     h: widget?.h ?? spec.size.h,
   };
+  // A custom chart's title is typed when it isn't the one the builder would give it.
+  const typed =
+    widget?.title?.trim() ||
+    (spec.source === "custom" && spec.title !== autoTitle({ ...draft, kind: spec.kind }, spec.measures)
+      ? spec.title
+      : "");
+  return { ...draft, title: typed };
 }
 
 export const lower = (s: string) => s.charAt(0).toLowerCase() + s.slice(1);
 
-/** The automatic title: what is measured, and by what. */
+/** True for a word that keeps its capitals inside a sentence: an acronym (AOV, GMV, ID) or a word like "eMail". */
+const keepsCase = (word: string) => /^[A-Z0-9%]{2,}$/.test(word) || /[a-z][A-Z]/.test(word);
+
+/**
+ * A measure's name in a title. A KPI keeps its own name ("Net revenue",
+ * "AOV"); a summary of a column reads like a phrase in sentence case
+ * ("Total net sales" for the total of "Net_Sales").
+ */
+export function measureName(m: ChartMeasure): string {
+  if (!m.id.startsWith("agg:")) return m.label;
+  const words = phrase(m.label);
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+/** A measure's name after the start of a title: lower case unless it starts with an acronym ("and AOV"). */
+function midTitle(name: string): string {
+  const [first = "", ...rest] = name.split(" ");
+  return keepsCase(first) ? name : [first.toLowerCase(), ...rest].join(" ");
+}
+
+/**
+ * The automatic title: what is measured, and by what, in sentence case with
+ * column names read with spaces, like the template titles ("Net revenue by
+ * channel", "Orders and net revenue over time").
+ */
 export function autoTitle(d: Draft, measures: ChartMeasure[]): string {
-  const names = measures.map((m) => m.label);
+  const names = measures.map(measureName);
   const first = names[0] ?? "Value";
+  const all = [first, ...names.slice(1).map(midTitle)];
   const by =
     d.axis.type === "time"
       ? "over time"
       : d.axis.type === "part"
         ? `by ${lower(PARTS.find((p) => d.axis.type === "part" && p.id === d.axis.part)?.label ?? "part")}`
         : d.axis.type === "column"
-          ? `by ${d.axis.column}`
+          ? `by ${phrase(d.axis.column)}`
           : "";
+  const split = d.split ? phrase(d.split) : "";
   switch (d.kind) {
     case "bigNumber":
     case "gauge":
@@ -320,16 +411,16 @@ export function autoTitle(d: Draft, measures: ChartMeasure[]): string {
     case "funnel":
       return `Funnel: ${names.join(" → ")}`;
     case "histogram":
-      return d.axis.type === "bins" ? `Distribution of ${d.axis.column}` : "Distribution";
+      return d.axis.type === "bins" ? `Distribution of ${phrase(d.axis.column)}` : "Distribution";
     case "scatter":
     case "bubble":
-      return `${names[0] ?? ""} vs ${lower(names[1] ?? "")}${d.axis.type === "column" ? ` by ${d.axis.column}` : ""}${d.kind === "bubble" && names[2] ? `, sized by ${lower(names[2])}` : ""}`;
+      return `${names[0] ?? ""} vs ${midTitle(names[1] ?? "")}${d.axis.type === "column" ? ` ${by}` : ""}${d.kind === "bubble" && names[2] ? `, sized by ${midTitle(names[2])}` : ""}`;
     case "sankey":
-      return d.axis.type === "column" && d.split ? `${first} from ${d.axis.column} to ${d.split}` : first;
+      return d.axis.type === "column" && split ? `${first} from ${phrase(d.axis.column)} to ${split}` : first;
     case "radar":
-      return d.split ? `${first} ${by} and ${d.split}` : `Profile ${by}: ${names.join(", ")}`;
+      return split ? `${first} ${by} and ${split}` : `Profile ${by}: ${names.map(midTitle).join(", ")}`;
     default:
-      return `${names.join(" and ")} ${by}${d.split ? ` and ${d.split}` : ""}`.trim();
+      return `${all.join(" and ")} ${by}${split ? ` and ${split}` : ""}`.trim();
   }
 }
 
@@ -341,21 +432,26 @@ export function buildSpec(
 ): { spec: ChartSpec | null; problem: string | null } {
   const t = chartType(d.kind);
   const actx = ctx as unknown as AskContext;
+  // A column summary is labelled like a phrase ("Total net sales"), in the legend and table as in the title.
   const measures = d.measures
     .map((m) => askMeasure(m.kind === "column" && m.agg === "count" ? { ...m, column: "" } : m, actx))
-    .filter((m): m is ChartMeasure => m !== null);
+    .filter((m): m is ChartMeasure => m !== null)
+    .map((m) => ({ ...m, label: measureName(m) }));
   if (measures.length < d.measures.length) return { spec: null, problem: "Choose what each measure is." };
   const col = (name: string) => ctx.profile.columns.find((c) => c.name === name);
+  // Axes are labelled with the column read with spaces, as the recommended charts are (recommend.ts).
+  const named = (column: string, a: ResolvedAxis): ResolvedAxis =>
+    a.kind === "time" || a.kind === "column" ? { ...a, label: friendly(column) } : a;
   let x: ResolvedAxis;
   switch (d.axis.type) {
     case "time":
-      x = axisFor({ kind: "time", column: d.axis.column, grain: d.axis.grain });
+      x = named(d.axis.column, axisFor({ kind: "time", column: d.axis.column, grain: d.axis.grain }));
       break;
     case "part":
       x = axisFor({ kind: "part", column: d.axis.column, part: d.axis.part });
       break;
     case "column":
-      x = axisFor({ kind: "column", column: d.axis.column });
+      x = named(d.axis.column, axisFor({ kind: "column", column: d.axis.column }));
       break;
     case "bins": {
       const c = col(d.axis.column);
@@ -369,7 +465,7 @@ export function buildSpec(
             : c?.role === "percentage" && c.percentScale === 1
               ? "percent"
               : "number",
-        label: d.axis.column,
+        label: friendly(d.axis.column),
       };
       break;
     }
@@ -384,7 +480,7 @@ export function buildSpec(
     title: d.title.trim() || autoTitle(d, measures),
     kind: d.kind,
     x,
-    series: d.split ? axisFor({ kind: "column", column: d.split }) : undefined,
+    series: d.split ? named(d.split, axisFor({ kind: "column", column: d.split })) : undefined,
     measures,
     topN: d.topN ?? undefined,
     others: d.kind === "donut" || d.kind === "pie" ? true : undefined,
@@ -443,7 +539,8 @@ export function adapt(d: Draft, kind: ChartKind, ctx: ContextResult, cols: Colum
   const max = split ? 1 : t.measures.max;
   let measures = d.measures.slice(0, max);
   if (measures.length < t.measures.min) measures = [...measures, ...fresh.measures.slice(measures.length)];
-  const sized = d.w !== sizeFor(d.kind).w || d.h !== sizeFor(d.kind).h;
+  const started = sizeFor(d.kind, barCount(d, cols));
+  const sized = d.w !== started.w || d.h !== started.h;
   const placed = d.section !== sectionFor(d.kind, d.axis);
   return {
     ...d,
@@ -452,6 +549,6 @@ export function adapt(d: Draft, kind: ChartKind, ctx: ContextResult, cols: Colum
     split,
     measures,
     section: placed ? d.section : sectionFor(kind, axis),
-    ...(sized ? { w: d.w, h: d.h } : sizeFor(kind)),
+    ...(sized ? { w: d.w, h: d.h } : sizeFor(kind, barCount({ axis, topN: d.topN }, cols))),
   };
 }

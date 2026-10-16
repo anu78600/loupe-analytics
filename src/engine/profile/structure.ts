@@ -223,16 +223,23 @@ export function detectKeysAndGrain(ds: Dataset, cols: ColumnProfile[]): { keys: 
 }
 
 /**
- * The grain as shown everywhere (dashboard, report cover, data dictionary):
- * the detected key when the file has a meaningful one ("One row per order"),
- * else the template's assumption (`templateGrain`, "order line"), else the
- * detected fallback. A key that only numbers the rows ("Row ID") says nothing
- * about what a row is, so it gives way to the template.
+ * The grain as shown everywhere (Detect, dashboard, report cover, data
+ * dictionary): the detected key when the file has a meaningful one ("One row
+ * per order"), else the template's assumption (`templateGrain`, "order
+ * line"), else the detected fallback. A key that only numbers the rows ("Row
+ * ID", or "Column 1" in a file without headers) says nothing about what a row
+ * is, so it gives way to the template; without one it is named as the
+ * column that is unique ("Each row has its own Row ID"), never "One row per
+ * row".
  */
 export function grainLabel(grain: GrainInfo, templateGrain?: string): string {
-  const rowNumber = /^One row per (row|record|index|serial|entry|s ?no|sr|sl)$/i.test(grain.description);
+  const rowNumber = /^One row per (row|record|index|serial|entry|s ?no|sr|sl|column \d+)$/i.test(
+    grain.description,
+  );
   if (grain.confidence >= 0.8 && !rowNumber) return grain.description;
-  return templateGrain ? `One row per ${templateGrain}` : grain.description;
+  if (templateGrain) return `One row per ${templateGrain}`;
+  const [key] = grain.columns;
+  return rowNumber && grain.columns.length === 1 && key ? `Each row has its own ${key}` : grain.description;
 }
 
 // ---------------------------------------------------------------- hierarchies

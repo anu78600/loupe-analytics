@@ -8,7 +8,9 @@
  * Profit, which it recognises but computes as revenue − cost, gets the plain
  * total of the file's own column, saying why. Every
  * column KPI's SQL returns the engine's value in DuckDB, and its charts
- * agree with its card. Also covers the value-only rating rule on its own.
+ * agree with its card. Also covers the value-only rating rule on its own,
+ * and, on the demos, a tile map of every state for totals by state and no
+ * "over time" chart on a roster.
  */
 import { afterAll, describe, expect, it } from "vitest";
 import type { DuckDBConnection } from "@duckdb/node-api";
@@ -98,11 +100,13 @@ describe("columns the template doesn't use", async () => {
     expect(ctx.domain.fields.some((f) => f.id.startsWith("yc_"))).toBe(false);
   });
 
-  it("charts them over time and by the most useful category", () => {
+  it("charts them over time and by the most useful category, titled in sentence case", () => {
     const titles = ctx.charts.filter((c) => c.section === "columns").map((c) => c.title);
-    expect(titles).toContain("Average Customer Rating over time");
-    expect(titles).toContain("Average Customer Rating by Region");
-    expect(titles).toContain("Total Shipping Fee by Region");
+    expect(titles).toContain("Average customer rating over time");
+    expect(titles).toContain("Average customer rating by region");
+    expect(titles).toContain("Total shipping fee by region");
+    // Acronyms keep their capitals ("Average Q7" stays as written).
+    expect(titles.some((t) => t.startsWith("Average Q7"))).toBe(true);
   });
 
   it("matches DuckDB for every column KPI", async () => {
@@ -125,7 +129,7 @@ describe("columns the template doesn't use", async () => {
   it("totals its charts to its cards", () => {
     const batch = s.kpiBatch([], ctx.selection.columns, "INTL");
     const fee = batch.values.find((v) => v.id === kpi("Total Shipping Fee")?.id)?.value as number;
-    const spec = ctx.charts.find((c) => c.title === "Total Shipping Fee by Region");
+    const spec = ctx.charts.find((c) => c.title === "Total shipping fee by region");
     const data = s.chart([], { specId: spec?.id as string }, "INTL");
     const total = data?.series[0]?.values.reduce<number>((a, b) => a + (b ?? 0), 0) ?? NaN;
     expect(total).toBeCloseTo(fee, 6);
@@ -181,5 +185,33 @@ describe("the value-only rating rule", () => {
       )?.additivity,
     ).toBe("additive");
     expect(scale("Q3", oneToFive.slice(0, 10))?.additivity).toBe("additive");
+  });
+});
+
+describe("column charts on the demos", () => {
+  const open = (sample: string) => {
+    const s = new Session();
+    const load = s.ingestSample(sample);
+    if (load.status !== "ok") throw new Error(load.status);
+    const top = load.detection.candidates[0];
+    if (!top) throw new Error(`${sample}: not detected`);
+    return { s, ctx: s.configure({ domainId: top.domainId, numberLocale: "IN", currency: null }) };
+  };
+
+  it("maps a total by state over every state, not a top 10 with the rest blank", () => {
+    const { s, ctx } = open("ecommerce");
+    const map = ctx.charts.find((c) => c.id === "yc_by_gst_amount");
+    expect(map?.kind).toBe("geoTile");
+    expect(map?.topN).toBeUndefined();
+    expect(map?.reason).toMatch(/tile map of every state/);
+    const data = s.chart([], { specId: map?.id as string }, "IN");
+    expect(data?.categories.length).toBe(24);
+  });
+
+  it("draws no 'over time' chart for a roster, whose dates say when each person started", () => {
+    const { ctx } = open("hr");
+    const columns = ctx.charts.filter((c) => c.section === "columns");
+    expect(columns.length).toBeGreaterThan(0);
+    expect(columns.some((c) => c.x.kind === "time")).toBe(false);
   });
 });

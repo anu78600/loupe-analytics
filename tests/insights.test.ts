@@ -1,8 +1,11 @@
 /**
  * Insight generation: ranking (the headline trend leads), segment gaps only
- * for rates and ratios, guards against undefined ratios (a weekday that
- * averages zero) and partial months, KPI renames in the text, and insights
- * after a reload never reading the previous dataset's dashboard. Demo
+ * for rates and ratios (never per customer or per rep across segments those
+ * entities span, one story per pair of segments, gaps as printed), links only
+ * to a chart of the same KPI, guards against undefined ratios (a weekday that
+ * averages zero) and partial months, KPI renames in the text, insights that
+ * follow the selection (none for an empty one, caveats from its own rows),
+ * and insights after a reload never reading the previous dataset's dashboard. Demo
  * figures are never hard-coded: expectations are derived from the engine's
  * own KPI batch, so the tests survive changes to the demo generator.
  */
@@ -152,6 +155,99 @@ describe("insights on the e-commerce demo", () => {
     expect([...insights].sort((a, b) => b.impact - a.impact).map((i) => i.id)).toEqual(
       insights.map((i) => i.id),
     );
+  });
+});
+
+describe("what insights compare and point at", () => {
+  const { session, ctx, filters, insights } = demo();
+  const specs = new Map(ctx.charts.map((c) => [c.id, c]));
+
+  it("never compares a per-customer KPI across segments its customers span", () => {
+    // A customer's orders split across couriers: every courier's repeat rate sits far below the whole.
+    expect(insights.some((i) => i.kind === "segment" && i.metricId === "repeat_rate")).toBe(false);
+    expect(insights.some((i) => i.kind === "segment" && i.metricId === "ltv_hist")).toBe(false);
+  });
+
+  it("tells one story per pair of segments", () => {
+    const pairs = insights
+      .filter((i) => i.kind === "segment")
+      .map((i) => {
+        const m = /^.+?: (.+?) (?:[\d.]+×|far above) (.+)$/.exec(i.title);
+        return [m?.[1], m?.[2]].sort().join("|");
+      });
+    expect(new Set(pairs).size).toBe(pairs.length);
+  });
+
+  it("points only at a chart of the same KPI (and the same column for a segment or concentration)", () => {
+    for (const i of insights) {
+      if (!i.chartId) continue;
+      const spec = specs.get(i.chartId);
+      expect(spec, i.title).toBeDefined();
+      expect(
+        spec?.measures.some((m) => m.id === i.metricId),
+        `${i.title} → ${spec?.title}`,
+      ).toBe(true);
+      if (i.kind === "seasonality" && i.id.startsWith("seasonality-dow"))
+        expect(spec?.x.kind === "part" || spec?.series?.kind === "part", i.title).toBe(true);
+    }
+  });
+
+  it("writes segment gaps as sentences, with the gap of the rates as printed", () => {
+    const gaps = insights.filter((i) => i.kind === "segment" && /pp gap/.test(i.body));
+    expect(gaps.length).toBeGreaterThan(0);
+    for (const i of gaps) {
+      // "Across payment methods, RTO rate ranges from 1.9% (Wallet) to 16.3% (COD), a 14.4 pp gap."
+      expect(i.body, i.title).toMatch(/^Across [a-z][a-z ]*s, /);
+      const m = /ranges from ([\d.]+)% \(.+?\) to ([\d.]+)% \(.+?\), an? ([\d.]+) pp gap/.exec(i.body);
+      expect(m, i.body).not.toBeNull();
+      expect(Number(m?.[3])).toBeCloseTo(Number(m?.[2]) - Number(m?.[1]), 6);
+    }
+    // Two values side by side carry one precision: never "₹662.75" beside "₹2.71K".
+    for (const i of insights) expect(`${i.title} ${i.body}`, i.id).not.toMatch(/₹\d+\.\d{2}\b.*₹[\d.]+[KLC]/);
+  });
+
+  it("follow the selection: nothing for an empty one, and caveats from its own rows", () => {
+    const date = ctx.dateColumn as string;
+    const run = (extra: Filter[]) => {
+      session.kpiBatch([...filters, ...extra], ctx.selection.hero, "IN");
+      return session.insights("IN");
+    };
+    expect(
+      run([
+        { kind: "in", column: "Order Status", values: ["Cancelled"] },
+        { kind: "in", column: "Courier", values: ["Delhivery"] },
+      ]),
+    ).toEqual([]);
+    // Delivered orders are all settled, whatever the rest of the file holds.
+    expect(
+      run([{ kind: "in", column: "Order Status", values: ["Delivered"] }]).some(
+        (i) => i.id === "caveat-in-transit",
+      ),
+    ).toBe(false);
+    const inTransit = run([{ kind: "in", column: "Order Status", values: ["In Transit", "Shipped"] }]).find(
+      (i) => i.id === "caveat-in-transit",
+    );
+    expect(inTransit?.body).toMatch(/^100% of the [\d,]+ selected rows/);
+    expect(date).toBeTruthy();
+  });
+});
+
+describe("segment gaps on the sales demo", () => {
+  it("don't compare revenue per rep across categories every rep sells in", () => {
+    const s = new Session();
+    if (s.ingestSample("sales").status !== "ok") throw new Error("sales");
+    const ctx = s.configure({ domainId: "sales", numberLocale: "IN", currency: null });
+    const range = ctx.dateBounds ? presetRange(defaultPreset(ctx.dateBounds), ctx.dateBounds) : null;
+    const filters: Filter[] =
+      range && ctx.dateColumn
+        ? [{ kind: "dateRange", column: ctx.dateColumn, from: range.from, to: range.to }]
+        : [];
+    s.kpiBatch(filters, [...ctx.selection.hero, ...ctx.selection.supporting], "IN");
+    for (const spec of ctx.charts) s.chart(filters, { specId: spec.id }, "IN");
+    const insights = s.insights("IN");
+    expect(insights.some((i) => i.id === "segment-revenue_per_rep-Category")).toBe(false);
+    // A label with alternatives reads as its first word, in the plural.
+    for (const i of insights) expect(i.body, i.id).not.toMatch(/\/ territories|Across [a-z]+ \//);
   });
 });
 

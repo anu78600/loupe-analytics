@@ -9,8 +9,11 @@
  * are taken on the latest date, and prices, rates, percentages and rating
  * scales are averaged (never summed). Each gets a trend chart and a
  * breakdown by the file's most useful category, in a dashboard section of
- * its own ("From your other columns"). A separate time-of-day column the
- * template doesn't chart gets an hour-of-day chart there too.
+ * its own ("From your other columns"); totals by state are a tile map of
+ * every state. A roster (one row per employee or customer) gets no trend
+ * chart: its date marks when each one started, so a line "over time" would
+ * compare cohorts, not periods. A separate time-of-day column the template
+ * doesn't chart gets an hour-of-day chart there too.
  *
  * The results are ordinary registry-shaped definitions (fields with an
  * identity mapping, KPIs, chart templates) merged into the domain by the
@@ -91,6 +94,21 @@ function directionOf(name: string): KpiDef["direction"] {
   if (t.some((w) => LOWER.has(w))) return "lower";
   if (t.some((w) => HIGHER.has(w))) return "higher";
   return "neutral";
+}
+
+/**
+ * A chart title in sentence case, as titles are written: "Average MRP by
+ * customer state", not "Average MRP by Customer State". The first word keeps
+ * its capital; other capitalised words are lowered, while acronyms and
+ * mixed-case words (MRP, GST, Q7, iOS) keep their spelling.
+ */
+function sentenceCase(title: string): string {
+  return title
+    .split(" ")
+    .map((w, i) =>
+      i === 0 ? `${w.charAt(0).toUpperCase()}${w.slice(1)}` : /^[A-Z][a-z]+$/.test(w) ? w.toLowerCase() : w,
+    )
+    .join(" ");
 }
 
 /** Lower snake_case slug for ids, unique within `used`. */
@@ -182,6 +200,13 @@ export function columnExtras(input: ColumnExtrasInput): ColumnExtras {
   const mapped = new Set(Object.values(mapping.fields));
   const dim = breakdownColumn(profile, mapped);
   const kpiSlugs = new Set<string>();
+  // On a roster (one row per employee or customer) the date says when each one started: a chart
+  // "over time" would compare hiring cohorts, not periods, so none is drawn.
+  const roster = domain.subDomains.find((s) => s.id === subDomainId)?.timeModel === "roster";
+  // Totals by state read well as a tile map of every state; averages are compared, so they get sorted bars.
+  const tileMap = Boolean(
+    dim && dim.geoLevel === "state" && (dim.geoRegion === "IN" || dim.geoRegion === "US"),
+  );
 
   columns.forEach((c, i) => {
     const how = summaryOf(c, Boolean(date));
@@ -249,10 +274,10 @@ export function columnExtras(input: ColumnExtrasInput): ColumnExtras {
     });
     if (i >= CHARTED) return;
     const avg = how === "average";
-    if (date)
+    if (date && !roster)
       out.charts.push({
         id: `${COLUMN_PREFIX}trend_${s}`,
-        title: `${name} over time`,
+        title: sentenceCase(`${name} over time`),
         kind: how === "total" ? "bar" : "line",
         section: "columns",
         x: { time: field(date) },
@@ -266,32 +291,32 @@ export function columnExtras(input: ColumnExtrasInput): ColumnExtras {
         subDomains: [subDomainId],
         modes: ["analyst", "compact"],
       });
-    if (dim)
+    if (dim) {
+      const map = !avg && tileMap;
       out.charts.push({
         id: `${COLUMN_PREFIX}by_${s}`,
-        title: `${name} by ${friendly(dim.name)}`,
-        // Totals by state read well as a tile map; averages are compared, so they get sorted bars.
-        kind:
-          !avg && dim.geoLevel === "state" && (dim.geoRegion === "IN" || dim.geoRegion === "US")
-            ? "geoTile"
-            : "hbar",
+        title: sentenceCase(`${name} by ${friendly(dim.name)}`),
+        kind: map ? "geoTile" : "hbar",
         section: "columns",
         x: { field: field(dim) },
         measures: [id],
-        topN: 10,
-        others: true,
+        // A map shows every state (a top 10 would leave the rest blank); bars keep the top 10 plus Others.
+        ...(map ? {} : { topN: 10, others: true }),
         // An average over a handful of rows is noise; those groups are set aside, as everywhere else.
         ...(avg ? { minGroupRows: 5 } : {}),
         // "Top 10 plus Others" only where there are more than ten groups to fold.
         reason: avg
           ? `Average ${label} for each ${friendly(dim.name)}, sorted, so the highest and lowest stand out. Groups with fewer than 5 rows are set aside.`
-          : `Where ${label} comes from: sorted bars by ${friendly(dim.name)}${dim.distinct > 10 ? ", top 10 plus Others" : ""}.`,
+          : map
+            ? `Where ${label} comes from: a tile map of every state, shaded by its total, so regional patterns show at a glance.`
+            : `Where ${label} comes from: sorted bars by ${friendly(dim.name)}${dim.distinct > 10 ? ", top 10 plus Others" : ""}.`,
         alternatives: avg ? ["hbar", "bar", "table"] : ["hbar", "bar", "treemap", "table"],
         size: { w: 6, h: 4 },
         priority: 2 + i * 2,
         subDomains: [subDomainId],
         modes: ["analyst", "compact"],
       });
+    }
   });
   hourOfDay(input, out, field);
   return out;
@@ -320,7 +345,7 @@ function hourOfDay(input: ColumnExtrasInput, out: ColumnExtras, field: (c: Colum
   if (!measure) return;
   out.charts.push({
     id: `${COLUMN_PREFIX}hour_${slug(time.name, new Set())}`,
-    title: `${measure.def.name} by hour of ${friendly(time.name)}`,
+    title: sentenceCase(`${measure.def.name} by hour of ${friendly(time.name)}`),
     kind: "bar",
     section: "columns",
     x: { part: "hour", of: field(time) },

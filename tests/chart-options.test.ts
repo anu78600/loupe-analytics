@@ -2,12 +2,24 @@
  * Chart option rules (src/ui/charts): label ink contrast inside fills, the
  * geo-tile click value, and the label/axis choices from QA (no value on every
  * time-axis bar, no crowded value axis on horizontal bars, partial first
- * buckets, the stacked "Others" segment).
+ * buckets, the stacked "Others" segment). Then the dashboard audit's label
+ * fixes: names broken at spaces, every bar named, the year on thinned month
+ * axes, 0–100% share axes, scatter axes fitted to the points, incomplete-period
+ * labels kept clear of the value axis and of the peak/low markers, treemap
+ * names never split letter by letter, and cell values left off cells too
+ * small for them.
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { buildOption, wrapLabel, type GeoTileDatum } from "@/ui/charts/options";
+import {
+  buildOption,
+  chartSubtitle,
+  wrapLabel,
+  wrapWords,
+  type GeoTileDatum,
+  type OptionContext,
+} from "@/ui/charts/options";
 import { INK_DARK, inkOn, readChartTokens } from "@/ui/charts/tokens";
 import type { ChartData, ChartKind, ChartSpec } from "@/engine/charts/types";
 
@@ -284,5 +296,226 @@ describe("nothing dropped, nothing cut (34.2)", () => {
     });
     const o = option("cohort", spec("cohort", { analysis: "cohort" }), d);
     expect((o.xAxis as Obj).data).toEqual(["M0", "M1", "M2"]);
+  });
+});
+
+/** An option built at a measured size, as the dashboard card builds it. */
+const sized = (kind: ChartKind, s: ChartSpec, d: ChartData, over: Partial<OptionContext> = {}) =>
+  buildOption({
+    tokens: TOKENS,
+    fmt: { locale: "IN", currency: "INR" },
+    kind,
+    spec: s,
+    data: d,
+    animate: false,
+    ...over,
+  }) as Obj;
+
+describe("labels that read and fit (dashboard audit)", () => {
+  it("breaks a name at any space before it cuts a word", () => {
+    // The old rule needed the space past a third of the line, so "Net Banking" became "Net Banki / ng".
+    expect(wrapLabel("Net Banking", 9)).toBe("Net\nBanking");
+    expect(wrapLabel("Credit Card", 7)).toBe("Credit\nCard");
+    // Inside tiles whose width is only estimated, a word is never split at all.
+    expect(wrapWords("Haircare", 4)).toBe("Haircare");
+    expect(wrapWords("New Customers", 12)).toBe("New\nCustomers");
+    expect(wrapWords("Home & Kitchen", 20)).toBe("Home & Kitchen");
+    expect(wrapWords("Beauty & Personal Care", 8, 2)).toBe("Beauty &\nPersonal Care");
+  });
+
+  it("names every horizontal bar, sizing the names to the rows", () => {
+    const labels = Array.from({ length: 12 }, (_, i) => `State number ${i + 1}`);
+    const o = sized("hbar", spec("hbar"), data(labels), { width: 520, height: 260 });
+    const names = (o.yAxis as Obj).axisLabel as Obj;
+    expect(names.interval).toBe(0);
+    expect(names.hideOverlap).toBe(false);
+    expect(names.fontSize).toBeLessThanOrEqual(11);
+    // A short card's names get smaller rather than dropping out.
+    const short = sized("hbar", spec("hbar"), data(labels), { width: 520, height: 160 });
+    const shortNames = (short.yAxis as Obj).axisLabel as Obj;
+    expect(shortNames.interval).toBe(0);
+    expect(shortNames.fontSize as number).toBeLessThan(11);
+    expect(shortNames.fontSize as number).toBeGreaterThanOrEqual(7.5);
+  });
+
+  it("thins bar names only when the rows are too short for any legible type", () => {
+    const labels = Array.from({ length: 12 }, (_, i) => `State ${i + 1}`);
+    const o = sized("hbar", spec("hbar"), data(labels), { width: 520, height: 100 });
+    expect(((o.yAxis as Obj).axisLabel as Obj).interval as number).toBeGreaterThan(0);
+    // The values then go on the axis, not beside bars too thin to hold them.
+    expect((seriesOf(o)[0] as Obj).label).toBeUndefined();
+    expect(((o.xAxis as Obj).axisLabel as Obj | undefined)?.show).not.toBe(false);
+  });
+
+  it("turns named columns into bars when a name won't fit its column (a phone)", () => {
+    const labels = ["COD", "Credit Card", "Net Banking", "EMI", "Debit Card", "UPI", "Wallet"];
+    const phone = sized("bar", spec("bar"), data(labels), { width: 340 });
+    expect((phone.yAxis as Obj).type).toBe("category");
+    const desktop = sized("bar", spec("bar"), data(labels), { width: 900 });
+    expect((desktop.xAxis as Obj).type).toBe("category");
+  });
+
+  it("labels every nth month and gives the first label shown in each year its year", () => {
+    const cats = Array.from({ length: 24 }, (_, i) => ({ label: `m${i}`, raw: Date.UTC(2024, 9 + i, 1) }));
+    const d = data(
+      cats.map((c) => c.label),
+      { categories: cats, grain: "month" },
+    );
+    const s = spec("line", { x: { kind: "time", column: "Date", grain: "month", label: "Date" } });
+    const axis = (sized("line", s, d, { width: 452 }).xAxis as Obj).axisLabel as Obj;
+    const step = (axis.interval as number) + 1;
+    expect(step).toBeGreaterThan(1);
+    expect(axis.hideOverlap).toBe(false);
+    const format = axis.formatter as (v: unknown, i: number) => string;
+    const texts = cats
+      .map((_, i) => i)
+      .filter((i) => i % step === 0)
+      .map((i) => format(cats[i]?.label, i));
+    expect(texts[0]).toBe("Oct 2024");
+    // Every year the axis runs into is named on the first label drawn in it, however thinned.
+    for (const year of ["2025", "2026"]) expect(texts.filter((t) => t.endsWith(year))).toHaveLength(1);
+  });
+
+  it("puts shares on a 0–100% axis in 20% steps: a 100% stack and a Pareto chart", () => {
+    const stack = data(["Sales", "Engineering"], {
+      seriesCategories: [
+        { label: "Female", raw: "Female" },
+        { label: "Male", raw: "Male" },
+      ],
+      matrix: [
+        [30, 81],
+        [70, 176],
+      ],
+    });
+    const s100 = spec("stackedBar100", { series: { kind: "column", column: "Gender", label: "Gender" } });
+    const axis = sized("stackedBar100", s100, stack).yAxis as Obj;
+    expect(axis.interval).toBe(0.2);
+    expect(axis.max).toBe(1);
+    const tick = (axis.axisLabel as Obj).formatter as (v: number) => string;
+    expect([0.8, 1].map(tick)).toEqual(["80%", "100%"]);
+    // Its unit line says what the axis is, whatever the measure counts.
+    expect(chartSubtitle(s100, stack, { locale: "IN", currency: "INR" }, "stackedBar100")).toBe(
+      "In % of each column",
+    );
+    const pareto = data(["A", "B"], {
+      series: [
+        { id: "share", label: "Share of total", values: [0.6, 0.4], format: "percent" },
+        { id: "cumulative", label: "Cumulative share", values: [0.6, 1], format: "percent" },
+      ],
+    });
+    expect((sized("pareto", spec("pareto"), pareto).yAxis as Obj).interval).toBe(0.2);
+  });
+
+  it("fits a scatter's axes to its points, with room for the x axis's name", () => {
+    const pts = data(["Sales", "Ops", "Finance"], {
+      points: [
+        { label: "Sales", x: 71.3, y: 0.47 },
+        { label: "Ops", x: 73.5, y: 0.35 },
+        { label: "Finance", x: 74.5, y: 0.27 },
+      ],
+      trendline: { slope: -0.06, intercept: 4.7, r2: 0.53 },
+    });
+    const s = spec("scatter", {
+      measures: [
+        { id: "e", label: "Engagement", format: "decimal", direction: "higher" },
+        { id: "a", label: "Attrition rate", format: "percent", direction: "lower" },
+      ],
+    });
+    const o = sized("scatter", s, pts);
+    expect((o.xAxis as Obj).scale).toBe(true);
+    expect((o.yAxis as Obj).scale).toBe(true);
+    expect((o.grid as Obj).bottom as number).toBeGreaterThanOrEqual(24);
+    expect(seriesOf(o)).toHaveLength(2);
+    // No fit (every point at one x): no trendline and no "R² NaN".
+    const flat = sized("scatter", s, { ...pts, trendline: { slope: NaN, intercept: NaN, r2: NaN } });
+    expect(seriesOf(flat)).toHaveLength(1);
+    expect(JSON.stringify(flat)).not.toContain("NaN");
+  });
+
+  it("keeps an incomplete first period's label off the value axis", () => {
+    const months = ["Mar", "Apr", "May", "Jun", "Jul"];
+    const d = data(months, {
+      categories: months.map((label, i) => ({ label, raw: Date.UTC(2026, 2 + i, 1) })),
+      grain: "month",
+      partialFirst: true,
+      partialFirstStart: Date.UTC(2026, 3, 1),
+    });
+    const s = spec("line", { x: { kind: "time", column: "Date", grain: "month", label: "Date" } });
+    const dashed = seriesOf(sized("line", s, d))[1] as Obj;
+    const label = ((dashed.data as Array<Obj | null>)[0] as Obj).label as Obj;
+    expect(label.formatter).toBe("from 1 Apr");
+    expect(label.position).not.toBe("left");
+    expect(label.align).toBe("left");
+  });
+
+  it("drops an incomplete period's label where a peak or low marker needs the room", () => {
+    const quarters = Array.from({ length: 12 }, (_, i) => `Q${i}`);
+    const values = [2, 0, 3, 5, 8, 9, 12, 15, 18, 21, 26, 24];
+    const d = data(quarters, {
+      categories: quarters.map((label, i) => ({ label, raw: Date.UTC(2016, 6 + 3 * i, 1) })),
+      series: [{ id: "m", label: "Exits", values, format: "integer" }],
+      grain: "quarter",
+      partialFirst: true,
+      partialFirstStart: Date.UTC(2016, 7, 27),
+      partialLast: true,
+      partialLastEnd: Date.UTC(2019, 8, 25),
+      annotations: [
+        { index: 10, kind: "max", label: "Peak" },
+        { index: 1, kind: "min", label: "Low" },
+      ],
+    });
+    const s = spec("bar", { x: { kind: "time", column: "Exit date", grain: "quarter", label: "Exit date" } });
+    const bars = (seriesOf(sized("bar", s, d, { width: 520 }))[0] as Obj).data as Obj[];
+    // "Low 0" sits next to the first column and "Peak 26" next to the last: their text wins.
+    expect(bars[0]?.label).toBeUndefined();
+    expect(bars[11]?.label).toBeUndefined();
+    // With the markers far away, the text stays.
+    const clear = { ...d, annotations: [{ index: 6, kind: "max" as const, label: "Peak" }] };
+    const kept = (seriesOf(sized("bar", s, clear, { width: 520 }))[0] as Obj).data as Obj[];
+    expect((kept[0]?.label as Obj).formatter).toBe("from 27 Aug");
+  });
+
+  it("never splits a treemap name letter by letter", () => {
+    const d = data(["Personal Care"], {
+      kind: "treemap",
+      tree: [
+        {
+          label: "Personal Care",
+          value: 100,
+          children: [
+            { label: "Skincare", value: 60 },
+            { label: "Haircare", value: 3 },
+            { label: "Fragrance", value: 37 },
+          ],
+        },
+      ],
+    });
+    const o = sized("treemap", spec("treemap"), d, { width: 340, height: 220 });
+    const label = (seriesOf(o)[0] as Obj).label as Obj;
+    expect(label.overflow).toBe("truncate");
+    const format = label.formatter as (p: { name: string; value: number; data: Obj }) => string;
+    for (const [name, value] of [
+      ["Haircare", 3],
+      ["Fragrance", 37],
+      ["Skincare", 60],
+    ] as const) {
+      const text = format({ name, value, data: {} });
+      // Either the whole word or no label at all (a tile too small for one).
+      expect(text === "" || text.split("\n")[0] === name, `${name}: ${text}`).toBe(true);
+    }
+  });
+
+  it("leaves numbers off cohort cells too narrow to hold them", () => {
+    const cohorts = Array.from({ length: 12 }, (_, i) => ({
+      label: `Cohort ${i}`,
+      cohort: i,
+      size: 900,
+      retention: [1, ...Array.from({ length: 11 }, (_, k) => (k < 11 - i ? 0.12 : null))],
+    }));
+    const cohortSpec = spec("cohort", { analysis: "cohort" });
+    const phone = sized("cohort", cohortSpec, data([], { cohorts }), { width: 340 });
+    expect(((seriesOf(phone)[0] as Obj).label as Obj).show).toBe(false);
+    const wide = sized("cohort", cohortSpec, data([], { cohorts }), { width: 1100 });
+    expect(((seriesOf(wide)[0] as Obj).label as Obj).show).toBe(true);
   });
 });

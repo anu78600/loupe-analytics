@@ -52,7 +52,8 @@ describe("SQL file", () => {
     expect(sql).not.toMatch(/executed against this dataset/i);
     expect(sql).not.toMatch(/runs as-is/i);
     expect(sql).toContain("Loupe's value at export");
-    expect(sql).toMatch(/Verify in browser/);
+    // Names the control as the app shows it.
+    expect(sql).toMatch(/Verify against your data/);
     // Dialect notes for the portable forms.
     expect(sql).toContain("(CAST(b AS DATE) - CAST(a AS DATE)) → DATEDIFF(b, a)");
     expect(sql).toContain("(CAST(b AS DATE) - CAST(a AS DATE)) → DATEDIFF(day, a, b)");

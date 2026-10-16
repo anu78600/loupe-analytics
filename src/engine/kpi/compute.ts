@@ -7,13 +7,17 @@
  * both ends shift back by the number of calendar months the range spans
  * (Oct 2025 – Sep 2026 compares with Oct 2024 – Sep 2025; a range ending on
  * 15 Sep compares with one ending on 15 Sep a span earlier), so monthly
- * snapshots dated on the 1st and part-months compare like for like. Other
- * date filters compare with the preceding period of equal length in days.
- * With no date filter ("all time"), `value` covers all the data while
- * `current` (labelled by `currentLabel`) is the last complete month and the
- * deltas compare it with the month before; the UI shows that month's value
- * next to the change. Deltas are relative to |previous| and null when it is 0
- * or blank.
+ * snapshots dated on the 1st and part-months compare like for like. A
+ * year-to-date range (1 Jan to the end of the data) compares with the same
+ * days a year earlier, as YTD is read. Other date filters compare with the
+ * preceding period of equal length in days. With no date filter ("all
+ * time"), `value` covers all the data while `current` (labelled by
+ * `currentLabel`) is the last complete month and the deltas compare it with
+ * the month before; the UI shows that month's value next to the change.
+ * Deltas are relative to |previous| and null when it is 0 or blank.
+ *
+ * Sparklines are never finer than the data's own cadence: monthly snapshots
+ * get a monthly line, whatever the period's length.
  */
 import type { Dataset } from "@/engine/core/types";
 import {
@@ -37,6 +41,9 @@ import { isAdditiveExpr } from "@/engine/query/expr";
 import { selectRowsCached, type Filter } from "@/engine/query/filter";
 import { evaluate, kpiOrUndefined, type Resolver } from "@/engine/query/evaluate";
 import { periodScope, runQuery } from "@/engine/query/run";
+import { atLeastGrain, cadenceGrain, type DateCadence } from "@/engine/core/periods";
+
+export type { DateCadence };
 
 /** A date window, inclusive wall-clock ms at both ends, with its display label. */
 export interface PeriodInfo {
@@ -94,14 +101,6 @@ export interface KpiBatch {
 }
 
 const finite = (x: number | undefined): number | null => (x !== undefined && Number.isFinite(x) ? x : null);
-
-/**
- * How a date column records time. "month", "quarter" and "year": every value
- * is midnight on the first day of such a period, so each row stands for the
- * whole period (monthly MRR snapshots, a P&L dated 1 Mar). "monthEnd": every
- * value is the last day of its month. "day": anything else.
- */
-export type DateCadence = "year" | "quarter" | "month" | "monthEnd" | "day";
 
 interface DateScan {
   min: number;
@@ -310,10 +309,25 @@ function latestMonthPlan(
 }
 
 /**
+ * A year-to-date range: from 1 January to the last day of the data, within
+ * one calendar year (the "Year to date" preset, or the same dates picked by hand).
+ */
+function isYearToDate(period: { from: number; to: number }, data: { max: number }): boolean {
+  return (
+    period.from === startOfYear(period.from) &&
+    startOfYear(period.to) === period.from &&
+    endOfDay(period.to) >= endOfDay(data.max)
+  );
+}
+
+/**
  * Comparison rules (see the file header):
  * - A selected range compares with the same range shifted back by the
  *   calendar months it spans (or by its length in days when it doesn't start
  *   on the 1st).
+ * - A year-to-date range shifts back a whole year instead (1 Jan – 30 Sep
+ *   2026 compares with 1 Jan – 30 Sep 2025, never with 1 Apr – 31 Dec 2025):
+ *   YTD is read against the same days last year, as the time intelligence does.
  * - If the data starts well inside that earlier window (after its first
  *   month, or its first 10% of days), both windows shrink to the part the
  *   data covers in both ("like for like"), so a 12-month period is never
@@ -329,7 +343,7 @@ export function planComparison(
   if (!explicitRange) return latestMonthPlan(period, data);
   const len = period.to - period.from + 1;
   const monthAligned = startOfMonth(period.from) === period.from;
-  const span = monthAligned ? monthsSpanned(period.from, period.to) : 0;
+  const span = isYearToDate(period, data) ? 12 : monthAligned ? monthsSpanned(period.from, period.to) : 0;
   const back = (t: number) => (span >= 1 ? addMonths(t, -span) : t - len);
   const forward = (t: number) => (span >= 1 ? addMonths(t, span) : t + len);
   const toIsMonthEnd = endOfDay(period.to) >= endOfBucket(period.to, "month");
@@ -409,7 +423,7 @@ function finish(
   comparisonLabel: string,
   prev: ReturnType<typeof evaluateMany> | null,
   deltaBase: ReturnType<typeof evaluateMany> | null,
-  bounds: { min: number; max: number } | null,
+  bounds: { min: number; max: number; cadence?: DateCadence } | null,
   currentWindow?: PeriodInfo,
 ): KpiBatch {
   const { ds, resolver, measures, filters, dateColumn } = input;
@@ -422,7 +436,9 @@ function finish(
   let partialLast = false;
   if (dateColumn && period) {
     const spanDays = (period.to - period.from) / DAY_MS;
-    sparkGrain = autoGrain(spanDays);
+    // Never finer than the data's cadence: weekly points over monthly snapshots would drop to zero
+    // between snapshots and read as a crash.
+    sparkGrain = atLeastGrain(autoGrain(spanDays), cadenceGrain(bounds?.cadence));
     const ok = measures.filter((m) => !cur.errors.has(m.id));
     if (ok.length) {
       const q = runQuery(ds, resolver, {
@@ -493,6 +509,66 @@ function endOfBucketSafe(start: number, grain: TimeGrain): number {
   }
 }
 
+/**
+ * How a KPI combines across segments and periods, read from its definition:
+ * - "additive": sums and counts, whose parts add up to the total;
+ * - "distinct": distinct counts, where someone in two segments or periods is
+ *   counted in each but once overall;
+ * - "snapshot": semi-additive balances read on the latest date (MRR, stock):
+ *   they add across segments on one date, never across periods;
+ * - "firstDate": entities counted by their first-ever date (new customers),
+ *   which depend on the window they are counted in;
+ * - "ratio": ratios, averages, medians and the like, recomputed from their
+ *   own rows for every period and segment.
+ * The KPI details say which, and the 7-day moving average is offered only
+ * for an additive KPI.
+ */
+export type KpiAggregation = "additive" | "distinct" | "snapshot" | "firstDate" | "ratio";
+
+/** Precedence when two kinds are added or subtracted: the one that limits how the result may be read wins. */
+const AGGREGATION_RANK: Record<KpiAggregation, number> = {
+  additive: 0,
+  distinct: 1,
+  snapshot: 2,
+  firstDate: 3,
+  ratio: 4,
+};
+
+/**
+ * Classifies a KPI expression (KpiAggregation). `lookup` follows refs, as in
+ * isAdditiveExpr; an unresolvable ref counts as a ratio, the most cautious reading.
+ */
+export function kpiAggregation(
+  e: Expr,
+  lookup?: (id: string) => Expr | undefined,
+  path: ReadonlySet<string> = new Set(),
+): KpiAggregation {
+  if (isAdditiveExpr(e, lookup, path)) return "additive";
+  if ("agg" in e) return e.agg === "countDistinct" ? "distinct" : "ratio";
+  if ("calc" in e) return kpiAggregation(e.calc, lookup, path);
+  if ("ref" in e) {
+    const target = lookup && !path.has(e.ref) ? lookup(e.ref) : undefined;
+    return target ? kpiAggregation(target, lookup, new Set(path).add(e.ref)) : "ratio";
+  }
+  if ("atLatest" in e) return "snapshot";
+  if ("newEntities" in e) return "firstDate";
+  // Counting the entities left after `having` is a distinct count; any other reduce is an average or the like.
+  if ("per" in e) return e.reduce === "count" ? "distinct" : "ratio";
+  if ("op" in e) {
+    const [a, b] = e.args;
+    // Scaling by a constant keeps what a measure is (ARR = MRR × 12 is still a balance).
+    if ((e.op === "mul" || e.op === "div") && "num" in b) return kpiAggregation(a, lookup, path);
+    if (e.op === "mul" && "num" in a) return kpiAggregation(b, lookup, path);
+    if (e.op === "add" || e.op === "sub") {
+      const ka = kpiAggregation(a, lookup, path);
+      const kb = kpiAggregation(b, lookup, path);
+      return AGGREGATION_RANK[ka] >= AGGREGATION_RANK[kb] ? ka : kb;
+    }
+  }
+  // A ratio of two measures, or a bare constant.
+  return "ratio";
+}
+
 export interface TimeIntelValue {
   key: string;
   label: string;
@@ -503,18 +579,39 @@ export interface TimeIntelValue {
   /** A change in percentage points, the difference of two rates (0.012 → +1.2 pp). */
   points?: boolean;
   note?: string;
+  /**
+   * On the moving-average row: how the KPI adds up (kpiAggregation), which
+   * decides whether a moving average means anything. The KPI details word
+   * their "Aggregation" line from it.
+   */
+  basis?: KpiAggregation;
 }
+
+/** Why the 7-day moving average isn't offered, by how the KPI adds up. */
+const NO_MOVING_AVERAGE: Record<Exclude<KpiAggregation, "additive">, string> = {
+  distinct:
+    "Not shown for distinct counts: someone active on several days would be counted once for each. Use the rolling 7-day value instead.",
+  snapshot:
+    "Not shown for balances: a balance is read on its latest date, never added across days. Use the rolling 7-day value instead.",
+  firstDate:
+    "Not shown: who counts as new depends on the window they are counted in. Use the rolling 7-day value instead.",
+  ratio:
+    "Not shown for ratios and averages: averaging daily values misweights the days. Use the rolling 7-day value instead.",
+};
 
 /**
  * Time-intelligence variants as of the end of the selected period.
  * Each value is a fresh evaluation over its own window with the other
  * filters kept, never a sum of daily values, so ratios stay correct: MTD,
  * QTD and YTD up to the end of `asOf`'s day; YTD against the same span a year
- * earlier; MoM between the two full months before `asOf`'s month; rolling
- * 7/30/90 calendar days ending on `asOf`. The 7-day moving average (rolling
- * 7-day value ÷ 7) is offered only for additive measures. For a `rate` (a
- * percent KPI) the YoY and MoM changes are differences in percentage points,
- * as on the KPI cards: 40% → 42% is +2.0 pp, not +5.0%.
+ * earlier; MoM between the last full month and the one before it (`asOf`'s
+ * own month when the data runs to its end, within a day, else the month
+ * before); rolling 7/30/90 calendar days ending on `asOf`. The 7-day moving
+ * average (rolling 7-day value ÷ 7) is offered only for additive measures.
+ * Data recorded once per month, quarter or year has no days, so it gets no
+ * day windows at all. For a `rate` (a percent KPI) the YoY and MoM changes
+ * are differences in percentage points, as on the KPI cards: 40% → 42% is
+ * +2.0 pp, not +5.0%.
  */
 export function computeTimeIntel(
   ds: Dataset,
@@ -576,9 +673,13 @@ export function computeTimeIntel(
     period: "YTD vs same period last year",
     ...kind,
   });
-  const lastMonthFrom = addMonths(startOfMonth(asOf), -1);
-  const prevMonthFrom = addMonths(startOfMonth(asOf), -2);
-  const lm = at(lastMonthFrom, startOfMonth(asOf) - 1);
+  // The last full month is asOf's own when the data runs to its end (within a day, as for the
+  // cards' latest month); data ending on 30 Sep makes September full, not "August vs July".
+  const thisMonth = startOfMonth(asOf);
+  const lastMonthFrom =
+    endOfBucket(thisMonth, "month") <= end + COMPLETE_SLACK ? thisMonth : addMonths(thisMonth, -1);
+  const prevMonthFrom = addMonths(lastMonthFrom, -1);
+  const lm = at(lastMonthFrom, endOfBucket(lastMonthFrom, "month"));
   const pm = at(prevMonthFrom, lastMonthFrom - 1);
   out.push({
     key: "mom",
@@ -587,6 +688,21 @@ export function computeTimeIntel(
     period: `${bucketLabel(lastMonthFrom, "month", true)} vs ${bucketLabel(prevMonthFrom, "month", true)}`,
     ...kind,
   });
+  const basis = kpiAggregation(expr, (id) => kpiOrUndefined(resolver, id));
+  const coarse = cadenceGrain(dateBounds(ds, dateColumn)?.cadence);
+  if (coarse) {
+    // One row per month (or quarter, or year): a 7-, 30- or 90-day window holds one snapshot or
+    // none, and a balance would read as 0 on the days between snapshots.
+    out.push({
+      key: "ma7",
+      label: "7-day moving average",
+      value: null,
+      period: "—",
+      note: `Not shown: the data is recorded once a ${coarse}, so day windows don't apply.`,
+      basis,
+    });
+    return out;
+  }
   for (const n of [7, 30, 90]) {
     out.push({
       key: `r${n}`,
@@ -595,13 +711,14 @@ export function computeTimeIntel(
       period: formatRange(addDays(day, -(n - 1)), end),
     });
   }
-  if (isAdditiveExpr(expr, (id) => kpiOrUndefined(resolver, id))) {
+  if (basis === "additive") {
     const r7 = out.find((x) => x.key === "r7")?.value ?? null;
     out.push({
       key: "ma7",
       label: "7-day moving average",
       value: r7 === null ? null : r7 / 7,
       period: "Average daily value, trailing 7 days",
+      basis,
     });
   } else {
     out.push({
@@ -609,7 +726,8 @@ export function computeTimeIntel(
       label: "7-day moving average",
       value: null,
       period: "—",
-      note: "Not shown for ratios: averaging daily ratios misweights days. Use the rolling 7-day value instead.",
+      note: NO_MOVING_AVERAGE[basis],
+      basis,
     });
   }
   return out;

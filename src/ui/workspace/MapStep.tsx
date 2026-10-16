@@ -23,8 +23,13 @@
  * the eye on each grid header, the switch in "Your columns"), typically a raw
  * column kept beside its cleaned copy. It stays in the file; nothing
  * computes from it.
+ *
+ * A column fills one field at most, so mapping a column that another field
+ * uses takes it from that field: the column list says which field each
+ * column fills, and the change says which field lost its column, with Undo.
  */
 import * as React from "react";
+import { toast } from "sonner";
 import {
   ArrowRight,
   CalendarRange,
@@ -50,7 +55,6 @@ import { Button } from "@/ui/primitives/button";
 import { Badge } from "@/ui/primitives/badge";
 import { Card } from "@/ui/primitives/card";
 import { Checkbox, Eyebrow } from "@/ui/primitives/misc";
-import { Input } from "@/ui/primitives/input";
 import { Popover, PopoverClose, PopoverContent, PopoverTrigger } from "@/ui/primitives/popover";
 import { Segmented } from "@/ui/primitives/segmented";
 import { Switch } from "@/ui/primitives/switch";
@@ -64,12 +68,14 @@ import {
 } from "@/ui/primitives/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/primitives/tabs";
 import { Tooltip } from "@/ui/primitives/tooltip";
+import { phrase } from "@/engine/charts/ask";
 import { isUsed, whyUnused, type ColumnUse, type UnusedReason } from "@/engine/charts/columnUsage";
 import { useColumnUsage } from "./useColumnUsage";
-import { dataSummary } from "./columnSummary";
+import { dataSummary, kindLabel } from "./columnSummary";
 import { DataCheckPanel } from "./DataCheckPanel";
 import { HealthPanel, ParseReportPanel } from "./HealthPanel";
 import { HiddenColumns } from "./HiddenColumns";
+import { KpiNameInput } from "./customise/KpiNameInput";
 import { useFileColumns } from "./useFileColumns";
 
 const ROLES: SemanticRole[] = [
@@ -233,16 +239,19 @@ export function MapStep() {
       </div>
       <HiddenColumns />
       <Tabs value={tab} onValueChange={setTab}>
-        <TabsList className="mb-5">
-          <TabsTrigger value="data">Your data</TabsTrigger>
-          {!context.domain.generic ? <TabsTrigger value="fields">Field mapping</TabsTrigger> : null}
-          {!context.domain.generic && Object.keys(context.domain.valueClasses).length ? (
-            <TabsTrigger value="values">Value meanings</TabsTrigger>
-          ) : null}
-          <TabsTrigger value="roles">Your columns</TabsTrigger>
-          <TabsTrigger value="kpis">KPI availability</TabsTrigger>
-          <TabsTrigger value="file">File report</TabsTrigger>
-        </TabsList>
+        {/* Six tabs are wider than a phone: they scroll sideways here instead of widening the page. */}
+        <div className="mb-5 max-w-full overflow-x-auto">
+          <TabsList className="min-w-max">
+            <TabsTrigger value="data">Your data</TabsTrigger>
+            {!context.domain.generic ? <TabsTrigger value="fields">Field mapping</TabsTrigger> : null}
+            {!context.domain.generic && Object.keys(context.domain.valueClasses).length ? (
+              <TabsTrigger value="values">Value meanings</TabsTrigger>
+            ) : null}
+            <TabsTrigger value="roles">Your columns</TabsTrigger>
+            <TabsTrigger value="kpis">KPI availability</TabsTrigger>
+            <TabsTrigger value="file">File report</TabsTrigger>
+          </TabsList>
+        </div>
         <TabsContent value="data">
           <DataCheckPanel />
         </TabsContent>
@@ -275,9 +284,20 @@ export function MapStep() {
   );
 }
 
-/** The trigger look shared by the header's two counts: a quiet chip that opens its breakdown. */
+/**
+ * The trigger look shared by the header's two counts: a quiet chip that
+ * opens its breakdown. Its words are its accessible name (Radix adds that it
+ * opens a dialog), so what is read out is what is shown.
+ */
 const CHIP =
-  "inline-flex items-center gap-1.5 rounded-control border border-border bg-surface-1 px-3 py-1.5 text-ui transition-colors hover:border-border-accent focus-visible:ring-2 focus-visible:ring-accent-ring focus-visible:outline-none data-[state=open]:border-border-accent";
+  "inline-flex items-center gap-1.5 rounded-control border border-border bg-surface-1 px-3 py-1.5 text-left text-ui transition-colors hover:border-border-accent focus-visible:ring-2 focus-visible:ring-accent-ring focus-visible:outline-none data-[state=open]:border-border-accent";
+
+/**
+ * A chip's breakdown panel. Each chip adds its width as min(width, 100vw −
+ * 24px), so on a phone the panel fits inside the popover's 12px margins
+ * instead of being cut off.
+ */
+const CHIP_PANEL = "max-h-[70vh] overflow-y-auto p-0";
 
 /** A small uppercase section label inside a breakdown. */
 function SectionLabel({ children }: { children: React.ReactNode }) {
@@ -290,6 +310,7 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
  */
 function KpisChip({ onOpen }: { onOpen: () => void }) {
   const context = useWorkspace((s) => s.context);
+  const headingId = React.useId();
   if (!context) return null;
   const visible = context.kpis.filter((k) => !k.hidden);
   const on = visible.filter((k) => k.available);
@@ -298,19 +319,19 @@ function KpisChip({ onOpen }: { onOpen: () => void }) {
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <button
-          type="button"
-          className={CHIP}
-          aria-label={`${on.length} of ${visible.length} KPIs available: show which`}
-        >
-          <span className="font-figures text-fg">{on.length}</span>
+        <button type="button" className={CHIP}>
+          <span className="font-figures text-fg">{on.length}</span>{" "}
           <span className="text-fg-muted">of {visible.length} KPIs available</span>
           <ChevronDown className="size-3.5 text-fg-subtle" aria-hidden />
         </button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="max-h-[70vh] w-[420px] overflow-y-auto p-0">
+      <PopoverContent
+        align="end"
+        aria-labelledby={headingId}
+        className={cn(CHIP_PANEL, "w-[min(420px,calc(100vw-24px))]")}
+      >
         <div className="border-b border-border px-4 py-3">
-          <p className="text-ui font-medium text-fg">
+          <p id={headingId} className="text-ui font-medium text-fg">
             KPIs for {context.domain.name}
             {subName && !context.domain.generic ? ` · ${subName}` : ""}
           </p>
@@ -376,29 +397,32 @@ function KpisChip({ onOpen }: { onOpen: () => void }) {
  */
 function ColumnsChip({ rows, onOpen }: { rows: ColumnRow[]; onOpen: (filter: ColumnFilter) => void }) {
   const setHidden = useWorkspace((s) => s.setColumnsHidden);
+  const headingId = React.useId();
   const used = rows.filter((r) => r.status === "used");
   const unused = rows.filter((r) => r.status === "unused");
   const hidden = rows.filter((r) => r.status === "hidden");
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <button
-          type="button"
-          className={CHIP}
-          aria-label={`${used.length} of ${rows.length} columns used: show which, and why the others aren't`}
-        >
-          <span className="font-figures text-fg">{used.length}</span>
+        <button type="button" className={CHIP}>
+          <span className="font-figures text-fg">{used.length}</span>{" "}
           <span className="text-fg-muted">
             of {rows.length} columns used
             {unused.length ? ` · ${unused.length} not used` : ""}
             {hidden.length ? ` · ${hidden.length} hidden` : ""} · none added
           </span>
-          <ChevronDown className="size-3.5 text-fg-subtle" aria-hidden />
+          <ChevronDown className="size-3.5 shrink-0 text-fg-subtle" aria-hidden />
         </button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="max-h-[70vh] w-[440px] overflow-y-auto p-0">
+      <PopoverContent
+        align="end"
+        aria-labelledby={headingId}
+        className={cn(CHIP_PANEL, "w-[min(440px,calc(100vw-24px))]")}
+      >
         <div className="border-b border-border px-4 py-3">
-          <p className="text-ui font-medium text-fg">The columns of your file</p>
+          <p id={headingId} className="text-ui font-medium text-fg">
+            The columns of your file
+          </p>
           <p className="mt-0.5 text-2xs leading-relaxed text-fg-subtle">
             {used.length} feed the dashboard · {unused.length} not used · {hidden.length} hidden by you. Loupe
             added none: everything is built from your own columns.
@@ -497,15 +521,39 @@ function FileReport() {
   );
 }
 
+/**
+ * Which column fills each field Loupe looks for, how sure the match is, and
+ * what the field feeds (its column's KPIs, charts and filters). A column
+ * fills one field at most: the list says which field a column already
+ * fills, and taking it says which field lost it, with Undo.
+ */
 function FieldMapping() {
   const context = useWorkspace((s) => s.context);
   const setOverride = useWorkspace((s) => s.setMappingOverride);
   const overrides = useWorkspace((s) => s.mappingOverrides);
+  const usage = useColumnUsage();
   if (!context) return null;
-  const usage = new Map<string, number>();
-  for (const k of context.kpis)
-    if (k.available && !k.hidden)
-      for (const f of k.fieldsUsed) usage.set(f.fieldId, (usage.get(f.fieldId) ?? 0) + 1);
+  const labelOf = (fieldId: string) => context.domain.fields.find((f) => f.id === fieldId)?.label ?? fieldId;
+  // Column → the field it fills now.
+  const fills = new Map(Object.entries(context.mapping.fields).map(([f, c]) => [c, f]));
+  const choose = (fieldId: string, column: string | null) => {
+    const taken = column ? fills.get(column) : undefined;
+    const before = useWorkspace.getState().mappingOverrides;
+    setOverride(fieldId, column);
+    if (!column || !taken || taken === fieldId) return;
+    toast.warning(
+      `“${column}” now fills ${labelOf(fieldId)}, so ${labelOf(taken)} has no column. Map another column to it, or undo.`,
+      {
+        action: {
+          label: "Undo",
+          onClick: () => {
+            useWorkspace.setState({ mappingOverrides: before });
+            void useWorkspace.getState().reconfigure();
+          },
+        },
+      },
+    );
+  };
   const fields = [...context.domain.fields].sort((a, b) => {
     const am = context.mapping.fields[a.id] ? 1 : 0;
     const bm = context.mapping.fields[b.id] ? 1 : 0;
@@ -547,10 +595,7 @@ function FieldMapping() {
                     {f.description ? <p className="mt-0.5 text-2xs text-fg-subtle">{f.description}</p> : null}
                   </td>
                   <td className="border-b border-border px-4 py-2 align-top">
-                    <Select
-                      value={col ?? NONE}
-                      onValueChange={(v) => setOverride(f.id, v === NONE ? null : v)}
-                    >
+                    <Select value={col ?? NONE} onValueChange={(v) => choose(f.id, v === NONE ? null : v)}>
                       <SelectTrigger
                         size="sm"
                         className={cn("w-64", !col && "text-fg-subtle")}
@@ -561,11 +606,23 @@ function FieldMapping() {
                       <SelectContent>
                         <SelectItem value={NONE}>Not mapped</SelectItem>
                         <SelectSeparator />
-                        {columns.map((c) => (
-                          <SelectItem key={c.name} value={c.name} hint={ROLE_LABEL[c.role]}>
-                            {c.name}
-                          </SelectItem>
-                        ))}
+                        {columns.map((c) => {
+                          // A column another field uses is offered, saying which field would lose it.
+                          const other = fills.get(c.name);
+                          return (
+                            <SelectItem
+                              key={c.name}
+                              value={c.name}
+                              hint={
+                                other && other !== f.id
+                                  ? `${ROLE_LABEL[c.role]} · fills ${labelOf(other)}`
+                                  : ROLE_LABEL[c.role]
+                              }
+                            >
+                              {c.name}
+                            </SelectItem>
+                          );
+                        })}
                       </SelectContent>
                     </Select>
                   </td>
@@ -584,8 +641,19 @@ function FieldMapping() {
                       <span className="text-2xs text-fg-subtle">—</span>
                     )}
                   </td>
-                  <td className="font-figures border-b border-border px-4 py-2.5 text-right align-top text-fg-muted">
-                    {usage.get(f.id) ?? 0} KPIs
+                  <td className="border-b border-border px-4 py-2 align-top">
+                    {col ? (
+                      <div className="flex justify-end">
+                        <UsedBy use={usage?.usage.get(col)} />
+                      </div>
+                    ) : (
+                      // The select beside it already says "Not mapped": a dash, as in the Match column.
+                      // `relative` keeps the screen-reader text inside the table's scroll area.
+                      <p className="relative text-right text-2xs text-fg-subtle">
+                        <span aria-hidden>—</span>
+                        <span className="sr-only">Feeds nothing: no column</span>
+                      </p>
+                    )}
                   </td>
                 </tr>
               );
@@ -633,26 +701,42 @@ function ValueMeanings() {
                       <PopoverTrigger asChild>
                         <button
                           type="button"
-                          className="inline-flex min-h-8 max-w-[70%] flex-wrap items-center justify-end gap-1 rounded-control border border-border-strong bg-surface-2 px-2 py-1 text-left hover:border-border-accent"
+                          className="relative inline-flex min-h-8 max-w-[70%] flex-wrap items-center justify-end gap-1 rounded-control border border-border-strong bg-surface-2 px-2 py-1 text-left hover:border-border-accent focus-visible:ring-2 focus-visible:ring-accent-ring focus-visible:outline-none"
                         >
+                          {/* Read out with what the values mean, not only as the values themselves. */}
+                          <span className="sr-only">Values that mean {phrase(c.label)}: </span>
                           {chosen.length ? (
-                            chosen.slice(0, 4).map((v) => (
-                              <Badge key={v} tone="neutral">
-                                {v}
-                              </Badge>
+                            chosen.slice(0, 4).map((v, i) => (
+                              // The space keeps the values apart when read out; between flex items it isn't drawn.
+                              <React.Fragment key={v}>
+                                {i ? " " : null}
+                                <Badge tone="neutral">{v}</Badge>
+                              </React.Fragment>
                             ))
                           ) : (
                             <span className="text-2xs text-fg-subtle">
                               No values: KPIs needing this are unavailable
                             </span>
                           )}
-                          {chosen.length > 4 ? <Badge>+{chosen.length - 4}</Badge> : null}
+                          {chosen.length > 4 ? (
+                            <>
+                              {" "}
+                              <Badge>
+                                +{chosen.length - 4}
+                                <span className="sr-only"> more</span>
+                              </Badge>
+                            </>
+                          ) : null}
                           <ChevronDown className="size-3.5 text-fg-subtle" aria-hidden />
                         </button>
                       </PopoverTrigger>
-                      <PopoverContent align="end" className="max-h-80 w-72 overflow-y-auto p-2">
+                      <PopoverContent
+                        align="end"
+                        aria-label={`Values of ${column} that mean ${phrase(c.label)}`}
+                        className="max-h-80 w-72 overflow-y-auto p-2"
+                      >
                         <p className="px-2 pt-1 pb-1.5 text-2xs text-fg-subtle">
-                          Values of “{column}” that mean {c.label.toLowerCase()}
+                          Values of “{column}” that mean {phrase(c.label)}
                         </p>
                         {values.map((v) => {
                           const on = chosen.includes(v.value);
@@ -775,6 +859,7 @@ function ColumnRoles({
   const overrides = useWorkspace((s) => s.roleOverrides);
   const setRole = useWorkspace((s) => s.setRoleOverride);
   const setHidden = useWorkspace((s) => s.setColumnsHidden);
+  const locale = useSettings((s) => s.numberLocale);
   if (!context) return null;
   const count = (s: ColumnStatus) => rows.filter((r) => r.status === s).length;
   const shown = filter === "all" ? rows : rows.filter((r) => r.status === filter);
@@ -853,8 +938,8 @@ function ColumnRoles({
                       {c.name}
                     </td>
                     <td className="max-w-[240px] border-b border-border px-4 py-2 text-2xs leading-relaxed text-fg-muted">
-                      <span className="line-clamp-2" title={dataSummary(c)}>
-                        {dataSummary(c)}
+                      <span className="line-clamp-2" title={dataSummary(c, locale)}>
+                        {dataSummary(c, locale)}
                       </span>
                     </td>
                     <td className="border-b border-border px-4 py-1.5">
@@ -872,7 +957,9 @@ function ColumnRoles({
                         <UsedBy use={use} />
                       )}
                     </td>
-                    <td className="border-b border-border px-4 py-2 text-fg-muted">{c.storage}</td>
+                    <td className="border-b border-border px-4 py-2 whitespace-nowrap text-fg-muted">
+                      {kindLabel(c)}
+                    </td>
                     <td className="border-b border-border px-4 py-1.5">
                       <div className="flex items-center gap-1.5">
                         <Select
@@ -912,7 +999,8 @@ function ColumnRoles({
                           disabled={off}
                           onValueChange={(v) => setRole(c.name, c.role, v as Additivity)}
                         >
-                          <SelectTrigger size="sm" className="w-44" aria-label={`Aggregation for ${c.name}`}>
+                          {/* Wide enough for "Non-additive (average)" in full. */}
+                          <SelectTrigger size="sm" className="w-56" aria-label={`Aggregation for ${c.name}`}>
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -956,9 +1044,9 @@ function ColumnRoles({
   );
 }
 
+/** Every KPI of the industry, grouped, with what it is computed with or what it still needs; names can be changed here. */
 function KpiAvailability() {
   const context = useWorkspace((s) => s.context);
-  const rename = useWorkspace((s) => s.renameKpi);
   if (!context) return null;
   const visible = context.kpis.filter((k) => !k.hidden);
   const groups = [...new Set(visible.map((k) => k.group))];
@@ -978,15 +1066,7 @@ function KpiAvailability() {
                     <CircleSlash className="mt-0.5 size-4 shrink-0 text-fg-subtle" aria-label="unavailable" />
                   )}
                   <div className="min-w-0 flex-1">
-                    <Input
-                      aria-label={`Name for ${k.name}`}
-                      defaultValue={k.name}
-                      onBlur={(e) => {
-                        const v = e.target.value.trim();
-                        if (v && v !== k.name) rename(k.id, v);
-                      }}
-                      className="h-7 border-transparent bg-transparent px-1 text-ui font-medium hover:border-border-strong"
-                    />
+                    <KpiNameInput id={k.id} name={k.name} title={k.definition} />
                     {k.available ? (
                       <p className="px-1 text-2xs text-fg-subtle">
                         {k.variantLabel}

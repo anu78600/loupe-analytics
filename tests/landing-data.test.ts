@@ -7,7 +7,8 @@
  * - The figures the hero, "How it works" and the feature tiles animate are
  *   the engine's own results: each KPI card's text is its value formatted,
  *   trends and shares are finite, and shares never add up to more than the
- *   whole.
+ *   whole. Every trend period carries its start date, in order, so the axis
+ *   can print the year once per year.
  * - The pieces the motion graphics need are there: three detection
  *   candidates, mapped columns to draw lines between, the KPI's SQL and DAX
  *   to type out, and an insight to show.
@@ -41,6 +42,8 @@ describe("the landing page snapshot", () => {
       }
       expect(state.trend.values.length).toBeGreaterThan(1);
       expect(state.trend.values.every(Number.isFinite)).toBe(true);
+      expect(state.trend.starts).toHaveLength(state.trend.labels.length);
+      expect(state.trend.starts.every((t, i, all) => t > 0 && (i === 0 || t > (all[i - 1] ?? 0)))).toBe(true);
       const shares = state.categories.reduce((a, c) => a + c.share, 0);
       expect(shares).toBeGreaterThan(0);
       expect(shares).toBeLessThanOrEqual(1 + 1e-9);

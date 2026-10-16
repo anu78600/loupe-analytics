@@ -12,7 +12,12 @@
  * column KPIs, so a column the user already summarises gets no automatic KPI
  * of its own. A KPI whose column is not in the analysis (hidden, or not in
  * this file) is skipped with a reason, never computed from something else.
+ *
+ * Automatic names and formulas (aggregateLabel, ratioLabel) are in sentence
+ * case, like the template KPIs, and read the column with spaces: "Distinct
+ * customer ID" from "Customer_ID", never "Distinct Customer_ID".
  */
+import { friendly } from "@/engine/core/labels";
 import type { DatasetProfile } from "@/engine/profile/types";
 import type { Expr } from "@/engine/query/expr";
 import type { FieldDef, KpiDef, KpiFormat } from "@/registry/schema";
@@ -56,9 +61,47 @@ export const AGG_WORD: Record<UserAgg, string> = {
 /** Aggregations that need a numeric column. */
 const NUMERIC: ReadonlySet<UserAgg> = new Set(["sum", "avg", "min", "max", "median"]);
 
-/** "Total Revenue", "Distinct Customer ID", "Number of rows". */
+/** A column name that already says its aggregation, so "Total amount" never becomes "Total total amount". */
+const SAYS: Partial<Record<UserAgg, RegExp>> = {
+  sum: /^(total|sum)\b/i,
+  avg: /^(average|avg|mean)\b/i,
+  min: /^(lowest|min|minimum)\b/i,
+  max: /^(highest|max|maximum)\b/i,
+  median: /^median\b/i,
+  countDistinct: /^(distinct|unique)\b/i,
+};
+
+/**
+ * A word inside a KPI name: lower case, as KPI names are written in sentence
+ * case ("Net revenue"), except acronyms and words with capitals inside them
+ * (ID, GST, SKU, eMail), which keep theirs.
+ */
+const inName = (word: string): string =>
+  /^[A-Z0-9%]{2,}$/.test(word) || /[a-z][A-Z]/.test(word) ? word : word.toLowerCase();
+
+/** A label with its first letter capitalised, for the start of a name. */
+const capitalised = (s: string): string => s.charAt(0).toUpperCase() + s.slice(1);
+
+/**
+ * A KPI's automatic name, in sentence case with the column read with spaces:
+ * "Total revenue", "Distinct customer ID" (from "Customer_ID"), "Average
+ * shipping fee", "Number of rows". A column that already says the
+ * aggregation keeps its own words ("Total amount").
+ */
 export function aggregateLabel(a: UserAggregate): string {
-  return a.agg === "count" || !a.column ? AGG_WORD.count : `${AGG_WORD[a.agg]} ${a.column}`;
+  if (a.agg === "count" || !a.column) return AGG_WORD.count;
+  const name = friendly(a.column).split(" ").map(inName).join(" ");
+  return capitalised(SAYS[a.agg]?.test(name) ? name : `${AGG_WORD[a.agg]} ${name}`);
+}
+
+/**
+ * A ratio's automatic name: "Total net amount ÷ distinct order ID". The
+ * second part is lower case like the rest of the name, unless it starts
+ * with an acronym.
+ */
+export function ratioLabel(top: UserAggregate, bottom: UserAggregate): string {
+  const [first = "", ...rest] = aggregateLabel(bottom).split(" ");
+  return `${aggregateLabel(top)} ÷ ${[inName(first), ...rest].join(" ")}`;
 }
 
 /** A slug for ids: lower-case letters, digits and underscores, never empty. */
@@ -104,7 +147,7 @@ export function userKpiExtras(
     used.add(id);
     fieldFor.set(column, id);
     const role = profile.columns.find((c) => c.name === column)?.role ?? "measure";
-    out.fields.push({ id, label: column, roles: [role], synonyms: [], weight: 1 });
+    out.fields.push({ id, label: friendly(column), roles: [role], synonyms: [], weight: 1 });
     out.mapping[id] = column;
     return id;
   };
@@ -138,7 +181,7 @@ export function userKpiExtras(
     }
     const top = aggregateLabel(k.value);
     const bottom = k.per ? aggregateLabel(k.per) : "";
-    const formula = k.per ? `${top} ÷ ${bottom}` : top;
+    const formula = k.per ? ratioLabel(k.value, k.per) : top;
     out.kpis.push({
       id: k.id,
       name: k.name.trim() || formula,

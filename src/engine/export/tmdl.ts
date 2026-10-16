@@ -11,6 +11,10 @@
  * data category (so maps place them), hierarchies found in the data (Category
  * → Sub-category, Region → State → City) are built in, the date-link helper
  * is hidden, and with a Date table the automatic date tables are switched off.
+ * The columns a chart's axis needs from a date (an hour of day, a weekday or
+ * month of another date column; readme.ts datePartColumns) are added by the
+ * Power Query partition, weekday and month names sorted by their numbers, so
+ * every column the Export step asked about is really in the model.
  * The model culture follows the number locale for display, but Power Query
  * always parses data.csv as en-US: the CSV is written with dot decimals and
  * ISO dates whatever the locale. The DataFile parameter defaults to a
@@ -23,6 +27,7 @@ import { friendlyStart } from "@/engine/core/labels";
 import { buildMeasures, DATE_TABLE, dateRelColumn, dateTableDax, escapeFormatLiteral } from "./daxFile";
 import type { ExportContext } from "./context";
 import { lineageTag } from "./names";
+import { datePartColumnsFor } from "./readme";
 
 const TAB = "\t";
 
@@ -238,20 +243,52 @@ export function generateTmdl(ctx: ExportContext, symbol: string, modelName: stri
     lines.push(`${TAB}${TAB}sourceColumn: ${rel}`);
     lines.push("");
   }
+  // Date parts the charts use as an axis (an hour, another date column's weekday or month): added
+  // in Power Query below, so the visuals can be built straight away; none when the user said no.
+  const parts = datePartColumnsFor(ctx, ctx.specs);
+  for (const p of parts) {
+    lines.push(description(`${p.holds} Added for the dashboard's charts.`, 1));
+    lines.push(`${TAB}column ${tmdlName(p.name)}`);
+    lines.push(`${TAB}${TAB}dataType: ${p.type === "number" ? "int64" : "string"}`);
+    if (p.type === "number") lines.push(`${TAB}${TAB}formatString: 0`);
+    lines.push(`${TAB}${TAB}lineageTag: ${lineageTag(`${modelName}:col:${p.name}`)}`);
+    lines.push(`${TAB}${TAB}summarizeBy: none`);
+    lines.push(`${TAB}${TAB}sourceColumn: ${p.name}`);
+    if (p.sortBy) lines.push(`${TAB}${TAB}sortByColumn: ${tmdlName(p.sortBy)}`);
+    lines.push("");
+    lines.push(`${TAB}${TAB}annotation SummarizationSetBy = User`);
+    lines.push("");
+  }
   // Clean names are snake_case ASCII, so they need no escaping inside M string
   // literals or [field] access. QuoteStyle.Csv allows line breaks inside
   // quoted fields; types are parsed with the en-US culture to match the CSV.
   const typed = ds.columns.map((c) => `{"${names.columns.get(c.name) ?? c.name}", ${mType(c)}}`).join(", ");
+  // Each added column is one step on the last, named as Power Query names its own ("Added …").
+  const steps: Array<[string, string]> = [];
+  let last = "Typed";
+  if (needsDay) {
+    steps.push([
+      "WithDay",
+      `Table.AddColumn(${last}, "${rel}", each DateTime.Date([${dateClean}]), type date)`,
+    ]);
+    last = "WithDay";
+  }
+  for (const p of parts) {
+    const step = `#"Added ${p.name}"`;
+    steps.push([
+      step,
+      `Table.AddColumn(${last}, "${p.name}", each ${p.m}, ${p.type === "number" ? "Int64.Type" : "type text"})`,
+    ]);
+    last = step;
+  }
   const m = [
     "let",
     `    Source = Csv.Document(File.Contents(DataFile), [Delimiter=",", Columns=${ds.columns.length}, Encoding=65001, QuoteStyle=QuoteStyle.Csv]),`,
     `    Promoted = Table.PromoteHeaders(Source, [PromoteAllScalars=true]),`,
-    `    Typed = Table.TransformColumnTypes(Promoted, {${typed}}, "en-US")${needsDay ? "," : ""}`,
-    ...(needsDay
-      ? [`    WithDay = Table.AddColumn(Typed, "${rel}", each DateTime.Date([${dateClean}]), type date)`]
-      : []),
+    `    Typed = Table.TransformColumnTypes(Promoted, {${typed}}, "en-US")${steps.length ? "," : ""}`,
+    ...steps.map(([name, expr], i) => `    ${name} = ${expr}${i < steps.length - 1 ? "," : ""}`),
     "in",
-    `    ${needsDay ? "WithDay" : "Typed"}`,
+    `    ${last}`,
   ].join("\n");
   // Hierarchies found in the data (coarse → fine), for drill-down in any visual; none that uses a hidden column.
   const hierarchyNames = new Set<string>();

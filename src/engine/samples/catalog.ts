@@ -12,7 +12,11 @@ export interface SampleInfo {
   description: string;
   /** Registry domain the demo showcases (src/registry/domains). */
   domain: string;
-  /** Display text only; not computed from the generator. */
+  /**
+   * Display text only, not computed from the generator (which stays out of the
+   * page bundle); tests/upload-and-detect.test.ts checks it is within 10% of the
+   * rows the demo really has.
+   */
   approxRows: string;
   /** Featured as the main demo on the upload screen. */
   flagship?: boolean;
@@ -47,7 +51,7 @@ export const SAMPLES: SampleInfo[] = [
     name: "SaaS MRR movements",
     description: "Account-month MRR with new, expansion, contraction and churn.",
     domain: "saas",
-    approxRows: "≈9k rows",
+    approxRows: "≈7.5k rows",
   },
   {
     id: "finance",

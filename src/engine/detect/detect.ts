@@ -35,8 +35,16 @@
  * Confidence = (fit − deduction) × 100, capped at 99. The guided manual flow
  * opens below CONFIDENCE_THRESHOLD or when the top two domains are within
  * AMBIGUITY_GAP points.
+ *
+ * The data shape (sub-domain) is chosen apart from the fit (pickShape): a
+ * shape counts only when a field of its own matched, one no sibling shape
+ * lists (an order ID alone does not make a returns file), and a file with an
+ * event date of a transaction shape (an order date) is read as that
+ * transaction table rather than as a roster of the things it mentions (a
+ * sale-orders export is not a product catalogue).
  */
 import type { DatasetProfile } from "@/engine/profile/types";
+import { grainLabel } from "@/engine/profile/structure";
 import type { DomainDef, SubDomainDef } from "@/registry/schema";
 import { assignCandidates, matchCandidates, type FieldAssignment } from "./match";
 
@@ -91,6 +99,12 @@ export interface DetectionResult {
   needsConfirmation: boolean;
   reason: string;
   structural: string[];
+  /**
+   * The data shape detection picks for every domain, not only the top
+   * candidates: what "Auto (best match)" means when the user chooses another
+   * industry.
+   */
+  shapes: Record<string, string>;
 }
 
 /** Below this confidence (%) the user is asked to confirm the domain. */
@@ -110,10 +124,20 @@ export const CONTRAST_WEIGHT = 0.4;
  */
 export const GENERIC_EVIDENCE = 0.5;
 
+/**
+ * A transaction shape whose own event date matched (an order date, a booking
+ * date) is preferred to a roster shape without a matched date of its own,
+ * unless the roster covers this many times more of its signals: an order-line
+ * export always repeats product columns, so it reads as a product catalogue on
+ * coverage alone.
+ */
+export const EVENT_SHAPE_PREFERENCE = 0.5;
+
 /** Step 1 of the score: one domain against the profile, without looking at the other domains. */
 interface DomainFit {
   domain: DomainDef;
   assignments: FieldAssignment[];
+  /** Every sub-domain, the chosen one first (see pickShape). */
   subs: SubDomainScore[];
   best: SubDomainScore;
   sub: SubDomainDef | undefined;
@@ -123,13 +147,53 @@ interface DomainFit {
   evidence: Map<string, number>;
 }
 
+/** One sub-domain as pickShape weighs it. */
+interface ShapeEvidence {
+  score: SubDomainScore;
+  /** A signal no sibling sub-domain lists matched (or the shape has no such signal to look for). */
+  ownField: boolean;
+  /** One of the shape's date signals matched. */
+  dated: boolean;
+  roster: boolean;
+}
+
+/** Signals of `sub` that no other sub-domain of `domain` lists. */
+function ownSignals(domain: DomainDef, sub: SubDomainDef): string[] {
+  const elsewhere = new Set(domain.subDomains.filter((s) => s !== sub).flatMap((s) => s.signals));
+  return sub.signals.filter((f) => !elsewhere.has(f));
+}
+
+/**
+ * Chooses the data shape and orders the rest after it. Only shapes with one of
+ * their own fields matched are considered (all of them when none has one);
+ * among those the best coverage wins, except that a roster shape without a
+ * matched date of its own gives way to a transaction shape whose date matched,
+ * when that one covers at least EVENT_SHAPE_PREFERENCE of the roster's
+ * coverage. Returns the shapes in that order and the best coverage among the
+ * considered shapes, which is what the domain's fit is built from.
+ */
+function pickShape(shapes: readonly ShapeEvidence[]): { order: SubDomainScore[]; coverage: number } {
+  const byCoverage = [...shapes].sort((a, b) => b.score.coverage - a.score.coverage);
+  const pool = byCoverage.some((s) => s.ownField) ? byCoverage.filter((s) => s.ownField) : byCoverage;
+  let chosen = pool[0] as ShapeEvidence;
+  if (chosen.roster && !chosen.dated) {
+    const event = pool.find(
+      (s) => !s.roster && s.dated && s.score.coverage >= EVENT_SHAPE_PREFERENCE * chosen.score.coverage,
+    );
+    if (event) chosen = event;
+  }
+  const rest = [...pool, ...byCoverage.filter((s) => !pool.includes(s))].filter((s) => s !== chosen);
+  return { order: [chosen, ...rest].map((s) => s.score), coverage: pool[0]?.score.coverage ?? 0 };
+}
+
 function fitDomain(domain: DomainDef, profile: DatasetProfile): DomainFit {
   const candidates = matchCandidates(domain, profile.columns);
   const assignments = assignCandidates(candidates);
   const byField = new Map(assignments.map((a) => [a.fieldId, a]));
   const weightOf = new Map(domain.fields.map((f) => [f.id, f.weight]));
+  const dateFields = new Set(domain.fields.filter((f) => f.roles.includes("datetime")).map((f) => f.id));
 
-  const subs: SubDomainScore[] = domain.subDomains.map((s) => {
+  const shapes: ShapeEvidence[] = domain.subDomains.map((s) => {
     let got = 0;
     let total = 0;
     for (const f of s.signals) {
@@ -138,9 +202,16 @@ function fitDomain(domain: DomainDef, profile: DatasetProfile): DomainFit {
       const a = byField.get(f);
       if (a) got += w * a.score;
     }
-    return { id: s.id, name: s.name, coverage: total ? got / total : 0 };
+    const own = ownSignals(domain, s);
+    return {
+      score: { id: s.id, name: s.name, coverage: total ? got / total : 0 },
+      ownField: own.length === 0 || own.some((f) => byField.has(f)),
+      dated: s.signals.some((f) => dateFields.has(f) && byField.has(f)),
+      roster: s.timeModel === "roster",
+    };
   });
-  subs.sort((a, b) => b.coverage - a.coverage);
+  const picked = pickShape(shapes);
+  const subs = picked.order;
   const best = subs[0] as SubDomainScore;
 
   // Column → best field weight × score over all fields, not only the assigned one; a match made only
@@ -152,14 +223,16 @@ function fitDomain(domain: DomainDef, profile: DatasetProfile): DomainFit {
   }
 
   // Two views of how well the domain fits, and the better one counts. Completeness: the best
-  // sub-domain's coverage, plus breadth over the assigned fields (12 weighted points = full).
-  // Abundance: a file carrying a lot of the domain's vocabulary (20 weighted points over all of its
-  // columns) fits even when its table shape covers only part of a sub-domain (a loan book without
-  // loan IDs, an admissions list without encounter IDs); a narrow event log has little of either.
+  // coverage among the shapes that count (pickShape), plus breadth over the assigned fields (12
+  // weighted points = full). Abundance: a file carrying a lot of the domain's vocabulary (20
+  // weighted points over all of its columns) fits even when its table shape covers only part of a
+  // sub-domain (a loan book without loan IDs, an admissions list without encounter IDs); a narrow
+  // event log has little of either. The shape preference does not lower the fit: it decides how
+  // the file is read, not whether the industry fits.
   const matchedWeight = assignments.reduce((s, a) => s + (weightOf.get(a.fieldId) ?? 1) * a.score, 0);
   const vocabularyWeight = [...evidence.values()].reduce((s, v) => s + v, 0);
-  const completeness = 0.75 * best.coverage + 0.25 * Math.min(1, matchedWeight / 12);
-  const abundance = 0.5 * best.coverage + 0.5 * Math.min(1, vocabularyWeight / 20);
+  const completeness = 0.75 * picked.coverage + 0.25 * Math.min(1, matchedWeight / 12);
+  const abundance = 0.5 * picked.coverage + 0.5 * Math.min(1, vocabularyWeight / 20);
   let fit = Math.max(completeness, abundance);
 
   // Structural sanity: transactional sub-domains need a time axis and a measure.
@@ -265,7 +338,9 @@ export function detectDomain(domains: readonly DomainDef[], profile: DatasetProf
     .sort((a, b) => b.confidence - a.confidence);
   const top = candidates[0];
   const second = candidates[1];
-  const structural: string[] = [profile.grain.description];
+  // The grain as the file shows it (no template's assumption here), worded so that a key which only
+  // numbers the rows does not read "One row per row".
+  const structural: string[] = [grainLabel(profile.grain)];
   if (profile.primaryDate) structural.push(`Time axis: ${profile.primaryDate}`);
   const measures = profile.columns.filter((c) => ["measure", "currency"].includes(c.role)).length;
   const dims = profile.columns.filter((c) => ["dimension", "geo"].includes(c.role)).length;
@@ -286,5 +361,6 @@ export function detectDomain(domains: readonly DomainDef[], profile: DatasetProf
   } else {
     reason = `${top.name} matched ${top.evidence.length} columns with ${top.confidence}% confidence.`;
   }
-  return { candidates: candidates.slice(0, 3), needsConfirmation, reason, structural };
+  const shapes = Object.fromEntries(candidates.map((c) => [c.domainId, c.subDomain.id]));
+  return { candidates: candidates.slice(0, 3), needsConfirmation, reason, structural, shapes };
 }

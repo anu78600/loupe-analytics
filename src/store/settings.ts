@@ -2,10 +2,13 @@
 
 /**
  * User preferences, persisted to localStorage ("loupe-settings"): theme,
- * chart colours, Indian vs international number format, currency override,
- * whether Loupe may add columns to the data (ask first, or never) and the
- * AI model. The AI toggle and API key are deliberately not persisted: every
- * reload starts with the AI layer off and no key stored anywhere.
+ * chart colours, Indian vs international number format, whether Loupe may add
+ * columns to the data (ask first, or never) and the AI model. The AI toggle
+ * and API key are deliberately not persisted: every reload starts with the AI
+ * layer off and no key stored anywhere. The currency override lives here too
+ * but belongs to the open file: it is never persisted, and the workspace
+ * clears it when another file is loaded or on "Start over" (a currency chosen
+ * for one file must not price the next one).
  *
  * The theme is also mirrored to its own key ("loupe-theme") so that
  * themeBootScript can apply it before React hydrates. On the client the
@@ -50,7 +53,10 @@ interface SettingsState {
    * applyAutoNumberLocale. Choosing a format explicitly turns it off.
    */
   numberFormatAuto: boolean;
-  /** ISO 4217 code chosen by the user; null = use the detected currency. */
+  /**
+   * ISO 4217 code chosen by the user for the open file; null = use the
+   * detected currency. Not persisted; reset with each new file.
+   */
   currencyOverride: string | null;
   newColumns: NewColumnsPolicy;
   ai: AiSettings;
@@ -122,19 +128,20 @@ export const useSettings = create<SettingsState>()(
       storage: createJSONStorage(() => localStorage),
       // The API key is deliberately excluded from persistence. The AI toggle is
       // written as false too, so a stored settings blob can never re-enable it.
+      // The currency override belongs to the open file, which a reload forgets.
       partialize: (s) => ({
         theme: s.theme,
         chartTheme: s.chartTheme,
         numberLocale: s.numberLocale,
         numberFormatAuto: s.numberFormatAuto,
-        currencyOverride: s.currencyOverride,
         newColumns: s.newColumns,
         ai: { enabled: false, model: s.ai.model, apiKey: "" },
       }),
       // A stored chart theme is outside input (it could come from an older version): sanitise it.
+      // A currency stored by an older version is ignored, or it would price every later file.
       merge: (persisted, current) => {
         const p = (persisted ?? {}) as Partial<SettingsState>;
-        return { ...current, ...p, chartTheme: sanitiseChoice(p.chartTheme) };
+        return { ...current, ...p, currencyOverride: null, chartTheme: sanitiseChoice(p.chartTheme) };
       },
     },
   ),

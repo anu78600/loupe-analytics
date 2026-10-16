@@ -14,18 +14,22 @@ import { datasetToCsvChunks, UTF8_BOM } from "./csv";
 import type { ExportContext } from "./context";
 import { generateDaxFile } from "./daxFile";
 import { dictionaryCsv, dictionaryMarkdown } from "./dictionary";
-import { generateReadme } from "./readme";
+import { generateReadme, newColumnsFor, type NewColumn } from "./readme";
 import { generateSqlFile } from "./sqlFile";
 import { generateTmdl } from "./tmdl";
 
 /**
  * What the package contains, for the UI. `files[].bytes` are uncompressed
  * sizes with paths relative to the package folder; `totalBytes` is the size
- * of the compressed zip, so the two do not add up.
+ * of the compressed zip, so the two do not add up. `newColumns` are the
+ * columns this package adds to the data table in Power BI (its model builds
+ * them, its README shows how to add them by hand): the UI asks before handing
+ * over a package that has any, so the question names exactly these.
  */
 export interface PackageManifest {
   files: Array<{ path: string; bytes: number }>;
   totalBytes: number;
+  newColumns: NewColumn[];
 }
 
 /** Builds the zip. `ctx.specs` should already be the visible dashboard charts, in order. */
@@ -78,6 +82,7 @@ export function buildPowerBiPackage(
       bytes: bytes.length,
     })),
     totalBytes: zip.length,
+    newColumns: ctx.noNewColumns ? [] : newColumnsFor(ctx, ctx.specs),
   };
   return { zip, manifest };
 }

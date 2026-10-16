@@ -8,11 +8,14 @@
  * plays as a short film (Pipeline), the features are animated tiles (Bento),
  * industries scroll past, and data visibly flows from file to dashboard
  * without reaching a server. The ambient motion is CSS (globals.css), so it
- * starts with the first paint and stops under reduced motion.
+ * starts with the first paint and stops under reduced motion; each section is
+ * a [data-loop] host, so its loops also hold still while it is off screen
+ * (PauseOffscreen in motion.tsx).
  *
  * Every figure comes from `LandingData` (preview-data.ts), which the engine
- * computes at build time. The copy may describe the product, but it never
- * states a number the engine or the registry did not produce.
+ * computes at build time, or from the engine's own constants (the large-file
+ * limits, the date formats it reads). The copy may describe the product, but
+ * it never states a number the engine or the registry did not produce.
  */
 import * as React from "react";
 import Link from "next/link";
@@ -30,16 +33,24 @@ import {
   ShieldCheck,
   X,
 } from "lucide-react";
+import { formatBytes } from "@/engine/core/format";
+import { LARGE_BYTE_LIMIT, LARGE_ROW_LIMIT } from "@/engine/parse/csv";
+import { DATE_KIND_LABEL } from "@/engine/parse/dates";
 import { SAMPLES } from "@/engine/samples/catalog";
 import { DomainIcon } from "@/ui/common/domain-icon";
 import { Button } from "@/ui/primitives/button";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/ui/primitives/misc";
+import { SectionLink } from "@/ui/site/SectionLink";
 import { cn } from "@/lib/utils";
 import { Bento } from "./Bento";
 import { HeroStage } from "./HeroStage";
+import { MarqueeGroup } from "./MarqueeGroup";
 import { CountUp, Reveal, Spotlight } from "./motion";
 import { Pipeline } from "./Pipeline";
 import type { LandingData } from "./preview-data";
+
+/** A demo dataset opened straight on its finished dashboard. */
+const demoHref = (id: string) => `/app?sample=${id}&step=dashboard`;
 
 /* ------------------------------------------------------------------ */
 /* Shared bits                                                         */
@@ -103,6 +114,7 @@ function Section({
     <section
       id={id}
       aria-labelledby={labelledBy}
+      data-loop
       className={cn("relative scroll-mt-20 py-24 sm:py-32", className)}
     >
       {/* A hairline that fades out at both ends, instead of a hard rule between sections. */}
@@ -136,14 +148,14 @@ export function Hero({ data }: { data: LandingData }) {
   const proof = [
     { icon: ShieldCheck, label: "No sign-up, no upload" },
     { icon: Layers, label: `${data.registry.domains} industries built in` },
-    { icon: FileDown, label: "Power BI · SQL · PDF" },
+    { icon: FileDown, label: "Power BI · SQL · PDF · Slides" },
   ];
   return (
-    <section aria-labelledby="hero-title" className="relative isolate overflow-hidden">
+    <section aria-labelledby="hero-title" data-loop className="relative isolate overflow-hidden">
       <Atmosphere />
       <div className="mx-auto max-w-6xl px-4 pt-16 pb-20 sm:px-6 sm:pt-24 sm:pb-28">
         <div className="mx-auto max-w-4xl text-center">
-          <Link
+          <SectionLink
             href="#privacy"
             className="word-rise inline-flex items-center gap-2.5 rounded-full border border-border-strong bg-surface-1/70 px-3.5 py-1.5 text-ui text-fg-muted backdrop-blur transition-colors hover:border-border-accent hover:text-fg"
             style={{ "--i": 0 } as React.CSSProperties}
@@ -153,7 +165,7 @@ export function Hero({ data }: { data: LandingData }) {
               <span className="relative size-2 rounded-full bg-success" />
             </span>
             Runs entirely in your browser
-          </Link>
+          </SectionLink>
           <h1
             id="hero-title"
             className="mt-8 font-display text-[46px] leading-[1.02] tracking-[-0.03em] text-fg sm:text-[72px] lg:text-[88px] lg:leading-[0.98]"
@@ -168,7 +180,7 @@ export function Hero({ data }: { data: LandingData }) {
             className="word-rise mx-auto mt-7 max-w-xl text-[17px] leading-relaxed text-fg-muted sm:text-[18px]"
             style={{ "--i": 9 } as React.CSSProperties}
           >
-            Drop in a file. Get the KPIs, charts and insights, each with its SQL and DAX.
+            Drop in a file. Get the KPIs, each with its SQL and DAX, plus the charts and insights.
           </p>
           <div
             className="word-rise mt-10 flex flex-wrap justify-center gap-3"
@@ -180,7 +192,7 @@ export function Hero({ data }: { data: LandingData }) {
               </Link>
             </Button>
             <Button asChild variant="secondary" size="lg" className="backdrop-blur">
-              <Link href="/app?sample=ecommerce">
+              <Link href={demoHref("ecommerce")}>
                 <Play aria-hidden /> Explore the live demo
               </Link>
             </Button>
@@ -210,7 +222,7 @@ export function Hero({ data }: { data: LandingData }) {
         <p className="mt-5 text-center text-2xs text-fg-subtle">
           Live engine output from the bundled demo file: synthetic orders from an Indian D2C brand.{" "}
           <Link
-            href="/app?sample=ecommerce"
+            href={demoHref("ecommerce")}
             className="text-accent underline decoration-accent/40 underline-offset-4 hover:decoration-accent"
           >
             Open it live
@@ -288,7 +300,8 @@ function IndustryPill({ d }: { d: Domain }) {
     >
       <DomainIcon name={d.icon} className="size-4 text-accent" />
       {d.name}
-      <span className="font-figures text-2xs text-fg-subtle">{d.kpis} KPIs</span>
+      {/* Muted, not subtle: on the flagship's brass tint the subtle ink falls below 4.5:1. */}
+      <span className="font-figures text-2xs text-fg-muted">{d.kpis} KPIs</span>
       {d.flagship ? (
         <span className="rounded-full bg-[image:var(--accent-gradient)] px-2 py-0.5 text-[10px] font-medium text-accent-fg">
           Flagship
@@ -365,10 +378,10 @@ export function Industries({ data }: { data: LandingData }) {
           ))}
         </dl>
       </Reveal>
-      <div className="mt-12 grid gap-3 sm:-mx-6">
+      <MarqueeGroup className="mt-12 sm:-mx-6">
         <Marquee items={list.slice(0, half)} seconds={52} />
         <Marquee items={list.slice(half)} reverse seconds={58} />
-      </div>
+      </MarqueeGroup>
       <p className="mt-8 text-center text-ui text-fg-muted">
         Anything else gets a dashboard built from its own columns.
       </p>
@@ -390,17 +403,19 @@ function FlowNode({
   tone?: "plain" | "focus" | "blocked";
 }) {
   return (
-    <div className="flex w-[84px] shrink-0 flex-col items-center gap-2 text-center sm:w-[100px]">
+    // Narrower on small phones (20% of the screen, 64–84px), so the row of three fits a 320px screen.
+    <div className="flex w-[clamp(64px,20vw,84px)] shrink-0 flex-col items-center gap-2 text-center sm:w-[100px]">
       <span
         className={cn(
           "relative grid size-14 place-items-center rounded-[16px] border sm:size-16",
           tone === "focus"
-            ? "beam-border border-border-accent bg-accent-soft text-accent shadow-[0_0_40px_-8px_var(--glow-accent)]"
+            ? "border-border-accent bg-accent-soft text-accent shadow-[0_0_40px_-8px_var(--glow-accent)]"
             : tone === "blocked"
               ? "border-dashed border-border-strong bg-surface-2 text-fg-subtle"
               : "border-border-strong bg-surface-2 text-fg shadow-card",
         )}
       >
+        {tone === "focus" ? <span aria-hidden className="beam-ring" /> : null}
         <Icon className="size-6" aria-hidden />
       </span>
       <span
@@ -420,7 +435,8 @@ function Connector() {
   return (
     <div
       aria-hidden
-      className="relative -mt-7 h-px min-w-6 flex-1 bg-[linear-gradient(90deg,var(--border-strong),var(--border-accent))]"
+      // At the height of the icons' centres (the nodes are top-aligned; their labels wrap unevenly).
+      className="relative mt-7 h-px min-w-3 flex-1 bg-[linear-gradient(90deg,var(--border-strong),var(--border-accent))] sm:mt-8"
     >
       {[0, 1, 2].map((i) => (
         <span
@@ -437,7 +453,10 @@ function Connector() {
 
 function FlowDiagram() {
   return (
-    <div className="relative overflow-hidden rounded-panel border border-border-strong bg-surface-1 px-3 py-8 shadow-lift sm:px-6 sm:py-10">
+    <div
+      data-loop
+      className="relative overflow-hidden rounded-panel border border-border-strong bg-surface-1 px-3 py-8 shadow-lift sm:px-6 sm:py-10"
+    >
       <div aria-hidden className="grid-lines absolute inset-0 opacity-70" />
       <div
         aria-hidden
@@ -453,7 +472,7 @@ function FlowDiagram() {
             <X className="size-3.5" />
           </span>
         </div>
-        <div className="flex w-full items-center gap-1.5 sm:gap-3">
+        <div className="flex w-full items-start gap-1.5 sm:gap-3">
           <FlowNode icon={FileSpreadsheet} label="Your file" />
           <Connector />
           <FlowNode icon={Cpu} label="This browser tab" tone="focus" />
@@ -477,7 +496,9 @@ export function Privacy() {
   ];
   return (
     <Section id="privacy" labelledBy="privacy-title">
-      <div className="grid items-center gap-12 lg:grid-cols-[1fr_1.15fr]">
+      {/* One column that may shrink below its content's width: an auto column would grow to the
+          flow diagram's minimum and push the page sideways on a 320px phone. */}
+      <div className="grid grid-cols-[minmax(0,1fr)] items-center gap-12 lg:grid-cols-[1fr_1.15fr]">
         <Reveal>
           <p className="text-2xs font-medium tracking-[0.16em] text-accent uppercase">Privacy</p>
           <h2
@@ -534,10 +555,7 @@ export function Samples({ data }: { data: LandingData }) {
                 s.flagship ? "border-border-accent" : "border-border hover:border-border-strong",
               )}
             >
-              <Link
-                href={`/app?sample=${s.id}`}
-                className="group flex h-full flex-col gap-4 rounded-panel p-5"
-              >
+              <Link href={demoHref(s.id)} className="group flex h-full flex-col gap-4 rounded-panel p-5">
                 <div className="flex items-center justify-between gap-3">
                   <span className="grid size-10 place-items-center rounded-[12px] border border-border bg-surface-2 text-fg-muted transition-colors group-hover:border-border-accent group-hover:text-accent">
                     <DomainIcon name={iconOf(s.domain)} className="size-4" />
@@ -579,6 +597,11 @@ export function Samples({ data }: { data: LandingData }) {
 /* FAQ                                                                 */
 /* ------------------------------------------------------------------ */
 
+/** "2.1 million rows or 700 MB": the point where the parser asks how to read a file (engine/parse/csv.ts). */
+const LARGE_FILE = `${(LARGE_ROW_LIMIT / 1e6).toLocaleString("en-GB", { maximumFractionDigits: 1 })} million rows or ${formatBytes(LARGE_BYTE_LIMIT)}`;
+/** The date and time layouts the parser recognises (engine/parse/dates.ts). */
+const DATE_FORMATS = Object.keys(DATE_KIND_LABEL).length;
+
 const FAQ: Array<{ q: string; a: React.ReactNode }> = [
   {
     q: "Is my data uploaded anywhere?",
@@ -590,7 +613,7 @@ const FAQ: Array<{ q: string; a: React.ReactNode }> = [
   },
   {
     q: "How large a file can it handle?",
-    a: "A few hundred thousand rows are comfortable on most laptops. Above about 2.1 million rows or 700 MB, Loupe offers to sample the file first.",
+    a: `A few hundred thousand rows are comfortable on most laptops. Above about ${LARGE_FILE}, Loupe offers to sample the file first.`,
   },
   {
     q: "What if it detects the wrong industry?",
@@ -598,7 +621,7 @@ const FAQ: Array<{ q: string; a: React.ReactNode }> = [
   },
   {
     q: "How do I know the numbers are right?",
-    a: "Every KPI shows its definition, formula, columns, SQL and DAX. If a column is missing it says so instead of guessing, and Verify in browser re-runs the SQL in DuckDB to compare.",
+    a: "Every KPI shows its definition, formula, columns, SQL and DAX. If a column is missing it says so instead of guessing. “Verify against your data” (Export › SQL) and “Check this SQL on your data” (Questions & SQL) run the SQL in DuckDB inside your browser and compare every result with the numbers on screen.",
   },
   {
     q: "Do I need an AI key?",
@@ -606,7 +629,7 @@ const FAQ: Array<{ q: string; a: React.ReactNode }> = [
   },
   {
     q: "Which formats are supported?",
-    a: "CSV, TSV and other delimited text, Excel (.xlsx, .xlsm, .xls) and JSON, including line-delimited JSON. Encodings, number styles such as ₹1,23,456 and over 20 date formats are detected automatically.",
+    a: `CSV, TSV and other delimited text, Excel (.xlsx, .xlsm, .xls) and JSON, including line-delimited JSON. Encodings, number styles such as ₹1,23,456 and ${DATE_FORMATS} date and time formats are detected automatically.`,
   },
 ];
 
@@ -652,61 +675,70 @@ export function Faq() {
 /* Closing call to action                                              */
 /* ------------------------------------------------------------------ */
 
-/** The Loupe lens as a slow instrument: a ticked bezel and a brass arc turning round a glowing focus. */
+/** One layer of the lens: a full-size SVG on the 200-unit grid, turning when given a spin. */
+function LensLayer({ spin, children }: { spin?: string; children: React.ReactNode }) {
+  return (
+    <div className={cn("absolute inset-0", spin)}>
+      <svg viewBox="0 0 200 200" className="size-full overflow-visible">
+        {children}
+      </svg>
+    </div>
+  );
+}
+
+/**
+ * The Loupe lens as a slow instrument: a ticked bezel and a brass arc turning
+ * round a glowing focus. Each turning ring is an HTML layer of its own: a CSS
+ * rotation of an SVG group is restyled and laid out every frame, a layer's is
+ * only composited.
+ */
 function LensOrb({ className }: { className?: string }) {
   const ticks = Array.from({ length: 72 }, (_, i) => (i / 72) * Math.PI * 2);
   return (
-    <div aria-hidden className={cn("relative", className)}>
+    <div aria-hidden data-loop className={cn("relative", className)}>
       <div className="absolute inset-[12%] rounded-full bg-[radial-gradient(circle,var(--glow-accent),transparent_68%)] blur-2xl" />
-      <svg viewBox="0 0 200 200" className="relative size-full overflow-visible">
-        <g className="animate-[spin-slow_60s_linear_infinite]" style={{ transformOrigin: "100px 100px" }}>
-          {ticks.map((a, i) => (
-            <line
-              key={i}
-              x1={100 + Math.cos(a) * 90}
-              y1={100 + Math.sin(a) * 90}
-              x2={100 + Math.cos(a) * (i % 6 === 0 ? 81 : 86)}
-              y2={100 + Math.sin(a) * (i % 6 === 0 ? 81 : 86)}
-              stroke="var(--border-strong)"
-              strokeWidth={i % 6 === 0 ? 1.4 : 1}
-            />
-          ))}
-        </g>
-        <g
-          className="animate-[spin-slow_14s_linear_infinite_reverse]"
-          style={{ transformOrigin: "100px 100px" }}
-        >
-          <circle cx={100} cy={100} r={70} fill="none" stroke="var(--border-strong)" strokeDasharray="2 7" />
-          <path
-            d="M100 30a70 70 0 0 1 66 46"
-            fill="none"
-            stroke="var(--accent)"
-            strokeWidth={2.4}
-            strokeLinecap="round"
+      <LensLayer spin="animate-[spin-slow_60s_linear_infinite]">
+        {ticks.map((a, i) => (
+          <line
+            key={i}
+            x1={100 + Math.cos(a) * 90}
+            y1={100 + Math.sin(a) * 90}
+            x2={100 + Math.cos(a) * (i % 6 === 0 ? 81 : 86)}
+            y2={100 + Math.sin(a) * (i % 6 === 0 ? 81 : 86)}
+            stroke="var(--border-strong)"
+            strokeWidth={i % 6 === 0 ? 1.4 : 1}
           />
-        </g>
-        <g className="animate-[spin-slow_24s_linear_infinite]" style={{ transformOrigin: "100px 100px" }}>
-          <circle cx={100} cy={100} r={52} fill="none" stroke="var(--accent)" strokeOpacity={0.3} />
-          <circle cx={100} cy={48} r={3} fill="var(--accent-strong)" />
-        </g>
-        <circle cx={100} cy={100} r={16} fill="var(--accent)" />
-        <circle
-          cx={100}
-          cy={100}
-          r={16}
-          fill="var(--accent)"
-          className="animate-[ping-soft_2.6s_ease-out_infinite]"
-          style={{ transformOrigin: "100px 100px" }}
+        ))}
+      </LensLayer>
+      <LensLayer spin="animate-[spin-slow_14s_linear_infinite_reverse]">
+        <circle cx={100} cy={100} r={70} fill="none" stroke="var(--border-strong)" strokeDasharray="2 7" />
+        <path
+          d="M100 30a70 70 0 0 1 66 46"
+          fill="none"
+          stroke="var(--accent)"
+          strokeWidth={2.4}
+          strokeLinecap="round"
         />
+      </LensLayer>
+      <LensLayer spin="animate-[spin-slow_24s_linear_infinite]">
+        <circle cx={100} cy={100} r={52} fill="none" stroke="var(--accent)" strokeOpacity={0.3} />
+        <circle cx={100} cy={48} r={3} fill="var(--accent-strong)" />
+      </LensLayer>
+      <LensLayer>
+        <circle cx={100} cy={100} r={16} fill="var(--accent)" />
+      </LensLayer>
+      {/* The focus's pulse, the size of the focus (32 of 200 units). */}
+      <span className="absolute top-1/2 left-1/2 size-[16%] -translate-x-1/2 -translate-y-1/2 animate-[ping-soft_2.6s_ease-out_infinite] rounded-full bg-accent" />
+      <LensLayer>
         <circle cx={108} cy={92} r={4} fill="var(--fg)" fillOpacity={0.5} />
-      </svg>
+      </LensLayer>
     </div>
   );
 }
 
 export function ClosingCta() {
   return (
-    <section aria-labelledby="cta-title" className="relative isolate overflow-hidden">
+    <section aria-labelledby="cta-title" data-loop className="relative isolate overflow-hidden">
       <div
         aria-hidden
         className="absolute inset-x-0 top-0 h-px bg-[linear-gradient(90deg,transparent,var(--border-strong),transparent)]"
@@ -731,7 +763,7 @@ export function ClosingCta() {
               </Link>
             </Button>
             <Button asChild variant="secondary" size="lg">
-              <Link href="/app?sample=ecommerce">
+              <Link href={demoHref("ecommerce")}>
                 <Play aria-hidden /> Explore the live demo
               </Link>
             </Button>

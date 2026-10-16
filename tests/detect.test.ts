@@ -464,6 +464,22 @@ describe("column roles", () => {
     expect(col(p, "Gross Margin").role).toBe("currency");
   });
 
+  it("reads a CTR or occupancy stored as 0–1 fractions as a percentage, like a '… rate' column", async () => {
+    const p = await profileOf({
+      CTR: seq(80, (i) => (0.004 + ((i * 7) % 50) / 1000).toFixed(4)),
+      Occupancy: seq(80, (i) => (0.55 + ((i * 3) % 40) / 100).toFixed(2)),
+      "CTR (points)": seq(80, (i) => (0.5 + ((i * 7) % 40) / 10).toFixed(2)),
+      ROAS: seq(80, (i) => (0.4 + ((i * 3) % 50) / 100).toFixed(2)),
+    });
+    for (const name of ["CTR", "Occupancy"]) {
+      expect(col(p, name).role, name).toBe("percentage");
+      expect(col(p, name).percentScale, name).toBe(1);
+    }
+    // Not fractions, or not a share of a whole: still a rate, averaged and never summed.
+    expect(col(p, "CTR (points)").role).toBe("rate");
+    expect(col(p, "ROAS").role).toBe("rate");
+  });
+
   it("never makes a unique measure the primary key", async () => {
     const regions = ["North", "South", "East", "West"];
     const noId = await profileOf({
@@ -683,5 +699,53 @@ describe("name matching", () => {
     expect(mapping.fields.net_amount).toBeUndefined();
     expect(mapping.scores.net_amount).toBeUndefined();
     expect(mapping.scores.gross_amount).toBe(1);
+  });
+});
+
+// ---------------------------------------------------------------- data shapes
+
+describe("data shapes", () => {
+  const shapeOf = (id: string): string | undefined => outcomes.get(id)?.detection.candidates[0]?.subDomain.id;
+
+  it("reads a sale-orders export as orders, not as a catalogue of the products it mentions", () => {
+    expect(outcomes.get("unicommerce-sale-orders")?.detection.candidates[0]?.domainId).toBe("ecommerce");
+    expect(shapeOf("unicommerce-sale-orders")).toBe("orders");
+    // The real shapes are untouched: returns stay returns, an employee roster stays a roster.
+    expect(shapeOf("marketplace-returns")).toBe("returns");
+    expect(shapeOf("indian-hrms-roster")).toBe("employees");
+    expect(shapeOf("shopify-orders")).toBe("orders");
+  });
+
+  it("does not read a plain ID, date and amount file as returns on an order ID alone", async () => {
+    const p = await profileOf({
+      "Order ID": seq(60, (i) => `ORD-${1000 + i}`),
+      "Order Date": seq(60, (i) => `2025-0${1 + (i % 9)}-${String(1 + (i % 28)).padStart(2, "0")}`),
+      City: seq(60, (i) => ["Pune", "Delhi", "Mumbai"][i % 3] as string),
+      Amount: seq(60, (i) => 250 + i * 7),
+    });
+    const detection = detectDomain([...DOMAINS], p);
+    const ecommerce = detection.candidates.find((c) => c.domainId === "ecommerce");
+    expect(ecommerce?.subDomain.id).toBe("orders");
+    expect(detection.shapes.ecommerce).toBe("orders");
+    for (const c of detection.candidates) expect(c.subDomain.id, c.domainId).not.toBe("returns");
+  });
+
+  it("names a shape for every industry, so 'Auto' means the same thing for any choice", () => {
+    const o = outcomes.get("unicommerce-sale-orders") as Outcome;
+    for (const d of DOMAINS)
+      expect(
+        d.subDomains.map((s) => s.id),
+        d.id,
+      ).toContain(o.detection.shapes[d.id]);
+  });
+
+  it("words the grain without 'One row per row' or 'column 1'", async () => {
+    const p = await profileOf({
+      "Row ID": seq(40, (i) => i + 1),
+      Region: seq(40, (i) => ["North", "South"][i % 2] as string),
+      Sales: seq(40, (i) => 100 + i),
+    });
+    const detection = detectDomain([...DOMAINS], p);
+    expect(detection.structural[0]).not.toMatch(/One row per (row|column)/i);
   });
 });

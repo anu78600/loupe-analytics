@@ -11,17 +11,71 @@
  */
 import { read, SSF, utils, type CellObject, type WorkBook } from "xlsx";
 import { DAY_MS } from "@/engine/core/dates";
-import type { Dataset, IngestOptions, ParseReport } from "@/engine/core/types";
-import { cleanHeaders, createAccumulator, inferPlan, type ColumnPlan } from "./builder";
+import type { Column, Dataset, IngestOptions, ParseReport } from "@/engine/core/types";
+import {
+  cleanHeaders,
+  createAccumulator,
+  headerRenameNote,
+  inferPlan,
+  isEmptyColumn,
+  type ColumnPlan,
+} from "./builder";
 import { excelSerialToMs, parseDateParts, partsToMs } from "./dates";
-import { detectHeader } from "./sniff";
+import { binaryKind, binaryMessage, detectHeader } from "./sniff";
 import { type CellValue, WallClockDate } from "./values";
 import { newDatasetId, type IngestProgress } from "./csv";
 
+/** Said when SheetJS cannot make a workbook out of the bytes, or finds no sheet in them. */
+const UNREADABLE_WORKBOOK =
+  "This workbook couldn't be read. It may be damaged, password-protected or not really a spreadsheet: open it in Excel, save it again (or save the sheet as CSV) and upload that.";
+
+/**
+ * SheetJS's read, with a damaged or foreign file reported in words rather than
+ * as a parser error. A workbook is a zip (.xlsx, .xlsm, .xlsb, .ods), an old
+ * Office file (.xls) or text (CSV, HTML or XML saved as a workbook); other
+ * binary content would only give SheetJS's guess at garbage, so it is refused.
+ */
+function readWorkbook(buffer: ArrayBuffer, opts: Parameters<typeof read>[1]): WorkBook {
+  if (buffer.byteLength === 0) throw new Error("This file is empty: it has no rows and no columns.");
+  const head = new Uint8Array(buffer, 0, Math.min(buffer.byteLength, 8192));
+  const kind = binaryKind(head);
+  if (kind === "pdf" || kind === "image") throw new Error(binaryMessage(kind, ""));
+  // Excel 2–4 workbooks (BIFF2–4) are binary without a zip or Office header: they start with a BOF record.
+  const biff = head[0] === 0x09 && (head[1] === 0x00 || head[1] === 0x02 || head[1] === 0x04);
+  if (kind === "binary" && !biff) throw new Error(UNREADABLE_WORKBOOK);
+  let wb: WorkBook;
+  try {
+    wb = read(new Uint8Array(buffer), opts);
+  } catch {
+    throw new Error(UNREADABLE_WORKBOOK);
+  }
+  if (!wb.SheetNames.length) throw new Error(UNREADABLE_WORKBOOK);
+  return wb;
+}
+
 /** Sheet names only (bookSheets: cells are not parsed, so this is cheap). */
 export function listSheets(buffer: ArrayBuffer): string[] {
-  const wb = read(new Uint8Array(buffer), { type: "array", bookSheets: true });
-  return wb.SheetNames;
+  return readWorkbook(buffer, { type: "array", bookSheets: true }).SheetNames;
+}
+
+/**
+ * The sheets that hold something, in workbook order: a sheet with no cell, or
+ * only an empty A1, is left out so the sheet picker never offers a blank
+ * page. Only the first rows of each sheet are parsed. When every sheet is
+ * empty, all names are returned and reading one says so.
+ */
+export function listDataSheets(buffer: ArrayBuffer): string[] {
+  const wb = readWorkbook(buffer, { type: "array", dense: true, sheetRows: 2 });
+  const filled = wb.SheetNames.filter((name) => {
+    const ws = wb.Sheets[name];
+    const ref = ws?.["!fullref"] ?? ws?.["!ref"];
+    if (!ws || !ref) return false;
+    const range = utils.decode_range(ref);
+    if (range.e.r > range.s.r || range.e.c > range.s.c) return true;
+    const data = (ws["!data"] ?? []) as Array<Array<CellObject | undefined> | undefined>;
+    return cellText(data[range.s.r]?.[range.s.c]).trim() !== "";
+  });
+  return filled.length ? filled : wb.SheetNames;
 }
 
 /**
@@ -75,10 +129,12 @@ function cellText(cell: CellObject | undefined): string {
 }
 
 /**
- * Reads one sheet (opts.sheet when it exists, else the first) into a columnar
- * dataset. Entirely blank rows are skipped, and sampleEvery/maxRows apply to
- * the remaining data rows. Never returns "needs-decision"; workbook size is
- * capped in parse/index.ts instead.
+ * Reads one sheet (opts.sheet when it exists, else the first that holds
+ * anything) into a columnar dataset. Entirely blank rows are skipped, and
+ * sampleEvery/maxRows apply to the remaining data rows. Never returns
+ * "needs-decision"; workbook size is capped in parse/index.ts instead. Throws
+ * a user-facing error for a damaged workbook and for a sheet with no rows of
+ * data.
  */
 export async function ingestWorkbook(
   buffer: ArrayBuffer,
@@ -88,13 +144,18 @@ export async function ingestWorkbook(
 ): Promise<{ dataset: Dataset; report: ParseReport }> {
   const started = performance.now();
   const sheetNames = listSheets(buffer);
-  const sheet = opts.sheet && sheetNames.includes(opts.sheet) ? opts.sheet : sheetNames[0];
-  if (!sheet) throw new Error("This workbook has no sheets.");
+  const sheet =
+    opts.sheet && sheetNames.includes(opts.sheet)
+      ? opts.sheet
+      : sheetNames.length > 1
+        ? listDataSheets(buffer)[0]
+        : sheetNames[0];
+  if (!sheet) throw new Error(UNREADABLE_WORKBOOK);
   onProgress?.({ phase: "reading", loadedBytes: 0, totalBytes: buffer.byteLength, rows: 0 });
 
   // dense: rows as arrays in ws["!data"], lighter than one object per cell address. cellNF keeps
   // number formats so date cells can be recognised; cellDates: false keeps dates as raw serials.
-  const wb: WorkBook = read(new Uint8Array(buffer), {
+  const wb = readWorkbook(buffer, {
     type: "array",
     dense: true,
     cellNF: true,
@@ -133,8 +194,9 @@ export async function ingestWorkbook(
     }
   }
   const headerCells = (data[headerPhysical] ?? []).slice(range.s.c, range.e.c + 1);
+  const rawHeaders = Array.from({ length: width }, (_, j) => cellText(headerCells[j]));
   const names = header.hasHeader
-    ? cleanHeaders(Array.from({ length: width }, (_, j) => cellText(headerCells[j])))
+    ? cleanHeaders(rawHeaders)
     : cleanHeaders(Array.from({ length: width }, (_, j) => `Column ${j + 1}`));
   const firstRow = header.hasHeader ? headerPhysical + 1 : headerPhysical;
 
@@ -179,6 +241,14 @@ export async function ingestWorkbook(
         rows: kept,
       });
   }
+  if (kept === 0) {
+    const named = rawHeaders.map((h) => h.trim()).filter(Boolean);
+    throw new Error(
+      header.hasHeader && named.length
+        ? `Sheet "${sheet}" has column headers (${named.slice(0, 6).join(", ")}${named.length > 6 ? ", …" : ""}) but no rows of data under them.`
+        : `Sheet "${sheet}" has no rows of data.`,
+    );
+  }
   onProgress?.({
     phase: "finalizing",
     loadedBytes: buffer.byteLength,
@@ -186,10 +256,12 @@ export async function ingestWorkbook(
     rows: kept,
   });
 
-  const columns = [];
+  // A column with neither a header nor a value (formatting that stretched the sheet's range) is left out.
+  const columns: Column[] = [];
   const dateFormats = [];
   const columnNotes = [];
   const skipped: string[] = [];
+  const unnamedEmpty = new Set<number>();
   for (let j = 0; j < width; j++) {
     const acc = accs[j];
     if (!acc) {
@@ -197,6 +269,10 @@ export async function ingestWorkbook(
       continue;
     }
     const fin = acc.finish(names[j] as string);
+    if (header.hasHeader && !(rawHeaders[j] as string).trim() && isEmptyColumn(fin.column)) {
+      unnamedEmpty.add(j);
+      continue;
+    }
     columns.push(fin.column);
     if (fin.dateDecision) dateFormats.push(fin.dateDecision);
     if (fin.note) columnNotes.push(fin.note);
@@ -204,8 +280,22 @@ export async function ingestWorkbook(
   const warnings: string[] = [];
   if (!header.hasHeader)
     warnings.push("No header row was detected, so columns were named Column 1, Column 2, …");
-  if (headerPhysical > range.s.r)
-    warnings.push(`Skipped ${headerPhysical - range.s.r} row(s) above the table.`);
+  else {
+    const renamed = headerRenameNote(rawHeaders, names, unnamedEmpty);
+    if (renamed) warnings.push(renamed);
+  }
+  if (unnamedEmpty.size)
+    warnings.push(
+      unnamedEmpty.size === 1
+        ? "Left out 1 column with no header and no values."
+        : `Left out ${unnamedEmpty.size} columns with no header and no values.`,
+    );
+  if (headerPhysical > range.s.r) {
+    const above = headerPhysical - range.s.r;
+    warnings.push(
+      `Skipped ${above === 1 ? "1 row" : `${above} rows`} above the table; its header is on row ${headerPhysical + 1}.`,
+    );
+  }
   if (sheetNames.length > 1)
     warnings.push(`Read sheet "${sheet}" (${sheetNames.length} sheets in this workbook).`);
 

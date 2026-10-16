@@ -7,6 +7,10 @@
  * - then each dashboard section's charts (Trend, Breakdowns, Drivers…), in
  *   rows: a wide chart alone, the others in pairs; one row a slide for
  *   presenting (density 2) or two rows for a compact deck (density 4);
+ * - in the compact deck, horizontal bars with more than eight categories get
+ *   a row of their own on a slide of its own, after the section's other
+ *   charts (so the four-chart slides stay full): a half-height row is too
+ *   short to name a dozen bars, so every other name would be dropped;
  * - a table or a cohort grid, read row by row, gets a slide of its own at
  *   the end of its section.
  *
@@ -44,13 +48,37 @@ export function needsWholeSlide(c: ReportChart): boolean {
 }
 
 /**
+ * Whether the chart draws horizontal bars, one category name per bar. Mirrors
+ * the chart options' rule (ui/charts/options.ts): bar and lollipop charts,
+ * and a column chart of more than ten named categories, which turns
+ * horizontal rather than thinning its names.
+ */
+function drawsHorizontalBars(c: ReportChart): boolean {
+  if (c.kind === "hbar" || c.kind === "lollipop") return true;
+  return c.kind === "bar" && (c.data.categories?.length ?? 0) > 10 && c.spec.x.kind === "column";
+}
+
+/**
+ * Horizontal bars with more than eight categories need a slide's full height
+ * to name every bar: in the compact deck's half-height rows only every other
+ * name fits.
+ */
+export function needsFullHeight(c: ReportChart): boolean {
+  return drawsHorizontalBars(c) && (c.data.categories?.length ?? 0) > 8;
+}
+
+/**
  * The deck for `charts` (dashboard order): the overview, then each section's
  * charts in rows (a wide chart alone, others in pairs, a chart left waiting
  * for a partner taking the next one that comes), one row a slide at density 2
- * and two at density 4, then any whole-slide charts.
+ * and two at density 4, then any whole-slide charts. At density 4 a chart that
+ * needs the full height (needsFullHeight) is alone in its row, on a slide of
+ * its own, after the section's two-row slides and before its whole-slide
+ * charts.
  */
 export function planSlides(charts: ReportChart[], density: SlideDensity): Slide[] {
   const rowsPerSlide = density === 4 ? 2 : 1;
+  const tall = (c: ReportChart) => density === 4 && needsFullHeight(c);
   const slides: Slide[] = [{ kind: "overview" }];
   const known = new Set<string>(SECTIONS.map((s) => s.id));
   const groups = [
@@ -70,10 +98,12 @@ export function planSlides(charts: ReportChart[], density: SlideDensity): Slide[
   for (const g of groups) {
     if (!g.charts.length) continue;
     const rows: ReportChart[][] = [];
+    const fullHeight: ReportChart[] = [];
     const whole: ReportChart[] = [];
     let pending: ReportChart | null = null;
     for (const c of g.charts) {
       if (needsWholeSlide(c)) whole.push(c);
+      else if (tall(c)) fullHeight.push(c);
       else if (c.wide) rows.push([c]);
       else if (pending) {
         rows.push([pending, c]);
@@ -83,6 +113,8 @@ export function planSlides(charts: ReportChart[], density: SlideDensity): Slide[
     if (pending) rows.push([pending]);
     const pages: Array<{ rows: ReportChart[][]; whole?: boolean }> = [];
     for (let i = 0; i < rows.length; i += rowsPerSlide) pages.push({ rows: rows.slice(i, i + rowsPerSlide) });
+    // One row on a slide is drawn at the slide's full height.
+    for (const c of fullHeight) pages.push({ rows: [[c]] });
     for (const c of whole) pages.push({ rows: [[c]], whole: true });
     pages.forEach((p, i) =>
       slides.push({

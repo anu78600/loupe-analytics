@@ -4,17 +4,38 @@
  * PapaParse through its stream interface, which carries partial rows and
  * quoted fields across chunk boundaries.
  *
- * Flow: sniff the first MiB (encoding, delimiter, header, up to 5,000 sample
- * rows for the column plans) → large-file check, which may return
- * "needs-decision" before reading further → stream 4 MiB slices into the
- * column accumulators → finish the columns and build the ParseReport. Blank
- * lines are skipped everywhere, so row indices count non-blank rows. Ragged
- * rows are padded with blanks or truncated to the table width.
+ * Flow: refuse what is not a text table (an empty file, a PDF, an image or
+ * other binary content) → sniff the first MiB (encoding, delimiter, header,
+ * up to 5,000 sample rows for the column plans) → large-file check, which may
+ * return "needs-decision" before reading further → stream 4 MiB slices into
+ * the column accumulators → finish the columns and build the ParseReport, or
+ * refuse a file with no data rows. Blank lines are skipped everywhere, so row
+ * indices count non-blank rows. Ragged rows are padded with blanks or
+ * truncated to the table width; a column with neither a header nor any value
+ * (Excel's trailing commas) is left out and the report says so.
  */
 import Papa from "papaparse";
-import type { Dataset, IngestOptions, LargeFileAssessment, ParseReport } from "@/engine/core/types";
-import { cleanHeaders, createAccumulator, inferPlan, type Accumulator, type ColumnPlan } from "./builder";
-import { detectDelimiter, detectEncoding, detectHeader, type TextEncodingName } from "./sniff";
+import type { Column, Dataset, IngestOptions, LargeFileAssessment, ParseReport } from "@/engine/core/types";
+import {
+  cleanHeaders,
+  createAccumulator,
+  headerRenameNote,
+  inferPlan,
+  isEmptyColumn,
+  type Accumulator,
+  type ColumnPlan,
+} from "./builder";
+import { FIRST_ROWS_LIMIT, LARGE_BYTE_LIMIT, LARGE_ROW_LIMIT } from "./limits";
+import {
+  binaryKind,
+  binaryMessage,
+  detectDelimiter,
+  detectEncoding,
+  detectHeader,
+  type TextEncodingName,
+} from "./sniff";
+
+export { LARGE_BYTE_LIMIT, LARGE_ROW_LIMIT };
 
 export interface IngestProgress {
   /** "profiling" and "detecting" are reported later by the session, not by the parsers. */
@@ -31,10 +52,6 @@ export type IngestOutcome =
   | { status: "ok"; dataset: Dataset; report: ParseReport }
   | { status: "needs-decision"; assessment: LargeFileAssessment };
 
-/** Rows above which we ask the user how to proceed instead of loading everything. */
-export const LARGE_ROW_LIMIT = 2_100_000;
-/** File size above which we ask too, whatever the row estimate. */
-export const LARGE_BYTE_LIMIT = 700 * 1024 * 1024;
 /** Prefix used for sniffing and for the type-inference sample. */
 const SNIFF_BYTES = 1024 * 1024;
 /** Slice size read from the Blob per step while streaming. */
@@ -88,9 +105,37 @@ export function newDatasetId(): string {
 }
 
 /**
+ * The 0-based line of `text` on which its `index`-th non-blank row starts:
+ * the sniffed row indices skip blank lines (as the parser does), but the
+ * report names the line as an editor shows it. Line breaks inside quoted
+ * cells are counted too.
+ */
+function lineOfRow(text: string, delimiter: string, index: number): number {
+  const rows = Papa.parse<string[]>(text, { delimiter, skipEmptyLines: false, preview: 5000 }).data;
+  let line = 0;
+  let seen = 0;
+  for (const row of rows) {
+    if (row.some((c) => c.trim() !== "")) {
+      if (seen === index) return line;
+      seen++;
+    }
+    line += 1 + row.reduce((n, c) => n + (c.match(/\n/g)?.length ?? 0), 0);
+  }
+  return index;
+}
+
+/** The header cells of a table with no data rows, quoted for the error message (the first six). */
+function quoteHeaders(cells: readonly string[]): string {
+  const named = cells.map((c) => c.trim()).filter(Boolean);
+  return named.length > 6 ? `${named.slice(0, 6).join(", ")}, …` : named.join(", ");
+}
+
+/**
  * Parses a CSV/TSV Blob into a columnar dataset. Returns "needs-decision"
  * instead when the file is estimated above LARGE_ROW_LIMIT rows or is larger
  * than LARGE_BYTE_LIMIT, unless opts already sets sampleEvery, maxRows or columns.
+ * Throws a user-facing error for an empty file, one that is not text (a PDF,
+ * an image, a workbook under a .csv name) and one with no rows of data.
  */
 export async function ingestDelimited(
   file: Blob,
@@ -100,9 +145,12 @@ export async function ingestDelimited(
 ): Promise<IngestOutcome> {
   const started = performance.now();
   const size = file.size;
+  if (size === 0) throw new Error("This file is empty: it has no rows and no columns.");
 
   // 1. Sniff encoding, delimiter and header from the first megabyte.
   const headBytes = new Uint8Array(await file.slice(0, Math.min(size, SNIFF_BYTES)).arrayBuffer());
+  const binary = binaryKind(headBytes);
+  if (binary) throw new Error(binaryMessage(binary, fileName));
   const encoding = detectEncoding(headBytes);
   let headText = new TextDecoder(encoding).decode(headBytes);
   const truncatedHead = size > SNIFF_BYTES;
@@ -113,11 +161,13 @@ export async function ingestDelimited(
   }
   const delimiter = detectDelimiter(headText, fileName);
   const sniffRows = Papa.parse<string[]>(headText, { delimiter, skipEmptyLines: "greedy" }).data;
+  if (sniffRows.length === 0) throw new Error("This file has no rows: it is empty apart from blank lines.");
   const header = detectHeader(sniffRows);
   const headerRow = sniffRows[header.headerIndex] ?? [];
   const width = Math.max(header.columnCount, headerRow.length);
+  const rawHeaders = Array.from({ length: width }, (_, j) => headerRow[j] ?? "");
   const names = header.hasHeader
-    ? cleanHeaders(Array.from({ length: width }, (_, j) => headerRow[j] ?? ""))
+    ? cleanHeaders(rawHeaders)
     : cleanHeaders(Array.from({ length: width }, (_, j) => `Column ${j + 1}`));
   const firstDataIndex = header.hasHeader ? header.headerIndex + 1 : header.headerIndex;
   const sampleRows = sniffRows.slice(firstDataIndex, firstDataIndex + 5000);
@@ -142,11 +192,12 @@ export async function ingestDelimited(
         sizeBytes: size,
         estimatedRows,
         columns: names,
+        // No figures here: the dialog writes them in the user's number format (one system per screen).
         reason:
           estimatedRows > LARGE_ROW_LIMIT
-            ? `About ${Math.round(estimatedRows / 1e5) / 10}M rows is above the ${(LARGE_ROW_LIMIT / 1e6).toFixed(1)}M rows a browser tab can analyse comfortably.`
-            : `This file is ${Math.round(size / 1024 / 1024)} MB, above the in-browser comfort limit.`,
-        recommendedSampleEvery: Math.max(2, Math.ceil(estimatedRows / 1_000_000)),
+            ? "That is more rows than a browser tab can analyse comfortably."
+            : "That is larger than a browser tab can read comfortably.",
+        recommendedSampleEvery: Math.max(2, Math.ceil(estimatedRows / FIRST_ROWS_LIMIT)),
       },
     };
   }
@@ -233,13 +284,22 @@ export async function ingestDelimited(
     stream.emit("end");
   }
   await parsed;
+  if (kept === 0) {
+    throw new Error(
+      header.hasHeader
+        ? `This file has column headers (${quoteHeaders(headerRow)}) but no rows of data under them.`
+        : "This file has no rows of data.",
+    );
+  }
   onProgress?.({ phase: "finalizing", loadedBytes: size, totalBytes: size, rows: kept });
 
-  // 5. Finalize columns.
-  const columns = [];
+  // 5. Finalize columns. A column with neither a header nor a single value is an artefact of the
+  // export (Excel's trailing commas), not data: it is left out and the report says so.
+  const columns: Column[] = [];
   const dateFormats = [];
   const columnNotes = [];
   const skipped: string[] = [];
+  const unnamedEmpty = new Set<number>();
   for (let j = 0; j < width; j++) {
     const acc = accs[j];
     const name = names[j] as string;
@@ -248,6 +308,10 @@ export async function ingestDelimited(
       continue;
     }
     const fin = acc.finish(name);
+    if (header.hasHeader && !(rawHeaders[j] as string).trim() && isEmptyColumn(fin.column)) {
+      unnamedEmpty.add(j);
+      continue;
+    }
     columns.push(fin.column);
     if (fin.dateDecision) dateFormats.push(fin.dateDecision);
     if (fin.note) columnNotes.push(fin.note);
@@ -262,7 +326,21 @@ export async function ingestDelimited(
     );
   if (!header.hasHeader)
     warnings.push("No header row was detected, so columns were named Column 1, Column 2, …");
-  if (header.headerIndex > 0) warnings.push(`Skipped ${header.headerIndex} title row(s) above the table.`);
+  else {
+    const renamed = headerRenameNote(rawHeaders, names, unnamedEmpty);
+    if (renamed) warnings.push(renamed);
+  }
+  if (unnamedEmpty.size)
+    warnings.push(
+      unnamedEmpty.size === 1
+        ? "Left out 1 column with no header and no values (an empty column at the edge of the export)."
+        : `Left out ${unnamedEmpty.size} columns with no header and no values (empty columns at the edge of the export).`,
+    );
+  const headerLine = lineOfRow(headText, delimiter, header.headerIndex);
+  if (header.headerIndex > 0)
+    warnings.push(
+      `Skipped ${header.headerIndex === 1 ? "1 title row" : `${header.headerIndex} title rows`} above the table; its header is on line ${headerLine + 1}.`,
+    );
 
   const kind = delimiter === "\t" || /\.tsv$/i.test(fileName) ? "tsv" : "csv";
   const dataset: Dataset = {
@@ -280,7 +358,8 @@ export async function ingestDelimited(
     columnCount: columns.length,
     encoding,
     delimiter,
-    headerRowIndex: header.headerIndex,
+    // The line as a text editor numbers it (blank and title lines counted), so "line 4" is line 4.
+    headerRowIndex: headerLine,
     headerDetected: header.hasHeader,
     dateFormats,
     columnNotes,

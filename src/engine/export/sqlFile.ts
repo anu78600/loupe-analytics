@@ -12,9 +12,12 @@
  * by topic, queries laid out by prettySql, and the notes for other databases
  * at the end rather than in the way.
  *
- * The header claims only what is true: the values on the KPI cards are
- * Loupe's own figures at export time; the compiler's KPI queries are checked
- * on test data (DuckDB in the test suite; PostgreSQL 18 once during
+ * The header claims only what is true, and is written last, from the views
+ * actually written: its example query names the first headline KPI's own
+ * view, and it counts the KPI views apart from the helper views other KPIs
+ * build on (the in-app check verifies the KPI views). The values on the KPI
+ * cards are Loupe's own figures at export time; the compiler's KPI queries
+ * are checked on test data (DuckDB in the test suite; PostgreSQL 18 once during
  * development), never "against this dataset"; and the in-app "Verify in
  * browser" check runs them on the user's data in DuckDB. Day differences use
  * the compiler's portable (CAST(b AS DATE) - CAST(a AS DATE)) form here too,
@@ -147,43 +150,6 @@ export function generateSqlFile(ctx: ExportContext): string {
   const fmt = { locale: ctx.locale, currency: ctx.currency };
   const parts: string[] = [];
 
-  const kpiCount = exportKpiIds(ctx).filter((id) => {
-    const r = res.get(id);
-    return r?.available && r.variant;
-  }).length;
-  parts.push(
-    [
-      banner(`LOUPE · SQL for ${ds.source.fileName}`),
-      comment(
-        [
-          `${domain.name}${ctx.subDomain ? ` › ${ctx.subDomain.name}` : ""} · ${ds.rowCount.toLocaleString("en-US")} rows · generated ${ctx.generatedAt}`,
-          "",
-          "How to use",
-          `  1. Run section 1 to create the table, then load data.csv into it (commands below it).`,
-          `  2. Query any KPI view: SELECT * FROM "kpi_net_revenue";  (one view per KPI)`,
-          "  3. Runs as written on DuckDB and PostgreSQL; section 5 lists the changes for other databases.",
-          "",
-          "Contents",
-          "  1 · Table              the schema Loupe detected",
-          `  2 · KPIs               ${kpiCount} views, one per KPI, grouped by topic`,
-          ...(dateClean
-            ? ["  3 · Monthly            month by month, with change vs last month and last year"]
-            : []),
-          "  4 · Analyses           customer segments and retention, where the data allows",
-          "  5 · Other databases    MySQL, SQL Server and BigQuery",
-          "",
-          "The figure on each KPI's title line is Loupe's value at export, over the whole file (not a",
-          "result of these queries). Loupe's tests check that its SQL returns its own values in DuckDB,",
-          "overall and by month, on test data; in the app, Verify in browser (Export step) runs these",
-          "KPI queries on your data and compares every result.",
-          "",
-          "Ratios are ratios of sums (never averages of ratios), and NULLIF(denominator, 0) makes an",
-          "empty denominator return NULL instead of an error.",
-        ].join("\n"),
-      ),
-    ].join("\n"),
-  );
-
   // 1. Table
   const cols = ds.columns.map((c) => ({
     name: names.columns.get(c.name) ?? c.name,
@@ -216,6 +182,9 @@ export function generateSqlFile(ctx: ExportContext): string {
       topics.indexOf(res.get(a)?.def.group ?? "Other") - topics.indexOf(res.get(b)?.def.group ?? "Other"),
   );
   const views = viewNames(ids, names.measures);
+  // Views as written: KPI views by id, and how many helper views other KPIs build on.
+  const written = new Set<string>();
+  let helpers = 0;
   let topic = "";
   for (const id of ids) {
     const r = res.get(id);
@@ -229,6 +198,9 @@ export function generateSqlFile(ctx: ExportContext): string {
       parts.push(comment(`${name}: not expressible in portable SQL (${(e as Error).message})`));
       continue;
     }
+    const helper = Boolean(r.def.hidden || r.dependencyOnly);
+    if (helper) helpers++;
+    else written.add(id);
     const v = ctx.kpiValues.get(id);
     const group = r.def.group ?? "Other";
     if (group !== topic) {
@@ -237,7 +209,7 @@ export function generateSqlFile(ctx: ExportContext): string {
     }
     parts.push(
       `${cardRule(
-        `${name}${r.def.hidden || r.dependencyOnly ? " (helper)" : ""}`,
+        `${name}${helper ? " (helper)" : ""}`,
         v !== undefined ? formatValue(v, r.def.format, fmt) : "",
       )}\n${comment(
         [
@@ -337,6 +309,53 @@ export function generateSqlFile(ctx: ExportContext): string {
     `${banner("5 · OTHER DATABASES")}\n${comment(
       ["DuckDB          As written.", "PostgreSQL 12+  As written.", DIALECT_NOTES].join("\n"),
     )}`,
+  );
+
+  // The header, last, so it describes the views as written: the example is the first headline
+  // KPI's own view (renamed KPIs keep their names), and helper views are counted apart.
+  const example = [...ctx.selection.hero, ...ids].find((id) => written.has(id));
+  const kpiViews = `${written.size} ${written.size === 1 ? "view" : "views"}, one per KPI`;
+  const helperViews = helpers ? `, plus ${helpers} ${helpers === 1 ? "helper view" : "helper views"}` : "";
+  parts.unshift(
+    [
+      banner(`LOUPE · SQL for ${ds.source.fileName}`),
+      comment(
+        [
+          `${domain.name}${ctx.subDomain ? ` › ${ctx.subDomain.name}` : ""} · ${ds.rowCount.toLocaleString("en-US")} rows · generated ${ctx.generatedAt}`,
+          "",
+          "How to use",
+          `  1. Run section 1 to create the table, then load data.csv into it (commands below it).`,
+          example
+            ? `  2. Query any KPI view: SELECT * FROM ${quoteIdent(views.get(example) ?? `kpi_${example}`)};  (one view per KPI)`
+            : "  2. Query the table directly: no KPI could be written as a view for this file.",
+          "  3. Runs as written on DuckDB and PostgreSQL; section 5 lists the changes for other databases.",
+          "",
+          "Contents",
+          "  1 · Table              the schema Loupe detected",
+          `  2 · KPIs               ${kpiViews}, grouped by topic${helperViews}`,
+          ...(dateClean
+            ? ["  3 · Monthly            month by month, with change vs last month and last year"]
+            : []),
+          "  4 · Analyses           customer segments and retention, where the data allows",
+          "  5 · Other databases    MySQL, SQL Server and BigQuery",
+          "",
+          "The figure on each KPI's title line is Loupe's value at export, over the whole file (not a",
+          "result of these queries). Loupe's tests check that its SQL returns its own values in DuckDB,",
+          "overall and by month, on test data; in the app, Export › SQL › Verify against your data",
+          "runs these KPI queries on your data and compares every result.",
+          ...(helpers
+            ? [
+                "",
+                "A view marked (helper) is a building block that other KPIs reference; it is not a KPI on",
+                "the dashboard, so the in-app check doesn't list it.",
+              ]
+            : []),
+          "",
+          "Ratios are ratios of sums (never averages of ratios), and NULLIF(denominator, 0) makes an",
+          "empty denominator return NULL instead of an error.",
+        ].join("\n"),
+      ),
+    ].join("\n"),
   );
   return `${parts.join("\n\n")}\n`;
 }

@@ -10,6 +10,12 @@
  * the changes compare with and how recent the data is; the headline KPIs; an
  * executive summary whose insights cite their figures; numbered figures with
  * their unit, notes and source; and a glossary of every KPI shown.
+ *
+ * A figure's box has a fixed share of the page, so its text is clamped
+ * (title one line, takeaway and notes two) and the chart takes whatever
+ * height is left: a long note can never be drawn over. A table measures the
+ * height it was given and shows as many rows as fit. KPI values are written
+ * as the dashboard's cards write them (ui/common/kpiFormat).
  */
 import * as React from "react";
 import { createRoot } from "react-dom/client";
@@ -18,7 +24,7 @@ import type { ChartData, ChartKind, ChartSpec } from "@/engine/charts/types";
 import type { HealthReport } from "@/engine/profile/quality";
 import type { Insight } from "@/engine/insights/insights";
 import type { FormatOptions } from "@/engine/core/format";
-import { formatCount, formatDelta, formatPointDelta, formatValue, isFlatChange } from "@/engine/core/format";
+import { formatCount, formatDelta, formatPointDelta, isFlatChange } from "@/engine/core/format";
 import type { KpiValue } from "@/engine/kpi/compute";
 import type { KpiMeta } from "@/engine/session";
 import { buildOption, chartSubtitle, rendersWithECharts } from "@/ui/charts/options";
@@ -26,6 +32,7 @@ import { readChartTokens } from "@/ui/charts/tokens";
 import { DataTable } from "@/ui/charts/DataTable";
 import { loadECharts } from "@/ui/charts/EChart";
 import { Wordmark } from "@/ui/brand/logo";
+import { formatKpi } from "@/ui/common/kpiFormat";
 import { kpiLabel } from "@/engine/core/labels";
 
 export interface ReportChart {
@@ -73,6 +80,7 @@ export function StaticChart({
   fmt,
   height,
   pixelRatio = 2,
+  presentation = false,
 }: {
   chart: ReportChart;
   fmt: FormatOptions;
@@ -80,6 +88,8 @@ export function StaticChart({
   height?: number;
   /** Canvas pixels per laid-out pixel: 2 for print, more when a slide scales the chart up. */
   pixelRatio?: number;
+  /** A one-page dashboard card: values on every point of a short trend, a donut's shares in a legend. */
+  presentation?: boolean;
 }) {
   const ref = React.useRef<HTMLDivElement>(null);
   const { add, echarts } = React.useContext(PendingContext);
@@ -98,8 +108,11 @@ export function StaticChart({
       data: chart.data,
       animate: false,
       forExport: true,
-      // Laid out off-screen at its real size, so labels are fitted to the width it is drawn at.
+      // Laid out off-screen at its real size, so labels are fitted to the width and height it is
+      // drawn at (every horizontal bar keeps its name).
       width: ref.current.clientWidth || undefined,
+      height: ref.current.clientHeight || undefined,
+      presentation,
     });
     let finished = false;
     const finish = () => {
@@ -116,20 +129,71 @@ export function StaticChart({
       clearTimeout(t);
       inst.dispose();
     };
-  }, [chart, fmt, add, echarts, pixelRatio]);
+  }, [chart, fmt, add, echarts, pixelRatio, presentation]);
   return <div ref={ref} style={{ width: "100%", height: height ?? "100%" }} />;
+}
+
+/** DataTable's print metrics, as laid out: its header row, the "Showing n of m rows" line, and one row. */
+const TABLE_HEAD = 37;
+const TABLE_SHOWING = 32;
+const TABLE_ROW = 33;
+
+/**
+ * A table that shows as many rows as the box it was given holds (its header
+ * and the "showing" line taken off, with a few pixels to spare), never a
+ * scrollbar or a row cut in half. The box's height is measured once laid
+ * out, and the page is captured only after the table has re-rendered to fit.
+ */
+function FittedTable({ chart, fmt }: { chart: ReportChart; fmt: FormatOptions }) {
+  const ref = React.useRef<HTMLDivElement>(null);
+  const release = React.useRef<(() => void) | null>(null);
+  const { add } = React.useContext(PendingContext);
+  const [height, setHeight] = React.useState<number | null>(null);
+  React.useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    release.current = add();
+    // The first observation reports the laid-out size.
+    const ro = new ResizeObserver((entries) => {
+      const h = entries[0]?.contentRect.height ?? 0;
+      if (h > 0) setHeight(Math.floor(h));
+    });
+    ro.observe(el);
+    return () => {
+      ro.disconnect();
+      release.current?.();
+      release.current = null;
+    };
+  }, [add]);
+  React.useEffect(() => {
+    if (height === null) return;
+    // Drawn at its fitted size: the page can be captured.
+    release.current?.();
+    release.current = null;
+  }, [height]);
+  return (
+    <div ref={ref} className="absolute inset-0 overflow-hidden">
+      {height !== null ? (
+        <DataTable
+          spec={chart.spec}
+          data={chart.data}
+          fmt={fmt}
+          maxRows={Math.max(3, Math.floor((height - TABLE_HEAD - TABLE_SHOWING - 4) / TABLE_ROW))}
+          print
+        />
+      ) : null}
+    </div>
+  );
 }
 
 function ChartBlock({
   chart,
   fmt,
-  height,
   figure,
   source,
 }: {
   chart: ReportChart;
   fmt: FormatOptions;
-  height: number;
   /** Figure number in the report, which the insights cite. */
   figure?: number;
   /** Where the numbers come from: file, rows, period and filters. */
@@ -137,9 +201,10 @@ function ChartBlock({
 }) {
   // As an analyst lays out a figure: number, title, unit; the chart; then its notes and source.
   const subtitle = chartSubtitle(chart.spec, chart.data, fmt, chart.kind);
+  const notes = chart.data.notes.length && !chart.data.empty ? chart.data.notes.join(" ") : "";
   return (
     <section
-      className="flex flex-col rounded-[14px] border border-border bg-surface-1 p-6"
+      className="flex min-h-0 flex-col overflow-hidden rounded-[14px] border border-border bg-surface-1 p-6"
       style={{ breakInside: "avoid" }}
     >
       {figure ? (
@@ -147,33 +212,28 @@ function ChartBlock({
           Figure {figure}
         </p>
       ) : null}
-      <h3 className="mt-1 text-[19px] font-medium text-fg">{chart.spec.title}</h3>
+      <h3 className="mt-1 truncate text-[19px] font-medium text-fg">{chart.spec.title}</h3>
       {/* What the figure shows, in a sentence computed from its data. */}
       {chart.data.headline && !chart.data.empty ? (
-        <p className="mt-1 text-[15px] leading-snug text-fg">{chart.data.headline}</p>
+        <p className="mt-1 line-clamp-2 text-[15px] leading-snug text-fg">{chart.data.headline}</p>
       ) : null}
-      {subtitle ? <p className="mt-1 text-[13px] text-fg-subtle">{subtitle}</p> : null}
-      <div className="mt-4 min-h-0 flex-1">
+      {subtitle ? <p className="mt-1 truncate text-[13px] text-fg-subtle">{subtitle}</p> : null}
+      {/* The chart takes the height the text leaves, so it never runs over its notes. */}
+      <div className="relative mt-4 min-h-0 flex-1">
         {chart.data.empty ? (
           <p className="text-[14px] text-fg-subtle">{chart.data.notes[0] ?? "No data for this selection."}</p>
         ) : rendersWithECharts(chart.kind, chart.data) ? (
-          <StaticChart chart={chart} fmt={fmt} height={height} />
-        ) : (
-          <div style={{ height, overflow: "hidden" }}>
-            {/* As many rows as the space holds (header and the "showing" line taken off), never a scrollbar. */}
-            <DataTable
-              spec={chart.spec}
-              data={chart.data}
-              fmt={fmt}
-              maxRows={Math.max(3, Math.floor((height - 70) / 31))}
-              print
-            />
+          <div className="absolute inset-0">
+            <StaticChart chart={chart} fmt={fmt} />
           </div>
+        ) : (
+          <FittedTable chart={chart} fmt={fmt} />
         )}
       </div>
-      <div className="mt-3 grid gap-1 text-[12px] leading-relaxed text-fg-subtle">
-        {chart.data.notes.length && !chart.data.empty ? <p>Note: {chart.data.notes.join(" ")}</p> : null}
-        {source ? <p>Source: {source}</p> : null}
+      <div className="mt-3 grid shrink-0 gap-1 text-[12px] leading-relaxed text-fg-subtle">
+        {/* Two lines at most: a figure's box is a fixed half page. */}
+        {notes ? <p className="line-clamp-2">Note: {notes}</p> : null}
+        {source ? <p className="truncate">Source: {source}</p> : null}
       </div>
     </section>
   );
@@ -191,7 +251,7 @@ function KpiTile({ meta, value, fmt }: { meta: KpiMeta; value: KpiValue | undefi
     <div className="rounded-[14px] border border-border bg-surface-1 p-5">
       <p className="text-[14px] text-fg-muted">{kpiLabel(meta)}</p>
       <p className="mt-2 text-[34px] leading-none font-semibold tracking-[-0.02em] text-fg">
-        {formatValue(value?.value ?? null, meta.format, { ...fmt, compact: meta.format === "currency" })}
+        {formatKpi(value?.value, meta.format, fmt)}
       </p>
       {change !== null && change !== undefined ? (
         <p
@@ -199,15 +259,13 @@ function KpiTile({ meta, value, fmt }: { meta: KpiMeta; value: KpiValue | undefi
         >
           {value?.currentLabel ? (
             <span className="font-normal text-fg-muted">
-              {value.currentLabel}{" "}
-              {formatValue(value.current, meta.format, { ...fmt, compact: meta.format === "currency" })}:{" "}
+              {value.currentLabel} {formatKpi(value.current, meta.format, fmt)}:{" "}
             </span>
           ) : null}
           {pct ? formatPointDelta(change, fmt.locale) : formatDelta(change, fmt.locale)}{" "}
           {!value?.currentLabel && value?.previous !== null && value?.previous !== undefined ? (
             <span className="font-normal text-fg-subtle">
-              from{" "}
-              {formatValue(value.previous, meta.format, { ...fmt, compact: meta.format === "currency" })}{" "}
+              from {formatKpi(value.previous, meta.format, fmt)}{" "}
             </span>
           ) : null}
           <span className="font-normal text-fg-subtle">{value?.comparisonLabel}</span>
@@ -329,10 +387,7 @@ export function ReportDocument({ input }: { input: ReportInput }) {
                   >
                     <span className="min-w-0 truncate text-fg-muted">{kpiLabel(s.meta)}</span>
                     <span className="font-figures shrink-0 text-fg">
-                      {formatValue(s.value?.value ?? null, s.meta.format, {
-                        ...input.fmt,
-                        compact: s.meta.format === "currency",
-                      })}
+                      {formatKpi(s.value?.value, s.meta.format, input.fmt)}
                       {change !== null && change !== undefined ? (
                         <span className="ml-2 text-[12.5px] text-fg-subtle">
                           {pct
@@ -350,13 +405,13 @@ export function ReportDocument({ input }: { input: ReportInput }) {
       </Page>
       {chartPages.map((pair, i) => (
         <Page key={i} index={i + 2} total={total} input={input}>
+          {/* Two figures a page, each a fixed half: the figure's text and chart share its box. */}
           <div className="grid h-full grid-rows-2 gap-6">
             {pair.map((c) => (
               <ChartBlock
                 key={c.spec.id}
                 chart={c}
                 fmt={input.fmt}
-                height={520}
                 figure={figureOf.get(c.spec.id)}
                 source={source}
               />

@@ -4,7 +4,11 @@
  * chart shows, from its own data. A trend compares complete periods only; a
  * share of the total is given only for a measure that adds up; a rate is
  * compared highest to lowest; "Others" never leads; where nothing can be
- * said honestly there is no sentence.
+ * said honestly there is no sentence. Since the dashboard audit: a top-N
+ * chart's lowest bar is the lowest "of those shown", a basket's first pair is
+ * its strongest, a scatter says which way its link runs, daily and weekly
+ * charts give their level and peak rather than comparing two single points,
+ * and a 100% stack is read in shares.
  */
 import { describe, expect, it } from "vitest";
 import { chartHeadline, type HeadlineTraits } from "@/engine/charts/headline";
@@ -138,10 +142,10 @@ describe("a breakdown", () => {
     );
   });
 
-  it("uses the preposition a date part takes", () => {
+  it("uses the preposition a date part takes, and spells weekdays in full", () => {
     const s = spec("bar", { x: { kind: "part", column: "Date", part: "dow", label: "Weekday" } });
     const d = data(["Mon", "Sat"], [10, 30]);
-    expect(chartHeadline(s, d, FMT, RATE)).toBe("Highest on Sat (₹30); lowest on Mon (₹10).");
+    expect(chartHeadline(s, d, FMT, RATE)).toBe("Highest on Saturday (₹30); lowest on Monday (₹10).");
   });
 
   it("names the measure when the chart has several", () => {
@@ -157,6 +161,153 @@ describe("a breakdown", () => {
   it("says nothing for an empty chart or a single-number one", () => {
     expect(chartHeadline(spec("bar"), data([], [], { empty: true }), FMT, SUM)).toBeNull();
     expect(chartHeadline(spec("bigNumber"), data(["All"], [5], { kind: "bigNumber" }), FMT, SUM)).toBeNull();
+  });
+});
+
+describe("what a takeaway may claim (dashboard audit)", () => {
+  it("calls the lowest of a top-N chart the lowest of those shown", () => {
+    const d = data(["Jammu and Kashmir", "Uttarakhand", "Andhra Pradesh"], [0.204, 0.174, 0.095]);
+    d.series[0] = { ...d.series[0]!, format: "percent" };
+    const cut = { ...RATE, groups: { shown: 12, total: 24, rankedByValue: true } };
+    expect(chartHeadline(spec("hbar"), d, FMT, cut)).toBe(
+      "Jammu and Kashmir is highest at 20.4%; Andhra Pradesh is lowest of the 12 shown, at 9.5%.",
+    );
+    // Groups picked some other way than by this measure: the highest is only of those shown too.
+    const byRows = { ...RATE, groups: { shown: 12, total: 24, rankedByValue: false } };
+    expect(chartHeadline(spec("hbar"), d, FMT, byRows)).toMatch(
+      /^Jammu and Kashmir is highest of the 12 shown/,
+    );
+    // Every group drawn: no qualifier.
+    expect(chartHeadline(spec("hbar"), d, FMT, RATE)).toMatch(/Andhra Pradesh is lowest at 9\.5%\.$/);
+  });
+
+  it("names a basket's strongest pairing by lift, not as the most frequent", () => {
+    const d = data([], [], {
+      kind: "table",
+      basket: {
+        pairs: [
+          {
+            a: "Charger",
+            b: "Earbuds",
+            orders: 19,
+            support: 0.001,
+            confidenceAB: 0.2,
+            confidenceBA: 0.1,
+            lift: 5.8,
+          },
+          {
+            a: "Kurta",
+            b: "Jeans",
+            orders: 29,
+            support: 0.002,
+            confidenceAB: 0.1,
+            confidenceBA: 0.1,
+            lift: 1.4,
+          },
+        ],
+        level: "product",
+        orders: 100,
+        multiItemOrders: 40,
+      },
+    });
+    expect(chartHeadline(spec("table"), d, FMT, SUM)).toBe(
+      "Strongest pairing: Charger with Earbuds, bought together 5.8× more often than chance (19 orders).",
+    );
+  });
+
+  it("says which way a scatter's link runs, and nothing without a fit", () => {
+    const s = spec("scatter", {
+      measures: [
+        { id: "e", label: "Average engagement score", format: "decimal", direction: "higher" },
+        { id: "a", label: "Attrition rate", format: "percent", direction: "lower" },
+      ],
+    });
+    const pts = { kind: "scatter" as const, points: [{ label: "A", x: 1, y: 2 }] };
+    const fall = data(["A"], [1], { ...pts, trendline: { slope: -0.06, intercept: 4.7, r2: 0.53 } });
+    expect(chartHeadline(s, fall, FMT, RATE)).toBe(
+      "Attrition rate falls as average engagement score rises (R² 0.53).",
+    );
+    const rise = data(["A"], [1], { ...pts, trendline: { slope: 0.4, intercept: 0, r2: 0.31 } });
+    expect(chartHeadline(s, rise, FMT, RATE)).toBe(
+      "Attrition rate tends to rise with average engagement score, loosely (R² 0.31).",
+    );
+    const none = data(["A"], [1], { ...pts, trendline: { slope: NaN, intercept: NaN, r2: NaN } });
+    expect(chartHeadline(s, none, FMT, RATE)).toBeNull();
+  });
+
+  it("never compares two single days or weeks: the level and the peak instead", () => {
+    const days = ["1 Sep", "2 Sep", "3 Sep", "4 Sep"];
+    const s = spec("bar", {
+      section: "trend",
+      x: { kind: "time", column: "Date", grain: "auto", label: "Date" },
+    });
+    const d = data(days, [100, 300, 250, 130], { kind: "bar", grain: "day" });
+    expect(chartHeadline(s, d, FMT, SUM)).toBe("₹195 a day on average; peak ₹300 on 2 Sep.");
+    const weeks = ["Wk of 6 Apr", "Wk of 13 Apr", "Wk of 20 Apr"];
+    const w = data(weeks, [0.2, 0.25, 0.22], { kind: "line", grain: "week" });
+    w.series[0] = { ...w.series[0]!, format: "percent" };
+    expect(chartHeadline(s, w, FMT, RATE)).toBe(
+      "Ranges from 20.0% in the week of 6 Apr to 25.0% in the week of 13 Apr.",
+    );
+  });
+
+  it("groups the digits of a large change and says 'in' a month", () => {
+    const d = data(MONTHS, [10_000, 50_000, 204_100], { kind: "line" });
+    expect(chartHeadline(overTime(), d, FMT, SUM)).toMatch(/^Up 1,941% from Oct 2025 to Dec 2025/);
+    const peaked = data(MONTHS, [100, 300, 200], { kind: "line" });
+    expect(chartHeadline(overTime(), peaked, FMT, SUM)).toMatch(/peak ₹300 in Nov 2025\.$/);
+  });
+
+  it("reads a 100% stack in shares of each column", () => {
+    const d = data(["Sales", "Engineering"], [], {
+      kind: "stackedBar100",
+      seriesCategories: [
+        { label: "Female", raw: "Female" },
+        { label: "Male", raw: "Male" },
+      ],
+      matrix: [
+        [30, 81],
+        [70, 176],
+      ],
+    });
+    const s = spec("stackedBar100", { series: { kind: "column", column: "Gender", label: "Gender" } });
+    expect(chartHeadline(s, d, FMT, SUM)).toBe("The largest share is Male in Sales, at 70%.");
+  });
+
+  it("spells out a weekday and an hour in a heatmap's sentence", () => {
+    const hours = ["19:00", "20:00"];
+    const d = data(hours, [], {
+      kind: "heatmap",
+      categories: hours.map((label, i) => ({ label, raw: 19 + i })),
+      seriesCategories: [
+        { label: "Sat", raw: 5 },
+        { label: "Sun", raw: 6 },
+      ],
+      matrix: [
+        [120, 200],
+        [150, 264],
+      ],
+    });
+    d.series = [];
+    const s = spec("heatmap", {
+      x: { kind: "part", column: "Order Date", part: "hour", label: "Hour of day" },
+      series: { kind: "part", column: "Order Date", part: "dow", label: "Weekday" },
+      measures: [{ id: "m", label: "Orders", format: "integer", direction: "higher" }],
+    });
+    expect(chartHeadline(s, d, FMT, SUM)).toBe("Highest on Sunday at 20:00 (264).");
+  });
+
+  it("keeps a share under 1% from reading as 0%", () => {
+    const d = data([], [], {
+      kind: "funnel",
+      funnel: [
+        { label: "Impressions", value: 100_000, fromPrev: null, fromFirst: null },
+        { label: "Conversions", value: 300, fromPrev: 0.003, fromFirst: 0.003 },
+      ],
+    });
+    expect(chartHeadline(spec("bar", { analysis: "funnel" }), d, FMT, SUM)).toBe(
+      "Conversions are 0.3% of impressions.",
+    );
   });
 });
 

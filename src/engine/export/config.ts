@@ -148,6 +148,10 @@ export const configSchema = z.object({
   kpiTargets: z.record(z.string(), z.number()).default({}),
   dashboard: z.object({
     mode: z.enum(["executive", "analyst", "compact"]),
+    /** The one-page view or every chart (version 37.0); older configs have neither field. */
+    view: z.enum(["page", "full"]).optional(),
+    /** The user's name for the one-page dashboard. */
+    pageTitle: z.string().max(200).optional(),
     widgets: z.array(widgetSchema),
     customCharts: z.array(z.unknown()).default([]),
     datePreset: z.string(),

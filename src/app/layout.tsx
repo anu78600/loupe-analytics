@@ -5,6 +5,12 @@
  * theme is applied before React hydrates (no light/dark flash). Also renders
  * the skip link and the client Providers (motion config, tooltips, theme
  * sync, toasts).
+ *
+ * The social tags carry no title or description of their own: Next fills
+ * og:title, og:description and Twitter's from each page's own metadata, so a
+ * shared link to the version log or the workspace names that page. The image
+ * is opengraph-image.tsx; the icons are icon.svg, favicon.ico and
+ * apple-icon.tsx in this folder.
  */
 import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
@@ -32,7 +38,7 @@ export const metadata: Metadata = {
     template: "%s · Loupe",
   },
   description:
-    "Upload clean data. Get an analyst-grade dashboard in seconds. Loupe profiles your data, detects the industry, and generates correct KPIs with SQL and DAX, entirely in your browser.",
+    "Drop in a clean table and get an analyst-grade dashboard in seconds. Loupe profiles your data, detects the industry and computes the KPIs, each with its SQL and DAX, entirely in your browser: nothing is uploaded.",
   applicationName: "Loupe",
   authors: [{ name: AUTHOR }],
   creator: AUTHOR,
@@ -46,12 +52,8 @@ export const metadata: Metadata = {
     "e-commerce analytics",
     "business intelligence",
   ],
-  openGraph: {
-    title: "Loupe · Analyst-grade dashboards from clean data",
-    description:
-      "Profiling, domain-aware KPIs with SQL and DAX, and a ready dashboard. Your data never leaves your browser.",
-    type: "website",
-  },
+  openGraph: { type: "website", siteName: "Loupe", locale: "en_GB" },
+  twitter: { card: "summary_large_image" },
 };
 
 export const viewport: Viewport = {

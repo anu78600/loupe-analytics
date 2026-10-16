@@ -1,14 +1,16 @@
 "use client";
 
 /**
- * Step 1, Upload: drop zone and file picker (CSV, TSV, TXT, XLSX, XLS, JSON,
- * NDJSON), demo datasets, loading progress, the sheet picker for multi-sheet
- * workbooks, the large-file dialog (systematic sample, first rows or a column
- * subset) and an inline error banner. Parsing happens in the worker; nothing
- * is uploaded.
+ * Step 1, Upload: drop zone and file picker (CSV, TSV, TXT, PSV, TAB, XLSX,
+ * XLSM, XLSB, XLS, ODS, JSON, NDJSON), demo datasets, loading progress, the
+ * sheet picker for multi-sheet workbooks (empty sheets are not offered), the
+ * large-file dialog (systematic sample, first rows or a column subset) and an
+ * inline error banner. Parsing happens in the worker; nothing is uploaded.
+ * One file is read at a time: dropping several says which one was opened.
  */
 import * as React from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { toast } from "sonner";
 import {
   AlertTriangle,
   ArrowRight,
@@ -23,7 +25,10 @@ import { useSettings } from "@/store/settings";
 import { SAMPLES } from "@/engine/samples/catalog";
 import { formatBytes, formatCount } from "@/engine/core/format";
 import type { LargeFileAssessment } from "@/engine/core/types";
+import { FIRST_ROWS_LIMIT, LARGE_ROW_LIMIT } from "@/engine/parse/limits";
 import { cn } from "@/lib/utils";
+import { countOf, ordinal } from "@/ui/common/words";
+import { openDemo } from "./Shell";
 import { Button } from "@/ui/primitives/button";
 import { Badge } from "@/ui/primitives/badge";
 import { Checkbox, Eyebrow, Progress } from "@/ui/primitives/misc";
@@ -37,7 +42,8 @@ import {
 } from "@/ui/primitives/dialog";
 import { LoupeMark } from "@/ui/brand/logo";
 
-const ACCEPT = ".csv,.tsv,.txt,.xlsx,.xlsm,.xls,.json,.ndjson,.jsonl";
+/** Every extension the parser reads (engine/parse fileKindFromName). */
+const ACCEPT = ".csv,.tsv,.txt,.psv,.tab,.xlsx,.xlsm,.xlsb,.xls,.ods,.json,.ndjson,.jsonl";
 
 export function UploadStep() {
   const loading = useWorkspace((s) => s.loading);
@@ -112,7 +118,14 @@ function Dropzone() {
   const depth = React.useRef(0);
   const take = (files: FileList | null) => {
     const f = files?.[0];
-    if (f) void loadFile(f);
+    if (!f) return;
+    // One table at a time: say which file was opened rather than silently dropping the others.
+    const others = (files?.length ?? 1) - 1;
+    if (others > 0)
+      toast.message(`Opened ${f.name}`, {
+        description: `Loupe reads one file at a time, so the other ${others === 1 ? "file was" : `${others} files were`} not opened.`,
+      });
+    void loadFile(f);
   };
   return (
     // The beam sits on a wrapper: the zone itself clips its overflow, which would cut the beam off.
@@ -179,10 +192,12 @@ function Dropzone() {
               <FileSpreadsheet aria-hidden /> Choose a file
             </Button>
           </div>
+          {/* Out of the tab order: the "Choose a file" button opens it, so it is one stop, not two. */}
           <input
             ref={input}
             type="file"
             accept={ACCEPT}
+            tabIndex={-1}
             className="sr-only"
             aria-label="Choose a data file"
             onChange={(e) => {
@@ -209,7 +224,8 @@ function Dropzone() {
 }
 
 function SampleGrid() {
-  const loadSample = useWorkspace((s) => s.loadSample);
+  // Asks first when the demo would replace the user's own file.
+  const loadSample = (id: string) => openDemo(id, undefined, true);
   const flagship = SAMPLES.find((s) => s.flagship);
   const rest = SAMPLES.filter((s) => !s.flagship);
   return (
@@ -371,6 +387,8 @@ function LargeFileDialogBody({ a }: { a: LargeFileAssessment }) {
   const [mode, setMode] = React.useState<"sample" | "first" | "columns">("sample");
   const [cols, setCols] = React.useState<string[]>(a.columns);
   const every = a.recommendedSampleEvery;
+  // Every figure in the dialog is written in the user's number format (never "21,99,992" beside "2.2M").
+  const tooManyRows = a.estimatedRows > LARGE_ROW_LIMIT;
   return (
     <Dialog open onOpenChange={(o) => (!o ? void resolve(null) : undefined)}>
       <DialogContent className="max-w-xl">
@@ -378,20 +396,23 @@ function LargeFileDialogBody({ a }: { a: LargeFileAssessment }) {
           <DialogTitle>Large-file mode</DialogTitle>
           <DialogDescription>
             {a.fileName} is {formatBytes(a.sizeBytes)} with about{" "}
-            {formatCount(Math.round(a.estimatedRows), locale)} rows. {a.reason} Choose how to continue;
-            nothing is lost from the original file.
+            {countOf(Math.round(a.estimatedRows), "row", locale)}
+            {tooManyRows
+              ? `, more than the ${formatCount(LARGE_ROW_LIMIT, locale)} a browser tab can analyse comfortably.`
+              : `. ${a.reason}`}{" "}
+            Choose how to continue; nothing is lost from the original file.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-2" role="radiogroup" aria-label="Large file strategy">
           {[
             {
               id: "sample" as const,
-              title: `Systematic sample: every ${every}th row (recommended)`,
-              body: `≈${formatCount(Math.round(a.estimatedRows / every), locale)} rows evenly spread across the whole file, so trends and shares stay representative. KPIs that count totals are labelled as sampled.`,
+              title: `Systematic sample: every ${ordinal(every)} row (recommended)`,
+              body: `About ${countOf(Math.round(a.estimatedRows / every), "row", locale)} evenly spread across the whole file, so trends and shares stay representative. KPIs that count totals are labelled as sampled.`,
             },
             {
               id: "first" as const,
-              title: `First ${formatCount(1_000_000, locale)} rows`,
+              title: `First ${countOf(FIRST_ROWS_LIMIT, "row", locale)}`,
               body: "Exact for the rows loaded, but biased if the file is sorted (e.g. by date).",
             },
             {
@@ -450,7 +471,7 @@ function LargeFileDialogBody({ a }: { a: LargeFileAssessment }) {
                 mode === "sample"
                   ? { sampleEvery: every }
                   : mode === "first"
-                    ? { maxRows: 1_000_000 }
+                    ? { maxRows: FIRST_ROWS_LIMIT }
                     : { columns: cols },
               )
             }

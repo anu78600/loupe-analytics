@@ -4,6 +4,8 @@
  * couldn't be read. Each issue's view lists exactly the health issue's rows,
  * "rows to check" gathers them all, blanks in optional columns are not
  * flagged, and unreadable cells follow their rows through an unpivot.
+ * Spelling variants keep signs apart: "A+" and "A-" (blood groups) or "<5"
+ * and ">5" are different values, never one value spelled twice.
  */
 import { describe, expect, it } from "vitest";
 import { Session } from "@/engine/session";
@@ -107,6 +109,29 @@ describe("the data check", async () => {
   it("offers the blanks of each column, flagging only the probably missing ones", () => {
     expect(view("blank:City")).toMatchObject({ rows: 1, tone: "warning" });
     expect(view("blank:Coupon Code")?.tone).toBe("info");
+  });
+});
+
+describe("spelling variants", () => {
+  it("keep signs apart, so A+ and A- or <5 and >5 are never one value spelled twice", async () => {
+    const groups = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
+    const cities = ["Delhi", "Mumbai", "New Delhi"];
+    const lines = ["Patient ID,Blood Type,Stay Band,City"];
+    for (let i = 0; i < 80; i++) {
+      // Two real variants: "delhi" for Delhi and "New-Delhi" for New Delhi.
+      const city = i === 7 ? "delhi" : i === 9 ? "New-Delhi" : cities[i % 3];
+      lines.push(`P${100 + i},${groups[i % 8]},${i % 2 ? "<5 days" : ">5 days"},${city}`);
+    }
+    const s = new Session();
+    const load = await s.ingest(new Blob([lines.join("\n")]), "patients.csv", {});
+    if (load.status !== "ok") throw new Error(load.status);
+    const ids = load.health.issues.map((i) => i.id);
+    expect(ids).not.toContain("variants-Blood Type");
+    expect(ids).not.toContain("variants-Stay Band");
+    expect(load.health.issues.find((i) => i.id === "variants-City")?.count).toBe(2);
+    // The data check marks the same two cells, and nothing in Blood Type.
+    const marked = s.checkRows("problems", 0, 100).rows;
+    expect(marked.map((r) => r.index)).toEqual([7, 9]);
   });
 });
 

@@ -1,7 +1,8 @@
 /**
  * Auto-generated findings. Every number comes from a query over the data;
  * nothing is invented. Each insight states its basis, is ranked by impact and
- * links to the chart that shows it.
+ * links to the chart that shows it: a chart of the same KPI (and, for a
+ * segment gap or a concentration, the same column), else none.
  *
  * Generators: trends (the selected period against its comparison period, and
  * the latest complete month against a year earlier), a Simpson's-paradox mix
@@ -9,7 +10,8 @@
  * MAD), driver bands (from computed bin charts), concentration (top 20%
  * share), seasonality (weekday, month of year) and caveats. Each runs inside
  * `safely`, so a failing generator yields nothing instead of breaking the
- * others.
+ * others. All of them read the selection only: an empty one has no insights,
+ * and the caveats count its own rows.
  *
  * Totals and rates. isAdditiveExpr, following KPI refs through the resolver
  * (net revenue = gross sales − discounts counts as additive), picks the totals
@@ -18,8 +20,11 @@
  * counts, new entities: they grow with the rows they cover) from rates
  * (ratios of totals, averages). Segment gaps and the mix check compare rates
  * only: between segments, a difference in a total is a share of the whole,
- * not a performance gap. Over time, closing balances (atLatest) are levels,
- * so only flows (revenue, orders) are scaled per day when windows differ.
+ * not a performance gap. Nor is a rate measured per entity across segments
+ * the entities span (a customer's orders under several couriers, a rep in
+ * every category; entityFields). Over time, closing balances (atLatest) are
+ * levels, so only flows (revenue, orders) are scaled per day when windows
+ * differ. Values compared in one sentence share a precision (core/together).
  *
  * Scoring. Every generator rates its findings with one formula, so impact
  * scores are comparable across generators:
@@ -66,9 +71,10 @@ import {
 } from "@/engine/core/dates";
 import { formatDelta, formatPointDelta, formatValue, type FormatOptions } from "@/engine/core/format";
 import { linearRegression, median, robustSigma } from "@/engine/core/stats";
+import { formatTogether } from "@/engine/core/together";
 import type { Expr, Predicate } from "@/engine/query/expr";
 import { fieldsOf, isAdditiveExpr } from "@/engine/query/expr";
-import type { Filter } from "@/engine/query/filter";
+import { selectRowsCached, type Filter } from "@/engine/query/filter";
 import { kpiOrUndefined, type Resolver } from "@/engine/query/evaluate";
 import { runQuery, type ResultGroup } from "@/engine/query/run";
 import { dateBounds, evaluateMany, type KpiBatch } from "@/engine/kpi/compute";
@@ -438,7 +444,7 @@ const pText = (p: number) => (p < 0.001 ? "p < 0.001" : `p = ${p.toFixed(3)}`);
 function consistencyText(t: Consistency | null, up: boolean): string {
   if (!t || t.n === 0) return "";
   if (t.n < MIN_SIGN_TEST)
-    return `Only ${t.n} matching ${plural(t.unit, t.n)} are fully covered by the data, too few to test whether the change is consistent.`;
+    return `Only ${t.n} matching ${plural(t.unit, t.n)} ${t.n === 1 ? "is" : "are"} fully covered by the data, too few to test whether the change is consistent.`;
   const dir = up ? "higher" : "lower";
   if (isConsistent(t)) return `It was ${dir} in ${t.agree} of ${t.n} ${plural(t.unit, t.n)} than ${t.match}.`;
   return `It was ${dir} in only ${t.agree} of ${t.n} ${plural(t.unit, t.n)} than ${t.match}, so the change is not consistent across the period.`;
@@ -459,6 +465,41 @@ function perEntity(resolver: Resolver, e: Expr, path: ReadonlySet<string> = new 
     return target ? perEntity(resolver, target, new Set(path).add(e.ref)) : false;
   }
   return false;
+}
+
+/**
+ * The entities a KPI is measured per (following refs): the `per` field of a
+ * per-entity aggregate (repeat customers) and the field a ratio divides by a
+ * distinct count of (revenue per sales rep, per customer, per order).
+ * Compared across segments that share those entities, such a KPI is not a
+ * performance gap: a customer's orders split across couriers, and 11 reps who
+ * sell every category make "revenue per rep" by category just category
+ * revenue over 11.
+ */
+function entityFields(resolver: Resolver, e: Expr, path: ReadonlySet<string> = new Set()): string[] {
+  const follow = (x: Expr): string[] => entityFields(resolver, x, path);
+  /** Fields of the distinct counts an expression adds up to (its divisor's entities). */
+  const counted = (x: Expr, p: ReadonlySet<string>): string[] => {
+    if ("agg" in x) return x.agg === "countDistinct" ? [x.of] : [];
+    if ("calc" in x) return counted(x.calc, p);
+    if ("op" in x && (x.op === "add" || x.op === "sub"))
+      return [...counted(x.args[0], p), ...counted(x.args[1], p)];
+    if ("ref" in x && !p.has(x.ref)) {
+      const target = kpiOrUndefined(resolver, x.ref);
+      return target ? counted(target, new Set(p).add(x.ref)) : [];
+    }
+    return [];
+  };
+  if ("per" in e) return [e.per];
+  if ("calc" in e) return follow(e.calc);
+  if ("atLatest" in e) return follow(e.expr);
+  if ("op" in e)
+    return [...follow(e.args[0]), ...follow(e.args[1]), ...(e.op === "div" ? counted(e.args[1], path) : [])];
+  if ("ref" in e && !path.has(e.ref)) {
+    const target = kpiOrUndefined(resolver, e.ref);
+    return target ? entityFields(resolver, target, new Set(path).add(e.ref)) : [];
+  }
+  return [];
 }
 
 const testBasis = (t: Consistency | null) =>
@@ -621,9 +662,8 @@ function periodTrends(
   );
   const against = comparisonPhrase(cur, cmp, batch.comparison.label);
   const findings = found.map(({ k, a, b, change, daily }): TrendFinding => {
-    // A day's share of a count is fractional, so per-day counts get decimals.
-    const f = (v: number) =>
-      formatValue(v, daily && k.format === "integer" ? "decimal" : k.format, { ...fmt, compact: true });
+    // A day's share of a count is fractional, so per-day counts get decimals; the two values share a precision.
+    const [fa, fb] = formatTogether([a, b], daily && k.format === "integer" ? "decimal" : k.format, fmt);
     const text = changeText(k, change, fmt);
     const t = tests.get(k.id) ?? null;
     const untested = perEntity(resolver, k.expr)
@@ -638,8 +678,8 @@ function periodTrends(
       title: `${k.name} ${change > 0 ? "up" : "down"} ${unsigned(text)} vs ${against}${daily ? " (per day)" : ""}`,
       sentences: [
         daily
-          ? `${k.name} averaged ${f(a)} a day in ${curInfo.label}, ${text} vs ${f(b)} a day in ${batch.comparison?.label}; the data covers ${Math.round(curDays)} and ${Math.round(cmpDays)} days of the two periods.`
-          : `${k.name} ${wasWere(k.name)} ${f(a)} in ${curInfo.label}, ${text} vs ${f(b)} in ${batch.comparison?.label}.`,
+          ? `${k.name} averaged ${fa} a day in ${curInfo.label}, ${text} vs ${fb} a day in ${batch.comparison?.label}; the data covers ${Math.round(curDays)} and ${Math.round(cmpDays)} days of the two periods.`
+          : `${k.name} ${wasWere(k.name)} ${fa} in ${curInfo.label}, ${text} vs ${fb} in ${batch.comparison?.label}.`,
         consistencyText(t, change > 0),
       ],
       basis: `The same two periods as the KPI cards${batch.current ? " (narrowed to what the data covers in both)" : ""}${daily ? ", per day of data because the data covers the two periods unequally" : ""}.${testBasis(t)}${untested}`,
@@ -739,7 +779,7 @@ function monthTrends(
     const slopeAgrees = slope !== null && slope.perMonth > 0 === change > 0;
     const certainty: Certainty =
       test && test.n >= MIN_SIGN_TEST ? certaintyOf(test) : yoy || slopeAgrees ? "medium" : "low";
-    const f = (v: number) => formatValue(v, k.format, { ...fmt, compact: true });
+    const [fLast, fBase] = formatTogether([last.v, base.v], k.format, fmt);
     const text = changeText(k, change, fmt);
     const lastLabel = bucketLabel(last.t, "month", true);
     const baseLabel = bucketLabel(base.t, "month", true);
@@ -753,7 +793,7 @@ function monthTrends(
         ? `${k.name} ${change > 0 ? "up" : "down"} ${unsigned(text)} year on year in ${lastLabel}`
         : `${k.name} ${change > 0 ? "up" : "down"} ${unsigned(text)} in ${lastLabel} vs ${baseLabel}`,
       sentences: [
-        `${k.name} ${wasWere(k.name)} ${f(last.v)} in ${lastLabel}, ${text} vs ${baseLabel} (${f(base.v)}).`,
+        `${k.name} ${wasWere(k.name)} ${fLast} in ${lastLabel}, ${text} vs ${baseLabel} (${fBase}).`,
         consistencyText(test, change > 0),
         slope
           ? `Over the last ${window.length} complete months the trend is ${slope.perMonth > 0 ? "upward" : "downward"}, about ${unsigned(formatDelta(slope.perMonth, fmt.locale))} of the average per month (R² ${slope.r2.toFixed(2)}).`
@@ -827,10 +867,18 @@ function trendInsights(input: InsightInput): Insight[] {
     ),
     confidence: f.certainty,
     metricId: f.k.id,
-    chartId: chartFor(specs, (s) => s.x.kind === "time" && s.measures.some((m) => m.id === f.k.id)),
+    chartId: chartFor(specs, timeChartOf(input, f.k.id)),
     basis: f.basis,
   }));
 }
+
+/** True when a chart is drawn by the date part `part`, on its axis or as its split (a weekday × hour heatmap). */
+const byPart = (s: ChartSpec, part: "dow" | "month") =>
+  (s.x.kind === "part" && s.x.part === part) || (s.series?.kind === "part" && s.series.part === part);
+
+/** A chart of `kpiId` over the primary date: what a trend, an anomaly or a monthly peak points at. */
+const timeChartOf = (input: Pick<InsightInput, "dateColumn">, kpiId: string) => (s: ChartSpec) =>
+  s.x.kind === "time" && s.x.column === input.dateColumn && s.measures.some((m) => m.id === kpiId);
 
 // ---------------------------------------------------------------- anomalies
 
@@ -871,20 +919,20 @@ function anomalyInsights(input: InsightInput): Insight[] {
     if (picked.some((p) => Math.abs(p.t - a.t) < 5 * DAY_MS)) continue;
     picked.push(a);
   }
-  const f = (v: number) => formatValue(v, k.format, { ...fmt, compact: true });
   return picked.map((a) => {
     const ratio = a.v / a.med;
     const spike = a.v > a.med;
+    const [fDay, fMedian] = formatTogether([a.v, a.med], k.format, fmt);
     return {
       id: `anomaly-${k.id}-${a.t}`,
       kind: "anomaly" as const,
       title: `Unusual ${spike ? "spike" : "dip"} in ${k.name} on ${formatDay(a.t)}`,
-      body: `${k.name} ${wasWere(k.name)} ${f(a.v)} on ${formatDay(a.t)}, ${spike ? `${ratio.toFixed(1)}× the typical day` : `${Math.round((1 - ratio) * 100)}% below a typical day`} (28-day median ${f(a.med)}). ${spike ? "Check what happened that day: a one-off event, a bulk entry or a data error." : "Check what happened that day: an interruption, a one-off event or missing data."}`,
+      body: `${k.name} ${wasWere(k.name)} ${fDay} on ${formatDay(a.t)}, ${spike ? `${ratio.toFixed(1)}× the typical day` : `${Math.round((1 - ratio) * 100)}% below a typical day`} (28-day median ${fMedian}). ${spike ? "Check what happened that day: a one-off event, a bulk entry or a data error." : "Check what happened that day: an interruption, a one-off event or missing data."}`,
       tone: spike ? ("neutral" as const) : ("warning" as const),
       impact: impactScore(RELEVANCE.anomaly, weight(k), strength(Math.abs(a.z), 8), "medium"),
       confidence: "medium" as const,
       metricId: k.id,
-      chartId: chartFor(specs, (s) => s.x.kind === "time" && s.measures.some((m) => m.id === k.id)),
+      chartId: chartFor(specs, timeChartOf(input, k.id)),
       basis: "Robust z-score against the previous 28 days (median and MAD), flagged at |z| ≥ 4.",
     };
   });
@@ -927,17 +975,22 @@ function concentrationInsights(input: InsightInput): Insight[] {
   const top1 = (vals[0] as number) / total;
   const label = concentration.label.toLowerCase();
   const count = (x: number) => formatValue(x, "integer", fmt);
+  const sameItems = (s: ChartSpec) =>
+    s.x.kind === "column" && s.x.column === concentration.column && s.measures.some((m) => m.id === k.id);
   return [
     {
       id: `concentration-${concentration.column}`,
       kind: "concentration",
       title: `Top 20% of ${pluralOf(label)} drive ${Math.round(topShare * 100)}% of ${k.name}`,
-      body: `${count(topCount)} of ${count(n)} ${pluralOf(label)} account for ${(topShare * 100).toFixed(0)}% of ${k.name}; ${count(forEighty)} ${pluralOf(label)} make up 80%. The single largest contributes ${(top1 * 100).toFixed(1)}%.${topShare >= 0.7 ? ` High concentration means stock-outs or quality issues on a few items hit ${k.name} hard.` : " It is reasonably spread, which limits dependence on any one item."}`,
+      body: `${count(topCount)} of ${count(n)} ${pluralOf(label)} account for ${(topShare * 100).toFixed(0)}% of ${k.name}; ${count(forEighty)} ${pluralOf(label)} make up 80%. The single largest contributes ${(top1 * 100).toFixed(1)}%.${topShare >= 0.7 ? ` High concentration means a problem with a few of them hits ${k.name} hard.` : " It is reasonably spread, which limits dependence on any one item."}`,
       tone: topShare >= 0.7 ? "warning" : "neutral",
       impact: impactScore(RELEVANCE.concentration, weight(k), strength(topShare - 0.2, 0.4), "high"),
       confidence: "high",
       metricId: k.id,
-      chartId: chartFor(specs, (s) => s.kind === "pareto" || s.analysis === "pareto"),
+      // The chart of these items by this KPI: a Pareto first, else any chart of them; never another column's.
+      chartId:
+        chartFor(specs, (s) => (s.kind === "pareto" || s.analysis === "pareto") && sameItems(s)) ??
+        chartFor(specs, sameItems),
       basis: `Ranked ${count(n)} ${pluralOf(label)} by ${k.name} in the current selection.`,
     },
   ];
@@ -1000,7 +1053,7 @@ function seasonalityInsights(input: InsightInput): Insight[] {
         id: `seasonality-dow-${k.id}`,
         kind: "seasonality",
         title: `${maxDay} is the strongest day for ${k.name}`,
-        body: `An average ${maxDay} brings ${Math.round(gap * 100)}% more ${k.name.toLowerCase()} than an average ${minDay}.${idleText} Plan capacity and timing around this weekly rhythm.`,
+        body: `An average ${maxDay} brings ${Math.round(gap * 100)}% more ${inSentence(k.name)} than an average ${minDay}.${idleText} Plan capacity and timing around this weekly rhythm.`,
         tone: "neutral",
         impact: impactScore(
           RELEVANCE.seasonality,
@@ -1010,7 +1063,8 @@ function seasonalityInsights(input: InsightInput): Insight[] {
         ),
         confidence: daily.groups.length >= 120 ? "high" : "medium",
         metricId: k.id,
-        chartId: chartFor(specs, (s) => s.x.kind === "part" || s.kind === "heatmap"),
+        // A weekday chart (or a weekday heatmap) of this same KPI; another measure's would show another rhythm.
+        chartId: chartFor(specs, (s) => s.measures.some((m) => m.id === k.id) && byPart(s, "dow")),
         basis: `Average per calendar day over ${daily.groups.length} days${idle.length ? "; weekdays averaging zero or less are left out of the ratio" : ""}.`,
       });
     }
@@ -1037,12 +1091,14 @@ function seasonalityInsights(input: InsightInput): Insight[] {
           id: `seasonality-month-${k.id}`,
           kind: "seasonality",
           title: `${name} runs ${Math.round(lift * 100)}% above an average month`,
-          body: `Across the years in the data, ${name} averages ${Math.round(lift * 100)}% more ${k.name.toLowerCase()} per day than the yearly mean, a recurring peak worth planning for.`,
+          body: `Across the years in the data, ${name} averages ${Math.round(lift * 100)}% more ${inSentence(k.name)} per day than the yearly mean, a recurring peak worth planning for.`,
           tone: "neutral",
           impact: impactScore(RELEVANCE.seasonality, weight(k), strength(lift, 0.4), "medium"),
           confidence: "medium",
           metricId: k.id,
-          chartId: chartFor(specs, (s) => s.x.kind === "time" && s.measures.some((m) => m.id === k.id)),
+          chartId:
+            chartFor(specs, (s) => s.measures.some((m) => m.id === k.id) && byPart(s, "month")) ??
+            chartFor(specs, timeChartOf(input, k.id)),
           basis: "Average per day by calendar month, pooled across years.",
         });
       }
@@ -1057,17 +1113,57 @@ function seasonalityInsights(input: InsightInput): Insight[] {
  * Widest gap of each rate KPI (a ratio or average, never a total) across the
  * values of a segment column. A segment needs max(30, 2% of rows) rows and
  * there must be 2–40 of them; material from a 1.3× ratio (percent KPIs: 1.4×
- * and 3 points). A KPI whose own definition filters on the segment column
- * (COD share by payment method) is not compared on it. Keeps the strongest
- * gap per KPI.
+ * and 3 points). A KPI is not compared on a segment column its own
+ * definition filters on (COD share by payment method), nor on one its
+ * entities span (see entityFields: a customer counted under several
+ * couriers, a rep under every category), which holds when the segments'
+ * distinct counts of the entity add up to over 110% of the whole. Keeps the
+ * strongest gap per KPI, then one insight per pair of segments: a second KPI
+ * with the same two extremes is named in the first.
  */
 function segmentInsights(input: InsightInput): Insight[] {
   const { ds, resolver, filters, dateColumn, kpis, segments, fmt, specs } = input;
   const rateKpis = kpis.filter((k) => k.tier !== "detail" && kindOf(input, k) === "rate").slice(0, 8);
   const ownFilters = new Map(rateKpis.map((k) => [k.id, filterColumns(resolver, k.expr)]));
+  const entities = new Map(rateKpis.map((k) => [k.id, [...new Set(entityFields(resolver, k.expr))]]));
+  const spanCache = new Map<string, boolean>();
+  /** True when the entities of `field` sit in more than one segment of `column`. */
+  const spans = (field: string, column: string): boolean => {
+    const key = `${field}|${column}`;
+    let hit = spanCache.get(key);
+    if (hit === undefined) {
+      const q = runQuery(ds, resolver, {
+        filters: [...filters],
+        groupBy: [{ kind: "column", column }],
+        measures: [{ id: "entities", expr: { agg: "countDistinct", of: field } }],
+        dateColumn,
+      });
+      const sum = q.groups.reduce(
+        (s, g) => s + (Number.isFinite(g.values[0]) ? (g.values[0] as number) : 0),
+        0,
+      );
+      const whole = q.totals[0] ?? NaN;
+      hit = Number.isFinite(whole) && whole > 0 && sum > 1.1 * whole;
+      spanCache.set(key, hit);
+    }
+    return hit;
+  };
   const out: Insight[] = [];
+  /** The two segments each insight compares, and its sentence for a merged pair. */
+  const pairs = new Map<string, { column: string; a: string; b: string; also: string }>();
   for (const seg of segments.slice(0, 6)) {
-    const ks = rateKpis.filter((k) => !ownFilters.get(k.id)?.has(seg.column));
+    const ks = rateKpis.filter(
+      (k) =>
+        !ownFilters.get(k.id)?.has(seg.column) &&
+        !(entities.get(k.id) ?? []).some((field) => {
+          try {
+            return spans(field, seg.column);
+          } catch {
+            // A field this dataset doesn't map can't be checked: leave the KPI out rather than risk the artefact.
+            return true;
+          }
+        }),
+    );
     if (!ks.length) continue;
     const q = runQuery(ds, resolver, {
       filters: [...filters],
@@ -1093,18 +1189,29 @@ function segmentInsights(input: InsightInput): Insight[] {
       const ratio = lo.v > 0 ? hi.v / lo.v : Infinity;
       const material = pct ? gapAbs >= 0.03 && ratio >= 1.4 : ratio >= 1.3;
       if (!material) return;
-      const f = (v: number) => formatValue(v, k.format, { ...fmt, compact: true });
+      // Printed together, so both carry one precision ("₹663 to ₹2.71K", never "₹662.75 to ₹2.71K").
+      const [fLo, fHi] = formatTogether([lo.v, hi.v], k.format, fmt);
+      // The gap a reader works out from the two rates as printed: 1.9% to 7.1% is 5.2 pp.
+      const shownGap = Math.round(hi.v * 1000) / 1000 - Math.round(lo.v * 1000) / 1000;
       // The segment to act on: the worse one, or for a neutral KPI the smaller of the two.
       const worse = k.direction === "lower" ? hi : lo;
       const focus = k.direction === "neutral" ? (hi.rows <= lo.rows ? hi : lo) : worse;
       const reach = 0.5 + 0.5 * Math.min(1, focus.rows / Math.max(1, total) / 0.25);
       const gapStrength = pct ? strength(gapAbs, 0.05) : strength(Number.isFinite(ratio) ? ratio - 1 : 10, 1);
       const confidence: Certainty = Math.min(hi.rows, lo.rows) >= 200 ? "high" : "medium";
+      const id = `segment-${k.id}-${seg.column}`;
+      const between = `${fLo} (${lo.label}) to ${fHi} (${hi.label})`;
+      pairs.set(id, {
+        column: seg.column,
+        a: hi.label,
+        b: lo.label,
+        also: `${k.name} runs from ${between} as well.`,
+      });
       out.push({
-        id: `segment-${k.id}-${seg.column}`,
+        id,
         kind: "segment",
         title: `${k.name}: ${hi.label} ${Number.isFinite(ratio) && ratio < 50 ? `${ratio.toFixed(1)}×` : "far above"} ${lo.label}`,
-        body: `Across ${seg.label.toLowerCase()}, ${k.name} ranges from ${f(lo.v)} (${lo.label}) to ${f(hi.v)} (${hi.label})${pct ? `, ${gapText(formatPointDelta(gapAbs, fmt.locale).replace(/^\+/, ""))}` : ""}.${k.direction !== "neutral" ? ` ${worse.label} is the segment to look at first.` : ""}`,
+        body: `Across ${segmentsWord(seg.label)}, ${inSentence(k.name)} ranges from ${between}${pct ? `, ${gapText(formatPointDelta(shownGap, fmt.locale).replace(/^\+/, ""))}` : ""}.${k.direction !== "neutral" ? ` ${worse.label} is the segment to look at first.` : ""}`,
         tone: k.direction === "neutral" ? "neutral" : "warning",
         impact: impactScore(RELEVANCE.segment, weight(k), gapStrength * reach, confidence),
         confidence,
@@ -1123,7 +1230,38 @@ function segmentInsights(input: InsightInput): Insight[] {
     const cur = best.get(i.metricId ?? i.id);
     if (!cur || i.impact > cur.impact) best.set(i.metricId ?? i.id, i);
   }
-  return [...best.values()];
+  // One insight per pair of segments: "Electronics vs Supplies" on two KPIs is one story, told once.
+  const kept: Insight[] = [];
+  const byPair = new Map<string, Insight>();
+  for (const i of [...best.values()].sort((a, b) => b.impact - a.impact)) {
+    const p = pairs.get(i.id);
+    const key = p ? `${p.column}|${[p.a, p.b].sort().join("|")}` : i.id;
+    const lead = byPair.get(key);
+    if (lead && p) {
+      lead.body = `${lead.body} ${p.also}`;
+      continue;
+    }
+    byPair.set(key, i);
+    kept.push(i);
+  }
+  return kept;
+}
+
+/**
+ * A segment column's label as the plural a sentence needs: "categories",
+ * "payment methods"; a label with alternatives ("Region / territory") uses
+ * the first. Acronyms keep their capitals ("SKUs").
+ */
+function segmentsWord(label: string): string {
+  const first = (label.split(/\s*\/\s*/)[0] ?? label).trim();
+  const words = first.split(" ").map((w) => (/^[A-Z0-9]{2,}$/.test(w) ? w : w.toLowerCase()));
+  return pluralOf(words.join(" "));
+}
+
+/** A KPI's name inside a sentence: "return rate", but "RTO rate" and "MRR" keep their capitals. */
+function inSentence(name: string): string {
+  const [first = "", ...rest] = name.split(" ");
+  return /^[A-Z0-9%]{2,}$/.test(first) ? name : [first.toLowerCase(), ...rest].join(" ");
 }
 
 // ---------------------------------------------------------------- drivers (ordinal bands)
@@ -1260,8 +1398,8 @@ function mixInsights(input: InsightInput): Insight[] {
       out.push({
         id: `mix-${k.id}`,
         kind: "mix",
-        title: `${k.name} ${value.delta > 0 ? "rose" : "fell"} overall, but not within most ${pluralOf(seg.label.toLowerCase())}`,
-        body: `${k.name} changed ${formatDelta(value.delta, fmt.locale)} overall, yet it moved the other way in ${movedAgainst} of ${counted} ${pluralOf(seg.label.toLowerCase())}. The mix shifted: ${biggestShift.label} went from ${(biggestShift.from * 100).toFixed(1)}% to ${(biggestShift.to * 100).toFixed(1)}% of rows. Treat the headline change as a mix effect (Simpson's paradox), not a like-for-like change.`,
+        title: `${k.name} ${value.delta > 0 ? "rose" : "fell"} overall, but not within most ${segmentsWord(seg.label)}`,
+        body: `${k.name} changed ${formatDelta(value.delta, fmt.locale)} overall, yet it moved the other way in ${movedAgainst} of ${counted} ${segmentsWord(seg.label)}. The mix shifted: ${biggestShift.label} went from ${(biggestShift.from * 100).toFixed(1)}% to ${(biggestShift.to * 100).toFixed(1)}% of rows. Treat the headline change as a mix effect (Simpson's paradox), not a like-for-like change.`,
         tone: "warning",
         impact: impactScore(RELEVANCE.mix, weight(k), against / (against + withWeight), "medium"),
         confidence: "medium",
@@ -1275,13 +1413,18 @@ function mixInsights(input: InsightInput): Insight[] {
 
 // ---------------------------------------------------------------- caveats
 
+/** Fewest recent rows the in-progress share is given for: below it the share is a handful of rows. */
+const MIN_RECENT_ROWS = 20;
+
 /**
- * In-progress share of rows dated in the last 21 days (whole dataset, filters
- * ignored), raised only when return/RTO/refund KPIs exist; plus a warning for
- * selections under 100 rows.
+ * Caveats about the selection itself, computed from its rows only. Rows
+ * still in progress: among the selected rows dated in the data's last 21
+ * days (at least 20 of them), the share whose status is still pending, raised
+ * only when return/RTO/refund KPIs exist, since those rates are understated
+ * until the rows settle. And a warning for a selection under 100 rows.
  */
-function caveatInsights(input: InsightInput): Insight[] {
-  const { ds, dateColumn, inProgress, kpis, batch } = input;
+function caveatInsights(input: InsightInput, selected: Int32Array): Insight[] {
+  const { ds, dateColumn, inProgress, kpis } = input;
   const out: Insight[] = [];
   if (inProgress && dateColumn && inProgress.values.length) {
     const bounds = dateBounds(ds, dateColumn);
@@ -1289,10 +1432,11 @@ function caveatInsights(input: InsightInput): Insight[] {
     const dateCol = ds.columns.find((c) => c.name === dateColumn);
     if (bounds && statusCol?.kind === "string" && dateCol?.kind === "date") {
       const set = new Set(inProgress.values);
-      const since = bounds.max - 21 * DAY_MS;
+      // Recent in the data, not in the selection: an old period has settled, so it raises nothing.
+      const since = startOfDay(bounds.max) - 20 * DAY_MS;
       let open = 0;
       let recent = 0;
-      for (let r = 0; r < ds.rowCount; r++) {
+      for (const r of selected) {
         const d = dateCol.values[r] as number;
         if (!(d >= since)) continue;
         recent++;
@@ -1300,22 +1444,23 @@ function caveatInsights(input: InsightInput): Insight[] {
         if (c >= 0 && set.has(statusCol.dict[c] as string)) open++;
       }
       const hasReturnKpis = kpis.some((k) => /return|rto|refund/.test(k.id));
-      if (open > 0 && recent > 0 && hasReturnKpis) {
+      if (open > 0 && recent >= MIN_RECENT_ROWS && hasReturnKpis) {
         out.push({
           id: "caveat-in-transit",
           kind: "caveat",
           title: "Recent return and RTO rates are understated",
-          body: `${Math.round((open / recent) * 100)}% of rows from the last three weeks are still in progress (${inProgress.values.slice(0, 3).join(", ")}). Some will become returns or RTO, so judge those rates on periods that have fully settled.`,
+          body: `${Math.round((open / recent) * 100)}% of the ${formatValue(recent, "integer", input.fmt)} selected rows dated from ${formatDay(since)} (the data's last three weeks) are still in progress (${inProgress.values.slice(0, 3).join(", ")}). Some will become returns or RTO, so judge those rates on periods that have fully settled.`,
           tone: "warning",
           impact: impactScore(RELEVANCE.inProgress, 1, strength(open / recent, 0.2), "high"),
           confidence: "high",
-          basis: "Share of rows dated within 21 days of the latest date whose status is still in progress.",
+          basis:
+            "Share of the selected rows dated within 21 days of the latest date whose status is still in progress.",
         });
       }
     }
   }
-  const rows = batch?.values[0]?.rows ?? null;
-  if (rows !== null && rows > 0 && rows < 100) {
+  const rows = selected.length;
+  if (rows > 0 && rows < 100) {
     out.push({
       id: "caveat-small",
       kind: "caveat",
@@ -1330,8 +1475,15 @@ function caveatInsights(input: InsightInput): Insight[] {
   return out;
 }
 
-/** Runs every generator and keeps the 14 with the highest impact (ties keep generator order). */
+/**
+ * Runs every generator and keeps the 14 with the highest impact (ties keep
+ * generator order). An empty selection gets none: insights describe the
+ * selection, and a caveat about rows outside it would read as one about it
+ * (the Insights step says that no rows match instead).
+ */
 export function generateInsights(input: InsightInput): Insight[] {
+  const selected = selectRowsCached(input.ds, input.filters);
+  if (!selected.length) return [];
   const timeBased = !input.roster;
   const all = [
     ...(timeBased ? safely(() => trendInsights(input)) : []),
@@ -1341,7 +1493,7 @@ export function generateInsights(input: InsightInput): Insight[] {
     ...safely(() => concentrationInsights(input)),
     ...(timeBased ? safely(() => seasonalityInsights(input)) : []),
     ...safely(() => driverInsights(input)),
-    ...safely(() => caveatInsights(input)),
+    ...safely(() => caveatInsights(input, selected)),
   ];
   return all.sort((a, b) => b.impact - a.impact).slice(0, 14);
 }

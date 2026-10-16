@@ -22,11 +22,24 @@ export function tableNameFor(domain: DomainDef): string {
 }
 
 /**
+ * `name` after "Total": its first letter lower-cased ("Revenue" → "Total
+ * revenue"), unless its first word is an acronym or a name with capitals of
+ * its own, which keeps its case ("MRR" → "Total MRR", "McDonald's" →
+ * "Total McDonald's").
+ */
+export function totalOf(name: string): string {
+  const first = name.split(/\s+/)[0] ?? "";
+  const ownCapitals = /[A-Z]/.test(first.slice(1));
+  return `Total ${ownCapitals ? name : `${name.charAt(0).toLowerCase()}${name.slice(1)}`}`;
+}
+
+/**
  * Names for one export run: snake_case column names, the table name, and a
  * measure name per KPI (user rename or default). A measure may share the
  * table's name (DAX tells 'Orders' from [Orders]), but not a column's, the
- * Date table's or another measure's: it then becomes "Total revenue", as an
- * analyst would name it, and only failing that gets a number ("Revenue 2").
+ * Date table's or another measure's: it then becomes "Total revenue" (or
+ * "Total MRR"), as an analyst would name it, and only failing that gets a
+ * number ("Revenue 2").
  */
 export function compileNames(
   ds: Dataset,
@@ -43,7 +56,7 @@ export function compileNames(
     // Square brackets are stripped: DAX uses them to delimit measure references.
     const base = (renames[k.id] ?? k.name).replace(/[[\]]/g, "").trim() || k.id;
     let name = base;
-    if (taken.has(name.toLowerCase())) name = `Total ${base.charAt(0).toLowerCase()}${base.slice(1)}`;
+    if (taken.has(name.toLowerCase())) name = totalOf(base);
     for (let n = 2; taken.has(name.toLowerCase()); n++) name = `${base} ${n}`;
     taken.add(name.toLowerCase());
     measures.set(k.id, name);

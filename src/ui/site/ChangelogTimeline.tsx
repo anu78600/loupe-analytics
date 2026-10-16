@@ -4,10 +4,11 @@
  * Version log timeline for /changelog.
  *
  * Releases are grouped by major version, newest group first. Inside a group
- * the major release comes first, then its minor follow-ups in the order they
- * happened. A filter hides the minors. Times are rendered in UTC on the server
- * and switch to the visitor's local time after hydration
- * (useSyncExternalStore avoids a hydration mismatch without effects).
+ * the major release comes first, then its minor follow-ups, newest first like
+ * the rest of the page. A filter hides the minors. Times are rendered in UTC
+ * on the server and switch to the visitor's local time, with its zone named,
+ * after hydration (useSyncExternalStore avoids a hydration mismatch without
+ * effects).
  */
 import * as React from "react";
 import { ChevronRight, FileCode2 } from "lucide-react";
@@ -22,7 +23,7 @@ function parseVersion(version: string): [number, number] {
   return [major ?? 0, minor ?? 0];
 }
 
-/** Formats an ISO timestamp: UTC on the server, local time in the browser. */
+/** Formats an ISO timestamp: UTC on the server, local time in the browser, each saying its zone. */
 function Timestamp({ iso }: { iso: string }) {
   const isClient = React.useSyncExternalStore(
     subscribe,
@@ -37,6 +38,7 @@ function Timestamp({ iso }: { iso: string }) {
         year: "numeric",
         hour: "2-digit",
         minute: "2-digit",
+        timeZoneName: "short",
       }).format(date)
     : `${new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "UTC" }).format(date)} UTC`;
   return (
@@ -132,7 +134,7 @@ type Filter = "all" | "major";
 export function ChangelogTimeline({ releases }: { releases: Release[] }) {
   const [filter, setFilter] = React.useState<Filter>("all");
 
-  // Group by major number, newest major first; inside: the major, then minors in order.
+  // Group by major number, newest major first; inside, newest first (the major heads its group).
   const groups = React.useMemo(() => {
     const byMajor = new Map<number, Release[]>();
     for (const r of releases) {
@@ -143,7 +145,7 @@ export function ChangelogTimeline({ releases }: { releases: Release[] }) {
       .sort((a, b) => b[0] - a[0])
       .map(([major, list]) => ({
         major,
-        list: [...list].sort((a, b) => parseVersion(a.version)[1] - parseVersion(b.version)[1]),
+        list: [...list].sort((a, b) => parseVersion(b.version)[1] - parseVersion(a.version)[1]),
       }));
   }, [releases]);
 

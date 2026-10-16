@@ -19,6 +19,7 @@
  */
 import type { jsPDF as JsPdf } from "jspdf";
 import { tokenize, type CodeLanguage, type TokenKind } from "@/engine/compile/codeTokens";
+import { formatDay } from "@/engine/core/dates";
 
 type Rgb = [number, number, number];
 type Tone = "fg" | "muted" | "subtle" | "accent" | "success" | "warning";
@@ -215,12 +216,16 @@ export class TextPdf {
     return this.measureParagraph(caption, { size: 8, after: 0.5 }) + WIDTH / aspect + 3;
   }
 
-  /** A section heading; level 1 is the document title. */
-  heading(text: string, level: 1 | 2 | 3 = 2): void {
+  /**
+   * A section heading; level 1 is the document title. A heading is kept with
+   * what follows it: it starts a new page unless `keepNext` mm (about three
+   * lines of text) still fit below it, so it never ends a page on its own.
+   */
+  heading(text: string, level: 1 | 2 | 3 = 2, keepNext = level === 1 ? 0 : 14): void {
     const size = level === 1 ? 20 : level === 2 ? 14 : 11;
     const lh = size * PT * 1.25;
     const lines = this.wrap(text, size, "bold", WIDTH);
-    this.ensure(lines.length * lh + (level === 3 ? 2 : 5));
+    this.ensure(lines.length * lh + (level === 3 ? 2 : 5) + keepNext);
     this.y += level === 1 ? 0 : level === 2 ? 4 : 2;
     this.font("bold", size, level === 2 ? "accent" : "fg");
     for (const line of lines) {
@@ -461,7 +466,8 @@ export class TextPdf {
   /** Adds the header and footer to every page and downloads the file. */
   finish(fileName: string): void {
     const pages = this.pdf.getNumberOfPages();
-    const date = new Date().toISOString().slice(0, 10);
+    // Worded as the PDF report's footer: "16 Oct 2026", and the same demo-data note.
+    const date = formatDay(Date.now());
     for (let p = 1; p <= pages; p++) {
       this.pdf.setPage(p);
       this.font("bold", 10, "accent");
@@ -473,7 +479,7 @@ export class TextPdf {
       this.pdf.line(MARGIN_X, 16, PAGE_W - MARGIN_X, 16);
       this.font("regular", 7.5, "subtle");
       this.pdf.text(
-        `Generated locally by Loupe on ${date}. Data never left the browser.${this.meta.isDemo ? " Demo data: synthetic, not real." : ""}`,
+        `Generated locally by Loupe on ${date}. Data never left the browser.${this.meta.isDemo ? " Demo data, not real transactions." : ""}`,
         MARGIN_X,
         PAGE_H - 9,
       );

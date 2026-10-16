@@ -6,17 +6,27 @@
  * how it was read, the rows used, the headline answer, the answer table and
  * its SQL), then every KPI shown on the dashboard in SQL and in DAX. The code
  * is coloured like the app's, with a key at the top.
- * Insights: the period and filters, the headline KPIs with their change
- * (percentage points for rates), then every insight in rank order with its
- * basis and, when it points at a chart, that chart drawn in the light theme
- * as a numbered figure with the chart's notes (an incomplete last month).
- * Each chart is drawn once; a later insight about it points back to the
- * figure. An insight is kept on one page with its chart.
+ * Insights: the period and filters, the headline KPIs written as their cards
+ * write them (formatKpi: ₹3.13Cr) with their change and its base ("+40.5%
+ * from ₹2.23Cr", percentage points for rates), then every insight in rank
+ * order with its basis and, when it points at a chart, that chart drawn in
+ * the light theme as a numbered figure with the chart's notes (an incomplete
+ * last month). Each chart is drawn once; a later insight about it points back
+ * to the figure. An insight is kept on one page with its chart.
  *
  * Nothing here computes a number: values come from the engine's answers,
- * KPI batch and chart data, formatted with the user's number format.
+ * KPI batch and chart data, formatted with the user's number format; an
+ * answer table's column keeps one precision (core/together.ts).
  */
-import { formatDelta, formatPointDelta, formatValue, type FormatOptions } from "@/engine/core/format";
+import {
+  formatCount,
+  formatDelta,
+  formatPointDelta,
+  formatValue,
+  type FormatOptions,
+} from "@/engine/core/format";
+import { columnDecimals } from "@/engine/core/together";
+import { formatKpi } from "@/ui/common/kpiFormat";
 import type { ChartData, ChartKind, ChartSpec } from "@/engine/charts/types";
 import { INSIGHT_KIND_LABEL, type Insight } from "@/engine/insights/insights";
 import type { KpiValue } from "@/engine/kpi/compute";
@@ -117,12 +127,22 @@ export async function exportSqlPdf(input: SqlPdfInput, fileName: string): Promis
     }
     if (q.headline) doc.callout(q.headline);
     const headers = [...(q.keyLabel !== null ? [q.keyLabel] : []), ...q.measures.map((m) => m.label)];
-    const rows = q.rows
-      .slice(0, MAX_ROWS)
-      .map((r) => [
-        ...(q.keyLabel !== null ? [r.label] : []),
-        ...r.values.map((v, j) => formatValue(v, q.measures[j]?.format ?? "number", input.fmt)),
-      ]);
+    // One precision per column, as in the app's answer table: ₹663 beside ₹2,712, never ₹662.75.
+    const decimals = q.measures.map((m, j) =>
+      columnDecimals(
+        q.rows.map((r) => r.values[j] ?? null),
+        m.format,
+      ),
+    );
+    const rows = q.rows.slice(0, MAX_ROWS).map((r) => [
+      ...(q.keyLabel !== null ? [r.label] : []),
+      ...r.values.map((v, j) =>
+        formatValue(v, q.measures[j]?.format ?? "number", {
+          ...input.fmt,
+          ...(decimals[j] !== undefined ? { decimals: decimals[j] } : {}),
+        }),
+      ),
+    ]);
     doc.table(
       headers,
       rows,
@@ -156,6 +176,21 @@ export async function exportSqlPdf(input: SqlPdfInput, fileName: string): Promis
     if (k.dax) doc.code(`${k.daxName} =\n${k.dax}`, "DAX measure", "dax");
   });
   doc.finish(fileName);
+}
+
+/**
+ * A KPI's change with the value it is measured from, as on its card:
+ * "+40.5% from ₹2.23Cr"; a rate in percentage points ("+0.4 pp from 41.9%").
+ * A dash when there is no comparison.
+ */
+function changeFrom(meta: KpiMeta, value: KpiValue | undefined, fmt: FormatOptions): string {
+  // A rate moves in percentage points (40% → 42% is +2.0 pp), as on the dashboard's cards.
+  const change =
+    meta.format === "percent"
+      ? formatPointDelta(value?.deltaAbs, fmt.locale)
+      : formatDelta(value?.delta, fmt.locale);
+  if (change === "—" || value?.previous === null || value?.previous === undefined) return change;
+  return `${change} from ${formatKpi(value.previous, meta.format, fmt)}`;
 }
 
 /** Renders one chart off-screen in the light theme and returns it as a PNG, or null when it isn't drawn with ECharts. */
@@ -229,7 +264,7 @@ export async function exportInsightsPdf(
   doc.facts([
     ["Period", input.period],
     ["Filters", input.filters],
-    ["Rows analysed", input.rows.toLocaleString("en-US")],
+    ["Rows analysed", formatCount(input.rows, input.fmt.locale)],
     [
       "Found",
       `${input.insights.length} insight${input.insights.length === 1 ? "" : "s"}, most important first`,
@@ -242,15 +277,13 @@ export async function exportInsightsPdf(
       ["KPI", "Value", "Change", "Compared with"],
       input.hero.map(({ meta, value }) => [
         meta.name,
-        formatValue(value?.value ?? null, meta.format, input.fmt),
-        // A rate moves in percentage points (40% → 42% is +2.0 pp), as on the dashboard's cards.
-        meta.format === "percent"
-          ? formatPointDelta(value?.deltaAbs, input.fmt.locale)
-          : formatDelta(value?.delta, input.fmt.locale),
+        // Written as the dashboard's card writes it (₹3.13Cr, 1.75L, 42.3%), as in every export.
+        formatKpi(value?.value ?? null, meta.format, input.fmt),
+        changeFrom(meta, value, input.fmt),
         value?.comparisonLabel ?? "—",
       ]),
       [false, true, true, false],
-      [0.3, 0.18, 0.12, 0.4],
+      [0.26, 0.15, 0.25, 0.34],
     );
   }
 

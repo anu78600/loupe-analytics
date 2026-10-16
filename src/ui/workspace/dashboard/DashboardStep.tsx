@@ -45,6 +45,7 @@ import { ComparisonNote, KpiStrip, KpiTiles, SupportingKpis } from "./KpiCards";
 import { WidgetGrid } from "./WidgetGrid";
 import { Inspector } from "./Inspector";
 import { SECTIONS } from "./sections";
+import { PageView, ViewToggle } from "./page/PageView";
 
 /** True when the chart being focused (focusChart) is one of the automatic charts for other columns. */
 function inColumnsSection(s: ReturnType<typeof useWorkspace.getState>): boolean {
@@ -52,7 +53,16 @@ function inColumnsSection(s: ReturnType<typeof useWorkspace.getState>): boolean 
   return Boolean(id && allSpecs(s).find((x) => x.id === id)?.section === "columns");
 }
 
+/** The dashboard step: the one-page view (PageView), or every chart by section. */
 export function DashboardStep() {
+  const view = useWorkspace((s) => s.dashView);
+  const hasContext = useWorkspace((s) => Boolean(s.context));
+  if (!hasContext) return null;
+  return view === "page" ? <PageView /> : <FullDashboard />;
+}
+
+/** Every chart, by section, with the filter rail, the inspector and the layout modes. */
+function FullDashboard() {
   const context = useWorkspace((s) => s.context);
   const summary = useWorkspace((s) => s.summary);
   const mode = useWorkspace((s) => s.mode);
@@ -145,6 +155,7 @@ export function DashboardStep() {
             </div>
           </div>
           <div className="no-print flex flex-wrap items-center gap-2">
+            <ViewToggle />
             <Button variant="secondary" size="sm" className="lg:hidden" onClick={() => setFiltersOpen(true)}>
               <SlidersHorizontal aria-hidden /> Filters
             </Button>

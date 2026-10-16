@@ -9,7 +9,7 @@
 import * as React from "react";
 import { MessageSquarePlus, Plus } from "lucide-react";
 import type { ChartKind, ChartMeasure, ChartSpec, ResolvedAxis } from "@/engine/charts/types";
-import { customSpec, isKindCompatible } from "@/engine/charts/recommend";
+import { aggMeasureLabel, customSpec, isKindCompatible } from "@/engine/charts/recommend";
 import type { ColumnProfile } from "@/engine/profile/types";
 import type { KpiFormat } from "@/registry/schema";
 import { formatCount } from "@/engine/core/format";
@@ -35,12 +35,13 @@ import { AskChartDialog } from "./AskChart";
 import { askFromSpec } from "@/engine/charts/ask";
 import { kpiLabel } from "@/engine/core/labels";
 
+// Lowest and Highest, never Min and Max (the analyst standards' words).
 const AGGS = [
   { id: "sum", label: "Sum" },
   { id: "avg", label: "Average" },
   { id: "median", label: "Median" },
-  { id: "min", label: "Minimum" },
-  { id: "max", label: "Maximum" },
+  { id: "min", label: "Lowest" },
+  { id: "max", label: "Highest" },
   { id: "countDistinct", label: "Count distinct" },
   { id: "count", label: "Count rows" },
 ] as const;
@@ -92,8 +93,11 @@ export function Inspector() {
 function ChartInspector({ id }: { id: string }) {
   const spec = useWorkspace((s) => allSpecs(s).find((x) => x.id === id));
   const data = useWorkspace((s) => s.charts[id]);
+  // The kind the card is drawn as: the one picked in its switcher, else the recommended one.
+  const drawnKind = useWorkspace((s) => s.widgets.find((w) => w.id === id)?.kind);
   const locale = useSettings((s) => s.numberLocale);
   if (!spec) return <p className="text-ui text-fg-muted">This chart is no longer available.</p>;
+  const kind = drawnKind ?? spec.kind;
   return (
     <div className="grid gap-4">
       <div>
@@ -103,7 +107,12 @@ function ChartInspector({ id }: { id: string }) {
       <dl className="grid gap-2 text-ui">
         <div className="flex justify-between gap-3">
           <dt className="text-fg-muted">Type</dt>
-          <dd className="text-fg">{KIND_LABEL[spec.kind]}</dd>
+          <dd className="text-fg">
+            {KIND_LABEL[kind]}
+            {kind !== spec.kind ? (
+              <span className="ml-1.5 text-2xs text-fg-subtle">(recommended: {KIND_LABEL[spec.kind]})</span>
+            ) : null}
+          </dd>
         </div>
         <div className="flex justify-between gap-3">
           <dt className="text-fg-muted">X axis</dt>
@@ -172,12 +181,8 @@ function measureFromKpi(k: {
 
 function aggMeasure(agg: string, col: ColumnProfile | undefined): ChartMeasure {
   const column = col?.name ?? "";
-  const label =
-    agg === "count"
-      ? "Rows"
-      : agg === "countDistinct"
-        ? `Distinct ${column}`
-        : `${AGGS.find((a) => a.id === agg)?.label ?? agg} of ${column}`;
+  // Named as the engine names the same aggregate ("Total Amount", "Lowest Price"), so a measure has one name.
+  const label = aggMeasureLabel(agg, column);
   const format: KpiFormat =
     agg === "count" || agg === "countDistinct"
       ? "integer"

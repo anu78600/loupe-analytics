@@ -8,10 +8,17 @@
  *
  * What the changes compare is said once, above the strip (ComparisonNote),
  * rather than on every card; a card names its own comparison only when it
- * differs from that, and every card's tooltip and accessible name carry it. Which KPIs show,
- * and in what order, is kpiLayoutOf(): the user's layout from the Customise
- * step, else the recommendation, where orderByGoal moves the heroes that
- * match the user's main goal to the front.
+ * differs from that, and every card's tooltip and accessible name carry it.
+ * When there is no change to show (a roster, where the date marks when each
+ * employee started), the reason is said once above the cards too. When a
+ * change describes a narrower window than the card's number (all time, or a
+ * like-for-like window), the card shows that window's own value beside it:
+ * "September 2026: ₹37.9L ↗ +46.9%". A change from zero has no percentage;
+ * the chip says "from 0". Sparklines are left off a roster's cards: plotted
+ * by start date they would read as a trend. Which KPIs show, and in what
+ * order, is kpiLayoutOf(): the user's layout from the Customise step, else
+ * the recommendation, where orderByGoal moves the heroes that match the
+ * user's main goal to the front.
  */
 import * as React from "react";
 import { motion } from "framer-motion";
@@ -19,7 +26,8 @@ import { ArrowDownRight, ArrowUpRight, Minus, Target } from "lucide-react";
 import type { KpiValue } from "@/engine/kpi/compute";
 import type { KpiMeta } from "@/engine/session";
 import { formatDelta, formatPointDelta, formatValue, isFlatChange } from "@/engine/core/format";
-import { kpiLayoutOf, useWorkspace } from "@/store/workspace";
+import { formatKpi, kpiCompact } from "@/ui/common/kpiFormat";
+import { isRosterView, kpiLayoutOf, useWorkspace } from "@/store/workspace";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/ui/primitives/misc";
 import { Tooltip } from "@/ui/primitives/tooltip";
@@ -49,20 +57,37 @@ export function DeltaChip({
   meta,
   value,
   size = "md",
+  shared,
 }: {
   meta: KpiMeta;
   value: KpiValue;
   size?: "sm" | "md";
+  /** The comparison stated once above the cards: a card with no change doesn't repeat it. */
+  shared?: string;
 }) {
   const fmt = useFmt();
   const pct = meta.format === "percent";
-  const change = pct ? value.deltaAbs : value.delta;
+  const relative = pct ? value.deltaAbs : value.delta;
   // Nothing in the selection: say so, rather than a change against an empty period.
   if (value.rows === 0) return <span className="text-2xs text-fg-subtle">No rows in this selection</span>;
+  // From zero a relative change has no base: the chip shows the direction and "from 0" instead of
+  // a percentage (and never the comparison's dates, which read like a change in the chip's place).
+  const fromZero =
+    (relative === null || relative === undefined) && value.previous === 0 && value.current !== null;
+  const change = fromZero ? (value.current as number) : relative;
   if (change === null || change === undefined || !Number.isFinite(change)) {
-    return <span className="text-2xs text-fg-subtle">{value.comparisonLabel || "No comparison"}</span>;
+    // A comparison window with no value for this KPI, or no comparison at all (the reason why).
+    const reason =
+      value.previous === null && value.comparisonLabel.startsWith("vs ")
+        ? "No value to compare with"
+        : value.comparisonLabel || "No comparison";
+    return reason === shared ? null : (
+      <span className="text-2xs text-fg-subtle" title={value.comparisonLabel || undefined}>
+        {reason}
+      </span>
+    );
   }
-  const flat = isFlatChange(change);
+  const flat = fromZero ? change === 0 : isFlatChange(change);
   const up = change > 0;
   const good = meta.direction === "neutral" || flat ? null : up === (meta.direction === "higher");
   const tone =
@@ -72,7 +97,13 @@ export function DeltaChip({
         ? "text-success bg-success-soft"
         : "text-danger bg-danger-soft";
   const Icon = flat ? Minus : up ? ArrowUpRight : ArrowDownRight;
-  const text = pct ? formatPointDelta(change, fmt.locale) : formatDelta(change, fmt.locale);
+  const text = fromZero
+    ? flat
+      ? "No change"
+      : "from 0"
+    : pct
+      ? formatPointDelta(change, fmt.locale)
+      : formatDelta(change, fmt.locale);
   const verdict = good === null ? "" : good ? ", an improvement" : ", a deterioration";
   return (
     <span
@@ -89,8 +120,15 @@ export function DeltaChip({
   );
 }
 
-/** The comparison most cards share (and, for all-time cards, the month they compare), for the note above the strip. */
-export function sharedComparison(values: readonly KpiValue[]): { label: string; current: string } | null {
+/**
+ * The comparison most cards share (and, for all-time cards, the month they
+ * compare), for the note above the strip. When no card has a change (a
+ * roster: "All employees in the file · no period comparison"), the reason
+ * they share, with `changes` false, so it is said once rather than on every card.
+ */
+export function sharedComparison(
+  values: readonly KpiValue[],
+): { label: string; current: string; changes?: boolean } | null {
   const counts = new Map<string, number>();
   for (const v of values)
     if ((v.delta !== null || v.deltaAbs !== null) && v.comparisonLabel) {
@@ -98,19 +136,34 @@ export function sharedComparison(values: readonly KpiValue[]): { label: string; 
       counts.set(key, (counts.get(key) ?? 0) + 1);
     }
   const top = [...counts.entries()].sort((a, b) => b[1] - a[1])[0];
-  if (!top) return null;
-  const [current = "", label = ""] = top[0].split("\u0000");
-  return { label, current };
+  if (top) {
+    const [current = "", label = ""] = top[0].split("\u0000");
+    return { label, current, changes: true };
+  }
+  const reasons = new Map<string, number>();
+  for (const v of values)
+    if (v.comparisonLabel && v.rows > 0)
+      reasons.set(v.comparisonLabel, (reasons.get(v.comparisonLabel) ?? 0) + 1);
+  const reason = [...reasons.entries()].sort((a, b) => b[1] - a[1])[0];
+  return reason ? { label: reason[0], current: "", changes: false } : null;
 }
 
-/** "Change vs 1 Jan – 31 Dec 2024", or for all-time cards "Change: May 2026 vs May 2025". */
+/**
+ * "Change vs 1 Jan – 31 Dec 2024", or for all-time cards "Change: May 2026
+ * vs May 2025"; with no changes at all, why ("All employees in the file · no
+ * period comparison").
+ */
 export function ComparisonNote() {
   const batch = useWorkspace((s) => s.kpiBatch);
   const shared = batch ? sharedComparison(batch.values) : null;
   if (!shared) return null;
   return (
     <p className="text-2xs text-fg-subtle">
-      {shared.current ? `Change: ${shared.current} ${shared.label}` : `Change ${shared.label}`}
+      {!shared.changes
+        ? shared.label
+        : shared.current
+          ? `Change: ${shared.current} ${shared.label}`
+          : `Change ${shared.label}`}
     </p>
   );
 }
@@ -120,20 +173,25 @@ export function KpiCard({
   value,
   index,
   shared,
+  roster = false,
 }: {
   meta: KpiMeta;
   value: KpiValue | undefined;
   index: number;
   /** The comparison stated above the strip; the card repeats only one that differs. */
-  shared?: { label: string; current: string } | null;
+  shared?: { label: string; current: string; changes?: boolean } | null;
+  /** A roster view: the dates mark when each entity started, so there is no trend line to draw. */
+  roster?: boolean;
 }) {
   const fmt = useFmt();
   const target = useWorkspace((s) => s.kpiTargets[meta.id]);
   const select = useWorkspace((s) => s.select);
   const selected = useWorkspace((s) => s.selected?.type === "kpi" && s.selected.id === meta.id);
   const shown = useCountUp(value?.value ?? null);
-  const compact =
-    meta.format === "currency" || (meta.format !== "percent" && Math.abs(value?.value ?? 0) >= 100000);
+  // The shared KPI rule (ui/common/kpiFormat, as the slides and the report write KPIs), decided once
+  // from the card's own value: the count-up never flips units mid-way, and the figures under it (its
+  // window's value, the "from" base) keep the units of the number above them.
+  const compact = kpiCompact(meta.format, value?.value);
   // With no rows in the selection there is nothing to measure: "—", not a total of zero.
   const noRows = value?.rows === 0;
   const display = noRows ? "—" : formatValue(shown, meta.format, { ...fmt, compact });
@@ -173,10 +231,20 @@ export function KpiCard({
             {display}
           </p>
           <div className="mt-2.5 flex min-h-6 flex-wrap items-center gap-x-2 gap-y-1">
-            <DeltaChip meta={meta} value={value} />
-            {/* What the change is measured from, when it describes this card's own number
-                (in all-time mode it describes the latest month instead, which the note above names). */}
-            {!noRows && !value.currentLabel && value.previous !== null && value.delta !== null ? (
+            {/* When the change describes a narrower window than the number above (all time, like
+                for like), that window's own value comes first, so the change never sits under a
+                number it doesn't describe: "September 2026: ₹37.9L ↗ +46.9% from ₹25.8L". */}
+            {!noRows && value.currentLabel && value.current !== null ? (
+              <span className="font-figures text-2xs text-fg-muted">
+                {value.currentLabel}:{" "}
+                <span className="text-fg">
+                  {formatValue(value.current, meta.format, { ...fmt, compact })}
+                </span>
+              </span>
+            ) : null}
+            <DeltaChip meta={meta} value={value} shared={shared?.changes ? undefined : shared?.label} />
+            {/* What the change is measured from. */}
+            {!noRows && value.previous !== null && value.delta !== null ? (
               <span className="font-figures text-2xs text-fg-subtle">
                 from {formatValue(value.previous, meta.format, { ...fmt, compact })}
               </span>
@@ -190,7 +258,7 @@ export function KpiCard({
               </span>
             ) : null}
           </div>
-          {noRows ? null : (
+          {noRows || roster ? null : (
             <div className="-mx-1 mt-3">
               <Sparkline
                 values={value.spark.map((p) => p.v)}
@@ -259,6 +327,7 @@ export function KpiStrip() {
   // The user's own order stands as set; the recommended heroes follow the user's main goal.
   const ids = own ? hero : orderByGoal(hero, metas, goal);
   const shared = batch ? sharedComparison(batch.values) : null;
+  const roster = isRosterView(context);
   if (!ids.length) return null;
   return (
     <div className="@container">
@@ -269,7 +338,7 @@ export function KpiStrip() {
         {ids.map((id, i) => {
           const meta = metas.get(id);
           return meta ? (
-            <KpiCard key={id} meta={meta} value={values.get(id)} index={i} shared={shared} />
+            <KpiCard key={id} meta={meta} value={values.get(id)} index={i} shared={shared} roster={roster} />
           ) : null;
         })}
       </section>
@@ -295,6 +364,9 @@ export function KpiTiles({ ids, label }: { ids: string[]; label: string }) {
   if (!context || !ids.length) return null;
   const metas = new Map(context.kpis.map((k) => [k.id, k]));
   const values = new Map(batch?.values.map((v) => [v.id, v]) ?? []);
+  // With no change on any card (a roster), the note above the cards says why once; tiles don't repeat it.
+  const shared = batch ? sharedComparison(batch.values) : null;
+  const noChangeReason = shared && !shared.changes ? shared.label : undefined;
   return (
     <section
       aria-label={label}
@@ -325,16 +397,22 @@ export function KpiTiles({ ids, label }: { ids: string[]; label: string }) {
                 v.rows === 0 ? (
                   "—"
                 ) : (
-                  formatValue(v.value, meta.format, {
-                    ...fmt,
-                    compact: meta.format !== "percent" && meta.format !== "ratio",
-                  })
+                  formatKpi(v.value, meta.format, fmt)
                 )
               ) : (
                 <Skeleton className="h-5 w-16" />
               )}
             </span>
-            {v ? <DeltaChip meta={meta} value={v} size="sm" /> : null}
+            {/* As on the cards: the window a change describes, with its own value, when it isn't the tile's. */}
+            {v && v.rows > 0 && v.currentLabel && v.current !== null ? (
+              <span className="font-figures w-full truncate text-2xs text-fg-muted">
+                {v.currentLabel}:{" "}
+                <span className="text-fg">
+                  {formatValue(v.current, meta.format, { ...fmt, compact: kpiCompact(meta.format, v.value) })}
+                </span>
+              </span>
+            ) : null}
+            {v ? <DeltaChip meta={meta} value={v} size="sm" shared={noChangeReason} /> : null}
           </button>
         );
       })}

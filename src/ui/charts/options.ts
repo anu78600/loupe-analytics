@@ -5,11 +5,16 @@
  * bars ≤ 24px with 4px rounded data-ends, 2px lines, ≥ 8px markers with a
  * 2px surface ring, hairline solid gridlines, selective direct labels, a legend
  * only for ≥ 2 series, never a dual axis, never a truncated bar axis.
- * Named categories are never dropped silently: their labels wrap (and many
- * bars turn horizontal) instead of being thinned or rotated. An incomplete
- * first or last period is drawn dashed and says where the data stops; colour
- * scales print their end values, and text on a coloured cell takes the ink
- * that contrasts with that cell.
+ * Named categories are never dropped silently: their labels wrap at spaces
+ * (and many bars, or bars whose names won't fit their slots, turn
+ * horizontal) instead of being thinned, broken mid-word or rotated; a
+ * horizontal bar always keeps its name. A time axis labels every nth period
+ * by an interval it chooses itself, so the first label of each year can say
+ * the year. An incomplete first or last period is drawn dashed and says
+ * where the data stops (unless a peak or low marker needs the room); colour
+ * scales print their end values, shares sit on a 0–100% axis in 20% steps,
+ * a scatter's axes fit its points, and text on a coloured cell takes the ink
+ * that contrasts with that cell and is left off cells too small to hold it.
  *
  * Pure functions: ChartData in, plain option object out, colours already
  * resolved from ChartTokens. The analyses with bespoke data (cohort, funnel)
@@ -48,6 +53,19 @@ export interface OptionContext {
   forExport?: boolean;
   /** The chart's drawing width in px when known (the card measures it); sizes category labels. */
   width?: number;
+  /**
+   * The chart's drawing height in px when known: sizes the names of
+   * horizontal bars so every bar keeps its name, and the labels inside
+   * treemap tiles and heatmap cells.
+   */
+  height?: number;
+  /**
+   * A card on the one-page dashboard, read without hovering (often as an
+   * image): a single series over time with up to 13 points prints its value
+   * on every point, in place of the peak and low markers, and a donut lists
+   * its slices with their shares in a legend beside the ring.
+   */
+  presentation?: boolean;
 }
 
 type Obj = Record<string, unknown>;
@@ -167,7 +185,13 @@ function valueAxis(
   extra: Obj = {},
   maxAbs?: number,
 ): Obj {
-  const ticks = maxAbs === undefined ? (v: number) => fv(v, format, fmt) : axisTicks(format, fmt, maxAbs);
+  // Percentage ticks drop a ".0" they don't need ("20%", "2.5%"), as on any analyst's axis.
+  const ticks =
+    format === "percent"
+      ? (v: number) => fv(v, format, fmt).replace(/\.0%$/, "%")
+      : maxAbs === undefined
+        ? (v: number) => fv(v, format, fmt)
+        : axisTicks(format, fmt, maxAbs);
   return {
     type: "value",
     axisLine: { show: false },
@@ -182,6 +206,29 @@ function valueAxis(
       formatter: ticks,
     },
     ...extra,
+  };
+}
+
+/**
+ * A 0–100% axis for shares (a 100% stack, a Pareto chart): ticks every 20%
+ * in whole percents, so the top tick never crowds the one below it ("90.0%"
+ * squeezed under "100%" when ECharts picks a 30% step and adds the maximum).
+ */
+function shareAxis(t: ChartTokens): Obj {
+  return {
+    type: "value",
+    min: 0,
+    max: 1,
+    interval: 0.2,
+    axisLine: { show: false },
+    axisTick: { show: false },
+    splitLine: { lineStyle: { color: t.grid, width: 1, type: "solid" } },
+    axisLabel: {
+      color: t.label,
+      fontSize: 11,
+      fontFamily: t.fontMono,
+      formatter: (v: number) => `${Math.round(v * 100)}%`,
+    },
   };
 }
 
@@ -209,8 +256,10 @@ function plotWidth(ctx: OptionContext): number {
 
 /**
  * A category label in at most `lines` lines of `maxChars` characters, broken
- * at spaces, the last line ending in "…" when the label doesn't fit. The full
- * label is always in the tooltip and the table view.
+ * at spaces, the last line ending in "…" when the label doesn't fit. A word
+ * is cut only when it alone is longer than a line ("Net Banking" breaks as
+ * "Net / Banking", never "Net Banki / ng"). The full label is always in the
+ * tooltip and the table view.
  */
 export function wrapLabel(text: string, maxChars: number, lines = 2): string {
   const limit = Math.max(3, maxChars);
@@ -224,13 +273,31 @@ export function wrapLabel(text: string, maxChars: number, lines = 2): string {
       break;
     }
     const cut = rest.lastIndexOf(" ", limit);
-    const at = cut > limit / 3 ? cut : limit;
+    const at = cut > 0 ? cut : limit;
     out.push(rest.slice(0, at).trim());
     rest = rest.slice(at).trim();
   }
   if (rest) {
     const last = out[out.length - 1] ?? "";
     out[out.length - 1] = `${last.slice(0, Math.max(1, limit - 1)).trimEnd()}…`;
+  }
+  return out.join("\n");
+}
+
+/**
+ * Words in at most `lines` lines of about `maxChars` characters, broken only
+ * at spaces: a word longer than a line stays whole (the renderer cuts it with
+ * an ellipsis), and words past the last line join it. For labels inside
+ * shapes whose width is only estimated (treemap tiles), where cutting a word
+ * on a guess leaves letters stacked ("Storag / e").
+ */
+export function wrapWords(text: string, maxChars: number, lines = 2): string {
+  const out: string[] = [];
+  for (const word of text.trim().split(/\s+/).filter(Boolean)) {
+    const last = out[out.length - 1];
+    if (last !== undefined && (last.length + 1 + word.length <= maxChars || out.length >= lines))
+      out[out.length - 1] = `${last} ${word}`;
+    else out.push(word);
   }
   return out.join("\n");
 }
@@ -459,21 +526,47 @@ function markPoints(ctx: OptionContext, seriesIndex: number, isLine = false): Ob
   };
 }
 
+/** Characters of a time label without and with its year ("Nov" / "Oct 2025", "6 Jan" / "6 Jan 2026"). */
+function timeLabelChars(grain: ChartData["grain"]): { short: number; long: number } {
+  if (grain === "month") return { short: 3, long: 8 };
+  if (grain === "week") return { short: 12, long: 17 };
+  return { short: 6, long: 11 };
+}
+
 /**
- * Time-axis labels that say the year once per year: "Oct 2025", "Nov", "Dec",
- * "Jan 2026" for months; "6 Jan 2026", "13 Jan" for days and weeks. Quarters
- * and years already carry it. Tooltips and tables keep the full label.
+ * How many periods one time-axis label covers: 1 labels every period, 2
+ * every other one. Chosen so a label with its year and the short one beside
+ * it never touch at the plot's width (about 6.2px a character at 11px, and a
+ * 10px gap). Set as the axis's explicit interval, so the labels drawn are
+ * known and timeTick can give the first one of each year its year.
  */
-function timeTick(data: ChartData): ((v: unknown, idx: number) => string) | undefined {
+function timeLabelStep(data: ChartData, width: number): number {
+  const n = data.categories.length;
+  if (n <= 1) return 1;
+  const { short, long } = timeLabelChars(data.grain);
+  const need = ((short + long) * 6.2) / 2 + 10;
+  const slot = width / n;
+  return Math.max(1, Math.ceil(need / slot));
+}
+
+/**
+ * Time-axis labels that say the year once per year: "Oct 2025", "Dec", "Feb
+ * 2026" for months; "6 Jan 2026", "13 Jan" for days and weeks. Only every
+ * `step`-th period is labelled (timeLabelStep), so a label carries the year
+ * when it is the first one drawn or the one drawn before it is in another
+ * year: thinned labels never lose the year ("Oct 2025, Dec, Feb, Apr" with
+ * 2026 nowhere). Quarters and years already carry it. Tooltips and tables
+ * keep the full label.
+ */
+function timeTick(data: ChartData, step = 1): ((v: unknown, idx: number) => string) | undefined {
   const grain = data.grain;
   if (grain !== "month" && grain !== "day" && grain !== "week") return undefined;
   return (v, idx) => {
     const raw = data.categories[idx]?.raw;
     if (typeof raw !== "number") return str(v);
     const d = new Date(raw);
-    const prev = data.categories[idx - 1]?.raw;
-    const newYear =
-      idx === 0 || typeof prev !== "number" || new Date(prev).getUTCFullYear() !== d.getUTCFullYear();
+    const prev = idx - step >= 0 ? data.categories[idx - step]?.raw : undefined;
+    const newYear = typeof prev !== "number" || new Date(prev).getUTCFullYear() !== d.getUTCFullYear();
     const month = MONTHS_SHORT[d.getUTCMonth()] as string;
     const base = grain === "month" ? month : `${grain === "week" ? "Wk of " : ""}${d.getUTCDate()} ${month}`;
     return newYear ? `${base} ${d.getUTCFullYear()}` : base;
@@ -486,6 +579,30 @@ function partialText(data: ChartData, idx: number): string {
     return `from ${shortDay(data.partialFirstStart)}`;
   if (data.partialLastEnd !== undefined) return `to ${shortDay(data.partialLastEnd)}`;
   return "partial";
+}
+
+/**
+ * Whether the "from 3 Jan" / "to 20 Dec" text at an incomplete period has
+ * room: not when a peak or low marker's plate sits close by at about the
+ * same height (within a fifth of the axis), where the two would print over
+ * each other ("Low 0" on "from 27 Aug"). The marker wins; the period is still
+ * drawn dashed or faded, flagged "partial" in the tooltip and named in the notes.
+ */
+function partialTextFits(ctx: OptionContext, idx: number): boolean {
+  const { data } = ctx;
+  const s = data.series[0];
+  if (!s || !data.annotations.length) return true;
+  const slot = plotWidth(ctx) / Math.max(1, data.categories.length);
+  // About 5.6px a character at 10px, plus the marker plate's padding and border.
+  const own = partialText(data, idx).length * 5.6 + 6;
+  const maxAbs = Math.max(1e-9, ...s.values.map((v) => Math.abs(v ?? 0)));
+  const here = s.values[idx] ?? 0;
+  return !data.annotations.some((a) => {
+    const v = s.values[a.index] ?? 0;
+    const plate = `${a.kind === "max" ? "Peak" : "Low"} ${fv(v, s.format, ctx.fmt)}`.length * 5.6 + 14;
+    const near = Math.abs(a.index - idx) * slot < (own + plate) / 2 + 4;
+    return near && Math.abs(v - here) < 0.2 * maxAbs;
+  });
 }
 
 /**
@@ -502,14 +619,19 @@ function partialSegments(ctx: OptionContext, values: Obj[], color: string, kind:
     const v = values[idx]?.value;
     if (v === null || v === undefined) return null;
     if (!end) return { value: v, symbol: "none" };
+    // The first point's text reads rightwards from above or below the point (whichever side the
+    // line leaves free), never leftwards over the value axis's labels; the last one's sits to its right.
+    const next = values[1]?.value;
+    const rising = typeof next === "number" && typeof v === "number" && next > v;
     return {
       value: v,
       symbol: "circle",
       symbolSize: 7,
       itemStyle: { color: t.surface, borderColor: color, borderWidth: 2 },
       label: {
-        show: true,
-        position: idx === 0 ? "left" : "right",
+        show: partialTextFits(ctx, idx),
+        position: idx === 0 ? (rising ? "bottom" : "top") : "right",
+        ...(idx === 0 ? { align: "left" } : {}),
         distance: 6,
         color: t.subtle,
         fontSize: 10,
@@ -550,11 +672,21 @@ function cartesian(ctx: OptionContext): EChartsCoreOption {
   const labels = data.categories.map((c) => c.label);
   const percent = kind === "stackedBar100";
   const fmt0 = percent ? "percent" : (data.series[0]?.format ?? "number");
-  // Named categories need room for their names: more than ten columns turn into horizontal bars
-  // (one name per row) rather than losing labels to overlap or tilting them.
+  // Characters a column's name gets in its slot (about 6.2px each at 11px, less an 8px gap).
+  const slotChars = Math.floor((plotWidth(ctx) / Math.max(1, labels.length) - 8) / 6.2);
+  // Named categories need room for their names: more than ten columns, or a name with a word
+  // longer than its slot ("Cred / it" on a phone), turn into horizontal bars (one name per row)
+  // rather than losing labels to overlap, cutting words or tilting them.
   const named = ctx.spec.x.kind === "column";
-  const horizontal =
-    kind === "hbar" || kind === "lollipop" || (kind === "bar" && named && labels.length > 10);
+  const longestWord = Math.max(0, ...labels.flatMap((l) => l.split(/\s+/).map((w) => w.length)));
+  const cramped = named && (labels.length > 10 || longestWord > Math.max(3, slotChars));
+  const horizontal = kind === "hbar" || kind === "lollipop" || (kind === "bar" && cramped);
+  // A horizontal bar's row height, when the card's height is known: names (and values) shrink to
+  // fit their rows. Only a row too short for even small type (a dozen bars in a very short card)
+  // thins the names, as the last resort: overlapping names can't be read at all.
+  const rowPx = horizontal && ctx.height ? (ctx.height - 36) / Math.max(1, labels.length) : null;
+  const rowFont = rowPx === null ? 11 : Math.min(11, Math.floor(rowPx * 0.85 * 2) / 2);
+  const rowsTooShort = rowPx !== null && rowFont < 7.5;
   // Named categories and value ranges ("0%–2.5%") each need their label; dates and date parts don't.
   const everyLabel = named || ctx.spec.x.kind === "bins";
   const isLine = kind === "line" || kind === "area" || kind === "step" || kind === "stackedArea";
@@ -575,8 +707,29 @@ function cartesian(ctx: OptionContext): EChartsCoreOption {
     kind !== "stackedBar" &&
     !percent &&
     !timeAxis &&
+    !rowsTooShort &&
     labels.length <= (horizontal ? 15 : 12) &&
     data.series.length === 1;
+  // Value labels beside horizontal bars take the rows' type size.
+  const valueFont = horizontal ? Math.min(10.5, Math.max(7.5, rowFont)) : 10.5;
+  // On the one-page dashboard a short series over time is read without hovering: every point
+  // carries its value (overlapping ones are dropped), in place of the peak and low markers.
+  const pointsLabelled =
+    Boolean(ctx.presentation) &&
+    ctx.spec.x.kind === "time" &&
+    data.series.length === 1 &&
+    labels.length <= 13 &&
+    (kind === "line" || kind === "area" || kind === "step" || kind === "bar");
+  const pointLabel = (format: KpiFormat): Obj => ({
+    show: true,
+    position: "top",
+    distance: 6,
+    color: t.muted,
+    fontSize: 10,
+    fontFamily: t.fontMono,
+    formatter: (p: { value: number | Obj }) =>
+      fv(typeof p.value === "number" ? p.value : ((p.value as Obj)?.value as number), format, fmt),
+  });
   const series: Obj[] = [];
   // Dashed segments into incomplete periods, appended after the named series.
   const helpers: Obj[] = [];
@@ -617,7 +770,7 @@ function cartesian(ctx: OptionContext): EChartsCoreOption {
       legend: legend(ctx, [share?.label ?? "", cum?.label ?? ""]),
       tooltip: axisTooltip(ctx),
       xAxis: categoryAxis(t, labels, { axisLabel: { show: false } }),
-      yAxis: valueAxis(t, "percent", fmt, { max: 1 }),
+      yAxis: shareAxis(t),
       series,
       aria: { enabled: true, label: { description: data.altText } },
     };
@@ -668,17 +821,29 @@ function cartesian(ctx: OptionContext): EChartsCoreOption {
         const base: Obj = { value: share(v, idx) };
         if (cat?.isOthers) base.itemStyle = { color: t.other, opacity: fade ? 0.35 : 1 };
         else if (fade) base.itemStyle = { opacity: partialPoint && isLine ? 0.55 : 0.35 };
-        // A faded single-series column says why it is short: the period isn't over in the data.
-        if (partialPoint && kind === "bar" && data.series.length === 1 && v !== null)
+        // A faded single-series column says why it is short: the period isn't over in the data. The
+        // first column's text reads rightwards from its centre, clear of the value axis's labels.
+        if (
+          partialPoint &&
+          kind === "bar" &&
+          data.series.length === 1 &&
+          v !== null &&
+          partialTextFits(ctx, idx)
+        )
           base.label = {
             show: true,
             position: "top",
+            ...(idx === 0 ? { align: "left" } : {}),
             distance: 6,
             color: t.subtle,
             fontSize: 10,
             fontFamily: t.fontSans,
             formatter: partialText(data, idx),
           };
+        // Values printed on every point: the first reads rightwards (clear of the value axis's
+        // labels) and the last leftwards (inside the plot), as the partial-period labels do.
+        else if (pointsLabelled && (idx === 0 || idx === s.values.length - 1))
+          base.label = { align: idx === 0 ? "left" : "right" };
         return base;
       });
       if (isLine) {
@@ -698,8 +863,9 @@ function cartesian(ctx: OptionContext): EChartsCoreOption {
           step: kind === "step" ? "end" : undefined,
           stack: kind === "stackedArea" ? "total" : undefined,
           symbol: "circle",
-          symbolSize: 8,
-          showSymbol: labels.length <= 2,
+          symbolSize: pointsLabelled ? 6 : 8,
+          showSymbol: pointsLabelled || labels.length <= 2,
+          ...(pointsLabelled ? { label: pointLabel(s.format), labelLayout: { hideOverlap: true } } : {}),
           lineStyle: { width: kind === "stackedArea" ? 1.5 : 2, color, cap: "round", join: "round" },
           itemStyle: { color, borderColor: t.surface, borderWidth: 2 },
           areaStyle:
@@ -711,7 +877,7 @@ function cartesian(ctx: OptionContext): EChartsCoreOption {
           emphasis: { focus: "series" },
           // The value at the end of the line, unless the line now ends before an incomplete period.
           endLabel:
-            data.series.length === 1 && !ctx.forExport && !(dashed && data.partialLast)
+            data.series.length === 1 && !ctx.forExport && !pointsLabelled && !(dashed && data.partialLast)
               ? {
                   show: true,
                   color: t.fg,
@@ -726,7 +892,7 @@ function cartesian(ctx: OptionContext): EChartsCoreOption {
                     ),
                 }
               : undefined,
-          markPoint: markPoints(ctx, i, true),
+          markPoint: pointsLabelled ? undefined : markPoints(ctx, i, true),
         });
       } else if (kind === "lollipop") {
         // A thin stem (silent, unnamed, so tooltips and legends skip it) and a dot at the value.
@@ -753,7 +919,7 @@ function cartesian(ctx: OptionContext): EChartsCoreOption {
                 position: "right",
                 distance: 8,
                 color: t.muted,
-                fontSize: 10.5,
+                fontSize: valueFont,
                 fontFamily: t.fontMono,
                 formatter: (p: { value: number | Obj }) =>
                   fv(
@@ -779,24 +945,27 @@ function cartesian(ctx: OptionContext): EChartsCoreOption {
             borderColor: stacked ? t.surface : undefined,
             borderWidth: stacked ? 1 : 0,
           },
-          label: barsLabelled
-            ? {
-                show: true,
-                position: horizontal ? "right" : "top",
-                distance: 6,
-                color: t.muted,
-                fontSize: 10.5,
-                fontFamily: t.fontMono,
-                formatter: (p: { value: number | Obj }) =>
-                  fv(
-                    typeof p.value === "number" ? p.value : ((p.value as Obj)?.value as number),
-                    s.format,
-                    fmt,
-                  ),
-              }
-            : undefined,
+          label: pointsLabelled
+            ? pointLabel(s.format)
+            : barsLabelled
+              ? {
+                  show: true,
+                  position: horizontal ? "right" : "top",
+                  distance: 6,
+                  color: t.muted,
+                  fontSize: valueFont,
+                  fontFamily: t.fontMono,
+                  formatter: (p: { value: number | Obj }) =>
+                    fv(
+                      typeof p.value === "number" ? p.value : ((p.value as Obj)?.value as number),
+                      s.format,
+                      fmt,
+                    ),
+                }
+              : undefined,
+          ...(pointsLabelled ? { labelLayout: { hideOverlap: true } } : {}),
           emphasis: { focus: data.series.length > 1 ? "series" : "self" },
-          markPoint: kind === "bar" && timeAxis ? markPoints(ctx, i) : undefined,
+          markPoint: kind === "bar" && timeAxis && !pointsLabelled ? markPoints(ctx, i) : undefined,
           animationDelay: (idx: number) => idx * 14,
         });
       }
@@ -806,9 +975,13 @@ function cartesian(ctx: OptionContext): EChartsCoreOption {
   series.push(...helpers);
   const names = series.map((s) => s.name as string).filter(Boolean);
   const longCats = horizontal && labels.some((l) => l.length > 18);
-  // Every named category keeps its label, wrapped to two lines of what its slot can hold; dates and
-  // date parts are regular, so thinning them (every other month) loses nothing.
-  const slotChars = Math.floor((plotWidth(ctx) / Math.max(1, labels.length) - 8) / 6.2);
+  // Every named category keeps its label (interval 0, never thinned): wrapped to two lines of what
+  // its slot can hold on columns; on horizontal bars the names shrink a little in a short card so
+  // each row's name fits its row. Dates and date parts are regular, so thinning them (every other
+  // month) loses nothing, but the interval is set here, so the labels drawn are known (timeTick).
+  const nameWidth = Math.round(Math.min(longCats ? 140 : 120, Math.max(72, plotWidth(ctx) * 0.36)));
+  const step = ctx.spec.x.kind === "time" ? timeLabelStep(data, plotWidth(ctx)) : 1;
+  const tick = ctx.spec.x.kind === "time" ? timeTick(data, step) : undefined;
   const catAxis = categoryAxis(
     t,
     labels,
@@ -817,10 +990,13 @@ function cartesian(ctx: OptionContext): EChartsCoreOption {
           inverse: true,
           axisLabel: {
             color: t.label,
-            fontSize: 11,
+            fontSize: Math.max(7.5, rowFont),
             fontFamily: t.fontSans,
-            width: longCats ? 140 : 120,
+            width: nameWidth,
             overflow: "truncate",
+            // Every name, unless the rows are too short for any legible type (rowsTooShort).
+            interval: rowsTooShort && rowPx ? Math.ceil(9 / rowPx) - 1 : 0,
+            hideOverlap: false,
           },
         }
       : {
@@ -839,8 +1015,9 @@ function cartesian(ctx: OptionContext): EChartsCoreOption {
                 color: t.label,
                 fontSize: 11,
                 fontFamily: t.fontSans,
-                hideOverlap: true,
-                ...(ctx.spec.x.kind === "time" && timeTick(data) ? { formatter: timeTick(data) } : {}),
+                ...(tick
+                  ? { interval: step - 1, hideOverlap: false, formatter: tick }
+                  : { hideOverlap: true }),
               },
         },
   );
@@ -863,20 +1040,24 @@ function cartesian(ctx: OptionContext): EChartsCoreOption {
     ? data.categories.map((_, idx) => columnTotal(data, idx))
     : data.series.flatMap((s) => s.values.map((v) => Math.abs(v ?? 0)));
   const maxAbs = reach.reduce((m, v) => Math.max(m, v), 0);
-  const valAxis = valueAxis(t, fmt0, fmt, percent ? { ...valExtra, max: 1 } : valExtra, maxAbs);
+  // A 100% stack is drawn in shares of each column, on a 0–100% axis in whole steps.
+  const valAxis = percent ? shareAxis(t) : valueAxis(t, fmt0, fmt, valExtra, maxAbs);
   return {
     ...animation(ctx),
     grid: {
       ...GRID,
       top: names.length > 1 ? 34 : GRID.top,
-      // Room on the right for a line's end label, or for "to 20 Sep" after an incomplete last period.
+      // Room on the right for a line's end label, or for "to 20 Sep" after an incomplete last period
+      // (beside a line's last point, or centred over the last column, where half of it overhangs).
       right: horizontal
         ? 52
         : isLine && data.partialLast && kind !== "stackedArea"
           ? 72
           : isLine && data.series.length === 1
             ? 54
-            : 18,
+            : kind === "bar" && data.partialLast && data.series.length === 1
+              ? 36
+              : 18,
     },
     legend: legend(ctx, names),
     tooltip: axisTooltip(ctx),
@@ -904,8 +1085,31 @@ function donut(ctx: OptionContext, pie = false): EChartsCoreOption {
     value: s?.values[i] ?? 0,
     itemStyle: { color: colours[i], opacity: dimmed(ctx, c.label) ? 0.35 : 1 },
   }));
+  // On a small one-page card the names and shares go in a legend beside the ring (as on a report
+  // page), where they never collide, instead of on leader lines around it.
+  const legendSide = Boolean(ctx.presentation);
+  const shareOf = (name: string) => {
+    const v = items.find((it) => it.name === name)?.value ?? 0;
+    return total > 0 ? `${Math.round((v / total) * 100)}%` : "";
+  };
   return {
     ...animation(ctx),
+    ...(legendSide
+      ? {
+          legend: {
+            show: true,
+            orient: "vertical",
+            right: 4,
+            top: "middle",
+            icon: "circle",
+            itemWidth: 9,
+            itemHeight: 9,
+            itemGap: 6,
+            textStyle: { color: t.muted, fontSize: 11, fontFamily: t.fontSans },
+            formatter: (name: string) => `${name}  ${shareOf(name)}`,
+          },
+        }
+      : {}),
     tooltip: {
       ...baseTooltip(t),
       trigger: "item",
@@ -914,57 +1118,95 @@ function donut(ctx: OptionContext, pie = false): EChartsCoreOption {
     },
     graphic: pie
       ? undefined
-      : [
-          {
-            type: "text",
-            left: "center",
-            top: "44%",
-            style: {
-              text: fv(total, format, fmt),
-              fill: t.fg,
-              fontSize: 18,
-              fontWeight: 600,
-              fontFamily: t.fontSans,
-              textAlign: "center",
+      : legendSide
+        ? // The ring moves left to make room for the legend; its total is centred on the ring
+          // itself, so it needs the chart's measured size (the page always passes it).
+          ctx.width && ctx.height
+          ? [
+              {
+                type: "text",
+                x: ctx.width * 0.3,
+                y: ctx.height * 0.5 - 8,
+                style: {
+                  text: fv(total, format, fmt),
+                  fill: t.fg,
+                  fontSize: 16,
+                  fontWeight: 600,
+                  fontFamily: t.fontSans,
+                  textAlign: "center",
+                  textVerticalAlign: "middle",
+                },
+              },
+              {
+                type: "text",
+                x: ctx.width * 0.3,
+                y: ctx.height * 0.5 + 10,
+                style: {
+                  text: "total",
+                  fill: t.subtle,
+                  fontSize: 10.5,
+                  fontFamily: t.fontSans,
+                  textAlign: "center",
+                  textVerticalAlign: "middle",
+                },
+              },
+            ]
+          : undefined
+        : [
+            {
+              type: "text",
+              left: "center",
+              top: "44%",
+              style: {
+                text: fv(total, format, fmt),
+                fill: t.fg,
+                fontSize: 18,
+                fontWeight: 600,
+                fontFamily: t.fontSans,
+                textAlign: "center",
+              },
             },
-          },
-          {
-            type: "text",
-            left: "center",
-            top: "56%",
-            style: {
-              text: "total",
-              fill: t.subtle,
-              fontSize: 11,
-              fontFamily: t.fontSans,
-              textAlign: "center",
+            {
+              type: "text",
+              left: "center",
+              top: "56%",
+              style: {
+                text: "total",
+                fill: t.subtle,
+                fontSize: 11,
+                fontFamily: t.fontSans,
+                textAlign: "center",
+              },
             },
-          },
-        ],
+          ],
     series: [
       {
         type: "pie",
         // In a wide card the ring and its labels keep to a centred box: labels sit at the box's
         // edges, near their slices, instead of at the far ends of the card.
-        ...(ctx.width && ctx.width > 720 ? { left: "center", width: 600 } : {}),
-        radius: pie ? ["0%", "68%"] : ["50%", "70%"],
-        center: ["50%", "52%"],
+        ...(ctx.width && ctx.width > 720 && !legendSide ? { left: "center", width: 600 } : {}),
+        radius: pie ? ["0%", "68%"] : legendSide ? ["52%", "76%"] : ["50%", "70%"],
+        center: legendSide ? ["30%", "50%"] : ["50%", "52%"],
         padAngle: 1.5,
         itemStyle: { borderRadius: 4, borderColor: t.surface, borderWidth: 2 },
         // Labels line up at the card's edges, where there is the most room, and long names wrap
         // onto a second line instead of being cut ("Net Banking", "Debit Card").
-        label: {
-          show: true,
-          color: t.muted,
-          fontSize: 11,
-          fontFamily: t.fontSans,
-          formatter: (p: { name: string; percent: number }) => `${p.name}\n${p.percent.toFixed(0)}%`,
-          lineHeight: 15,
-          alignTo: "edge",
-          edgeDistance: 8,
-          overflow: "break",
-        },
-        labelLine: { length: 10, length2: 0, maxSurfaceAngle: 80, lineStyle: { color: t.axis } },
+        label: legendSide
+          ? { show: false }
+          : {
+              show: true,
+              color: t.muted,
+              fontSize: 11,
+              fontFamily: t.fontSans,
+              formatter: (p: { name: string; percent: number }) => `${p.name}\n${p.percent.toFixed(0)}%`,
+              lineHeight: 15,
+              alignTo: "edge",
+              edgeDistance: 8,
+              overflow: "break",
+            },
+        labelLine: legendSide
+          ? { show: false }
+          : { length: 10, length2: 0, maxSurfaceAngle: 80, lineStyle: { color: t.axis } },
         labelLayout: { hideOverlap: false, moveOverlap: "shiftY" },
         data: items,
         emphasis: { scale: true, scaleSize: 4 },
@@ -1044,6 +1286,14 @@ function treemap(ctx: OptionContext): EChartsCoreOption {
       };
     });
   }
+  // A tile's width, roughly: its share of the plot's area, as a square (the layout keeps tiles near
+  // square). A name is broken at spaces to about that width (never inside a word: the estimate can
+  // be off, and ECharts cuts what is still too wide with an ellipsis); a tile too small for three
+  // characters stays unlabelled (its name and value are in the tooltip and the table).
+  const totalValue = nodes.reduce((sum, n) => sum + Math.max(0, Number(n.value) || 0), 0);
+  const area = (ctx.width ?? plotWidth(ctx) + 70) * (ctx.height ?? 300);
+  const tileChars = (value: number) =>
+    totalValue > 0 ? Math.floor((Math.sqrt((area * Math.max(0, value)) / totalValue) - 10) / 6.6) : 0;
   return {
     ...animation(ctx),
     tooltip: {
@@ -1087,14 +1337,22 @@ function treemap(ctx: OptionContext): EChartsCoreOption {
           show: true,
           fontFamily: t.fontSans,
           fontSize: 11.5,
-          formatter: (p: { name: string; value: number; data: Obj }) =>
-            data.rfm
-              ? `${p.name}\n${(((p.data.revenueShare as number) ?? 0) * 100).toFixed(0)}% revenue`
-              : `${p.name}\n${fv(p.value, format, fmt)}`,
+          formatter: (p: { name: string; value: number; data: Obj }) => {
+            const chars = tileChars(p.value);
+            if (chars < 3) return "";
+            const second = data.rfm
+              ? `${(((p.data.revenueShare as number) ?? 0) * 100).toFixed(0)}% revenue`
+              : fv(p.value, format, fmt);
+            // Names over 12 characters go onto two lines whatever the estimate ("New / Customers"):
+            // tall, narrow tiles hold fewer characters across than their area suggests.
+            return `${wrapWords(p.name, Math.min(chars, 12))}\n${second}`;
+          },
           lineHeight: 16,
-          // A long name wraps inside its tile ("New / Customers") rather than being cut; lines that
-          // don't fit a short tile are dropped with an ellipsis.
-          overflow: "break",
+          // Names are wrapped at spaces above ("New / Customers"); anything still too wide for its
+          // tile is cut with an ellipsis, never broken letter by letter ("H / ai / rc / ar / e"), and
+          // lines that don't fit a short tile are dropped the same way.
+          overflow: "truncate",
+          ellipsis: "…",
           lineOverflow: "truncate",
         },
         upperLabel: { show: false },
@@ -1141,7 +1399,17 @@ function seqVisualMap(
   };
 }
 
-/** Two-dimension heatmap from data.matrix (rows = seriesCategories); in-cell labels only up to 96 cells. */
+/**
+ * The width of one cell of a grid with `columns` columns, in px: the chart's
+ * width less the row labels (about 6.2px a character) and the margins.
+ */
+function cellWidth(ctx: OptionContext, columns: number, rowLabels: string[]): number {
+  const labelPx = Math.max(0, ...rowLabels.map((l) => l.length)) * 6.2 + 26;
+  const width = ctx.width ?? plotWidth(ctx) + 70;
+  return (width - labelPx) / Math.max(1, columns);
+}
+
+/** Two-dimension heatmap from data.matrix (rows = seriesCategories); in-cell labels only up to 96 cells that can hold them. */
 function heatmap(ctx: OptionContext): EChartsCoreOption {
   const { data, tokens: t, fmt } = ctx;
   const format = ctx.spec.measures[0]?.format ?? "number";
@@ -1159,7 +1427,10 @@ function heatmap(ctx: OptionContext): EChartsCoreOption {
       }
     }),
   );
-  const showLabels = xs.length * ys.length <= 96;
+  // In-cell values only where each cell can hold one ("₹12.4L" needs about 40px): many cells, or a
+  // phone's width, leave the colour to speak and the numbers to the tooltip and the table.
+  const sample = cells.reduce((w, [, , v]) => Math.max(w, v === null ? 0 : fv(v, format, fmt).length), 0);
+  const showLabels = xs.length * ys.length <= 96 && cellWidth(ctx, xs.length, ys) >= sample * 6 + 6;
   return {
     ...animation(ctx),
     grid: {
@@ -1275,7 +1546,8 @@ function cohort(ctx: OptionContext): EChartsCoreOption {
         ),
         itemStyle: { borderColor: t.surface, borderWidth: 2, borderRadius: 3 },
         label: {
-          show: true,
+          // "100%" needs about 30px: narrower cells (a phone, a long history) keep only their colour.
+          show: cellWidth(ctx, xs.length, ys) >= 30,
           fontSize: 10,
           fontFamily: t.fontMono,
           formatter: (p: { value: [number, number, number | string] }) =>
@@ -1422,7 +1694,10 @@ function scatter(ctx: OptionContext): EChartsCoreOption {
       labelLayout: { hideOverlap: true },
     },
   ];
-  if (data.trendline && pts.length >= 3 && !bubble) {
+  // No fit (all points share an x or a y, so R² is 0/0): no trendline, rather than "R² NaN".
+  const fitted =
+    data.trendline && Number.isFinite(data.trendline.r2) && Number.isFinite(data.trendline.slope);
+  if (data.trendline && fitted && pts.length >= 3 && !bubble) {
     const xs = pts.map((p) => p.x);
     const lo = Math.min(...xs);
     const hi = Math.max(...xs);
@@ -1442,7 +1717,8 @@ function scatter(ctx: OptionContext): EChartsCoreOption {
   }
   return {
     ...animation(ctx),
-    grid: { ...GRID, right: 60, top: 22 },
+    // The x axis's name sits under its tick labels, outside what outerBounds measures: room for it below.
+    grid: { ...GRID, right: 60, top: 22, bottom: 28 },
     tooltip: {
       ...baseTooltip(t),
       trigger: "item",
@@ -1451,7 +1727,10 @@ function scatter(ctx: OptionContext): EChartsCoreOption {
         return `${heading(str(p.name), t)}${row(mx?.label ?? "x", fv(num(x), mx?.format ?? "number", fmt, false), t)}${row(my?.label ?? "y", fv(num(y), my?.format ?? "number", fmt, false), t)}${bubble ? row(ms?.label ?? "Size", fv(num(p.data?.size), ms?.format ?? "number", fmt, false), t) : ""}`;
       },
     },
+    // Points don't encode length, so both axes fit the data (scale) instead of starting at zero,
+    // which squashed the cloud into a corner.
     xAxis: valueAxis(t, mx?.format ?? "number", fmt, {
+      scale: true,
       name: mx?.label,
       nameLocation: "middle",
       nameGap: 26,
@@ -1460,6 +1739,7 @@ function scatter(ctx: OptionContext): EChartsCoreOption {
       axisLine: { show: true, lineStyle: { color: t.axis } },
     }),
     yAxis: valueAxis(t, my?.format ?? "number", fmt, {
+      scale: true,
       name: my?.label,
       nameTextStyle: { color: t.label, fontSize: 11, align: "left" },
     }),
@@ -2055,7 +2335,8 @@ export const GRAIN_WORD: Record<string, string> = {
 /**
  * The line under a chart's title, as analysts write it: the unit and, on a
  * time axis, what each point covers ("In ₹ · monthly", "In % · weekly",
- * "Count · monthly"); a cohort grid's base ("In % of each cohort"). Empty for
+ * "Count · monthly"); a cohort grid's base ("In % of each cohort"), and a 100%
+ * stack's ("In % of each column"), whatever its measure counts. Empty for
  * tables and for charts mixing units.
  */
 export function chartSubtitle(
@@ -2067,6 +2348,9 @@ export function chartSubtitle(
   if (kind === "table") return "";
   // A cohort grid's cells are shares of each cohort, whatever its measure counts.
   if (data?.cohorts?.length) return "In % of each cohort";
+  const grainWord = spec.x.kind === "time" && data?.grain ? (GRAIN_WORD[data.grain] ?? "") : "";
+  // A 100% stack draws each part as its share of its column, whatever the measure counts.
+  if (kind === "stackedBar100") return ["In % of each column", grainWord].filter(Boolean).join(" · ");
   const formats = new Set(
     data?.series.length ? data.series.map((s) => s.format) : spec.measures.map((m) => m.format),
   );
@@ -2082,8 +2366,7 @@ export function chartSubtitle(
           : f === "days"
             ? "In days"
             : "";
-  const grain = spec.x.kind === "time" && data?.grain ? (GRAIN_WORD[data.grain] ?? "") : "";
-  return [unit, grain].filter(Boolean).join(" · ");
+  return [unit, grainWord].filter(Boolean).join(" · ");
 }
 
 /** The ECharts option for a chart, or null when there is nothing to draw (empty data, or a table view). */

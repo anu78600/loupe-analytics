@@ -1,7 +1,13 @@
 /** 404 page: a calm dead end with the two places people usually want to go. */
+import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { LoupeMark } from "@/ui/brand/logo";
+
+export const metadata: Metadata = {
+  title: "Page not found",
+  description: "This page doesn't exist. Open the workspace or go back to the home page.",
+};
 
 export default function NotFound() {
   return (

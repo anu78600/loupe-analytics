@@ -6,6 +6,14 @@
  * filter chips including the cross-filter, and a data-health shortcut.
  * Filters live in the workspace store, which recomputes KPIs and charts in the
  * worker.
+ *
+ * The presets are one radio group with roving focus: Tab reaches the chosen
+ * one, the arrow keys (and Home and End) move between them and choose. A
+ * custom range whose end is before its start says so instead of being
+ * ignored. A filter's value list opens beside the rail on wide screens and
+ * below its button in the phone's Filters sheet, so it is never off-screen.
+ * Filters are named by their column, as the chips and every other filter
+ * description name them ("Channel: Amazon").
  */
 import * as React from "react";
 import { Check, ChevronDown, Filter as FilterIcon, Gauge, Search, X } from "lucide-react";
@@ -31,6 +39,20 @@ const parseIsoDay = (s: string): number | null => {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
   return m ? Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : null;
 };
+
+// The rail sits beside the dashboard from Tailwind's lg breakpoint; below it, in a sheet.
+const WIDE = "(min-width: 1024px)";
+function subscribeWide(onChange: () => void): () => void {
+  const mq = window.matchMedia(WIDE);
+  mq.addEventListener("change", onChange);
+  return () => mq.removeEventListener("change", onChange);
+}
+const wideNow = () => window.matchMedia(WIDE).matches;
+
+/** True when the rail is beside the dashboard (a wide screen); false in the phone's Filters sheet. */
+function useWideRail(): boolean {
+  return React.useSyncExternalStore(subscribeWide, wideNow, () => true);
+}
 
 export function FilterRail({ onOpenHealth }: { onOpenHealth: () => void }) {
   const context = useWorkspace((s) => s.context);
@@ -89,6 +111,7 @@ function DateFilter() {
   const preset = useWorkspace((s) => s.datePreset);
   const custom = useWorkspace((s) => s.customRange);
   const setPreset = useWorkspace((s) => s.setDatePreset);
+  const radios = React.useRef<Array<HTMLButtonElement | null>>([]);
   const bounds = context?.dateBounds;
   if (!context?.dateColumn || !bounds) {
     return <p className="text-2xs text-fg-subtle">No date column mapped, so period filters are off.</p>;
@@ -97,6 +120,33 @@ function DateFilter() {
     preset === "custom" && custom
       ? custom
       : (presetRange(preset, bounds) ?? { from: bounds.min, to: bounds.max });
+  const offered = PRESETS.filter((p) => presetAvailable(p, bounds));
+  // Roving focus (the ARIA radio group pattern): only the chosen preset, or the first when a custom
+  // range is chosen, is in the Tab order; the arrow keys move between presets and choose as they go.
+  const focusable = offered.includes(preset) ? preset : offered[0];
+  const onKey = (e: React.KeyboardEvent, i: number) => {
+    const last = offered.length - 1;
+    const to =
+      e.key === "ArrowDown" || e.key === "ArrowRight"
+        ? i === last
+          ? 0
+          : i + 1
+        : e.key === "ArrowUp" || e.key === "ArrowLeft"
+          ? i === 0
+            ? last
+            : i - 1
+          : e.key === "Home"
+            ? 0
+            : e.key === "End"
+              ? last
+              : null;
+    if (to === null) return;
+    e.preventDefault();
+    const next = offered[to];
+    if (!next) return;
+    radios.current[to]?.focus();
+    setPreset(next);
+  };
   return (
     <div>
       <div className="flex items-baseline justify-between gap-2">
@@ -112,17 +162,22 @@ function DateFilter() {
         </p>
       ) : null}
       <div className="mt-2 grid gap-0.5" role="radiogroup" aria-label="Date range">
-        {PRESETS.filter((p) => presetAvailable(p, bounds)).map((p) => {
+        {offered.map((p, i) => {
           const r = presetRange(p, bounds);
           const active = preset === p;
           return (
             <div key={p}>
               {/* The range is in the tooltip and in the From/To fields below, not squeezed beside each option. */}
               <button
+                ref={(el) => {
+                  radios.current[i] = el;
+                }}
                 type="button"
                 role="radio"
                 aria-checked={active}
+                tabIndex={p === focusable ? 0 : -1}
                 onClick={() => setPreset(p)}
+                onKeyDown={(e) => onKey(e, i)}
                 title={r ? formatRange(r.from, r.to) : undefined}
                 className={cn(
                   "flex w-full items-center rounded-[8px] px-2.5 py-1.5 text-left text-ui transition-colors",
@@ -166,6 +221,8 @@ function CustomRangeForm({
 }) {
   const [from, setFrom] = React.useState(() => isoDate(initial.from));
   const [to, setTo] = React.useState(() => isoDate(initial.to));
+  // Why the range wasn't applied, shown under the fields (never a silent no-op).
+  const [error, setError] = React.useState<string | null>(null);
   return (
     // One field per line: date inputs have a minimum width, and side by side they overflow the rail.
     <form
@@ -174,8 +231,17 @@ function CustomRangeForm({
         e.preventDefault();
         const a = parseIsoDay(from);
         const b = parseIsoDay(to);
+        if (a === null || b === null) {
+          setError("Enter both dates.");
+          return;
+        }
+        if (b < a) {
+          setError("The To date is before the From date.");
+          return;
+        }
+        setError(null);
         // The end date is inclusive: extend it to the last millisecond of that day.
-        if (a !== null && b !== null && b >= a) onApply({ from: a, to: b + 86_399_999 });
+        onApply({ from: a, to: b + 86_399_999 });
       }}
     >
       <div className="grid gap-1">
@@ -188,7 +254,12 @@ function CustomRangeForm({
           value={from}
           min={isoDate(bounds.min)}
           max={isoDate(bounds.max)}
-          onChange={(e) => setFrom(e.target.value)}
+          onChange={(e) => {
+            setFrom(e.target.value);
+            setError(null);
+          }}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? "range-error" : undefined}
           className="h-8 w-full min-w-0 px-2 text-ui"
         />
       </div>
@@ -202,10 +273,20 @@ function CustomRangeForm({
           value={to}
           min={isoDate(bounds.min)}
           max={isoDate(bounds.max)}
-          onChange={(e) => setTo(e.target.value)}
+          onChange={(e) => {
+            setTo(e.target.value);
+            setError(null);
+          }}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? "range-error" : undefined}
           className="h-8 w-full min-w-0 px-2 text-ui"
         />
       </div>
+      {error ? (
+        <p id="range-error" role="alert" className="text-2xs text-danger">
+          {error}
+        </p>
+      ) : null}
       <Button type="submit" size="sm" variant="secondary">
         Apply custom range
       </Button>
@@ -220,18 +301,38 @@ function DimensionFilters() {
     <div>
       <Eyebrow>Filters</Eyebrow>
       <div className="mt-2 grid gap-1.5">
+        {/* Named by the column, as the chips and every filter description name it ("Channel: Amazon");
+            the industry's name for the field, when it differs, is in the tooltip. */}
         {context.dimensions.slice(0, 7).map((d) => (
-          <DimensionFilter key={d.column} column={d.column} label={d.label} distinct={d.distinct} />
+          <DimensionFilter
+            key={d.column}
+            column={d.column}
+            label={friendly(d.column)}
+            hint={d.label !== friendly(d.column) ? d.label : undefined}
+            distinct={d.distinct}
+          />
         ))}
       </div>
     </div>
   );
 }
 
-function DimensionFilter({ column, label, distinct }: { column: string; label: string; distinct: number }) {
+function DimensionFilter({
+  column,
+  label,
+  hint,
+  distinct,
+}: {
+  column: string;
+  label: string;
+  /** The industry's name for the field, when it differs from the column's. */
+  hint?: string;
+  distinct: number;
+}) {
   const current = useWorkspace((s) => s.dimFilters.find((f) => f.column === column));
   const setFilter = useWorkspace((s) => s.setDimFilter);
   const locale = useSettings((s) => s.numberLocale);
+  const wide = useWideRail();
   const profileValues = useWorkspace(
     (s) => s.context?.profile.columns.find((c) => c.name === column)?.categorical?.all,
   );
@@ -256,6 +357,7 @@ function DimensionFilter({ column, label, distinct }: { column: string; label: s
       <PopoverTrigger asChild>
         <button
           type="button"
+          title={hint}
           className={cn(
             "flex h-9 w-full items-center justify-between gap-2 rounded-control border px-3 text-left text-ui transition-colors",
             selected.length
@@ -274,7 +376,13 @@ function DimensionFilter({ column, label, distinct }: { column: string; label: s
           </span>
         </button>
       </PopoverTrigger>
-      <PopoverContent align="start" side="right" className="w-72 p-0">
+      {/* Beside the rail on a wide screen; below the button in the phone's sheet, where there is no
+          room to the right (it opened off-screen there). Never wider than the screen. */}
+      <PopoverContent
+        align="start"
+        side={wide ? "right" : "bottom"}
+        className="w-72 max-w-[calc(100vw-1.5rem)] p-0"
+      >
         <div className="flex items-center gap-2 border-b border-border px-3 py-2">
           <Search className="size-3.5 text-fg-subtle" aria-hidden />
           <input

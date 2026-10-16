@@ -176,11 +176,13 @@
 
 /*
  * Motion graphics (landing page, and a few workspace touches). Pure CSS so they
- * start with the first paint, cost no JavaScript, and stop under the reduced-
- * motion rule at the end of this file.
+ * start with the first paint, cost no JavaScript, pause off screen ([data-paused]
+ * below), and stop under the reduced-motion rule at the end of this file. Loops
+ * move transforms and opacity, which the compositor plays without restyling the
+ * page each frame.
  */
 
-/* An animatable angle, so a conic-gradient border can sweep round ("beam"). */
+/* An animatable angle, so a conic-gradient border can sweep round (.beam-border, the workspace's). */
 @property --beam-angle {
   syntax: "<angle>";
   inherits: false;
@@ -189,6 +191,15 @@
 @keyframes beam-spin {
   to {
     --beam-angle: 360deg;
+  }
+}
+/* The landing page's beam (.beam-ring) turns a layer instead: see the note there. */
+@keyframes beam-turn {
+  from {
+    transform: translate(-50%, -50%) rotate(0turn);
+  }
+  to {
+    transform: translate(-50%, -50%) rotate(1turn);
   }
 }
 @keyframes aurora-a {
@@ -406,10 +417,12 @@
     animation: var(--animate-shimmer);
   }
 
+  /* The prefixed line must come first: Lightning CSS keeps only the last of the pair, and with the
+     prefixed one last Chrome, Edge and Firefox got no blur at all. */
   .glass {
     background: var(--surface-glass);
-    backdrop-filter: saturate(140%) blur(14px);
     -webkit-backdrop-filter: saturate(140%) blur(14px);
+    backdrop-filter: saturate(140%) blur(14px);
   }
 
   /* Hero-only atmosphere: soft gradient mesh plus film grain */
@@ -498,7 +511,48 @@
     transform: translateX(135%);
   }
 
-  /* A brass beam running round the border of the element (rounded like it). */
+  /*
+   * A brass beam running round the border of its parent (positioned, and rounded like it): an
+   * empty <span class="beam-ring">. The span is masked to a 1px ring; inside it an oversized
+   * conic gradient (a square as wide as the box's diagonal) turns with a transform, which the
+   * compositor animates on its own. Animating the gradient's angle instead (.beam-border below)
+   * restyles and repaints the page every frame.
+   */
+  .beam-ring {
+    position: absolute;
+    inset: -1px;
+    z-index: 1;
+    border-radius: inherit;
+    padding: 1px;
+    overflow: hidden;
+    container-type: size;
+    pointer-events: none;
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+  }
+  .beam-ring::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    /* Covers the box at every angle; the sum is the fallback where hypot() is missing. */
+    width: calc(100cqw + 100cqh + 4px);
+    width: calc(hypot(100cqw, 100cqh) + 4px);
+    aspect-ratio: 1;
+    background: conic-gradient(
+      transparent 0 64%,
+      var(--accent-deep) 76%,
+      var(--accent-strong) 84%,
+      transparent 92%
+    );
+    transform: translate(-50%, -50%);
+    animation: beam-turn 7s linear infinite;
+  }
+
+  /* The same beam on the element itself, through its ::before (the workspace's upload drop zone). */
   .beam-border {
     position: relative;
   }
@@ -579,6 +633,21 @@
   .marquee:hover .marquee-track,
   .marquee:focus-within .marquee-track {
     animation-play-state: paused;
+  }
+
+  /*
+   * Ambient loops hold still while their part of the page is off screen: PauseOffscreen
+   * (ui/landing/motion.tsx) marks each [data-loop] host it watches with data-paused, and the
+   * industries' Pause button marks its rows the same way. Reduced motion still stops every loop
+   * outright (the rule at the end of this file).
+   */
+  [data-paused],
+  [data-paused]::before,
+  [data-paused]::after,
+  [data-paused] *,
+  [data-paused] *::before,
+  [data-paused] *::after {
+    animation-play-state: paused !important;
   }
 
   .sr-only-focusable:not(:focus):not(:focus-within) {

@@ -4,14 +4,14 @@
  * Optional AI layer UI (off by default; requests are built in lib/ai.ts).
  * PayloadPreviewDialog shows the exact JSON that will be sent, and nothing
  * leaves the browser until the user clicks Send. AiSummary writes an executive
- * summary from the computed insights and flags any number in it that does not
- * appear in Loupe's own results. AiDomainCheck asks for a second opinion on the
+ * summary from the computed insights and the headline KPIs (written as their
+ * cards write them, aiSummaryPayload.ts) and flags any number in it that does
+ * not appear in the payload that was sent. AiDomainCheck asks for a second opinion on the
  * detected industry. The API key stays in memory (store/settings.ts).
  */
 import * as React from "react";
 import { AlertTriangle, Bot, Loader2, Lock, Send, Sparkles } from "lucide-react";
 import type { Insight } from "@/engine/insights/insights";
-import { formatValue } from "@/engine/core/format";
 import { useSettings } from "@/store/settings";
 import { useWorkspace } from "@/store/workspace";
 import { engine } from "@/lib/engine-client";
@@ -37,6 +37,7 @@ import {
   DialogTitle,
 } from "@/ui/primitives/dialog";
 import { useFmt } from "@/ui/common/hooks";
+import { summaryKpis } from "./aiSummaryPayload";
 
 export function PayloadPreviewDialog({
   preview,
@@ -109,26 +110,16 @@ export function AiSummary({ insights }: { insights: Insight[] }) {
   const business = useWorkspace((s) => s.business);
   const fmt = useFmt();
   const [preview, setPreview] = React.useState<AiRequestPreview | null>(null);
+  // The payload last sent: the summary's figures are checked against it, KPI values included.
+  const [sent, setSent] = React.useState<AiRequestPreview | null>(null);
   const [sending, setSending] = React.useState(false);
   const [result, setResult] = React.useState<AiSummaryResult | null>(null);
   const [error, setError] = React.useState<string | null>(null);
 
   const build = () => {
     if (!context) return;
-    const metas = new Map(context.kpis.map((k) => [k.id, k]));
-    const kpis = (batch?.values ?? [])
-      .filter((v) => context.selection.hero.includes(v.id))
-      .map((v) => {
-        const m = metas.get(v.id);
-        return {
-          name: m?.name ?? v.id,
-          value: m ? formatValue(v.value, m.format, fmt) : String(v.value),
-          change: v.delta !== null ? `${v.delta > 0 ? "+" : ""}${(v.delta * 100).toFixed(1)}%` : null,
-          comparison: v.currentLabel
-            ? `${v.currentLabel} ${v.comparisonLabel} (the value is the all-time total)`
-            : v.comparisonLabel,
-        };
-      });
+    // As the cards write them: changes with a true minus, rates in percentage points, each with its base.
+    const kpis = summaryKpis(batch?.values ?? [], context.kpis, context.selection.hero, fmt);
     setPreview(
       summaryPreview(ai.model, {
         industry: context.domain.name,
@@ -153,6 +144,7 @@ export function AiSummary({ insights }: { insights: Insight[] }) {
     setError(null);
     try {
       setResult(await runSummary(ai.apiKey, preview));
+      setSent(preview);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -161,9 +153,8 @@ export function AiSummary({ insights }: { insights: Insight[] }) {
     }
   };
 
-  const payloadText = preview
-    ? JSON.stringify(preview.user)
-    : JSON.stringify(insights.map((i) => [i.title, i.body]));
+  // Figures are verified against what was sent (KPI lines and insights), not against the insights alone.
+  const payloadText = JSON.stringify((preview ?? sent)?.user ?? insights.map((i) => [i.title, i.body]));
   return (
     <Card className="mb-5 p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -210,8 +201,8 @@ export function AiSummary({ insights }: { insights: Insight[] }) {
             })}
           </ul>
           <p className="mt-3 flex items-center gap-1.5 text-2xs text-fg-subtle">
-            <Lock className="size-3" aria-hidden /> Written by {ai.model} from the insights below. Figures not
-            found in those insights are flagged as unverified.
+            <Lock className="size-3" aria-hidden /> Written by {ai.model} from the headline KPIs and the
+            insights below. Figures not found in what was sent are flagged as unverified.
           </p>
         </div>
       ) : null}

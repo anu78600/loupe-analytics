@@ -3,9 +3,11 @@
 /**
  * Ctrl/⌘+K command palette (cmdk inside a Radix dialog): jump to steps,
  * charts and KPIs, switch layout mode, theme and number format, open settings
- * or the version log, and load demo data. PaletteBody subscribes to the
- * workspace store only while the palette is open, so it costs nothing when
- * closed.
+ * or the version log, and load demo data. "Go to" follows the same gating as
+ * the step bar (a step that needs data or an industry first is shown, but
+ * cannot be chosen), and a demo asks before it replaces the user's own file.
+ * PaletteBody subscribes to the workspace store only while the palette is
+ * open, so it costs nothing when closed.
  */
 import * as React from "react";
 import { Command } from "cmdk";
@@ -27,7 +29,9 @@ import {
 import { SAMPLES } from "@/engine/samples/catalog";
 import { allSpecs, STEPS, useWorkspace } from "@/store/workspace";
 import { useSettings } from "@/store/settings";
+import { cn } from "@/lib/utils";
 import { useChartColoursPanel } from "./ChartColours";
+import { openDemo, stepEnabled } from "./Shell";
 
 const itemClass =
   "flex cursor-default select-none items-center gap-2.5 rounded-[8px] px-2.5 py-2 text-ui text-fg outline-none data-[selected=true]:bg-surface-3 [&_svg]:size-4 [&_svg]:text-fg-subtle";
@@ -84,16 +88,25 @@ function PaletteBody({ onClose, onOpenSettings }: { onClose: () => void; onOpenS
       <Command.List className="overflow-y-auto p-2">
         <Command.Empty className="px-3 py-6 text-center text-ui text-fg-muted">No matches.</Command.Empty>
         <Command.Group heading="Go to" className={groupHeading}>
-          {STEPS.map((s) => (
-            <Command.Item
-              key={s.id}
-              value={`go ${s.label}`}
-              className={itemClass}
-              onSelect={() => run(() => ws.setStep(s.id))}
-            >
-              <LayoutGrid aria-hidden /> {s.label}
-            </Command.Item>
-          ))}
+          {STEPS.map((s) => {
+            const enabled = stepEnabled(s.id, Boolean(ws.summary), Boolean(ws.domainId));
+            return (
+              <Command.Item
+                key={s.id}
+                value={`go ${s.label}`}
+                disabled={!enabled}
+                className={cn(itemClass, "data-[disabled=true]:opacity-45")}
+                onSelect={() => run(() => ws.setStep(s.id))}
+              >
+                <LayoutGrid aria-hidden /> {s.label}
+                {enabled ? null : (
+                  <span className="ml-auto text-2xs text-fg-subtle">
+                    {ws.summary ? "Choose an industry first" : "Load data first"}
+                  </span>
+                )}
+              </Command.Item>
+            );
+          })}
         </Command.Group>
         {specs.length ? (
           <Command.Group heading="Charts" className={groupHeading}>
@@ -195,7 +208,7 @@ function PaletteBody({ onClose, onOpenSettings }: { onClose: () => void; onOpenS
               key={s.id}
               value={`sample demo ${s.name}`}
               className={itemClass}
-              onSelect={() => run(() => void ws.loadSample(s.id))}
+              onSelect={() => run(() => void openDemo(s.id, undefined, true))}
             >
               <Sparkles aria-hidden /> Load demo: {s.name}
             </Command.Item>
