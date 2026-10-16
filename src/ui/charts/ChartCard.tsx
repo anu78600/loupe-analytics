@@ -55,7 +55,7 @@ import {
   DropdownMenuTrigger,
 } from "@/ui/primitives/dropdown-menu";
 import { Skeleton } from "@/ui/primitives/misc";
-import { useAnimate, useFmt, useThemeKey } from "@/ui/common/hooks";
+import { useAnimate, useChartThemeKey, useFmt } from "@/ui/common/hooks";
 import { EChart, type ChartClick, type EChartHandle } from "./EChart";
 import { DataTable } from "./DataTable";
 import { buildOption, rendersWithECharts, type GeoTileDatum } from "./options";
@@ -114,7 +114,8 @@ export function ChartCard({
   editable?: boolean;
 }) {
   const fmt = useFmt();
-  const themeKey = useThemeKey();
+  // Changes with the light/dark theme and with the chart colours.
+  const themeKey = useChartThemeKey();
   const animate = useAnimate();
   const chartRef = React.useRef<EChartHandle>(null);
   const bodyRef = React.useRef<HTMLDivElement>(null);

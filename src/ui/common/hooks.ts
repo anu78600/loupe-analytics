@@ -56,6 +56,28 @@ export function useThemeKey(): string {
   return React.useSyncExternalStore(subscribeTheme, themeSnapshot, serverTheme);
 }
 
+// Charts also redraw when the chart colours change: applyChartTheme() renames data-chart-theme
+// on <html> with every new set of colours.
+function subscribeChartTheme(onChange: () => void): () => void {
+  const mo = new MutationObserver(onChange);
+  mo.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ["data-theme", "data-chart-theme"],
+  });
+  return () => mo.disconnect();
+}
+const chartThemeSnapshot = () =>
+  `${document.documentElement.dataset.theme ?? "dark"}|${document.documentElement.dataset.chartTheme ?? "loupe"}`;
+const serverChartTheme = () => "dark|loupe";
+
+/**
+ * Changes with the light/dark theme and with the chart colours, so a canvas
+ * chart rebuilds its option (re-reading the CSS tokens) after either.
+ */
+export function useChartThemeKey(): string {
+  return React.useSyncExternalStore(subscribeChartTheme, chartThemeSnapshot, serverChartTheme);
+}
+
 /** False when the user prefers reduced motion. */
 export function useAnimate(): boolean {
   const reduce = useReducedMotion();

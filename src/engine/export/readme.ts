@@ -208,6 +208,10 @@ export function generateReadme(ctx: ExportContext, specs: ChartSpec[], symbol: s
   out.push("| `data-dictionary.csv` | Every column: type, semantic role, additivity, completeness. |");
   out.push("| `data-dictionary.md` | The same dictionary as a readable table. |");
   out.push("| `loupe-config.json` | Reload this exact dashboard in Loupe with the same file. |");
+  if (ctx.reportTheme)
+    out.push(
+      `| \`loupe-theme.json\` | Your chart colours (${ctx.reportTheme.name}) as a Power BI report theme. |`,
+    );
   out.push("");
   if (ctx.dateTableSkipped) {
     out.push("## No new columns");
@@ -224,6 +228,14 @@ export function generateReadme(ctx: ExportContext, specs: ChartSpec[], symbol: s
     out.push("");
     out.push(
       `You hid ${list} in Loupe. ${one ? "It stays" : "They stay"} in \`data.csv\` and the table as your reference, but no measure reads ${one ? "it" : "them"}, and the model marks ${one ? "it" : "them"} hidden so ${one ? "it stays" : "they stay"} out of the report's field list.`,
+    );
+    out.push("");
+  }
+  if (ctx.reportTheme) {
+    out.push("## Colours");
+    out.push("");
+    out.push(
+      `\`loupe-theme.json\` carries the chart colours you chose in Loupe (${ctx.reportTheme.name}). In Power BI Desktop: **View → Themes → Browse for themes**, pick \`loupe-theme.json\`, and every visual uses the same series colours, in the same order, with the same gradient for colour scales.`,
     );
     out.push("");
   }

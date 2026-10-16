@@ -63,6 +63,19 @@ export const widgetSchema = z.object({
   topN: z.number().optional(),
 });
 
+const hexColour = z.string().regex(/^#[0-9a-fA-F]{6}$/);
+
+/**
+ * Chart colours as saved (the shape of ui/charts/palette/themes
+ * ChartThemeChoice): a preset id, 1–8 of the user's own colours, or one
+ * colour with its style. The store sanitises it again when applying.
+ */
+export const chartThemeSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("preset"), id: z.string().max(40) }),
+  z.object({ kind: z.literal("custom"), colours: z.array(hexColour).min(1).max(8) }),
+  z.object({ kind: z.literal("single"), colour: hexColour, style: z.enum(["shades", "matching"]) }),
+]);
+
 /**
  * Version 1 of the config file. Missing override maps default to empty, so a
  * hand-trimmed file still loads. `dashboard.filters` include the date range
@@ -113,7 +126,12 @@ export const configSchema = z.object({
     datePreset: z.string(),
     filters: z.array(filterSchema),
   }),
-  settings: z.object({ numberLocale: z.enum(["IN", "INTL"]), currency: z.string() }),
+  settings: z.object({
+    numberLocale: z.enum(["IN", "INTL"]),
+    currency: z.string(),
+    /** Chart colours (ui/charts/palette/themes ChartThemeChoice); older configs have none. */
+    chartTheme: chartThemeSchema.optional(),
+  }),
 });
 
 export type LoupeConfig = z.infer<typeof configSchema>;

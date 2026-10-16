@@ -9,7 +9,7 @@ The workspace runs in seven steps:
 1. **Upload** a clean CSV, TSV, Excel or JSON file.
 2. **Detect** what kind of data it is, with every column header and the kind of values it holds.
 3. **Check & map**: the whole file with any problem marked (unreadable cells, impossible values, repeated rows), then how the columns were mapped. Columns you keep only as a reference (say `Unit_Price` next to your `Unit_Price_Clean`) can be hidden: they stay in the file, and nothing is computed from them. Loupe suggests the raw/clean pairs it recognises.
-4. **Dashboard**: KPIs and charts, plus your own charts from **Ask for a chart**.
+4. **Dashboard**: KPIs and charts, plus your own charts from **Ask for a chart**. **Colours** sets the chart colours everywhere: a preset, your own brand colours, or one colour turned into a gradient, each with a live preview and a colour-blind readability check.
 5. **Questions & SQL**: business questions (suggested, or in your own words), each answered from the data with the SQL query that returns the same answer, checkable in the browser.
 6. **Insights**: ranked, quantified findings.
 7. **Export**: the dashboard as a PDF or image, the SQL queries as a PDF, the insights as a PDF, then the Power BI package, SQL file, data and settings.

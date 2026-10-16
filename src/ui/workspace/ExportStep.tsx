@@ -44,6 +44,7 @@ import { compareFingerprints, fingerprintOf, parseConfig, type LoupeConfig } fro
 import type { PackageManifest } from "@/engine/export/powerbi";
 import { allSpecs, stepNumber, useWorkspace } from "@/store/workspace";
 import { useSettings } from "@/store/settings";
+import { powerBiTheme, resolveTheme } from "@/ui/charts/palette/themes";
 import { engine } from "@/lib/engine-client";
 import { downloadBlob, downloadDataUrl, slugify } from "@/lib/utils";
 import type { VerificationResult } from "@/lib/duckdb";
@@ -181,6 +182,7 @@ export function buildConfig(): LoupeConfig | null {
       filters: s.filters(),
     },
     settings: {
+      chartTheme: settings.chartTheme,
       numberLocale: settings.numberLocale,
       currency: settings.currencyOverride ?? s.context?.currency ?? "INR",
     },
@@ -274,7 +276,12 @@ function PowerBiCard() {
       const extra = await engine().powerBiNewColumns(visible);
       const add = await consent.ask(powerBiConsent(extra, "Power BI package"));
       if (add === null) return;
-      const out = await engine().exportPowerBi(JSON.stringify(cfg, null, 2), visible, !add);
+      // The chart colours travel as a Power BI report theme, so the report can match the dashboard.
+      const theme = resolveTheme(useSettings.getState().chartTheme);
+      const out = await engine().exportPowerBi(JSON.stringify(cfg, null, 2), visible, !add, {
+        name: theme.name,
+        json: powerBiTheme(theme),
+      });
       downloadBlob(
         new Blob([out.zip as BlobPart], { type: "application/zip" }),
         `${slugify(summary?.name ?? "loupe")}-powerbi.zip`,

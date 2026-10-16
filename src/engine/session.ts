@@ -1537,14 +1537,18 @@ export class Session {
    * the README's visual list and the RFM/cohort views in kpis.sql.
    * `configJson` is embedded verbatim as loupe-config.json. With
    * `noNewColumns` the package adds no column (see exportContext).
+   * `reportTheme` (the chart colours as a Power BI theme) is added as
+   * loupe-theme.json.
    */
   exportPowerBi(
     configJson: string,
     visibleSpecIds: string[],
     noNewColumns = false,
+    reportTheme?: { name: string; json: string },
   ): { zip: Uint8Array; manifest: PackageManifest } {
     const ec = this.exportContext(noNewColumns);
     ec.specs = this.orderedSpecs(ec.specs, visibleSpecIds);
+    if (reportTheme) ec.reportTheme = reportTheme;
     return buildPowerBiPackage(ec, configJson);
   }
 

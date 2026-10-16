@@ -41,6 +41,60 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "31.0",
+    kind: "major",
+    date: "2026-10-16T04:42:05Z",
+    title: "Choose your chart colours",
+    summary:
+      "A new Chart colours panel lets you pick the colours every chart, KPI sparkline, report and export uses: a ready-made palette, your own (brand) colours, or a single colour that Loupe turns into a full gradient. A live preview and a readability check show how it will look and whether every series stays easy to tell apart, including for colour-blind viewers.",
+    changes: [
+      'Open it from the "Colours" button on the dashboard, from Settings, or from the command palette (Ctrl+K, "Chart colours").',
+      "Presets: Loupe (the default), Ocean, Forest, Sunset, Vivid, Corporate and Colour-blind safe. Every preset passes every readability check in both the light and the dark theme.",
+      "Your colours: type or pick up to eight colours, say from your brand guide. They are used exactly as you gave them, and Loupe fills the remaining series with colours that go with yours. In the dark theme the same hues are adjusted in lightness so they stay readable.",
+      "From one colour: pick a colour and choose Shades (a gradient of that colour, ordered so neighbouring series stay far apart) or Matching colours (your colour first, then hues picked to go with it). Either way Loupe also designs the colour's gradient for heatmaps, cohort grids, the customer-segment treemap and funnels.",
+      "A pick-from-screen eyedropper (Chrome and Edge) takes a colour from anywhere on your screen, such as your logo.",
+      "A live preview shows small charts (bars, stacked bars, lines, a donut, a heatmap) in your colours, in light or dark.",
+      "The readability check runs the same tests the built-in palette was designed with: neighbouring series under simulated colour blindness, how distinct they are with normal vision, how vivid each colour is, and whether it stands out on the background. Improve readability moves only the lightness of your colours until the check passes, never their hues.",
+      "Nothing changes until you press Apply, and Undo is one click away. Your choice is kept in this browser, restored before the page first paints (no flash of the old colours) and saved with your dashboard settings.",
+      "Everything follows the colours: dashboard charts, chart previews in Ask for a chart and Questions, KPI sparklines, the PDF and PNG reports, and the cohort grid, which now uses the chart gradient instead of the interface's gold.",
+      "Treemap sub-categories are now even lighter and darker steps of their category's colour, so no palette produces neon or muddy tiles (this also calms the default colours).",
+      "The Power BI package now includes loupe-theme.json, a Power BI report theme with the same colours in the same order, and the package README says how to apply it.",
+      "New tests: the readability check matches the reference validator to the decimal on the built-in palette; every preset passes in both themes; the default stays identical to the stylesheet; your colours are kept exactly; matching colours pass for colours all round the colour wheel; shades keep your colour and its hue; and Improve readability keeps hues while clearing failures.",
+    ],
+    tags: ["Feature", "Design", "Tests"],
+    files: [
+      "src/ui/charts/palette/colour.ts",
+      "src/ui/charts/palette/check.ts",
+      "src/ui/charts/palette/generate.ts",
+      "src/ui/charts/palette/themes.ts",
+      "src/ui/charts/palette/apply.ts",
+      "src/ui/workspace/ChartColours.tsx",
+      "src/store/settings.ts",
+      "src/store/workspace.ts",
+      "src/ui/common/providers.tsx",
+      "src/ui/common/hooks.ts",
+      "src/app/layout.tsx",
+      "src/styles/tokens.css",
+      "src/ui/charts/ChartCard.tsx",
+      "src/ui/charts/Sparkline.tsx",
+      "src/ui/charts/options.ts",
+      "src/ui/charts/tokens.ts",
+      "src/ui/workspace/dashboard/DashboardStep.tsx",
+      "src/ui/workspace/dashboard/AskChart.tsx",
+      "src/ui/workspace/SettingsSheet.tsx",
+      "src/ui/workspace/CommandPalette.tsx",
+      "src/ui/workspace/Workspace.tsx",
+      "src/ui/workspace/ExportStep.tsx",
+      "src/engine/export/config.ts",
+      "src/engine/export/context.ts",
+      "src/engine/export/powerbi.ts",
+      "src/engine/export/readme.ts",
+      "src/engine/session.ts",
+      "src/workers/engine.worker.ts",
+      "tests/chart-themes.test.ts",
+    ],
+  },
+  {
     version: "30.0",
     kind: "major",
     date: "2026-10-15T19:50:04Z",
@@ -1541,18 +1595,7 @@ export const RELEASES: Release[] = [
  * Shown on /changelog under "Up next" so the owner can see what is coming.
  * Remove an item when its version ships.
  */
-export const PLANNED: Array<{ title: string; detail: string }> = [
-  {
-    title: "Brand themes",
-    detail:
-      "Design the dashboard's colours from your company's brand colours (typed as hex codes or picked from your logo), and ask which style you want: one colour with a gradient, a multi-colour combination, or brand accent with neutral charts.",
-  },
-  {
-    title: "Theme everywhere",
-    detail:
-      "Apply the chosen theme to the dashboard, charts, PDF and PNG reports, and a matching Power BI theme file.",
-  },
-];
+export const PLANNED: Array<{ title: string; detail: string }> = [];
 
 /** The newest release; shown in the footer and settings. */
 export const CURRENT_RELEASE: Release = RELEASES[0] as Release;

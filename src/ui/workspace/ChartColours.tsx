@@ -1,0 +1,797 @@
+"use client";
+
+/**
+ * "Chart colours": the panel where the user picks the colours every chart,
+ * KPI sparkline, report and export uses. Three ways:
+ * - Presets: ready palettes, each passing every readability check in both
+ *   themes;
+ * - Your colours: up to eight of the user's own (brand) colours, kept
+ *   exactly; Loupe fills the remaining series with colours that go with them;
+ * - From one colour: one colour turned into a gradient of its own shades,
+ *   or into a set of matching colours, plus the gradient used by heatmaps,
+ *   cohort grids and funnels.
+ * A live preview (small charts in the chosen colours, in either theme) and
+ * the readability check (ui/charts/palette/check.ts: colour-blind
+ * separation, distinctness, lightness, vividness, contrast) update as the
+ * user chooses; "Improve readability" moves the lightness of the user's own
+ * colours, never their hues, and leaves series 1 (the lead brand colour)
+ * exactly as given. Nothing changes on the dashboard until Apply.
+ * The choice is stored in settings and saved with the dashboard config.
+ *
+ * Opened from the dashboard toolbar (ChartColoursButton), Settings and the
+ * command palette through useChartColoursPanel; mounted once by Workspace.
+ */
+import * as React from "react";
+import { create } from "zustand";
+import { toast } from "sonner";
+import { AlertTriangle, CheckCircle2, Info, Pipette, Plus, Sparkles, Wand2, X, XCircle } from "lucide-react";
+import { useSettings } from "@/store/settings";
+import { useThemeKey } from "@/ui/common/hooks";
+import { cn } from "@/lib/utils";
+import { Button } from "@/ui/primitives/button";
+import { Badge } from "@/ui/primitives/badge";
+import { Input } from "@/ui/primitives/input";
+import { Segmented } from "@/ui/primitives/segmented";
+import { Sheet, SheetContent } from "@/ui/primitives/sheet";
+import { Tooltip } from "@/ui/primitives/tooltip";
+import { normaliseHex } from "@/ui/charts/palette/colour";
+import { checkPalette, type CheckState, type PaletteReport, type ThemeMode } from "@/ui/charts/palette/check";
+import { improve, SLOTS } from "@/ui/charts/palette/generate";
+import {
+  PRESETS,
+  resolveTheme,
+  sameChoice,
+  type ChartThemeChoice,
+  type ResolvedTheme,
+  type SingleStyle,
+  type ThemeColours,
+} from "@/ui/charts/palette/themes";
+
+/** Open state of the panel, shared by everything that opens it. */
+export const useChartColoursPanel = create<{ open: boolean; setOpen: (open: boolean) => void }>()((set) => ({
+  open: false,
+  setOpen: (open) => set({ open }),
+}));
+
+/** The app's light/dark theme as a palette mode. */
+function useMode(): ThemeMode {
+  return useThemeKey() === "light" ? "light" : "dark";
+}
+
+/** Button that opens the panel, showing the first colours of the theme in use. */
+export function ChartColoursButton({
+  className,
+  label = "Colours",
+  onOpen,
+}: {
+  className?: string;
+  label?: string;
+  /** Runs before the panel opens (e.g. closing the Settings sheet it sits in). */
+  onOpen?: () => void;
+}) {
+  const choice = useSettings((s) => s.chartTheme);
+  const setOpen = useChartColoursPanel((s) => s.setOpen);
+  const mode = useMode();
+  const theme = React.useMemo(() => resolveTheme(choice), [choice]);
+  return (
+    <Button
+      variant="secondary"
+      size="sm"
+      className={className}
+      onClick={() => {
+        onOpen?.();
+        setOpen(true);
+      }}
+      aria-label={`Chart colours: ${theme.name}`}
+    >
+      <span className="flex -space-x-1" aria-hidden>
+        {theme[mode].series.slice(0, 3).map((c, i) => (
+          <span key={i} className="size-3 rounded-full ring-2 ring-surface-2" style={{ background: c }} />
+        ))}
+      </span>
+      {label}
+    </Button>
+  );
+}
+
+/** The panel itself; its body mounts on open, so every opening starts from the colours in use. */
+export function ChartColoursSheet() {
+  const open = useChartColoursPanel((s) => s.open);
+  const setOpen = useChartColoursPanel((s) => s.setOpen);
+  return (
+    <Sheet open={open} onOpenChange={setOpen}>
+      <SheetContent
+        side="right"
+        title="Chart colours"
+        description="Colours for every chart, report and export. Kept in this browser and saved with your dashboard."
+        className="max-w-[min(680px,100vw)]"
+      >
+        <Editor onClose={() => setOpen(false)} />
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+type Tab = "presets" | "custom" | "single";
+
+/** Colours offered as a starting point in "From one colour": common brand hues. */
+const SUGGESTED = [
+  "#1d4ed8",
+  "#0e7490",
+  "#047857",
+  "#4d7c0f",
+  "#b45309",
+  "#c2410c",
+  "#be123c",
+  "#a21caf",
+  "#6d28d9",
+  "#334155",
+];
+
+function Editor({ onClose }: { onClose: () => void }) {
+  const current = useSettings((s) => s.chartTheme);
+  const setChartTheme = useSettings((s) => s.setChartTheme);
+  const appMode = useMode();
+  // Every tab starts from the colours in use, so switching tabs never loses them.
+  const [inUse] = React.useState(() => resolveTheme(current));
+  const [tab, setTab] = React.useState<Tab>(current.kind === "preset" ? "presets" : current.kind);
+  const [presetId, setPresetId] = React.useState(current.kind === "preset" ? current.id : "loupe");
+  const [colours, setColours] = React.useState<string[]>(
+    current.kind === "custom" ? current.colours : inUse.light.series.slice(0, 4),
+  );
+  const [single, setSingle] = React.useState<{ colour: string; style: SingleStyle }>(
+    current.kind === "single"
+      ? { colour: current.colour, style: current.style }
+      : { colour: inUse.light.series[0] as string, style: "shades" },
+  );
+  const [mode, setMode] = React.useState<ThemeMode>(appMode);
+
+  const draft: ChartThemeChoice =
+    tab === "presets"
+      ? { kind: "preset", id: presetId }
+      : tab === "custom"
+        ? { kind: "custom", colours }
+        : { kind: "single", colour: single.colour, style: single.style };
+  // Generating a palette takes a few milliseconds; deferring it keeps a dragged colour picker smooth.
+  const draftKey = React.useDeferredValue(JSON.stringify(draft));
+  const resolved = React.useMemo(() => resolveTheme(JSON.parse(draftKey) as ChartThemeChoice), [draftKey]);
+  const reports = React.useMemo(
+    () => ({
+      light: checkPalette(resolved.light.series, "light"),
+      dark: checkPalette(resolved.dark.series, "dark"),
+    }),
+    [resolved],
+  );
+  const changed = !sameChoice(draft, current);
+
+  const apply = () => {
+    const before = current;
+    setChartTheme(draft);
+    toast.success(`Chart colours: ${resolved.name}`, {
+      description: "Every chart, report and export now uses them.",
+      action: { label: "Undo", onClick: () => setChartTheme(before) },
+    });
+    onClose();
+  };
+
+  return (
+    <div className="flex min-h-full flex-col">
+      <div className="grid gap-6 px-6 py-5">
+        <Segmented<Tab>
+          ariaLabel="How to choose colours"
+          value={tab}
+          onChange={setTab}
+          className="w-full [&>*]:flex-1"
+          options={[
+            { value: "presets", label: "Presets" },
+            { value: "custom", label: "Your colours" },
+            { value: "single", label: "From one colour" },
+          ]}
+        />
+        {tab === "presets" ? (
+          <PresetPicker value={presetId} onChange={setPresetId} mode={mode} inUse={current} />
+        ) : tab === "custom" ? (
+          <CustomColours colours={colours} onChange={setColours} theme={resolved} mode={mode} />
+        ) : (
+          <SingleColour value={single} onChange={setSingle} theme={resolved} mode={mode} />
+        )}
+        <section aria-labelledby="colours-preview" className="grid gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 id="colours-preview" className="text-ui font-medium text-fg">
+              Preview
+            </h3>
+            <Segmented<ThemeMode>
+              ariaLabel="Preview theme"
+              size="sm"
+              value={mode}
+              onChange={setMode}
+              options={[
+                { value: "light", label: "Light" },
+                { value: "dark", label: "Dark" },
+              ]}
+            />
+          </div>
+          <Preview colours={resolved[mode]} mode={mode} />
+        </section>
+        <Readability reports={reports} mode={mode} shades={tab === "single" && single.style === "shades"} />
+      </div>
+      <div className="sticky bottom-0 mt-auto flex flex-wrap items-center justify-between gap-3 border-t border-border bg-surface-1 px-6 py-4">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => {
+            setTab("presets");
+            setPresetId("loupe");
+          }}
+        >
+          Use Loupe colours
+        </Button>
+        <div className="flex gap-2">
+          <Button variant="ghost" size="sm" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button variant="primary" size="sm" disabled={!changed} onClick={apply}>
+            Apply colours
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------- presets
+
+function PresetPicker({
+  value,
+  onChange,
+  mode,
+  inUse,
+}: {
+  value: string;
+  onChange: (id: string) => void;
+  mode: ThemeMode;
+  inUse: ChartThemeChoice;
+}) {
+  const refs = React.useRef<Array<HTMLButtonElement | null>>([]);
+  // Arrow keys move the choice, as in any radio group.
+  const onKey = (e: React.KeyboardEvent, i: number) => {
+    const step =
+      e.key === "ArrowDown" || e.key === "ArrowRight"
+        ? 1
+        : e.key === "ArrowUp" || e.key === "ArrowLeft"
+          ? -1
+          : 0;
+    if (!step) return;
+    e.preventDefault();
+    const next = (i + step + PRESETS.length) % PRESETS.length;
+    onChange((PRESETS[next] as (typeof PRESETS)[number]).id);
+    refs.current[next]?.focus();
+  };
+  return (
+    <div role="radiogroup" aria-label="Preset palettes" className="grid gap-2 sm:grid-cols-2">
+      {PRESETS.map((p, i) => {
+        const on = p.id === value;
+        const used = inUse.kind === "preset" && inUse.id === p.id;
+        return (
+          <button
+            key={p.id}
+            ref={(el) => {
+              refs.current[i] = el;
+            }}
+            type="button"
+            role="radio"
+            aria-checked={on}
+            tabIndex={on ? 0 : -1}
+            onClick={() => onChange(p.id)}
+            onKeyDown={(e) => onKey(e, i)}
+            className={cn(
+              "grid gap-2 rounded-card border bg-surface-1 p-3 text-left transition-[border-color,box-shadow] focus-visible:ring-2 focus-visible:ring-accent-ring focus-visible:outline-none",
+              on
+                ? "border-accent shadow-[0_0_0_3px_var(--accent-soft)]"
+                : "border-border hover:border-border-accent",
+            )}
+          >
+            <span className="flex items-center justify-between gap-2">
+              <span className="text-ui font-medium text-fg">{p.name}</span>
+              {used ? <Badge tone="accent">In use</Badge> : p.id === "loupe" ? <Badge>Default</Badge> : null}
+            </span>
+            <span className="line-clamp-2 text-2xs leading-relaxed text-fg-muted">{p.description}</span>
+            <SwatchStrip colours={p[mode]} />
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------- your colours
+
+function CustomColours({
+  colours,
+  onChange,
+  theme,
+  mode,
+}: {
+  colours: string[];
+  onChange: (colours: string[]) => void;
+  theme: ResolvedTheme;
+  mode: ThemeMode;
+}) {
+  const filled = theme.light.series.slice(theme.given);
+  const tidy = () => {
+    const before = colours.map((c) => normaliseHex(c) ?? c);
+    // Series 1 is usually the lead brand colour: it stays exactly as given, the others make room for it.
+    const after = improve(before, "light", { keep: 1 });
+    const moved = after.flatMap((c, i) => (c !== before[i] ? [i + 1] : []));
+    if (!moved.length) {
+      toast("Your colours are already as readable as their hues allow.");
+      return;
+    }
+    onChange(after);
+    toast.success(
+      `Adjusted the lightness of series ${moved.join(", ")}; every hue, and your series 1 colour, is unchanged.`,
+      { action: { label: "Undo", onClick: () => onChange(before) } },
+    );
+  };
+  return (
+    <section aria-labelledby="your-colours" className="grid gap-3">
+      <div>
+        <h3 id="your-colours" className="text-ui font-medium text-fg">
+          Your colours, in series order
+        </h3>
+        <p className="mt-0.5 text-2xs leading-relaxed text-fg-muted">
+          Type or pick up to {SLOTS} colours, say from your brand guide. They are used exactly as given in the
+          light theme; in the dark theme the same hues are adjusted in lightness so they stay readable.
+        </p>
+      </div>
+      <ol className="grid gap-2">
+        {colours.map((c, i) => (
+          <li key={i} className="flex items-center gap-2">
+            <span className="font-figures w-16 shrink-0 text-2xs text-fg-subtle">Series {i + 1}</span>
+            <ColourField
+              value={normaliseHex(c) ?? "#000000"}
+              onChange={(v) => onChange(colours.map((x, j) => (j === i ? v : x)))}
+              label={`Series ${i + 1} colour`}
+            />
+            {colours.length > 1 ? (
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label={`Remove series ${i + 1} colour`}
+                onClick={() => onChange(colours.filter((_, j) => j !== i))}
+              >
+                <X aria-hidden />
+              </Button>
+            ) : null}
+          </li>
+        ))}
+      </ol>
+      <div className="flex flex-wrap items-center gap-2">
+        {colours.length < SLOTS ? (
+          <Button
+            variant="outline"
+            size="sm"
+            // A new series starts from the colour Loupe would have filled in, ready to change.
+            onClick={() => onChange([...colours, theme.light.series[colours.length] as string])}
+          >
+            <Plus aria-hidden /> Add a colour
+          </Button>
+        ) : null}
+        <Button variant="secondary" size="sm" onClick={tidy}>
+          <Wand2 aria-hidden /> Improve readability
+        </Button>
+      </div>
+      {filled.length ? (
+        <div className="grid gap-1.5 rounded-control border border-border bg-surface-2 px-3 py-2.5">
+          <p className="text-2xs leading-relaxed text-fg-muted">
+            {filled.length === 1 ? `Series ${SLOTS}` : `Series ${theme.given + 1}–${SLOTS}`} use matching
+            colours Loupe picked to go with yours and stay distinct:
+          </p>
+          <SwatchStrip colours={theme[mode].series.slice(theme.given)} start={theme.given} />
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------- from one colour
+
+function SingleColour({
+  value,
+  onChange,
+  theme,
+  mode,
+}: {
+  value: { colour: string; style: SingleStyle };
+  onChange: (v: { colour: string; style: SingleStyle }) => void;
+  theme: ResolvedTheme;
+  mode: ThemeMode;
+}) {
+  return (
+    <section aria-labelledby="one-colour" className="grid gap-4">
+      <div>
+        <h3 id="one-colour" className="text-ui font-medium text-fg">
+          Your colour
+        </h3>
+        <p className="mt-0.5 text-2xs leading-relaxed text-fg-muted">
+          Pick one colour and Loupe designs the rest: its gradient for heatmaps and funnels, and the series
+          colours in the style you choose.
+        </p>
+      </div>
+      <ColourField
+        value={normaliseHex(value.colour) ?? "#000000"}
+        onChange={(colour) => onChange({ ...value, colour })}
+        label="Your colour"
+        large
+      />
+      <div className="grid gap-1.5">
+        <span className="text-2xs text-fg-subtle">Or start from</span>
+        <div className="flex flex-wrap gap-1.5">
+          {SUGGESTED.map((c) => (
+            <button
+              key={c}
+              type="button"
+              onClick={() => onChange({ ...value, colour: c })}
+              aria-label={`Use ${c}`}
+              aria-pressed={value.colour === c}
+              className={cn(
+                "size-7 rounded-full border-2 transition-transform hover:scale-110 focus-visible:ring-2 focus-visible:ring-accent-ring focus-visible:outline-none",
+                value.colour === c ? "border-fg" : "border-surface-1",
+              )}
+              style={{ background: c }}
+            />
+          ))}
+        </div>
+      </div>
+      <div className="grid gap-2">
+        <Segmented<SingleStyle>
+          ariaLabel="Series colours"
+          value={value.style}
+          onChange={(style) => onChange({ ...value, style })}
+          options={[
+            { value: "shades", label: "Shades (gradient)" },
+            { value: "matching", label: "Matching colours" },
+          ]}
+        />
+        <p className="text-2xs leading-relaxed text-fg-muted">
+          {value.style === "shades"
+            ? "Every series is a lighter or darker shade of your colour, ordered so neighbouring series stay far apart. Best when charts show up to four series."
+            : "Your colour leads; the other series are hues chosen to go with it and stay distinct, even for colour-blind viewers."}
+        </p>
+      </div>
+      <div className="grid gap-2 rounded-control border border-border bg-surface-2 px-3 py-2.5">
+        <span className="text-2xs text-fg-muted">Series colours</span>
+        <SwatchStrip colours={theme[mode].series} />
+        <span className="mt-1 text-2xs text-fg-muted">Gradient, low to high</span>
+        <RampStrip colours={theme[mode].ramp} />
+      </div>
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------- shared pieces
+
+/** The EyeDropper API (Chrome and Edge): picks any colour on screen, even outside the browser. */
+type EyeDropperCtor = new () => { open: () => Promise<{ sRGBHex: string }> };
+const eyeDropper = (): EyeDropperCtor | null =>
+  typeof window !== "undefined" && "EyeDropper" in window
+    ? (window as unknown as { EyeDropper: EyeDropperCtor }).EyeDropper
+    : null;
+
+/**
+ * A colour as a swatch (the browser's colour picker), a hex code field and,
+ * where the browser has one, a "pick from screen" eyedropper, so a colour
+ * can come straight from a logo or brand guide open anywhere on screen. The
+ * field commits a valid code as it is typed; an invalid one stays in the
+ * field, marked, until it is fixed.
+ */
+function ColourField({
+  value,
+  onChange,
+  label,
+  large = false,
+}: {
+  value: string;
+  onChange: (hex: string) => void;
+  label: string;
+  large?: boolean;
+}) {
+  // What the user typed, tied to the value it was typed against: a new value from the picker replaces it.
+  const [typed, setTyped] = React.useState({ text: value, base: value });
+  const text = typed.base === value ? typed.text : value;
+  const valid = normaliseHex(text) !== null;
+  const Dropper = eyeDropper();
+  return (
+    <div className="flex items-center gap-2">
+      <input
+        type="color"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        aria-label={`${label}: pick`}
+        className={cn(
+          "shrink-0 cursor-pointer rounded-control border border-border-strong bg-surface-2 p-0.5 focus-visible:ring-2 focus-visible:ring-accent-ring focus-visible:outline-none [&::-moz-color-swatch]:rounded-[6px] [&::-moz-color-swatch]:border-none [&::-webkit-color-swatch]:rounded-[6px] [&::-webkit-color-swatch]:border-none [&::-webkit-color-swatch-wrapper]:p-0",
+          large ? "h-12 w-16" : "h-9 w-12",
+        )}
+      />
+      <Input
+        value={text}
+        onChange={(e) => {
+          setTyped({ text: e.target.value, base: value });
+          const hex = normaliseHex(e.target.value);
+          if (hex) onChange(hex);
+        }}
+        aria-label={`${label}: hex code`}
+        aria-invalid={!valid}
+        spellCheck={false}
+        maxLength={9}
+        className={cn("font-figures w-32 uppercase", !valid && "border-danger focus-visible:border-danger")}
+      />
+      {Dropper ? (
+        <Tooltip content="Pick a colour from anywhere on your screen, such as your logo">
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label={`${label}: pick from screen`}
+            onClick={async () => {
+              try {
+                const hex = normaliseHex((await new Dropper().open()).sRGBHex);
+                if (hex) onChange(hex);
+              } catch {
+                /* the user pressed Escape: nothing picked */
+              }
+            }}
+          >
+            <Pipette aria-hidden />
+          </Button>
+        </Tooltip>
+      ) : null}
+    </div>
+  );
+}
+
+/** Series colours as numbered swatches (numbers continue from `start`). */
+function SwatchStrip({ colours, start = 0 }: { colours: string[]; start?: number }) {
+  return (
+    <span className="flex flex-wrap gap-1" role="img" aria-label={`Series colours: ${colours.join(", ")}`}>
+      {colours.map((c, i) => (
+        <span
+          key={i}
+          className="h-5 w-7 rounded-[5px] ring-1 ring-border ring-inset"
+          style={{ background: c }}
+          title={`Series ${start + i + 1}: ${c}`}
+        />
+      ))}
+    </span>
+  );
+}
+
+function RampStrip({ colours }: { colours: string[] }) {
+  return (
+    <span
+      className="flex overflow-hidden rounded-[5px]"
+      role="img"
+      aria-label={`Gradient: ${colours.join(", ")}`}
+    >
+      {colours.map((c, i) => (
+        <span key={i} className="h-4 flex-1" style={{ background: c }} title={c} />
+      ))}
+    </span>
+  );
+}
+
+/** Small charts in the chosen colours, drawn on the chosen theme's background. */
+function Preview({ colours, mode }: { colours: ThemeColours; mode: ThemeMode }) {
+  const s = colours.series;
+  const r = colours.ramp;
+  const gap = "var(--surface-1)";
+  const card = (title: string, label: string, body: React.ReactNode) => (
+    <figure className="grid gap-1.5 rounded-control border border-border p-2.5">
+      <svg viewBox="0 0 120 64" className="h-16 w-full" role="img" aria-label={label}>
+        {body}
+      </svg>
+      <figcaption className="text-2xs text-fg-subtle">{title}</figcaption>
+    </figure>
+  );
+  const bars = [0.45, 0.7, 0.55, 0.9, 0.62, 0.8];
+  const stacks = [
+    [0.3, 0.2, 0.15, 0.1],
+    [0.25, 0.25, 0.2, 0.12],
+    [0.35, 0.15, 0.2, 0.15],
+    [0.28, 0.22, 0.12, 0.2],
+  ];
+  const lines = [
+    [0.3, 0.42, 0.38, 0.55, 0.5, 0.68, 0.74],
+    [0.55, 0.5, 0.6, 0.52, 0.64, 0.6, 0.66],
+    [0.8, 0.72, 0.76, 0.7, 0.66, 0.7, 0.62],
+  ];
+  const slices = [0.3, 0.22, 0.16, 0.13, 0.11, 0.08];
+  let angle = -Math.PI / 2;
+  const arcs = slices.map((v) => {
+    const a0 = angle;
+    angle += v * 2 * Math.PI;
+    return [a0, angle] as const;
+  });
+  const arc = (a0: number, a1: number) => {
+    const R = 26;
+    const x0 = 60 + R * Math.cos(a0);
+    const y0 = 32 + R * Math.sin(a0);
+    const x1 = 60 + R * Math.cos(a1);
+    const y1 = 32 + R * Math.sin(a1);
+    return `M${x0.toFixed(2)},${y0.toFixed(2)} A${R},${R} 0 ${a1 - a0 > Math.PI ? 1 : 0} 1 ${x1.toFixed(2)},${y1.toFixed(2)}`;
+  };
+  return (
+    <div
+      data-theme={mode}
+      className="grid grid-cols-2 gap-2.5 rounded-card border border-border bg-surface-1 p-3 sm:grid-cols-3"
+    >
+      {card(
+        "One series",
+        "Bar chart in series 1",
+        <>
+          {bars.map((v, i) => (
+            <rect key={i} x={8 + i * 18} y={58 - v * 52} width={12} height={v * 52} rx={2} fill={s[0]} />
+          ))}
+          <line x1={4} x2={116} y1={58.5} y2={58.5} stroke="var(--chart-axis)" />
+        </>,
+      )}
+      {card(
+        "Stacked",
+        "Stacked bars in series 1 to 4",
+        stacks.map((col, i) => {
+          let y = 58;
+          return col.map((v, k) => {
+            const h = v * 70;
+            y -= h;
+            return (
+              <rect
+                key={`${i}-${k}`}
+                x={10 + i * 27}
+                y={y}
+                width={20}
+                height={h}
+                fill={s[k]}
+                stroke={gap}
+                strokeWidth={1.5}
+              />
+            );
+          });
+        }),
+      )}
+      {card(
+        "Lines",
+        "Line chart in series 1 to 3",
+        lines.map((ln, k) => (
+          <polyline
+            key={k}
+            points={ln.map((v, i) => `${6 + i * 18},${60 - v * 56}`).join(" ")}
+            fill="none"
+            stroke={s[k]}
+            strokeWidth={2}
+            strokeLinejoin="round"
+            strokeLinecap="round"
+          />
+        )),
+      )}
+      {card(
+        "Share",
+        "Donut in series 1 to 6",
+        <>
+          {arcs.map(([a0, a1], i) => (
+            <path key={i} d={arc(a0, a1)} fill="none" stroke={s[i]} strokeWidth={11} />
+          ))}
+          {arcs.map(([a0], i) => (
+            <line
+              key={`g${i}`}
+              x1={60 + 19 * Math.cos(a0)}
+              y1={32 + 19 * Math.sin(a0)}
+              x2={60 + 33 * Math.cos(a0)}
+              y2={32 + 33 * Math.sin(a0)}
+              stroke={gap}
+              strokeWidth={1.5}
+            />
+          ))}
+        </>,
+      )}
+      {card(
+        "Gradient",
+        "Heatmap on the gradient",
+        Array.from({ length: 4 }, (_, row) =>
+          Array.from({ length: 7 }, (_, col) => (
+            <rect
+              key={`${row}-${col}`}
+              x={4 + col * 16.4}
+              y={4 + row * 14.4}
+              width={15}
+              height={13}
+              rx={2}
+              fill={r[1 + ((col * 3 + row * 5 + ((col * row) % 4)) % 7)]}
+            />
+          )),
+        ),
+      )}
+      {card(
+        `All ${SLOTS} series`,
+        "Every series colour in order",
+        s.map((c, i) => (
+          <g key={i}>
+            <rect x={4 + (i % 4) * 28.5} y={i < 4 ? 6 : 36} width={25} height={22} rx={3} fill={c} />
+          </g>
+        )),
+      )}
+    </div>
+  );
+}
+
+const STATE_ICON: Record<CheckState, typeof CheckCircle2> = {
+  pass: CheckCircle2,
+  warn: AlertTriangle,
+  fail: XCircle,
+};
+const STATE_TEXT: Record<CheckState, string> = {
+  pass: "text-success",
+  warn: "text-warning",
+  fail: "text-danger",
+};
+
+function summary(r: PaletteReport): { tone: "success" | "warning" | "danger"; text: string } {
+  const issues = r.checks.filter((c) => c.state !== "pass").length;
+  if (r.state === "pass") return { tone: "success", text: "passes every check" };
+  return {
+    tone: r.state === "fail" ? "danger" : "warning",
+    text: `${issues} ${issues === 1 ? "thing" : "things"} to look at`,
+  };
+}
+
+/** The readability check for the previewed theme, with a one-line verdict for both. */
+function Readability({
+  reports,
+  mode,
+  shades,
+}: {
+  reports: Record<ThemeMode, PaletteReport>;
+  mode: ThemeMode;
+  shades: boolean;
+}) {
+  return (
+    <section aria-labelledby="colours-check" className="grid gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 id="colours-check" className="text-ui font-medium text-fg">
+          Readability
+        </h3>
+        <div className="flex flex-wrap gap-1.5">
+          {(["light", "dark"] as const).map((m) => {
+            const s = summary(reports[m]);
+            return (
+              <Badge key={m} tone={s.tone}>
+                {m === "light" ? "Light" : "Dark"}: {s.text}
+              </Badge>
+            );
+          })}
+        </div>
+      </div>
+      <ul className="grid gap-2" aria-label={`Checks for the ${mode} theme`}>
+        {reports[mode].checks.map((c) => {
+          const Icon = STATE_ICON[c.state];
+          return (
+            <li key={c.id} className="flex items-start gap-2 text-ui leading-relaxed text-fg-muted">
+              <Icon className={cn("mt-0.5 size-4 shrink-0", STATE_TEXT[c.state])} aria-label={c.state} />
+              <span>{c.message}</span>
+            </li>
+          );
+        })}
+      </ul>
+      {shades ? (
+        <p className="flex items-start gap-2 rounded-control border border-border bg-surface-2 px-3 py-2 text-2xs leading-relaxed text-fg-muted">
+          <Info className="mt-px size-3.5 shrink-0 text-info" aria-hidden />
+          Shades of one colour can only be so far apart: they read best on charts with up to four series. For
+          more, choose “Matching colours”.
+        </p>
+      ) : null}
+      <p className="flex items-start gap-2 text-2xs leading-relaxed text-fg-subtle">
+        <Sparkles className="mt-px size-3.5 shrink-0" aria-hidden />
+        Checked the way Loupe&apos;s own palette was: neighbouring series under simulated colour blindness
+        (protanopia and deuteranopia), with normal vision, and against the {mode} background.
+      </p>
+    </section>
+  );
+}

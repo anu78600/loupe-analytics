@@ -7,6 +7,11 @@
  *   dark  worst adjacent CVD ΔE 17.7, normal ΔE 18.3, all marks ≥ 3:1 on --surface-1
  *   light worst adjacent CVD ΔE 18.0, normal ΔE 20.2, all marks ≥ 3:1 on --surface-1
  * The first three slots also pass the all-pairs test (scatter, maps).
+ *
+ * The chart colours below (--chart-1…8, --seq-1…8, --chart-spark) are the
+ * built-in "Loupe" chart theme. Another theme redefines them from a
+ * <style id="loupe-chart-theme"> (ui/charts/palette/apply.ts) while <html>
+ * carries data-chart-theme; nothing else changes.
  */
 
 :root,
@@ -63,6 +68,8 @@
   --chart-7: #bf5914;
   --chart-8: #934b98;
   --chart-other: #4a4f57;
+  /* KPI sparklines: the accent, or a chart theme's first colour */
+  --chart-spark: var(--accent);
 
   /* Sequential (brass, low → high; dark anchors low values near the surface) */
   --seq-1: #3a2a10;
@@ -152,6 +159,7 @@
   --chart-7: #c95b0a;
   --chart-8: #8c3f91;
   --chart-other: #b9bcc2;
+  --chart-spark: var(--accent);
 
   --seq-1: #fbf1e0;
   --seq-2: #f0dcbb;

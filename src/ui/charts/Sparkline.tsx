@@ -14,7 +14,8 @@ import { cn } from "@/lib/utils";
 export function Sparkline({
   values,
   className,
-  color = "var(--accent)",
+  // The chart theme's first colour (tokens.css: the accent until a theme sets it).
+  color = "var(--chart-spark)",
   partialLast = false,
   height = 36,
   label,

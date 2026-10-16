@@ -41,7 +41,7 @@ import type { Filter } from "@/engine/query/filter";
 import type { ColumnProfile } from "@/engine/profile/types";
 import { allSpecs, useWorkspace } from "@/store/workspace";
 import { engine } from "@/lib/engine-client";
-import { useFmt, useThemeKey } from "@/ui/common/hooks";
+import { useChartThemeKey, useFmt } from "@/ui/common/hooks";
 import { EChart } from "@/ui/charts/EChart";
 import { DataTable } from "@/ui/charts/DataTable";
 import { buildOption, rendersWithECharts } from "@/ui/charts/options";
@@ -562,7 +562,7 @@ function AskEditor({
 /** One designed chart computed with the dashboard's filters, drawn small, with the reason for its type. */
 export function ChartPreview({ spec, why, filters }: { spec: ChartSpec; why?: string; filters?: Filter[] }) {
   const fmt = useFmt();
-  const themeKey = useThemeKey();
+  const themeKey = useChartThemeKey();
   const [data, setData] = React.useState<ChartData | null | undefined>(undefined);
   React.useEffect(() => {
     let live = true;

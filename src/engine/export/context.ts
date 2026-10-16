@@ -46,6 +46,12 @@ export interface ExportContext {
    * the Power BI model marks them hidden.
    */
   hiddenColumns?: string[];
+  /**
+   * The user's chart colours as a Power BI report theme (JSON), added to the
+   * package as loupe-theme.json; built in the UI (ui/charts/palette), since
+   * the engine knows nothing of colours.
+   */
+  reportTheme?: { name: string; json: string };
   currency: string;
   locale: NumberLocale;
   /** Engine values over the full dataset, used as verification comments. */

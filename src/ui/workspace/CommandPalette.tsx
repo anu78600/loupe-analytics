@@ -18,6 +18,7 @@ import {
   History,
   LayoutGrid,
   Moon,
+  Palette,
   Search,
   Settings2,
   Sparkles,
@@ -26,6 +27,7 @@ import {
 import { SAMPLES } from "@/engine/samples/catalog";
 import { allSpecs, STEPS, useWorkspace } from "@/store/workspace";
 import { useSettings } from "@/store/settings";
+import { useChartColoursPanel } from "./ChartColours";
 
 const itemClass =
   "flex cursor-default select-none items-center gap-2.5 rounded-[8px] px-2.5 py-2 text-ui text-fg outline-none data-[selected=true]:bg-surface-3 [&_svg]:size-4 [&_svg]:text-fg-subtle";
@@ -160,6 +162,13 @@ function PaletteBody({ onClose, onOpenSettings }: { onClose: () => void; onOpenS
           >
             {theme === "light" ? <Moon aria-hidden /> : <Sun aria-hidden />} Switch to{" "}
             {theme === "light" ? "dark" : "light"} theme
+          </Command.Item>
+          <Command.Item
+            value="chart colours colors palette theme gradient brand"
+            className={itemClass}
+            onSelect={() => run(() => useChartColoursPanel.getState().setOpen(true))}
+          >
+            <Palette aria-hidden /> Chart colours
           </Command.Item>
           <Command.Item
             value="number format indian international lakh crore"

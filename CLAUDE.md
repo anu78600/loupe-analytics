@@ -55,6 +55,7 @@ Edit or add `src/registry/domains/<id>.json`, import it in `src/registry/index.t
 - TypeScript strict, no `any`. Every file starts with a `/** … */` header (after `"use client"`), saying what it does and how it fits. Add JSDoc to non-obvious exports. Comments explain _why_ and use British spelling (analyse, colour, behaviour).
 - Styling uses semantic tokens only (`bg-surface-1`, `text-fg-muted`, `border-border`, `var(--chart-1)`…), defined in `src/styles/tokens.css`, both themes. No raw colours.
 - Charts follow the dataviz rules in `src/ui/charts/options.ts`: no dual axes, bars start at zero, legend only for 2+ series, colour-blind-validated palette, a table view for every chart.
+- Chart colours come only from the tokens (`--chart-1…8`, `--seq-1…8`, `--chart-spark`) via `readChartTokens()`, never hard-coded, because the user's chart theme (`src/ui/charts/palette`, applied by `apply.ts` as a `<style>` plus `data-chart-theme` on `<html>`) redefines them. A chart that builds an option must redraw on `useChartThemeKey()`. Every preset must pass `checkPalette` in both themes (`tests/chart-themes.test.ts`), and "Loupe" must equal `tokens.css`.
 - Accessibility: keyboard reachable, visible focus, `aria-*` on custom widgets, reduced motion respected.
 
 ## Gotchas

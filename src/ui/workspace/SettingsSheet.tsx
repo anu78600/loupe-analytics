@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Settings sheet: theme, number format (Indian lakh/crore or international)
+ * Settings sheet: theme and chart colours, number format (Indian lakh/crore or international)
  * and currency, whether Loupe may add columns (ask first or never), the
  * privacy statement, the opt-in AI layer (API key kept in
  * memory only, model choice) and a link to the version log.
@@ -21,6 +21,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/ui/primitives/badge";
 import { Eyebrow, Separator } from "@/ui/primitives/misc";
 import { ThemeToggle } from "@/ui/common/theme-toggle";
+import { ChartColoursButton } from "./ChartColours";
 
 /** `version` comes from the server page, so the client bundle doesn't carry the whole version log. */
 export function SettingsSheet({
@@ -54,6 +55,16 @@ export function SettingsSheet({
             <div className="flex items-center justify-between">
               <Label>Theme</Label>
               <ThemeToggle />
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <Label>Chart colours</Label>
+                <p className="mt-0.5 text-2xs text-fg-subtle">
+                  Presets, your own colours, or a gradient from one colour.
+                </p>
+              </div>
+              {/* The colours panel is a sheet of its own, so Settings closes first. */}
+              <ChartColoursButton label="Change" onOpen={() => onOpenChange(false)} />
             </div>
           </section>
           <Separator />

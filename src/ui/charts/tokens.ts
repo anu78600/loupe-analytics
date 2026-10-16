@@ -3,8 +3,10 @@
 /**
  * Bridge from CSS design tokens to ECharts. Canvas rendering cannot use CSS
  * variables, so colours are resolved to concrete values when an option is
- * built and must be re-read after a theme change (see useThemeKey). The
- * categorical palette is the colour-blind-validated --chart-1…8 set.
+ * built and must be re-read after a theme or chart-colour change (see
+ * useChartThemeKey). The categorical palette is --chart-1…8: the
+ * colour-blind-validated built-in set, or the user's chart theme
+ * (ui/charts/palette).
  * inkOn() picks the colour of a label drawn inside a fill by WCAG contrast,
  * never below 4.5:1.
  */

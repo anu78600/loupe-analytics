@@ -22,6 +22,7 @@ import { QuestionsStep } from "./QuestionsStep";
 import { ExportStep } from "./ExportStep";
 import { CommandPalette } from "./CommandPalette";
 import { SettingsSheet } from "./SettingsSheet";
+import { ChartColoursSheet } from "./ChartColours";
 
 export function Workspace({ version }: { version: string }) {
   const step = useWorkspace((s) => s.step);
@@ -132,6 +133,7 @@ export function Workspace({ version }: { version: string }) {
         onOpenSettings={() => setSettingsOpen(true)}
       />
       <SettingsSheet open={settingsOpen} onOpenChange={setSettingsOpen} version={version} />
+      <ChartColoursSheet />
     </div>
   );
 }

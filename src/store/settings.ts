@@ -2,8 +2,9 @@
 
 /**
  * User preferences, persisted to localStorage ("loupe-settings"): theme,
- * Indian vs international number format, currency override, whether Loupe
- * may add columns to the data (ask first, or never) and the AI model. The AI toggle and API key are deliberately not persisted: every
+ * chart colours, Indian vs international number format, currency override,
+ * whether Loupe may add columns to the data (ask first, or never) and the
+ * AI model. The AI toggle and API key are deliberately not persisted: every
  * reload starts with the AI layer off and no key stored anywhere.
  *
  * The theme is also mirrored to its own key ("loupe-theme") so that
@@ -13,6 +14,7 @@
  */
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
+import { DEFAULT_CHART_THEME, sanitiseChoice, type ChartThemeChoice } from "@/ui/charts/palette/themes";
 
 export type ThemePreference = "dark" | "light" | "system";
 /** Same values as the engine's NumberLocale (engine/core/format); keep in sync. */
@@ -34,6 +36,12 @@ export interface AiSettings {
 
 interface SettingsState {
   theme: ThemePreference;
+  /**
+   * Chart colours: a preset, the user's own colours or one colour turned
+   * into a gradient (ui/charts/palette). ChartThemeSync applies it to every
+   * chart, report and export.
+   */
+  chartTheme: ChartThemeChoice;
   /** The number format in effect (what every formatter uses). */
   numberLocale: NumberLocale;
   /**
@@ -47,6 +55,8 @@ interface SettingsState {
   newColumns: NewColumnsPolicy;
   ai: AiSettings;
   setTheme: (theme: ThemePreference) => void;
+  /** Sanitised first: colours normalised, unknown shapes become the default. */
+  setChartTheme: (choice: ChartThemeChoice) => void;
   /** Explicit choice: sets the format and turns automatic mode off. */
   setNumberLocale: (locale: NumberLocale) => void;
   setNumberFormatAuto: (on: boolean) => void;
@@ -85,6 +95,7 @@ export const useSettings = create<SettingsState>()(
   persist(
     (set, get) => ({
       theme: "dark",
+      chartTheme: DEFAULT_CHART_THEME,
       numberLocale: "IN",
       numberFormatAuto: true,
       currencyOverride: null,
@@ -94,6 +105,7 @@ export const useSettings = create<SettingsState>()(
         applyTheme(theme);
         set({ theme });
       },
+      setChartTheme: (choice) => set({ chartTheme: sanitiseChoice(choice) }),
       setNumberLocale: (numberLocale) => set({ numberLocale, numberFormatAuto: false }),
       setNumberFormatAuto: (numberFormatAuto) => set({ numberFormatAuto }),
       applyAutoNumberLocale: (currency) => {
@@ -112,12 +124,18 @@ export const useSettings = create<SettingsState>()(
       // written as false too, so a stored settings blob can never re-enable it.
       partialize: (s) => ({
         theme: s.theme,
+        chartTheme: s.chartTheme,
         numberLocale: s.numberLocale,
         numberFormatAuto: s.numberFormatAuto,
         currencyOverride: s.currencyOverride,
         newColumns: s.newColumns,
         ai: { enabled: false, model: s.ai.model, apiKey: "" },
       }),
+      // A stored chart theme is outside input (it could come from an older version): sanitise it.
+      merge: (persisted, current) => {
+        const p = (persisted ?? {}) as Partial<SettingsState>;
+        return { ...current, ...p, chartTheme: sanitiseChoice(p.chartTheme) };
+      },
     },
   ),
 );

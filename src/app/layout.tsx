@@ -12,6 +12,7 @@ import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
 import { Providers } from "@/ui/common/providers";
 import { themeBootScript } from "@/store/settings";
+import { chartThemeBootScript } from "@/ui/charts/palette/apply";
 import "./globals.css";
 
 const instrumentSerif = localFont({
@@ -69,6 +70,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     >
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeBootScript }} />
+        <script dangerouslySetInnerHTML={{ __html: chartThemeBootScript }} />
       </head>
       <body>
         <a

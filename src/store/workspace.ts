@@ -966,6 +966,7 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
       // the overrides, then configures. A configure error propagates to the caller.
       const settings = useSettings.getState();
       settings.setNumberLocale(cfg.settings.numberLocale);
+      if (cfg.settings.chartTheme) settings.setChartTheme(cfg.settings.chartTheme);
       // The config stores the effective currency. Matching what this file
       // detects needs no override (so none outlives this file); a different,
       // supported code becomes the override. An unknown code is not applied:

@@ -101,8 +101,13 @@ const api = {
   columnValues: (column: string, limit?: number, search?: string) =>
     session.columnValues(column, limit, search),
 
-  exportPowerBi(configJson: string, visibleSpecIds: string[], noNewColumns = false) {
-    const out = session.exportPowerBi(configJson, visibleSpecIds, noNewColumns);
+  exportPowerBi(
+    configJson: string,
+    visibleSpecIds: string[],
+    noNewColumns = false,
+    reportTheme?: { name: string; json: string },
+  ) {
+    const out = session.exportPowerBi(configJson, visibleSpecIds, noNewColumns, reportTheme);
     // Hand the zip's buffer over (zero-copy); a multi-megabyte clone would stall both threads.
     return Comlink.transfer(out, [out.zip.buffer]);
   },

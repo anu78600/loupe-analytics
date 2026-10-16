@@ -54,6 +54,7 @@ export function buildPowerBiPackage(
     [`${folder}/data-dictionary.md`]: strToU8(dictionaryMarkdown(ctx)),
     [`${folder}/loupe-config.json`]: strToU8(configJson),
   };
+  if (ctx.reportTheme) files[`${folder}/loupe-theme.json`] = strToU8(ctx.reportTheme.json);
   const tmdl = generateTmdl(ctx, symbol, ctx.names.table);
   for (const [path, text] of Object.entries(tmdl)) files[`${folder}/${path}`] = strToU8(text);
   const zippable: Zippable = {};

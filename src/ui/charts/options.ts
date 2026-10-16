@@ -25,6 +25,7 @@ import type { ChartData, ChartKind, ChartSpec } from "@/engine/charts/types";
 import type { KpiFormat } from "@/registry/schema";
 import { INDIA_STATES, matchIndianState, matchUsState, US_STATES } from "@/engine/profile/geo";
 import { inkOn, withAlpha, type ChartTokens } from "./tokens";
+import { oklch, oklchToHex } from "./palette/colour";
 
 export interface OptionContext {
   tokens: ChartTokens;
@@ -580,6 +581,26 @@ function donut(ctx: OptionContext): EChartsCoreOption {
 // ---------------------------------------------------------------- treemap (incl. RFM)
 
 /**
+ * Colours of a category's sub-category tiles: the category's colour, then
+ * steps of 0.055 OKLCH lightness either side of it (0, +1, −1, +2, …), with
+ * chroma easing off a little per step and lightness kept inside a readable
+ * band. Perceptual steps keep siblings apart in any chart theme without the
+ * neon or muddy tiles an HSL saturation ramp gives some hues.
+ */
+function childShades(parent: string, n: number, dark: boolean): string[] {
+  const { l, c, h } = oklch(parent);
+  const [lo, hi] = dark ? [0.42, 0.8] : [0.38, 0.82];
+  return Array.from({ length: n }, (_, k) => {
+    const step = k === 0 ? 0 : (k % 2 ? 1 : -1) * Math.ceil(k / 2);
+    return oklchToHex({
+      l: Math.min(hi, Math.max(lo, l + step * 0.055)),
+      c: c * Math.max(0.6, 1 - 0.08 * Math.abs(step)),
+      h,
+    });
+  });
+}
+
+/**
  * Treemap of categories (with optional children), or of RFM segments: area
  * = customers, colour = revenue share on the sequential ramp. ECharts'
  * click-to-zoom, roaming and breadcrumb are turned off.
@@ -605,16 +626,24 @@ function treemap(ctx: OptionContext): EChartsCoreOption {
   } else {
     nodes = (data.tree ?? []).map((n, i) => {
       const color = colorFor(ctx, i, n.label === "Others");
+      // The largest sub-category keeps the category's own colour; the rest step lighter and darker.
+      const kids = [...(n.children ?? [])].sort((a, b) => (b.value ?? 0) - (a.value ?? 0));
+      const shades = childShades(color, kids.length, t.dark);
+      const shadeOf = new Map(kids.map((c, k) => [c.label, shades[k] as string]));
       return {
         name: n.label,
         value: n.value ?? 0,
         itemStyle: { color, opacity: dimmed(ctx, n.label) ? 0.35 : 1 },
         label: { color: inkOn(color, t) },
-        children: n.children?.map((c) => ({
-          name: c.label,
-          value: c.value ?? 0,
-          label: { color: inkOn(color, t) },
-        })),
+        children: n.children?.map((c) => {
+          const shade = shadeOf.get(c.label) ?? color;
+          return {
+            name: c.label,
+            value: c.value ?? 0,
+            itemStyle: { color: shade },
+            label: { color: inkOn(shade, t) },
+          };
+        }),
       };
     });
   }
@@ -671,10 +700,8 @@ function treemap(ctx: OptionContext): EChartsCoreOption {
         upperLabel: { show: false },
         levels: [
           { itemStyle: { borderColor: t.surface, borderWidth: 2, gapWidth: 2, borderRadius: 4 } },
-          {
-            itemStyle: { borderColor: t.surface, borderWidth: 1, gapWidth: 1, borderRadius: 3 },
-            colorSaturation: [0.3, 0.55],
-          },
+          // Sub-category tiles carry their own colours (childShades).
+          { itemStyle: { borderColor: t.surface, borderWidth: 1, gapWidth: 1, borderRadius: 3 } },
         ],
         data: nodes,
       },
@@ -816,14 +843,15 @@ function cohort(ctx: OptionContext): EChartsCoreOption {
     visualMap: {
       ...seqVisualMap(t, 0, max || 1, "percent", fmt),
       dimension: 2,
-      outOfRange: { color: [withAlpha(t.accent, 0.85)] },
+      // Month 0 (always 100%) sits outside the scale: it takes the gradient's strongest step, so it follows the chart colours.
+      outOfRange: { color: [withAlpha(t.seq[7] as string, 0.85)] },
     },
     series: [
       {
         type: "heatmap",
         data: cells.map(([x, y, v]) =>
           x === 0
-            ? { value: [x, y, v], itemStyle: { color: withAlpha(t.accent, t.dark ? 0.32 : 0.22) } }
+            ? { value: [x, y, v], itemStyle: { color: withAlpha(t.seq[7] as string, t.dark ? 0.32 : 0.22) } }
             : [x, y, v],
         ),
         itemStyle: { borderColor: t.surface, borderWidth: 2, borderRadius: 3 },

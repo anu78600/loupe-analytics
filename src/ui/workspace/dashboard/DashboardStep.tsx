@@ -34,6 +34,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Eyebrow } from "@/ui/primitives/misc";
 import { useColumnUsage } from "../useColumnUsage";
 import { AskChartButton } from "./AskChart";
+import { ChartColoursButton } from "../ChartColours";
 import { HealthPanel } from "../HealthPanel";
 import { ActiveFilters, FilterRail } from "./FilterRail";
 import { KpiStrip, KpiTiles, SupportingKpis } from "./KpiCards";
@@ -144,6 +145,7 @@ export function DashboardStep() {
             >
               <Plus aria-hidden /> Build manually
             </Button>
+            <ChartColoursButton />
             <AskChartButton />
           </div>
         </div>
