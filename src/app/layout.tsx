@@ -13,6 +13,7 @@ import { GeistMono } from "geist/font/mono";
 import { Providers } from "@/ui/common/providers";
 import { themeBootScript } from "@/store/settings";
 import { chartThemeBootScript } from "@/ui/charts/palette/apply";
+import { AUTHOR } from "@/content/credits";
 import "./globals.css";
 
 const instrumentSerif = localFont({
@@ -33,6 +34,8 @@ export const metadata: Metadata = {
   description:
     "Upload clean data. Get an analyst-grade dashboard in seconds. Loupe profiles your data, detects the industry, and generates correct KPIs with SQL and DAX, entirely in your browser.",
   applicationName: "Loupe",
+  authors: [{ name: AUTHOR }],
+  creator: AUTHOR,
   keywords: [
     "dashboard",
     "KPI",

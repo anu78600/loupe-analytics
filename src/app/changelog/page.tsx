@@ -8,6 +8,7 @@ import { ArrowRight, GitCommitVertical, Milestone, Wrench } from "lucide-react";
 import { CURRENT_RELEASE, PLANNED, RELEASES } from "@/content/changelog";
 import { ChangelogTimeline } from "@/ui/site/ChangelogTimeline";
 import { SiteFooter } from "@/ui/site/SiteFooter";
+import { CreditBar } from "@/ui/site/CreditBar";
 import { SiteHeader } from "@/ui/site/SiteHeader";
 
 export const metadata: Metadata = {
@@ -23,6 +24,7 @@ export default function ChangelogPage() {
   const minors = RELEASES.length - majors;
   return (
     <>
+      <CreditBar />
       <SiteHeader />
       <main id="main" className="relative isolate">
         <div aria-hidden className="mesh absolute inset-x-0 top-0 -z-10 h-[420px] opacity-70" />

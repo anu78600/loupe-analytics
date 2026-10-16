@@ -11,6 +11,7 @@
  * many of the file's columns are used; and the "Not shown" panel, which
  * lists every KPI or chart that could not be computed and what it needs.
  */
+import { FileIdentity } from "../FileIdentity";
 import * as React from "react";
 import {
   ChevronDown,
@@ -56,6 +57,7 @@ export const SECTIONS: Array<{ id: ChartSection; title: string; blurb: string }>
 
 export function DashboardStep() {
   const context = useWorkspace((s) => s.context);
+  const summary = useWorkspace((s) => s.summary);
   const mode = useWorkspace((s) => s.mode);
   const setMode = useWorkspace((s) => s.setMode);
   const computing = useWorkspace((s) => s.computing);
@@ -104,6 +106,7 @@ export function DashboardStep() {
                 <span className="text-fg-subtle"> · {subName}</span>
               ) : null}
             </h1>
+            {summary ? <FileIdentity summary={summary} className="mt-2.5" /> : null}
             {usage ? (
               <p className="mt-2 flex items-center gap-1.5 text-2xs text-fg-subtle">
                 <Columns3 className="size-3.5" aria-hidden />

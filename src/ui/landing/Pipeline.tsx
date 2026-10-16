@@ -661,20 +661,19 @@ export function Pipeline({ data }: { data: PipelineData }) {
                     {s.title}
                   </span>
                 </span>
-                <AnimatePresence initial={false}>
-                  {selected ? (
-                    <motion.span
-                      key="caption"
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: "auto", opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      transition={{ duration: 0.3, ease: EASE }}
-                      className="block overflow-hidden"
-                    >
-                      <span className="block pt-1 text-ui text-fg-muted">{s.caption(data)}</span>
-                    </motion.span>
-                  ) : null}
-                </AnimatePresence>
+                {/* The caption opens with a CSS grid-row transition, not Framer's `height: auto`, which
+                    resets the scroll position to measure and so would stop a smooth scroll mid-way. */}
+                <span
+                  aria-hidden={!selected}
+                  className={cn(
+                    "grid transition-[grid-template-rows,opacity] duration-300 ease-[var(--ease-out-quint)]",
+                    selected ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0",
+                  )}
+                >
+                  <span className="overflow-hidden">
+                    <span className="block pt-1 text-ui text-fg-muted">{s.caption(data)}</span>
+                  </span>
+                </span>
               </span>
               {selected ? (
                 <span

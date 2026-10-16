@@ -135,25 +135,31 @@ export function WorkspaceTopBar({
         </Link>
         <span aria-hidden className="hidden h-5 w-px shrink-0 bg-border-strong md:block" />
         {summary ? (
-          // Takes whatever room the steps leave. Its parts are in order of importance and sit on one
-          // 20px line: a part that doesn't fit wraps onto a second line, which is clipped, so the
-          // summary shows what fits whole and never runs into the steps.
+          // Takes whatever room the steps leave. The file's real name comes first and always shows
+          // (it truncates); "Your file" or "Demo data" and the row count follow when there's room.
+          // Each part sits on one 24px line and a part that doesn't fit wraps onto a second line,
+          // which is clipped, so the summary never runs into the steps.
           <div
-            className="hidden h-5 min-w-0 flex-1 basis-0 flex-wrap items-center gap-x-2 overflow-hidden min-[1360px]:flex"
-            title={`${summary.fileName} · ${formatCount(summary.rowCount, locale)} rows`}
+            className="hidden h-6 min-w-0 flex-1 basis-0 flex-wrap items-center gap-x-2.5 overflow-hidden lg:flex"
+            title={`${summary.fileName}${summary.sheet ? ` · sheet "${summary.sheet}"` : ""} · ${formatCount(summary.rowCount, locale)} rows${summary.isDemo ? " · demo data" : ""}`}
           >
-            <span className="inline-flex h-5 shrink-0 items-center gap-2 whitespace-nowrap">
+            <span className="inline-flex h-6 max-w-[280px] min-w-0 items-center gap-2">
               <Database className="size-3.5 shrink-0 text-fg-subtle" aria-hidden />
-              <span className="font-figures text-2xs text-fg-subtle">
-                {formatCount(summary.rowCount, locale)} rows
+              <span className="truncate text-ui font-medium text-fg">
+                {summary.fileName}
+                {summary.sheet ? (
+                  <span className="font-normal text-fg-subtle"> · {summary.sheet}</span>
+                ) : null}
               </span>
             </span>
-            {summary.isDemo ? (
-              <Badge tone="accent" className="shrink-0">
-                Demo data
+            <span className="flex h-6 shrink-0 items-center">
+              <Badge tone={summary.isDemo ? "accent" : "success"}>
+                {summary.isDemo ? "Demo data" : "Your file"}
               </Badge>
-            ) : null}
-            <span className="h-5 max-w-[180px] truncate text-ui leading-5 text-fg">{summary.fileName}</span>
+            </span>
+            <span className="font-figures h-6 shrink-0 text-2xs leading-6 whitespace-nowrap text-fg-subtle">
+              {formatCount(summary.rowCount, locale)} rows
+            </span>
           </div>
         ) : null}
         <div className="mx-auto min-w-0">
@@ -165,7 +171,8 @@ export function WorkspaceTopBar({
               variant="ghost"
               size="sm"
               onClick={onOpenCommand}
-              className="hidden gap-1.5 text-fg-muted lg:inline-flex"
+              // Wide screens only: below that the room goes to the file's name (Ctrl/⌘+K still works).
+              className="hidden gap-1.5 text-fg-muted 2xl:inline-flex"
             >
               {/* Name from content, so it includes the visible shortcut (WCAG 2.5.3 label in name). */}
               <span className="sr-only">Command palette, </span>

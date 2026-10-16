@@ -13,6 +13,7 @@
  * stay in the grid as the user's reference, dimmed, and the check leaves
  * them out: their problems neither mark cells nor count as rows to check.
  */
+import { FileIdentity } from "./FileIdentity";
 import * as React from "react";
 import { AlertTriangle, CheckCircle2, EyeOff, Info, Rows3 } from "lucide-react";
 import type { CheckView } from "@/engine/profile/dataCheck";
@@ -99,7 +100,10 @@ export function DataCheckPanel() {
     <div className="grid gap-4 lg:grid-cols-[300px_minmax(0,1fr)]">
       <aside aria-label="What to check" className="grid min-w-0 grid-cols-1 content-start gap-4">
         <div className="rounded-card border border-border bg-surface-1 p-4">
-          <p className="text-2xs font-medium tracking-[0.12em] text-fg-subtle uppercase">Your file</p>
+          <p className="text-2xs font-medium tracking-[0.12em] text-fg-subtle uppercase">
+            {summary.isDemo ? "Demo file" : "Your file"}
+          </p>
+          <FileIdentity summary={summary} badge={false} className="mt-1.5" />
           <p className="mt-1 text-ui text-fg">
             {formatCount(summary.rowCount, locale)} rows · {summary.columnCount} columns
           </p>

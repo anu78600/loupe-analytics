@@ -1,11 +1,13 @@
 /**
- * Footer for the marketing pages. Shows the current version from the version
- * log (src/content/changelog.ts) so visitors can see what changed and when.
+ * Footer for the marketing pages. Shows the copyright (content/credits.ts)
+ * and the current version from the version log (src/content/changelog.ts) so
+ * visitors can see what changed and when.
  */
 import Link from "next/link";
 import { ShieldCheck } from "lucide-react";
 import { Wordmark } from "@/ui/brand/logo";
 import { CURRENT_RELEASE } from "@/content/changelog";
+import { AUTHOR, copyrightLine } from "@/content/credits";
 
 const COLUMNS: Array<{ title: string; links: Array<{ href: string; label: string }> }> = [
   {
@@ -57,7 +59,14 @@ export function SiteFooter() {
       </div>
       <div className="border-t border-border">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-5 text-2xs text-fg-subtle sm:px-6">
-          <p>Demo datasets are synthetic and generated in the browser. No real customers or transactions.</p>
+          <div className="grid gap-1">
+            <p className="text-fg-muted">
+              {copyrightLine(CURRENT_RELEASE.date)} Designed &amp; developed by {AUTHOR}.
+            </p>
+            <p>
+              Demo datasets are synthetic and generated in the browser. No real customers or transactions.
+            </p>
+          </div>
           <Link
             href="/changelog"
             className="font-figures rounded-full border border-border px-2.5 py-1 transition-colors hover:border-border-accent hover:text-fg"

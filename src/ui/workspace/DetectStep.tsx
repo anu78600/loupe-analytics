@@ -12,6 +12,7 @@
  * the wide-format banner, whose unpivot adds two columns and so asks first
  * (useColumnConsent).
  */
+import { FileIdentity } from "./FileIdentity";
 import * as React from "react";
 import { motion } from "framer-motion";
 import {
@@ -103,6 +104,7 @@ export function DetectStep() {
         <div>
           <Eyebrow>Step {stepNumber("detect")} · Detect</Eyebrow>
           <h1 className="mt-2 font-display text-display-sm text-fg">What kind of data is this?</h1>
+          <FileIdentity summary={summary} className="mt-2" />
         </div>
         <p className="font-figures text-ui text-fg-muted">
           {formatCount(summary.rowCount, locale)} rows · {summary.columnCount} columns ·{" "}

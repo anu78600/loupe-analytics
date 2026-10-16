@@ -103,6 +103,8 @@ export interface DatasetSummary {
   columnCount: number;
   /** Size of the source file in bytes; 0 for generated demo data. */
   sizeBytes: number;
+  /** Workbooks only: the sheet that was read, shown next to the file name. */
+  sheet?: string;
 }
 
 /** One entry of the domain picker (every registry domain, not just detected ones). */
@@ -513,6 +515,7 @@ function summarize(ds: Dataset): DatasetSummary {
     rowCount: ds.rowCount,
     columnCount: ds.columns.length,
     sizeBytes: ds.source.sizeBytes,
+    ...(ds.source.sheet ? { sheet: ds.source.sheet } : {}),
   };
 }
 

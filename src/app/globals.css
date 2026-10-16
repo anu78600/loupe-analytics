@@ -352,6 +352,11 @@
     border-radius: 6px;
   }
 
+  /* A section that takes focus after an in-page link (SiteHeader) isn't a control: no ring round it. */
+  section[tabindex="-1"]:focus {
+    outline: none;
+  }
+
   h1,
   h2,
   h3,

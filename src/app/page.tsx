@@ -19,6 +19,7 @@ import {
   Samples,
 } from "@/ui/landing/sections";
 import { SiteFooter } from "@/ui/site/SiteFooter";
+import { CreditBar } from "@/ui/site/CreditBar";
 import { SiteHeader } from "@/ui/site/SiteHeader";
 
 export const dynamic = "force-static";
@@ -34,6 +35,7 @@ export default function LandingPage() {
       <noscript>
         <style>{NO_SCRIPT_CSS}</style>
       </noscript>
+      <CreditBar />
       <SiteHeader />
       <main id="main">
         <Hero data={data} />

@@ -41,6 +41,69 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "33.3",
+    kind: "minor",
+    date: "2026-10-16T10:50:34Z",
+    title: "Your file, named everywhere",
+    summary:
+      "When you upload your own table, its real file name (and the sheet, for an Excel workbook) now shows in the top bar and in the Detect, Check & map and Dashboard headers, labelled “Your file”, so it can't be mistaken for the demo, which is labelled “Demo data”.",
+    changes: [
+      "Top bar: the file's name now comes first and shows from tablet width up, shortened to fit if it is long (hover for the full name). The “Your file” or “Demo data” label and the row count follow when there is room.",
+      "Detect, Check & map and Dashboard: each header names the file under its title, with the same label.",
+      "Excel workbooks show the sheet that was read next to the file name.",
+      "To make room for the name on laptop screens, the Ctrl+K shortcut button in the top bar now appears only on wide screens; the shortcut itself works everywhere.",
+    ],
+    tags: ["Design", "Fix"],
+    files: [
+      "src/ui/workspace/FileIdentity.tsx",
+      "src/ui/workspace/Shell.tsx",
+      "src/ui/workspace/DetectStep.tsx",
+      "src/ui/workspace/DataCheckPanel.tsx",
+      "src/ui/workspace/dashboard/DashboardStep.tsx",
+      "src/engine/session.ts",
+    ],
+  },
+  {
+    version: "33.2",
+    kind: "minor",
+    date: "2026-10-16T10:50:34Z",
+    title: "Header links that always work",
+    summary:
+      "The home page's header links (How it works, Features, Industries, Privacy, FAQ) now take you to their section every time, with a smooth scroll, and the link for the section you are reading is underlined.",
+    changes: [
+      "Fixed: clicking a section link a second time, after scrolling away, did nothing, because the browser saw that section was already in the address bar.",
+      "Fixed: a scroll started from a header link could stop part-way when the phone menu closed or when “How it works” moved to its next step, because those animations briefly reset the scroll position. Both now animate without touching it.",
+      "Fixed: on phones, the menu pushed the page down while it was open, so a tapped link landed past its section. The menu now floats over the page on a solid panel.",
+      "Links scroll smoothly (instantly with reduced motion), stop just below the pinned header, keep the address bar in step so the link can be shared, and move keyboard focus to the section.",
+      "The section you are reading is underlined in brass, and Version log is marked when you are on it. The Loupe logo takes the home page back to the top.",
+    ],
+    tags: ["Fix", "Design"],
+    files: ["src/ui/site/SiteHeader.tsx", "src/ui/landing/Pipeline.tsx", "src/app/globals.css"],
+  },
+  {
+    version: "33.1",
+    kind: "minor",
+    date: "2026-10-16T10:33:28Z",
+    title: "Credits and copyright",
+    summary:
+      "The site now credits its maker: a slim bar above the header reads “Crafted with curiosity · Designed & developed by Anupam Mishra · © 2026 Anupam Mishra. All rights reserved.”, and the footer carries the same copyright.",
+    changes: [
+      "A credit bar sits above the navigation on the home page and the version log. It scrolls away with the page while the navigation stays pinned, and on phones it keeps the name and the year.",
+      "The footer now opens its bottom line with the copyright and the designer's name.",
+      "The page details read by browsers and search engines name Anupam Mishra as the author and creator.",
+      "The copyright year is taken from the latest release in the version log, so it moves forward by itself instead of being typed in.",
+    ],
+    tags: ["Design"],
+    files: [
+      "src/content/credits.ts",
+      "src/ui/site/CreditBar.tsx",
+      "src/ui/site/SiteFooter.tsx",
+      "src/app/page.tsx",
+      "src/app/changelog/page.tsx",
+      "src/app/layout.tsx",
+    ],
+  },
+  {
     version: "33.0",
     kind: "major",
     date: "2026-10-16T10:11:50Z",
