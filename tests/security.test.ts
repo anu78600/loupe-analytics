@@ -57,6 +57,20 @@ const KINDS = [
   "pareto",
   "geoTile",
   "table",
+  "pie",
+  "groupedBar",
+  "stackedBar100",
+  "stackedArea",
+  "step",
+  "lollipop",
+  "dumbbell",
+  "bubble",
+  "radar",
+  "gauge",
+  "sunburst",
+  "sankey",
+  "calendar",
+  "bigNumber",
 ] as const satisfies readonly ChartKind[];
 type MissingKind = Exclude<ChartKind, (typeof KINDS)[number]>;
 const allKindsListed: [MissingKind] extends [never] ? true : never = true;
@@ -136,8 +150,34 @@ const timeCats = [Date.UTC(2024, 0, 1), Date.UTC(2024, 1, 1), Date.UTC(2024, 2, 
   (t, i) => ({ label: i === 1 ? CAT : `M${i}`, raw: t }),
 );
 
+/** Data split by a second category, as the engine returns it: a matrix and one series per split value. */
+function splitData(): ChartData {
+  const seriesCategories = [
+    { label: ROWCAT, raw: ROWCAT },
+    { label: SERIES, raw: SERIES },
+    { label: "Others", raw: "__others__", isOthers: true },
+  ];
+  const matrix = [
+    [5, 4, 3, 2],
+    [2, 2, 1, 1],
+    [1, 1, 1, null],
+  ];
+  return chartData({
+    seriesCategories,
+    matrix,
+    series: seriesCategories.map((c, i) => ({
+      id: String(c.raw),
+      label: c.label,
+      values: matrix[i] as Array<number | null>,
+      format: "currency" as const,
+    })),
+  });
+}
+
 interface Fixture {
   name: string;
+  /** Kinds drawn without a tooltip (a big number is all text): the names are checked in the SVG instead. */
+  noTooltip?: boolean;
   kind: ChartKind;
   spec: ChartSpec;
   data: ChartData;
@@ -148,7 +188,23 @@ interface Fixture {
 const FIXTURES: Fixture[] = [
   // Cartesian kinds (and the kinds the cartesian builder draws) on a category axis, two series and one.
   ...(
-    ["line", "area", "bar", "hbar", "stackedBar", "histogram", "box", "waterfall", "bullet", "bump"] as const
+    [
+      "line",
+      "area",
+      "bar",
+      "hbar",
+      "stackedBar",
+      "histogram",
+      "box",
+      "waterfall",
+      "bullet",
+      "bump",
+      "groupedBar",
+      "stackedBar100",
+      "stackedArea",
+      "step",
+      "lollipop",
+    ] as const
   ).flatMap((kind): Fixture[] => [
     { name: `${kind} · two series`, kind, spec: spec(kind), data: chartData(), names: [CAT, KPI, SERIES] },
     { name: `${kind} · one series`, kind, spec: spec(kind), data: oneSeries(chartData()), names: [CAT, KPI] },
@@ -194,6 +250,132 @@ const FIXTURES: Fixture[] = [
     names: [CAT, KPI, SERIES],
   },
   { name: "donut", kind: "donut", spec: spec("donut"), data: oneSeries(chartData()), names: [CAT, KPI] },
+  { name: "pie", kind: "pie", spec: spec("pie"), data: oneSeries(chartData()), names: [CAT, KPI] },
+  // Kinds that draw one series per value of a second category.
+  ...(["line", "step", "stackedArea", "groupedBar", "stackedBar100", "radar"] as const).map(
+    (kind): Fixture => ({
+      name: `${kind} · split`,
+      kind,
+      spec: spec(kind, {
+        series: { kind: "column", column: ROWCAT, label: ROWCAT },
+        measures: [{ id: "m1", label: KPI, format: "currency", direction: "higher" }],
+      }),
+      data: splitData(),
+      names: [CAT, ROWCAT, SERIES],
+    }),
+  ),
+  {
+    name: "dumbbell",
+    kind: "dumbbell",
+    spec: spec("dumbbell"),
+    data: chartData(),
+    names: [CAT, KPI, SERIES],
+  },
+  {
+    name: "radar · measures",
+    kind: "radar",
+    spec: spec("radar", {
+      measures: [
+        { id: "m1", label: KPI, format: "currency", direction: "higher" },
+        { id: "m2", label: MEASURE, format: "number", direction: "higher" },
+        { id: "m3", label: ROWCAT, format: "number", direction: "higher" },
+      ],
+    }),
+    data: chartData({
+      series: [
+        { id: "m1", label: KPI, values: [120, 80, 55, 30], format: "currency" },
+        { id: "m2", label: MEASURE, values: [4, 3, 2, 1], format: "number" },
+        { id: "m3", label: ROWCAT, values: [9, 7, 5, 3], format: "number" },
+      ],
+    }),
+    names: [CAT, KPI, MEASURE, ROWCAT],
+  },
+  {
+    name: "bubble",
+    kind: "bubble",
+    spec: spec("bubble", {
+      measures: [
+        { id: "m1", label: KPI, format: "currency", direction: "higher" },
+        { id: "m2", label: MEASURE, format: "number", direction: "higher" },
+        { id: "m3", label: ROWCAT, format: "number", direction: "higher" },
+      ],
+    }),
+    data: chartData({
+      points: [
+        { label: CAT, x: 10, y: 4, size: 30 },
+        { label: CAT2, x: 20, y: 7, size: 5 },
+        { label: "Plain", x: 30, y: 9, size: null },
+      ],
+    }),
+    names: [CAT, CAT2, KPI, MEASURE, ROWCAT],
+  },
+  {
+    name: "sunburst",
+    kind: "sunburst",
+    spec: spec("sunburst"),
+    data: chartData({
+      tree: [
+        {
+          label: CAT,
+          value: 70,
+          children: [
+            { label: ROWCAT, value: 40 },
+            { label: CAT2, value: 30 },
+          ],
+        },
+        { label: "Others", value: 10 },
+      ],
+    }),
+    names: [CAT, ROWCAT, KPI],
+  },
+  {
+    name: "sankey",
+    kind: "sankey",
+    spec: spec("sankey", {
+      series: { kind: "column", column: ROWCAT, label: ROWCAT },
+      measures: [{ id: "m1", label: KPI, format: "currency", direction: "higher" }],
+    }),
+    data: splitData(),
+    names: [CAT, ROWCAT, KPI],
+  },
+  {
+    name: "calendar",
+    kind: "calendar",
+    spec: spec("calendar", { x: { kind: "time", column: "Order Date", grain: "day", label: "Order Date" } }),
+    data: oneSeries(
+      chartData({
+        categories: [0, 1, 2, 40].map((d) => ({
+          label: `D${d}`,
+          raw: Date.UTC(2024, 0, 1) + d * 86_400_000,
+        })),
+        grain: "day",
+      }),
+    ),
+    names: [KPI],
+  },
+  {
+    name: "gauge",
+    kind: "gauge",
+    spec: spec("gauge", { x: { kind: "none" }, target: 500 }),
+    data: chartData({
+      categories: [{ label: KPI, raw: "m1" }],
+      series: [{ id: "m1", label: KPI, values: [420], format: "currency" }],
+      rows: [26],
+    }),
+    names: [KPI],
+  },
+  {
+    name: "bigNumber",
+    kind: "bigNumber",
+    noTooltip: true,
+    spec: spec("bigNumber", { x: { kind: "none" }, target: 500 }),
+    data: chartData({
+      categories: [{ label: KPI, raw: "m1" }],
+      series: [{ id: "m1", label: KPI, values: [420], format: "currency" }],
+      rows: [26],
+    }),
+    names: [KPI],
+  },
   {
     name: "treemap",
     kind: "treemap",
@@ -396,7 +578,7 @@ function renderSvg(option: EChartsCoreOption): string {
 }
 
 /** Runs every check on one option; returns the tooltip HTML so callers can look for the escaped names. */
-function checkOption(option: EChartsCoreOption, where: string): string {
+function checkOption(option: EChartsCoreOption, where: string, tooltip = true): string {
   const tree = option as Obj;
   const all = formatters(tree);
   let tooltips = "";
@@ -414,10 +596,11 @@ function checkOption(option: EChartsCoreOption, where: string): string {
       }
     }
   }
+  // Every chart has a tooltip, except an all-text one (a big number), which has none to inject into.
   expect(
     all.some((f) => f.path.startsWith("tooltip")),
     `${where}: has a tooltip formatter`,
-  ).toBe(true);
+  ).toBe(tooltip);
   // No rich-text styles anywhere, so label text can never be read as rich markup either.
   expect(
     JSON.stringify(tree, (k, v: unknown) => (typeof v === "function" ? undefined : v)),
@@ -454,7 +637,15 @@ describe("chart tooltips escape data-derived text", () => {
           forExport: !animate,
         });
         expect(option, f.name).not.toBeNull();
-        const html = checkOption(option as EChartsCoreOption, f.name);
+        const html = checkOption(option as EChartsCoreOption, f.name, !f.noTooltip);
+        if (f.noTooltip) {
+          // All text, no tooltip: the names reach the SVG as escaped text.
+          expect(html, `${f.name}: no tooltips`).toBe("");
+          const svg = renderSvg(option as EChartsCoreOption);
+          for (const name of f.names) expect(svg, `${f.name}: ${name} drawn`).toContain(name.slice(0, 5));
+          expect(svg, `${f.name}: markup escaped`).toContain("&lt;img");
+          continue;
+        }
         expect(html, `${f.name}: tooltips were produced`).not.toBe("");
         for (const name of f.names) expect(html, `${f.name}: ${name} shown escaped`).toContain(escaped(name));
       }

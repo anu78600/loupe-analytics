@@ -4,15 +4,16 @@
 
 Drop in a clean CSV, Excel or JSON file. Loupe profiles every column, recognises the industry (16 built in, plus a generic fallback), computes the KPIs that matter and lays them out the way an analyst reads a dashboard. Columns the industry template doesn't know still get their own KPIs and charts, and **Ask for a chart** designs a chart from a request in your own words ("average customer rating by city"). Every KPI shows its definition, formula, SQL and DAX. You can export a Power BI package, SQL, a PDF report or PNG images.
 
-The workspace runs in seven steps:
+The workspace runs in eight steps:
 
 1. **Upload** a clean CSV, TSV, Excel or JSON file.
 2. **Detect** what kind of data it is, with every column header and the kind of values it holds.
 3. **Check & map**: the whole file with any problem marked (unreadable cells, impossible values, repeated rows), then how the columns were mapped. Columns you keep only as a reference (say `Unit_Price` next to your `Unit_Price_Clean`) can be hidden: they stay in the file, and nothing is computed from them. Loupe suggests the raw/clean pairs it recognises.
-4. **Dashboard**: KPIs and charts, plus your own charts from **Ask for a chart**. **Colours** sets the chart colours everywhere: a preset, your own brand colours, or one colour turned into a gradient, each with a live preview and a colour-blind readability check.
-5. **Questions & SQL**: business questions (suggested, or in your own words), each answered from the data with the SQL query that returns the same answer, checkable in the browser.
-6. **Insights**: ranked, quantified findings.
-7. **Export**: the dashboard as a PDF or image, the SQL queries as a PDF, the insights as a PDF, then the Power BI package, SQL file, data and settings.
+4. **Customise**: full control of what the dashboard shows. Choose which KPIs sit in the headline row (up to six), which support it and which stay off, in your order, and build your own KPI from any column (a total, average, median, lowest, highest, distinct count, row count, or a ratio of two). Show, hide, rename, resize, reorder or retype any chart, or change the columns it uses. **Create a chart** offers 28 chart types in ten groups (change over time, comparison, ranking, part of a whole, distribution, relationships, flow, geography, a single number, exact figures), each with two lines on what it shows and what data it suits best, and a live preview.
+5. **Dashboard**: KPIs and charts, plus your own charts from **Ask for a chart**. **Colours** sets the chart colours everywhere: a preset, your own brand colours, or one colour turned into a gradient, each with a live preview and a colour-blind readability check.
+6. **Questions & SQL**: business questions (suggested, or in your own words), each answered from the data with the SQL query that returns the same answer, checkable in the browser.
+7. **Insights**: ranked, quantified findings.
+8. **Export**: the dashboard as a PDF or image, the SQL queries as a PDF, the insights as a PDF, then the Power BI package, SQL file, data and settings.
 
 **Your data never leaves your browser.** Loupe is a static web app with no backend, no database and no accounts. Parsing and analysis run in a Web Worker in your tab, and the Content-Security-Policy blocks network access except for two opt-in features: SQL verification (downloads DuckDB-WASM from jsDelivr) and the AI layer (sends a previewed, anonymised summary to Anthropic using your own key).
 

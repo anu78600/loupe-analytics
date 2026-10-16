@@ -24,10 +24,12 @@ import type { AxisDef, ChartKind, ChartTemplate, DomainDef, KpiFormat } from "@/
 import {
   MAX_DONUT_SLICES,
   type ChartMeasure,
+  type ChartSection,
   type ChartSpec,
   type LayoutMode,
   type ResolvedAxis,
 } from "./types";
+import { CHART_TYPES } from "./catalogue";
 
 export interface RecommendInput {
   domain: DomainDef;
@@ -319,14 +321,24 @@ export function recommendCharts(input: RecommendInput): { specs: ChartSpec[]; sk
   return { specs, skipped };
 }
 
+/** True when every measure has the first one's format: they can share one value axis (never two). */
+function sameUnit(spec: ChartSpec): boolean {
+  const f = spec.measures[0]?.format;
+  return spec.measures.every((m) => m.format === f);
+}
+
 /**
  * Whether a chart kind can render a spec's data shape (drives the Alternatives
- * switcher). `categoryCount`, when known, is how many categories the chart
- * currently has; a donut takes at most MAX_DONUT_SLICES of them.
+ * switcher and the chart builder). `categoryCount`, when known, is how many
+ * categories the chart currently has; a donut or pie takes at most
+ * MAX_DONUT_SLICES of them. Kinds drawn with one series per split value
+ * accept a split with one measure, or 2+ measures in one unit.
  */
 export function isKindCompatible(kind: ChartKind, spec: ChartSpec, categoryCount?: number): boolean {
   const x = spec.x.kind;
   const m = spec.measures.length;
+  const split = Boolean(spec.series);
+  const series = (min: number, max: number) => (split ? m === 1 : m >= min && m <= max && sameUnit(spec));
   if (spec.analysis === "cohort") return kind === "cohort" || kind === "table";
   if (spec.analysis === "rfm") return kind === "treemap" || kind === "hbar" || kind === "table";
   if (spec.analysis === "basket") return kind === "table" || kind === "hbar";
@@ -335,6 +347,38 @@ export function isKindCompatible(kind: ChartKind, spec: ChartSpec, categoryCount
     case "line":
     case "area":
       return (x === "time" || x === "part" || x === "bins") && m <= 4;
+    case "step":
+      return (x === "time" || x === "part") && series(1, 4);
+    case "stackedArea":
+      return (x === "time" || x === "part") && series(2, 4);
+    case "calendar":
+      return x === "time" && m === 1 && !split;
+    case "groupedBar":
+      return (x === "time" || x === "column" || x === "part") && series(2, 4);
+    case "stackedBar100":
+      return (x === "time" || x === "column" || x === "part") && (m >= 2 || split);
+    case "lollipop":
+      return x === "column" && m === 1 && !split;
+    case "dumbbell":
+      return x === "column" && series(2, 2);
+    case "radar":
+      return x === "column" && (split ? m === 1 : m >= 3 && m <= 8);
+    case "pie":
+      return (
+        x === "column" &&
+        m === 1 &&
+        !split &&
+        (categoryCount === undefined || categoryCount <= MAX_DONUT_SLICES)
+      );
+    case "sunburst":
+      return x === "column" && m === 1;
+    case "bubble":
+      return x === "column" && m === 3 && !split;
+    case "sankey":
+      return x === "column" && spec.series?.kind === "column" && m === 1;
+    case "bigNumber":
+    case "gauge":
+      return x === "none" && m === 1;
     case "bar":
       return x !== "none" && m <= 4;
     case "hbar":
@@ -367,7 +411,11 @@ export function isKindCompatible(kind: ChartKind, spec: ChartSpec, categoryCount
   }
 }
 
-/** Builds a user-defined chart from the config panel. */
+/**
+ * Builds a user-defined chart (chart builder, Ask for a chart). Section and
+ * size default from the axis; the alternatives offered in the chart's type
+ * switcher are every buildable kind that can draw the same data.
+ */
 export function customSpec(opts: {
   id: string;
   title: string;
@@ -377,12 +425,20 @@ export function customSpec(opts: {
   measures: ChartMeasure[];
   topN?: number;
   others?: boolean;
+  section?: ChartSection;
+  size?: { w: number; h: number };
+  /** Goal for a gauge or big number, in the measure's units. */
+  target?: number;
+  /** State-level geography of the x column, for the tile map. */
+  geoRegion?: "IN" | "US";
+  /** A funnel built from stage measures. */
+  analysis?: "funnel";
 }): ChartSpec {
-  return {
+  const spec: ChartSpec = {
     id: opts.id,
     title: opts.title,
     kind: opts.kind,
-    section: opts.x.kind === "time" ? "trend" : "breakdown",
+    section: opts.section ?? (opts.x.kind === "time" ? "trend" : "breakdown"),
     x: opts.x,
     series: opts.series,
     measures: opts.measures,
@@ -390,9 +446,16 @@ export function customSpec(opts: {
     others: opts.others,
     reason: "Configured by you.",
     alternatives: [],
-    size: { w: 6, h: 4 },
+    size: opts.size ?? { w: 6, h: 4 },
     priority: 50,
     modes: ["executive", "analyst", "compact"],
     source: "custom",
+    ...(opts.target !== undefined && Number.isFinite(opts.target) ? { target: opts.target } : {}),
+    ...(opts.geoRegion ? { geoRegion: opts.geoRegion } : {}),
+    ...(opts.analysis ? { analysis: opts.analysis } : {}),
   };
+  spec.alternatives = CHART_TYPES.filter(
+    (t) => t.buildable && t.kind !== spec.kind && isKindCompatible(t.kind, spec),
+  ).map((t) => t.kind);
+  return spec;
 }

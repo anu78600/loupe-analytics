@@ -2,8 +2,8 @@
 
 /**
  * The workspace state machine (Zustand, main thread, not persisted): the
- * steps in STEPS (Upload → Detect → Check & map → Dashboard → Questions &
- * SQL → Insights → Export), the
+ * steps in STEPS (Upload → Detect → Check & map → Customise → Dashboard →
+ * Questions & SQL → Insights → Export), the
  * user's overrides, the dashboard layout and filters, and the latest results
  * streamed back from the engine worker.
  *
@@ -28,6 +28,7 @@ import { formatCount, SUPPORTED_CURRENCIES } from "@/engine/core/format";
 import type { IngestOptions, LargeFileAssessment, ParseReport } from "@/engine/core/types";
 import type { HealthReport } from "@/engine/profile/quality";
 import type { ReplacedColumn } from "@/engine/profile/replaced";
+import type { UserKpi } from "@/engine/kpi/userKpis";
 import type { DatasetProfile, SemanticRole, Additivity } from "@/engine/profile/types";
 import type { DetectionResult } from "@/engine/detect/detect";
 import type {
@@ -47,11 +48,13 @@ import type { LoupeConfig } from "@/engine/export/config";
 import { defaultPreset, presetRange, type DatePreset } from "@/engine/core/periods";
 import { useSettings } from "./settings";
 
-export type Step = "upload" | "detect" | "map" | "dashboard" | "questions" | "insights" | "export";
+export type Step =
+  "upload" | "detect" | "map" | "customise" | "dashboard" | "questions" | "insights" | "export";
 export const STEPS: Array<{ id: Step; label: string }> = [
   { id: "upload", label: "Upload" },
   { id: "detect", label: "Detect" },
   { id: "map", label: "Check & map" },
+  { id: "customise", label: "Customise" },
   { id: "dashboard", label: "Dashboard" },
   { id: "questions", label: "Questions & SQL" },
   { id: "insights", label: "Insights" },
@@ -87,6 +90,20 @@ const isPeriodGrain = (v: unknown): v is PeriodGrain =>
  */
 export type DashboardFilter = Filter | (Extract<Filter, { kind: "in" }> & { sourceId: string });
 
+/**
+ * The KPIs on the dashboard, in order: the headline strip (at most
+ * MAX_HEADLINE), the supporting tiles and the tiles of the "From your other
+ * columns" section. Set in the Customise step; until then the engine's
+ * recommendation (context.selection) is used.
+ */
+export interface KpiLayout {
+  hero: string[];
+  supporting: string[];
+  columns: string[];
+}
+/** The headline strip lays out at most six cards (KpiCards STRIP_COLS). */
+export const MAX_HEADLINE = 6;
+
 /** A chart's slot on the dashboard: spec id, grid size and per-chart overrides. */
 export interface Widget {
   /** Chart spec id (built-in or custom). */
@@ -98,6 +115,8 @@ export interface Widget {
   topN?: number;
   /** Hidden widgets are skipped by refresh(), so their data goes stale until shown again. */
   hidden?: boolean;
+  /** The user's own title (Customise step); the spec's title when unset. */
+  title?: string;
 }
 
 /** Progress overlay state while loading, profiling or configuring. */
@@ -171,8 +190,12 @@ interface WorkspaceState {
   crossFilter: { column: string; value: string; sourceId: string } | null;
   /** Spec id → values clicked at each drill level. */
   drill: Record<string, string[]>;
-  /** KPIs the user added beyond hero and supporting. */
+  /** KPIs the user added beyond hero and supporting (the KPI details' "Add to dashboard"). */
   extraKpis: string[];
+  /** The user's own KPI layout from the Customise step; null = the recommended one. See kpiLayoutOf(). */
+  kpiLayout: KpiLayout | null;
+  /** KPIs the user built in the Customise step, sent with every configure. */
+  customKpis: UserKpi[];
 
   // Latest results streamed from the worker.
   kpiBatch: KpiBatch | null;
@@ -265,6 +288,18 @@ interface WorkspaceState {
   /** Custom charts are deleted; built-in charts are only hidden, so they can come back. */
   removeChart: (id: string) => void;
   toggleExtraKpi: (id: string) => void;
+  /** Replaces the KPI layout (null goes back to the recommended one) and refreshes. */
+  setKpiLayout: (layout: KpiLayout | null) => void;
+  /** Adds or replaces (by id) a KPI the user built, placing a new one on the dashboard; reconfigures. */
+  saveCustomKpi: (kpi: UserKpi, place?: "hero" | "supporting" | "none") => Promise<void>;
+  /** Deletes a user-built KPI (and its place in the layout); reconfigures. */
+  removeCustomKpi: (id: string) => void;
+  /**
+   * Back to the recommended dashboard: the KPI layout, and every chart's
+   * visibility, size, type, Top N and title. Charts and KPIs the user built
+   * are kept (and stay visible).
+   */
+  resetCustomisation: () => void;
   select: (sel: WorkspaceState["selected"]) => void;
   /** Switches to the dashboard, scrolls the chart into view and outlines it briefly. */
   focusChart: (id: string) => void;
@@ -325,6 +360,8 @@ function initialData(): WorkspaceData {
     crossFilter: null,
     drill: {},
     extraKpis: [],
+    kpiLayout: null,
+    customKpis: [],
     kpiBatch: null,
     charts: {},
     computing: false,
@@ -426,6 +463,8 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
       drill: {},
       customCharts: [],
       extraKpis: [],
+      kpiLayout: null,
+      customKpis: [],
       selected: null,
       step: "detect",
     });
@@ -479,6 +518,7 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
         roleOverrides: s.roleOverrides,
         kpiRenames: s.kpiRenames,
         hiddenColumns: s.hiddenColumns,
+        customKpis: s.customKpis,
         numberLocale: settings.numberLocale,
         currency: settings.currencyOverride,
       });
@@ -508,6 +548,7 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
       // Every step after Detect works on the confirmed analysis, so it is built first when missing.
       if (
         (step === "map" ||
+          step === "customise" ||
           step === "dashboard" ||
           step === "questions" ||
           step === "insights" ||
@@ -629,6 +670,8 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
           insights: null,
           questions: [],
           mode: "analyst",
+          // Another industry has other KPI ids: its layout starts from the recommendation.
+          kpiLayout: null,
         });
         get().refresh();
         if (opts?.goTo === "insights") void get().loadInsights();
@@ -807,9 +850,87 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
       })),
 
     toggleExtraKpi: (id) => {
+      set((s) => {
+        // With the user's own layout, "Add to dashboard" adds to (or removes from) its supporting tiles.
+        if (s.kpiLayout) {
+          const l = s.kpiLayout;
+          const shown = [...l.hero, ...l.supporting, ...l.columns].includes(id);
+          return {
+            kpiLayout: shown
+              ? {
+                  hero: l.hero.filter((x) => x !== id),
+                  supporting: l.supporting.filter((x) => x !== id),
+                  columns: l.columns.filter((x) => x !== id),
+                }
+              : { ...l, supporting: [...l.supporting, id] },
+          };
+        }
+        return {
+          extraKpis: s.extraKpis.includes(id) ? s.extraKpis.filter((x) => x !== id) : [...s.extraKpis, id],
+        };
+      });
+      get().refresh();
+    },
+
+    setKpiLayout: (layout) => {
+      set({
+        kpiLayout: layout && {
+          hero: [...new Set(layout.hero)].slice(0, MAX_HEADLINE),
+          supporting: [...new Set(layout.supporting)],
+          columns: [...new Set(layout.columns)],
+        },
+      });
+      get().refresh();
+    },
+
+    saveCustomKpi: async (kpi, place = "supporting") => {
+      const s = get();
+      const isNew = !s.customKpis.some((k) => k.id === kpi.id);
+      set({
+        customKpis: isNew ? [...s.customKpis, kpi] : s.customKpis.map((k) => (k.id === kpi.id ? kpi : k)),
+      });
+      if (isNew && place !== "none") {
+        // A new KPI goes straight onto the dashboard where the user asked (headline only while there is room).
+        const layout = kpiLayoutOf(get());
+        const toHero = place === "hero" && layout.hero.length < MAX_HEADLINE;
+        set({
+          kpiLayout: {
+            hero: toHero ? [...layout.hero, kpi.id] : layout.hero,
+            supporting: toHero ? layout.supporting : [...layout.supporting, kpi.id],
+            columns: layout.columns,
+          },
+        });
+      }
+      await get().reconfigure();
+    },
+
+    removeCustomKpi: (id) => {
       set((s) => ({
-        extraKpis: s.extraKpis.includes(id) ? s.extraKpis.filter((x) => x !== id) : [...s.extraKpis, id],
+        customKpis: s.customKpis.filter((k) => k.id !== id),
+        kpiLayout: s.kpiLayout && {
+          hero: s.kpiLayout.hero.filter((x) => x !== id),
+          supporting: s.kpiLayout.supporting.filter((x) => x !== id),
+          columns: s.kpiLayout.columns.filter((x) => x !== id),
+        },
+        extraKpis: s.extraKpis.filter((x) => x !== id),
       }));
+      void get().reconfigure();
+    },
+
+    resetCustomisation: () => {
+      set((s) => {
+        const custom = new Set(s.customCharts.map((c) => c.id));
+        const specs = allSpecs(s);
+        return {
+          kpiLayout: null,
+          extraKpis: [],
+          // Recommended charts in their recommended order and sizes, then the user's own charts as they are.
+          widgets: [
+            ...widgetsFor(specs.filter((x) => !custom.has(x.id))),
+            ...s.widgets.filter((w) => custom.has(w.id)).map((w) => ({ ...w, hidden: false })),
+          ],
+        };
+      });
       get().refresh();
     },
 
@@ -881,17 +1002,8 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
             filters: s.crossFilter?.sourceId === w.id ? withoutCross : undefined,
           };
         });
-        const kpiIds = [
-          ...ctx.selection.hero,
-          ...ctx.selection.supporting,
-          ...ctx.selection.columns,
-          ...s.extraKpis.filter(
-            (k) =>
-              !ctx.selection.hero.includes(k) &&
-              !ctx.selection.supporting.includes(k) &&
-              !ctx.selection.columns.includes(k),
-          ),
-        ];
+        const layout = kpiLayoutOf(s);
+        const kpiIds = [...new Set([...layout.hero, ...layout.supporting, ...layout.columns])];
         set({ computing: true });
         const api = engine();
         await api.begin(id);
@@ -983,6 +1095,8 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
         kpiRenames: cfg.kpiRenames,
         kpiTargets: cfg.kpiTargets,
         hiddenColumns: cfg.hiddenColumns,
+        customKpis: cfg.customKpis as UserKpi[],
+        kpiLayout: cfg.kpiLayout ?? null,
         // The period becomes the trend grain sent to the engine, so only a known grain is kept.
         business: {
           model: business.model,
@@ -1009,6 +1123,7 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
                 kind: sv.kind as ChartKind | undefined,
                 topN: sv.topN,
                 hidden: sv.hidden,
+                title: sv.title,
               }
             : w;
         });
@@ -1047,6 +1162,32 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
     },
   };
 });
+
+/**
+ * The KPI layout in effect: the user's (Customise step) or the recommended
+ * one (the engine's hero, supporting and column KPIs, plus any added from
+ * the KPI details), keeping only KPIs that are available in the current
+ * analysis (a remapping can take one away).
+ */
+export function kpiLayoutOf(s: Pick<WorkspaceState, "context" | "kpiLayout" | "extraKpis">): KpiLayout {
+  const ctx = s.context;
+  if (!ctx) return { hero: [], supporting: [], columns: [] };
+  const available = new Set(ctx.kpis.filter((k) => k.available && !k.hidden).map((k) => k.id));
+  const keep = (ids: string[]) => ids.filter((id) => available.has(id));
+  if (s.kpiLayout)
+    return {
+      hero: keep(s.kpiLayout.hero),
+      supporting: keep(s.kpiLayout.supporting),
+      columns: keep(s.kpiLayout.columns),
+    };
+  const { hero, supporting, columns } = ctx.selection;
+  const shown = new Set([...hero, ...supporting, ...columns]);
+  return {
+    hero: keep(hero),
+    supporting: keep([...supporting, ...s.extraKpis.filter((k) => !shown.has(k))]),
+    columns: keep(columns),
+  };
+}
 
 /** Built-in plus custom chart specs, the list widgets are resolved against. */
 export function allSpecs(s: Pick<WorkspaceState, "context" | "customCharts">): ChartSpec[] {

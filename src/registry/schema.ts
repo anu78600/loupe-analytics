@@ -121,6 +121,21 @@ export const CHART_KINDS = [
   "pareto",
   "geoTile",
   "table",
+  // Added for the chart builder (engine/charts/catalogue.ts describes each).
+  "pie",
+  "groupedBar",
+  "stackedBar100",
+  "stackedArea",
+  "step",
+  "lollipop",
+  "dumbbell",
+  "bubble",
+  "radar",
+  "gauge",
+  "sunburst",
+  "sankey",
+  "calendar",
+  "bigNumber",
 ] as const;
 export type ChartKind = (typeof CHART_KINDS)[number];
 

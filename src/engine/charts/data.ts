@@ -152,6 +152,39 @@ function axisKey(
 /** Axes with a natural order, where peak and low annotations make sense. */
 const ORDINAL = new Set(["time", "part", "bins"]);
 
+/** Kinds that read the spec's second category (its split): segments, side-by-side series, lines, rings, flows. */
+const SPLIT_KINDS = new Set<ChartKind>([
+  "heatmap",
+  "stackedBar",
+  "treemap",
+  "groupedBar",
+  "stackedBar100",
+  "stackedArea",
+  "line",
+  "area",
+  "step",
+  "dumbbell",
+  "radar",
+  "sunburst",
+  "sankey",
+]);
+/** Of those, the kinds drawn with one series per split value (a line, bar, segment or polygon each). */
+const SERIES_FROM_SPLIT = new Set<ChartKind>([
+  "stackedBar",
+  "groupedBar",
+  "stackedBar100",
+  "stackedArea",
+  "line",
+  "area",
+  "step",
+  "dumbbell",
+  "radar",
+]);
+/** Split kinds that keep only their largest split values: a dumbbell compares exactly two, a radar stays legible with five. */
+const KEEP_LARGEST: Partial<Record<ChartKind, number>> = { dumbbell: 2, radar: 5 };
+/** Category charts that keep every group (no default top N). */
+const KEEP_ALL = new Set<ChartKind>(["table", "scatter", "bubble", "geoTile", "pareto"]);
+
 /**
  * The stacked "Others" segment: `expr` per x group over the rows whose series
  * value is not in `keep`, evaluated from those rows the way runQuery
@@ -313,15 +346,35 @@ export function computeChartData(input: ChartDataInput): ChartData {
     };
   }
 
+  // ---------------- one value (big number, gauge): the measure over every row in the selection
+  if (x.kind === "none" && (kind === "bigNumber" || kind === "gauge")) {
+    const ev = evaluateMany(ds, resolver, ms.slice(0, 1), filters, dateColumn);
+    const m = spec.measures[0];
+    const value = finite(ev.values.get(m?.id ?? ""));
+    const format = m?.format ?? "number";
+    const label = m?.label ?? "Value";
+    return {
+      ...emptyData(spec, kind, value === null ? "No value for the current filters." : ""),
+      empty: value === null,
+      categories: [{ label, raw: m?.id ?? "value" }],
+      series: [{ id: m?.id ?? "value", label, values: [value], format }],
+      rows: [ev.rows],
+      totals: [value],
+      totalRows: ev.rows,
+      altText: `${label}: ${formatValue(value, format, fmt)}${spec.target !== undefined ? `, against a goal of ${formatValue(spec.target, format, fmt)}` : ""}.`,
+    };
+  }
+
   // ---------------- grouped charts
   const selected = selectRowsCached(ds, filters);
   if (selected.length === 0) return emptyData(spec, kind, "No rows match the current filters.");
-  const xk = axisKey(ds, resolver, x, filters, selected, input.grain);
+  // A calendar has one cell per day, whatever grain the dashboard uses.
+  const xk = axisKey(ds, resolver, x, filters, selected, kind === "calendar" ? "day" : input.grain);
   if (!xk.key) return emptyData(spec, kind, "This chart has no axis.");
   if (xk.note) notes.push(xk.note);
   const keys: GroupKey[] = [xk.key];
   let seriesKey: GroupKey | null = null;
-  if (spec.series && (kind === "heatmap" || kind === "stackedBar" || kind === "treemap")) {
+  if (spec.series && SPLIT_KINDS.has(kind)) {
     const sk = axisKey(ds, resolver, spec.series, filters, selected);
     if (sk.key) {
       keys.push(sk.key);
@@ -335,13 +388,10 @@ export function computeChartData(input: ChartDataInput): ChartData {
   // default so the slices still add up to the whole, and never show more than
   // MAX_DONUT_SLICES slices, Others included, whatever top N was asked for.
   const categorical = x.kind === "column" && !isTwoKey;
-  const donut = categorical && kind === "donut";
+  const donut = categorical && (kind === "donut" || kind === "pie");
+  // A radar compares a few items' profiles: five polygons at most.
   let topN =
-    input.topN ??
-    spec.topN ??
-    (categorical && kind !== "table" && kind !== "scatter" && kind !== "geoTile" && kind !== "pareto"
-      ? 15
-      : undefined);
+    input.topN ?? spec.topN ?? (categorical && !KEEP_ALL.has(kind) ? (kind === "radar" ? 5 : 15) : undefined);
   if (donut) topN = Math.min(topN || MAX_DONUT_SLICES, MAX_DONUT_SLICES);
   const minRows = spec.minGroupRows;
   const query = (n: number | undefined) =>
@@ -351,7 +401,7 @@ export function computeChartData(input: ChartDataInput): ChartData {
       measures: ms,
       dense: kind === "heatmap",
       dateColumn,
-      topN: categorical && n ? { n, rankBy: 0, others: spec.others ?? kind === "donut", minRows } : undefined,
+      topN: categorical && n ? { n, rankBy: 0, others: spec.others ?? donut, minRows } : undefined,
     });
   let q = query(topN);
   // Six slices plus Others would be seven: show the top five and a recomputed Others instead.
@@ -427,7 +477,7 @@ export function computeChartData(input: ChartDataInput): ChartData {
     data.categories = xCats;
     data.seriesCategories = yCats;
     data.matrix = matrix;
-    if (kind === "treemap") {
+    if (kind === "treemap" || kind === "sunburst") {
       // A parent's value is the measure over the parent's own rows (one query
       // on the parent key), never the sum of its children: distinct customers
       // or a ratio don't add up across sub-categories.
@@ -450,7 +500,23 @@ export function computeChartData(input: ChartDataInput): ChartData {
       data.tree = [...parents.values()].sort((a, b) => desc(a.value, b.value));
     }
     const measure = ms[0];
-    if (kind === "stackedBar" && seriesKey && measure && yCats.length > MAX_STACK) {
+    const fromSplit = SERIES_FROM_SPLIT.has(kind);
+    const keepLargest = KEEP_LARGEST[kind];
+    if (fromSplit && keepLargest && seriesKey && measure && yCats.length > keepLargest) {
+      // A dumbbell compares exactly two values and a radar stays legible with five: keep the largest
+      // split values (each ranked by its own value over every x) and say which were left out.
+      const rank = runQuery(ds, resolver, { filters, groupBy: [seriesKey], measures: [measure], dateColumn });
+      const size = new Map(rank.groups.map((g) => [String(g.labels[0]?.raw), finite(g.values[0])]));
+      const keep = yCats
+        .map((y, yi) => ({ y, yi, v: size.get(String(y.raw)) ?? null }))
+        .sort((a, b) => desc(a.v, b.v))
+        .slice(0, keepLargest);
+      data.seriesCategories = keep.map((k) => k.y);
+      data.matrix = keep.map((k) => matrix[k.yi] as Array<number | null>);
+      notes.push(
+        `Showing the ${keepLargest} largest of ${yCats.length} ${spec.series?.kind === "column" ? spec.series.label : "series"}: ${keep.map((k) => k.y.label).join(" and ")}.`,
+      );
+    } else if (fromSplit && seriesKey && measure && yCats.length > MAX_STACK) {
       // Keep the largest series (each ranked by its own value over every x)
       // and fold the rest into one Others segment evaluated from its rows.
       const rank = runQuery(ds, resolver, { filters, groupBy: [seriesKey], measures: [measure], dateColumn });
@@ -479,7 +545,7 @@ export function computeChartData(input: ChartDataInput): ChartData {
         `The ${yCats.length - keep.length} smallest of ${yCats.length} series are combined into ${OTHERS_LABEL}, computed from their own rows.`,
       );
     }
-    if (kind === "stackedBar") {
+    if (fromSplit) {
       const format = spec.measures[0]?.format ?? "number";
       data.series = (data.seriesCategories ?? []).map((y, yi) => ({
         id: String(y.raw),
@@ -501,13 +567,14 @@ export function computeChartData(input: ChartDataInput): ChartData {
       values: groups.map((g) => finite(g.values[j])),
       format: m.format,
     }));
-    if (kind === "treemap")
+    if (kind === "treemap" || kind === "sunburst")
       data.tree = groups.map((g) => ({ label: g.labels[0]?.label ?? "", value: finite(g.values[0]) }));
-    if (kind === "scatter" && spec.measures.length >= 2) {
+    if ((kind === "scatter" || kind === "bubble") && spec.measures.length >= 2) {
       data.points = groups.map((g) => ({
         label: g.labels[0]?.label ?? "",
         x: finite(g.values[0]),
         y: finite(g.values[1]),
+        ...(kind === "bubble" ? { size: finite(g.values[2]) } : {}),
       }));
       const pts = data.points.filter((p) => p.x !== null && p.y !== null);
       data.trendline =
@@ -668,6 +735,18 @@ const KIND_NAME: Partial<Record<ChartKind, string>> = {
   pareto: "Pareto chart",
   geoTile: "Tile map",
   table: "Table",
+  pie: "Pie chart",
+  groupedBar: "Grouped column chart",
+  stackedBar100: "100% stacked column chart",
+  stackedArea: "Stacked area chart",
+  step: "Step line chart",
+  lollipop: "Lollipop chart",
+  dumbbell: "Dumbbell chart",
+  bubble: "Bubble chart",
+  radar: "Radar chart",
+  sunburst: "Sunburst chart",
+  sankey: "Sankey diagram",
+  calendar: "Calendar heatmap",
 };
 
 /** Plain-language summary for screen readers and the chart's table view. */

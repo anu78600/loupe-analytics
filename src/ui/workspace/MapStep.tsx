@@ -140,8 +140,11 @@ export function MapStep() {
               </SelectContent>
             </Select>
           ) : null}
-          <Button variant="primary" onClick={() => setStep("dashboard")}>
-            Continue to dashboard <ArrowRight aria-hidden />
+          <Button variant="ghost" onClick={() => setStep("dashboard")}>
+            Skip to dashboard
+          </Button>
+          <Button variant="primary" onClick={() => setStep("customise")}>
+            Next: customise <ArrowRight aria-hidden />
           </Button>
         </div>
       </div>

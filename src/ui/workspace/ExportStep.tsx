@@ -165,6 +165,8 @@ export function buildConfig(): LoupeConfig | null {
     classOverrides: s.classOverrides,
     roleOverrides: s.roleOverrides,
     hiddenColumns: s.hiddenColumns,
+    customKpis: s.customKpis,
+    ...(s.kpiLayout ? { kpiLayout: s.kpiLayout } : {}),
     kpiRenames: s.kpiRenames,
     kpiTargets: s.kpiTargets,
     dashboard: {
@@ -175,6 +177,7 @@ export function buildConfig(): LoupeConfig | null {
         w: w.w,
         h: w.h,
         hidden: w.hidden,
+        ...(w.title ? { title: w.title } : {}),
         topN: w.topN,
       })),
       customCharts: s.customCharts,
@@ -462,7 +465,7 @@ function SqlPdfCard() {
     <ExportCard
       icon={FileCode2}
       title="2 · SQL queries"
-      description="A PDF of your business questions from step 5, each with its answer and the SQL query that returns it, then the SQL of every KPI on the dashboard. Real text, so any query can be copied."
+      description={`A PDF of your business questions from step ${stepNumber("questions")}, each with its answer and the SQL query that returns it, then the SQL of every KPI on the dashboard. Real text, so any query can be copied.`}
     >
       <div className="flex flex-wrap gap-2">
         <Button variant="secondary" onClick={() => void download()} disabled={busy}>

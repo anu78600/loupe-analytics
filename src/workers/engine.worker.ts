@@ -81,6 +81,9 @@ const api = {
 
   insights: (locale: NumberLocale) => session.insights(locale),
 
+  /** KPI values for the Customise step's lists; unlike kpiBatch it leaves the dashboard's last results alone. */
+  previewKpis: (filters: Filter[], kpiIds: string[]) => session.previewKpis(filters, kpiIds),
+
   /** One chart computed on its own, for the "Ask for a chart" preview (custom specs travel in `req.spec`). */
   previewChart: (filters: Filter[], req: ChartRequest, locale: NumberLocale) =>
     session.chart(filters, req, locale),

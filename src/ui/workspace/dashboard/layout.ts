@@ -34,6 +34,20 @@ const MIN_PX: Record<ChartKind, number> = {
   pareto: 460,
   geoTile: 440,
   table: 560,
+  pie: 400,
+  groupedBar: 440,
+  stackedBar100: 440,
+  stackedArea: 440,
+  step: 420,
+  lollipop: 360,
+  dumbbell: 400,
+  bubble: 460,
+  radar: 420,
+  gauge: 300,
+  sunburst: 400,
+  sankey: 520,
+  calendar: 620,
+  bigNumber: 260,
 };
 
 /** A widget's place in the packed grid: its column span and the row height it shares. */

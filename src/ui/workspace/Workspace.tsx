@@ -22,6 +22,7 @@ import { QuestionsStep } from "./QuestionsStep";
 import { ExportStep } from "./ExportStep";
 import { CommandPalette } from "./CommandPalette";
 import { SettingsSheet } from "./SettingsSheet";
+import { CustomiseStep } from "./customise/CustomiseStep";
 import { ChartColoursSheet } from "./ChartColours";
 
 export function Workspace({ version }: { version: string }) {
@@ -85,6 +86,12 @@ export function Workspace({ version }: { version: string }) {
       <DetectStep />
     ) : step === "map" ? (
       <MapStep />
+    ) : step === "customise" ? (
+      hasContext ? (
+        <CustomiseStep />
+      ) : (
+        <UploadStep />
+      )
     ) : step === "dashboard" ? (
       hasContext ? (
         <DashboardStep />

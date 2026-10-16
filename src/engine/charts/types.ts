@@ -78,6 +78,11 @@ export interface ChartSpec {
   source: "domain" | "generic" | "custom";
   /** Set when a state-level tile map can be drawn. */
   geoRegion?: "IN" | "US";
+  /**
+   * A goal in the measure's own units, set in the chart builder: the full
+   * scale of a gauge, and the progress line under a big number.
+   */
+  target?: number;
 }
 
 export interface ChartCategory {
@@ -165,8 +170,8 @@ export interface ChartData {
     value: number | null;
     children?: Array<{ label: string; value: number | null }>;
   }>;
-  /** Scatter points: one per category, x = first measure, y = second. */
-  points?: Array<{ label: string; x: number | null; y: number | null }>;
+  /** Scatter points: one per category, x = first measure, y = second; a bubble's size is the third. */
+  points?: Array<{ label: string; x: number | null; y: number | null; size?: number | null }>;
   /** Least-squares fit of the scatter points (needs at least three). */
   trendline?: { slope: number; intercept: number; r2: number } | null;
   /** Row count per category. */

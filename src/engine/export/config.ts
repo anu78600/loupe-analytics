@@ -14,6 +14,7 @@
 import { z } from "zod";
 import type { Dataset } from "@/engine/core/types";
 import { hashString } from "@/engine/core/stats";
+import { KPI_FORMATS } from "@/registry/schema";
 
 // Mirrors SemanticRole in engine/profile/types; keep the two lists in sync.
 const roleEnum = z.enum([
@@ -61,6 +62,26 @@ export const widgetSchema = z.object({
   h: z.number(),
   hidden: z.boolean().optional(),
   topN: z.number().optional(),
+  /** The user's own chart title (Customise step). */
+  title: z.string().max(200).optional(),
+});
+
+const userAggregateSchema = z.object({
+  agg: z.enum(["sum", "avg", "min", "max", "median", "count", "countDistinct"]),
+  column: z.string().nullable(),
+});
+
+/**
+ * A KPI built in the Customise step (the shape of engine/kpi/userKpis
+ * UserKpi). The engine checks its columns again whenever it is used.
+ */
+export const userKpiSchema = z.object({
+  id: z.string().regex(/^uk_[a-z0-9_]+$/),
+  name: z.string().max(120),
+  value: userAggregateSchema,
+  per: userAggregateSchema.optional(),
+  format: z.enum(KPI_FORMATS),
+  direction: z.enum(["higher", "lower", "neutral"]),
 });
 
 const hexColour = z.string().regex(/^#[0-9a-fA-F]{6}$/);
@@ -108,6 +129,12 @@ export const configSchema = z.object({
   classOverrides: z.record(z.string(), z.array(z.string())).default({}),
   /** Columns hidden in step 3 (kept in the file, never computed from); older configs have none. */
   hiddenColumns: z.array(z.string()).default([]),
+  /** KPIs built in the Customise step; older configs have none. */
+  customKpis: z.array(userKpiSchema).default([]),
+  /** The KPI layout chosen in the Customise step; absent = the recommended one. */
+  kpiLayout: z
+    .object({ hero: z.array(z.string()), supporting: z.array(z.string()), columns: z.array(z.string()) })
+    .optional(),
   roleOverrides: z
     .record(
       z.string(),

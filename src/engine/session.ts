@@ -49,6 +49,7 @@ import { buildMapping, type Mapping } from "@/engine/detect/mapping";
 import { buildGenericDomain, GENERIC_ID } from "@/engine/detect/generic";
 import { resolveKpis, selectKpis, type KpiResolutionMap, type KpiSelection } from "@/engine/kpi/resolve";
 import { columnExtras, isColumnId } from "@/engine/kpi/columnKpis";
+import { isUserKpiId, userKpiExtras, type UserKpi } from "@/engine/kpi/userKpis";
 import { makeDaxContext, makeResolver, makeSqlContext, type CompileNames } from "@/engine/kpi/context";
 import {
   computeKpis,
@@ -163,6 +164,12 @@ export interface ContextRequest {
    * points at a hidden column (the field is matched again without it).
    */
   hiddenColumns?: string[];
+  /**
+   * KPIs the user built in the Customise step (kpi/userKpis.ts): they resolve,
+   * compile to SQL and DAX and export like template KPIs. One that needs a
+   * column not in the analysis is left out, with its reason in the result.
+   */
+  customKpis?: UserKpi[];
   numberLocale: NumberLocale;
   /** ISO 4217 code chosen by the user, or null to use the currency detected in the profile. */
   currency: string | null;
@@ -275,6 +282,8 @@ export interface ContextResult {
   hiddenColumns: string[];
   /** Data health of the columns in use: problems in hidden columns are left out, so they don't lower the score. */
   health: HealthReport;
+  /** The user's KPIs that couldn't be built, and why (a hidden or missing column, text where a number is needed). */
+  customKpiIssues: Array<{ id: string; reason: string }>;
   grainLabel: string;
   /** Effective ISO 4217 currency (override or detected). */
   currency: string;
@@ -774,6 +783,24 @@ export class Session {
     const dateCol = dateColumn ? ds.columns.find((c) => c.name === dateColumn) : undefined;
     if (dateCol?.kind !== "date" || dateCol.timeOnly) dateColumn = null;
 
+    // The user's own KPIs (Customise step) join the domain like template KPIs. They come after the
+    // primary date is chosen (their identity fields must never become the date axis) and before the
+    // column KPIs, so a column the user already summarises gets no automatic KPI as well.
+    const mine = userKpiExtras(req.customKpis ?? [], active, mapping.fields);
+    if (mine.kpis.length) {
+      domain = {
+        ...domain,
+        fields: [...domain.fields, ...mine.fields],
+        kpis: [...domain.kpis, ...mine.kpis],
+      };
+      mapping = {
+        ...mapping,
+        fields: { ...mapping.fields, ...mine.mapping },
+        scores: { ...mapping.scores, ...Object.fromEntries(Object.keys(mine.mapping).map((f) => [f, 1])) },
+      };
+      res = resolveKpis(domain, mapping, subDomainId);
+    }
+
     // Measure columns that no KPI of this view reads get KPIs and charts of their own, computed
     // from the column the way its data says (totals, latest balances or averages; kpi/columnKpis).
     const extras = columnExtras({ domain, mapping, res, profile: active, subDomainId, dateColumn });
@@ -903,8 +930,8 @@ export class Session {
         tagline: domain.tagline,
         icon: domain.icon,
         entity: domain.entity,
-        // The column KPIs' identity fields are internal: the mapping screen lists template fields only.
-        fields: domain.fields.filter((f) => !isColumnId(f.id)),
+        // The column and user KPIs' identity fields are internal: the mapping screen lists template fields only.
+        fields: domain.fields.filter((f) => !isColumnId(f.id) && !isUserKpiId(f.id)),
         valueClasses: domain.valueClasses ?? {},
         subDomains: domain.subDomains,
         pitfalls: domain.pitfalls,
@@ -913,7 +940,9 @@ export class Session {
       subDomainId,
       mapping: {
         ...mapping,
-        fields: Object.fromEntries(Object.entries(mapping.fields).filter(([f]) => !isColumnId(f))),
+        fields: Object.fromEntries(
+          Object.entries(mapping.fields).filter(([f]) => !isColumnId(f) && !isUserKpiId(f)),
+        ),
       },
       kpis,
       selection,
@@ -924,6 +953,7 @@ export class Session {
       profile: active,
       hiddenColumns: ds.columns.filter((c) => this.hidden.has(c.name)).map((c) => c.name),
       health: this.scope().health,
+      customKpiIssues: mine.skipped,
       grainLabel:
         sub?.grain && domain.id !== GENERIC_ID ? `One row per ${sub.grain}` : active.grain.description,
       currency,
@@ -980,6 +1010,27 @@ export class Session {
     this.lastBatch = kpis;
     this.lastFilters = filters;
     return kpis;
+  }
+
+  /**
+   * KPI values for the Customise step's lists, with no side effects: unlike
+   * kpiBatch() it doesn't become the batch insights() reads, so previewing
+   * KPIs never changes what the dashboard's insights describe.
+   */
+  previewKpis(allFilters: Filter[], kpiIds: string[]): KpiBatch {
+    const ds = this.requireDs();
+    const ctx = this.requireCtx();
+    const measures = kpiIds
+      .map((id) => ctx.res.get(id))
+      .filter((r): r is NonNullable<typeof r> => Boolean(r?.available && r.variant))
+      .map((r) => ({ id: r.def.id, expr: r.variant?.expr as NonNullable<typeof r.variant>["expr"] }));
+    return computeKpis({
+      ds,
+      resolver: ctx.resolver,
+      measures,
+      filters: this.usable(allFilters),
+      dateColumn: ctx.dateColumn,
+    });
   }
 
   /**
@@ -1288,9 +1339,11 @@ export class Session {
       })),
       // Without the hidden columns, so a question can't be read as one of them.
       profile: this.active as DatasetProfile,
-      domain: { fields: ctx.domain.fields.filter((f) => !isColumnId(f.id)) },
+      domain: { fields: ctx.domain.fields.filter((f) => !isColumnId(f.id) && !isUserKpiId(f.id)) },
       mapping: {
-        fields: Object.fromEntries(Object.entries(ctx.mapping.fields).filter(([f]) => !isColumnId(f))),
+        fields: Object.fromEntries(
+          Object.entries(ctx.mapping.fields).filter(([f]) => !isColumnId(f) && !isUserKpiId(f)),
+        ),
       },
       dateColumn: ctx.dateColumn,
     };

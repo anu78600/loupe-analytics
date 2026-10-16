@@ -4,8 +4,10 @@
  * KPI cards: the hero strip and the supporting grid. Each card shows the
  * value, the change versus the comparison period (coloured by whether that is
  * good for this KPI's direction), a sparkline and an optional target, and
- * opens the "How this is calculated" details when clicked. orderByGoal moves
- * the heroes that match the user's main goal to the front.
+ * opens the "How this is calculated" details when clicked. Which KPIs show,
+ * and in what order, is kpiLayoutOf(): the user's layout from the Customise
+ * step, else the recommendation, where orderByGoal moves the heroes that
+ * match the user's main goal to the front.
  */
 import * as React from "react";
 import { motion } from "framer-motion";
@@ -13,7 +15,7 @@ import { ArrowDownRight, ArrowUpRight, Minus, Target } from "lucide-react";
 import type { KpiValue } from "@/engine/kpi/compute";
 import type { KpiMeta } from "@/engine/session";
 import { formatDelta, formatPointDelta, formatValue } from "@/engine/core/format";
-import { useWorkspace } from "@/store/workspace";
+import { kpiLayoutOf, useWorkspace } from "@/store/workspace";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/ui/primitives/misc";
 import { Tooltip } from "@/ui/primitives/tooltip";
@@ -211,10 +213,15 @@ export function KpiStrip() {
   const context = useWorkspace((s) => s.context);
   const batch = useWorkspace((s) => s.kpiBatch);
   const goal = useWorkspace((s) => s.business.goal);
+  const own = useWorkspace((s) => s.kpiLayout);
+  const extra = useWorkspace((s) => s.extraKpis);
   if (!context) return null;
   const metas = new Map(context.kpis.map((k) => [k.id, k]));
   const values = new Map(batch?.values.map((v) => [v.id, v]) ?? []);
-  const ids = orderByGoal(context.selection.hero, metas, goal);
+  const hero = kpiLayoutOf({ context, kpiLayout: own, extraKpis: extra }).hero;
+  // The user's own order stands as set; the recommended heroes follow the user's main goal.
+  const ids = own ? hero : orderByGoal(hero, metas, goal);
+  if (!ids.length) return null;
   return (
     <div className="@container">
       <section
@@ -232,13 +239,10 @@ export function KpiStrip() {
 
 export function SupportingKpis() {
   const context = useWorkspace((s) => s.context);
+  const own = useWorkspace((s) => s.kpiLayout);
   const extra = useWorkspace((s) => s.extraKpis);
   if (!context) return null;
-  const { hero, supporting, columns } = context.selection;
-  const ids = [
-    ...supporting,
-    ...extra.filter((e) => !supporting.includes(e) && !hero.includes(e) && !columns.includes(e)),
-  ];
+  const ids = kpiLayoutOf({ context, kpiLayout: own, extraKpis: extra }).supporting;
   return <KpiTiles ids={ids} label="Supporting KPIs" />;
 }
 

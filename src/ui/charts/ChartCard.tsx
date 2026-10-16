@@ -34,7 +34,7 @@ import {
 import { toast } from "sonner";
 import type { ChartData, ChartKind, ChartSpec } from "@/engine/charts/types";
 import { isKindCompatible } from "@/engine/charts/recommend";
-import { bucketLabel, endOfBucket, formatRange } from "@/engine/core/dates";
+import { bucketLabel, endOfBucket, formatRange, isoDate } from "@/engine/core/dates";
 import { formatCount, type NumberLocale } from "@/engine/core/format";
 import { PRESET_LABEL } from "@/engine/core/periods";
 import { useWorkspace, type Widget } from "@/store/workspace";
@@ -82,9 +82,38 @@ export const KIND_LABEL: Record<ChartKind, string> = {
   pareto: "Pareto",
   geoTile: "Tile map",
   table: "Table",
+  pie: "Pie",
+  groupedBar: "Grouped columns",
+  stackedBar100: "100% stacked columns",
+  stackedArea: "Stacked area",
+  step: "Step line",
+  lollipop: "Lollipop",
+  dumbbell: "Dumbbell",
+  bubble: "Bubble",
+  radar: "Radar",
+  gauge: "Gauge",
+  sunburst: "Sunburst",
+  sankey: "Sankey",
+  calendar: "Calendar heatmap",
+  bigNumber: "Big number",
 };
 
 const TOPN = [5, 10, 15, 20];
+
+/**
+ * Kinds whose marks aren't plain categories of the x column (points placed
+ * by two measures, polygons, flows, rings, single figures): no Top N menu
+ * and no click-to-filter.
+ */
+const NOT_CATEGORICAL = new Set<ChartKind>([
+  "scatter",
+  "bubble",
+  "radar",
+  "sankey",
+  "sunburst",
+  "gauge",
+  "bigNumber",
+]);
 
 /** Stable empty drill path for charts that are not drilled into (see the selector below). */
 const NO_DRILL: string[] = [];
@@ -114,6 +143,8 @@ export function ChartCard({
   editable?: boolean;
 }) {
   const fmt = useFmt();
+  // The user's own title from the Customise step, else the spec's.
+  const chartTitle = widget.title?.trim() || spec.title;
   // Changes with the light/dark theme and with the chart colours.
   const themeKey = useChartThemeKey();
   const animate = useAnimate();
@@ -177,6 +208,18 @@ export function ChartCard({
 
   const onClick = (p: ChartClick) => {
     if (!data) return;
+    // A calendar cell is one day (sent as YYYY-MM-DD text): it becomes the date range.
+    if (kind === "calendar") {
+      const day = Array.isArray(p.data) ? p.data[0] : undefined;
+      const hit = data.categories.find((c) => typeof c.raw === "number" && isoDate(c.raw) === day);
+      if (hit && typeof hit.raw === "number")
+        applyRange(
+          { from: hit.raw, to: endOfBucket(hit.raw, "day") },
+          `Filtered to ${bucketLabel(hit.raw, "day", true)}`,
+        );
+      return;
+    }
+    if (NOT_CATEGORICAL.has(kind)) return;
     const cat = data.categories[p.dataIndex];
     // A time bucket becomes the global date range (whole bucket, start to end).
     if (spec.x.kind === "time" && cat && typeof cat.raw === "number" && data.grain) {
@@ -206,7 +249,7 @@ export function ChartCard({
   // Charts export from ECharts' own canvas on the card's surface colour;
   // table views are rasterised from the DOM (html-to-image, loaded on demand).
   const exportPng = async (transparent: boolean) => {
-    const name = `${slugify(spec.title)}${transparent ? "-transparent" : ""}.png`;
+    const name = `${slugify(chartTitle)}${transparent ? "-transparent" : ""}.png`;
     if (option && chartRef.current && !tableView) {
       const bg = readChartTokens().surface;
       const url = chartRef.current.toPng({ transparent, background: bg });
@@ -225,7 +268,7 @@ export function ChartCard({
 
   const exportSvg = async () => {
     const svg = await chartRef.current?.toSvg();
-    if (svg) downloadBlob(svg, `${slugify(spec.title)}.svg`, "image/svg+xml");
+    if (svg) downloadBlob(svg, `${slugify(chartTitle)}.svg`, "image/svg+xml");
     else toast.error("SVG export is available for chart views, not tables.");
   };
 
@@ -236,7 +279,7 @@ export function ChartCard({
       toast.error("Nothing to export yet.");
       return;
     }
-    downloadBlob(csv, `${slugify(spec.title)}.csv`, "text/csv;charset=utf-8");
+    downloadBlob(csv, `${slugify(chartTitle)}.csv`, "text/csv;charset=utf-8");
   };
 
   const categoryCount = data?.categories.length;
@@ -245,11 +288,11 @@ export function ChartCard({
     .filter((k, i, a) => a.indexOf(k) === i)
     .filter((k) => isKindCompatible(k, spec, categoryCount));
   // Plain category charts get the Top N menu and click-to-filter.
-  const categorical = spec.x.kind === "column" && !spec.analysis && kind !== "scatter";
+  const categorical = spec.x.kind === "column" && !spec.analysis && !NOT_CATEGORICAL.has(kind);
   // While drilled, drop the " by <dimension>" suffix and show the drill path instead.
   const title = drillLevel
-    ? `${spec.title.replace(/ by [^›]+$/, "")} · ${drillPath.join(" › ")}`
-    : spec.title;
+    ? `${chartTitle.replace(/ by [^›]+$/, "")} · ${drillPath.join(" › ")}`
+    : chartTitle;
   const showTable = tableView || (data && !rendersWithECharts(kind, data));
   const notes = data?.notes ?? [];
 
@@ -273,7 +316,7 @@ export function ChartCard({
                 className="text-ui text-fg-subtle hover:text-fg"
                 aria-label="Back to top level"
               >
-                {spec.title.replace(/ by .+$/, "")}
+                {chartTitle.replace(/ by .+$/, "")}
               </button>
             ) : null}
             {drillLevel ? <ChevronRight className="size-3 text-fg-subtle" aria-hidden /> : null}
@@ -418,7 +461,7 @@ export function ChartCard({
             <p className="text-ui text-fg-muted">{data.notes[0] ?? "No data for the current filters."}</p>
           </div>
         ) : showTable ? (
-          <DataTable spec={spec} data={data} fmt={fmt} caption={spec.title} />
+          <DataTable spec={spec} data={data} fmt={fmt} caption={chartTitle} />
         ) : (
           <EChart
             ref={chartRef}

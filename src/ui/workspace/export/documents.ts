@@ -20,6 +20,7 @@ import type { KpiMeta, QuestionAnswer } from "@/engine/session";
 import { loadECharts } from "@/ui/charts/EChart";
 import { buildOption, rendersWithECharts } from "@/ui/charts/options";
 import { readChartTokens } from "@/ui/charts/tokens";
+import { stepNumber } from "@/store/workspace";
 import { TextPdf } from "./textPdf";
 
 export interface DocMeta {
@@ -97,7 +98,7 @@ export async function exportSqlPdf(input: SqlPdfInput, fileName: string): Promis
   doc.heading("1. Your business questions");
   if (!input.questions.length)
     doc.paragraph(
-      "No questions were asked yet. Ask them in step 5, Questions & SQL: every answered question is added to this document with its query.",
+      `No questions were asked yet. Ask them in step ${stepNumber("questions")}, Questions & SQL: every answered question is added to this document with its query.`,
       { tone: "muted" },
     );
   // Oldest first, as they were asked.

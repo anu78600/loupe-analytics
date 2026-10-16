@@ -28,12 +28,24 @@ function stepEnabled(step: Step, hasData: boolean, hasDomain: boolean): boolean 
   return hasDomain;
 }
 
+/**
+ * The workspace steps. Eight steps don't fit every top bar, so the row
+ * tightens as the screen narrows: connectors only on wide screens (2xl),
+ * every label from xl, only the current step's label below that (the others
+ * keep their number, a tooltip and their name for screen readers). If it
+ * still doesn't fit, the row scrolls and keeps the current step in view; it
+ * never pushes the buttons beside it off the screen.
+ */
 export function Stepper() {
   const step = useWorkspace((s) => s.step);
   const setStep = useWorkspace((s) => s.setStep);
   const hasData = useWorkspace((s) => Boolean(s.summary));
   const hasDomain = useWorkspace((s) => Boolean(s.domainId));
   const currentIndex = STEPS.findIndex((s) => s.id === step);
+  const activeRef = React.useRef<HTMLButtonElement>(null);
+  React.useEffect(() => {
+    activeRef.current?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [step]);
   return (
     <nav aria-label="Workspace steps" className="min-w-0">
       <ol className="flex [scrollbar-width:none] items-center gap-0.5 overflow-x-auto">
@@ -44,12 +56,14 @@ export function Stepper() {
           return (
             <li key={s.id} className="flex shrink-0 items-center">
               <button
+                ref={active ? activeRef : undefined}
                 type="button"
                 disabled={!enabled}
                 aria-current={active ? "step" : undefined}
+                title={s.label}
                 onClick={() => setStep(s.id)}
                 className={cn(
-                  "relative inline-flex h-8 items-center gap-2 rounded-[9px] px-2.5 text-ui font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40",
+                  "relative inline-flex h-8 items-center gap-1.5 rounded-[9px] px-2 text-ui font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40",
                   active ? "text-fg" : "text-fg-muted hover:text-fg",
                 )}
               >
@@ -73,14 +87,16 @@ export function Stepper() {
                 >
                   {done ? <Check className="size-2.5" strokeWidth={3} /> : i + 1}
                 </span>
-                {/* Visually hidden on phones but always announced: the number badge is aria-hidden. */}
+                {/* Always announced (the number badge is aria-hidden); shown for the current step from sm, every step from xl. */}
                 {/* The outer span stays positioned so the label paints above the active-step pill. */}
                 <span className="relative">
-                  <span className="sr-only sm:not-sr-only">{s.label}</span>
+                  <span className={cn("sr-only", active ? "sm:not-sr-only" : "xl:not-sr-only")}>
+                    {s.label}
+                  </span>
                 </span>
               </button>
               {i < STEPS.length - 1 ? (
-                <span aria-hidden className="mx-0.5 hidden h-px w-3 bg-border-strong lg:block" />
+                <span aria-hidden className="mx-0.5 hidden h-px w-3 bg-border-strong 2xl:block" />
               ) : null}
             </li>
           );
@@ -116,20 +132,30 @@ export function WorkspaceTopBar({
             <Wordmark size="sm" />
           </span>
         </Link>
-        <span aria-hidden className="hidden h-5 w-px bg-border-strong md:block" />
+        <span aria-hidden className="hidden h-5 w-px shrink-0 bg-border-strong md:block" />
         {summary ? (
-          <div className="hidden min-w-0 items-center gap-2 md:flex">
-            <Database className="size-3.5 shrink-0 text-fg-subtle" aria-hidden />
-            <span className="max-w-[220px] truncate text-ui text-fg" title={summary.fileName}>
-              {summary.fileName}
+          // Takes whatever room the steps leave. Its parts are in order of importance and sit on one
+          // 20px line: a part that doesn't fit wraps onto a second line, which is clipped, so the
+          // summary shows what fits whole and never runs into the steps.
+          <div
+            className="hidden h-5 min-w-0 flex-1 basis-0 flex-wrap items-center gap-x-2 overflow-hidden min-[1360px]:flex"
+            title={`${summary.fileName} · ${formatCount(summary.rowCount, locale)} rows`}
+          >
+            <span className="inline-flex h-5 shrink-0 items-center gap-2 whitespace-nowrap">
+              <Database className="size-3.5 shrink-0 text-fg-subtle" aria-hidden />
+              <span className="font-figures text-2xs text-fg-subtle">
+                {formatCount(summary.rowCount, locale)} rows
+              </span>
             </span>
-            <span className="font-figures text-2xs text-fg-subtle">
-              {formatCount(summary.rowCount, locale)} rows
-            </span>
-            {summary.isDemo ? <Badge tone="accent">Demo data</Badge> : null}
+            {summary.isDemo ? (
+              <Badge tone="accent" className="shrink-0">
+                Demo data
+              </Badge>
+            ) : null}
+            <span className="h-5 max-w-[180px] truncate text-ui leading-5 text-fg">{summary.fileName}</span>
           </div>
         ) : null}
-        <div className="mx-auto min-w-0 flex-1 md:flex-none">
+        <div className="mx-auto min-w-0">
           <Stepper />
         </div>
         <div className="flex shrink-0 items-center gap-1">

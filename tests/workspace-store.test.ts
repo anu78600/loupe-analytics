@@ -11,7 +11,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { ContextRequest } from "@/engine/session";
 import { fingerprintOf, parseConfig, type LoupeConfig } from "@/engine/export/config";
-import { useWorkspace } from "@/store/workspace";
+import { kpiLayoutOf, MAX_HEADLINE, useWorkspace } from "@/store/workspace";
 import { useSettings } from "@/store/settings";
 
 // Hoisted above the imports by vitest, so the store talks to this instead of a Web Worker.
@@ -56,6 +56,8 @@ function savedConfig(over: (cfg: LoupeConfig) => void = () => {}): LoupeConfig {
     classOverrides: s.classOverrides,
     roleOverrides: s.roleOverrides,
     hiddenColumns: s.hiddenColumns,
+    customKpis: s.customKpis,
+    ...(s.kpiLayout ? { kpiLayout: s.kpiLayout } : {}),
     kpiRenames: s.kpiRenames,
     kpiTargets: s.kpiTargets,
     dashboard: {
@@ -66,6 +68,7 @@ function savedConfig(over: (cfg: LoupeConfig) => void = () => {}): LoupeConfig {
         w: w.w,
         h: w.h,
         hidden: w.hidden,
+        ...(w.title ? { title: w.title } : {}),
         topN: w.topN,
       })),
       customCharts: s.customCharts,
@@ -151,6 +154,88 @@ describe("saved configs", () => {
     expect(useWorkspace.getState().business).toMatchObject({ period: "week", notes: "kept" });
     await useWorkspace.getState().applyConfig(savedConfig((c) => (c.business = { period: "fortnight" })));
     expect(useWorkspace.getState().business.period).toBeUndefined();
+  });
+});
+
+describe("customising KPIs and charts", () => {
+  it("a layout of the user's own: order, moves, the headline limit and reset", async () => {
+    await loadDemo();
+    const s = useWorkspace.getState();
+    const before = kpiLayoutOf(s);
+    expect(before.hero.length).toBeGreaterThan(1);
+    const [first, second, ...rest] = before.hero;
+    const extra = s.context?.kpis.find(
+      (k) => k.available && !k.hidden && ![...before.hero, ...before.supporting].includes(k.id),
+    );
+    s.setKpiLayout({
+      hero: [second as string, first as string, ...rest],
+      supporting: [...before.supporting, extra?.id as string],
+      columns: [],
+    });
+    let now = kpiLayoutOf(useWorkspace.getState());
+    expect(now.hero.slice(0, 2)).toEqual([second, first]);
+    expect(now.supporting.at(-1)).toBe(extra?.id);
+    expect(now.columns).toEqual([]);
+    // The headline row never takes more than MAX_HEADLINE.
+    const all =
+      useWorkspace
+        .getState()
+        .context?.kpis.filter((k) => k.available && !k.hidden)
+        .map((k) => k.id) ?? [];
+    useWorkspace.getState().setKpiLayout({ hero: all, supporting: [], columns: [] });
+    expect(kpiLayoutOf(useWorkspace.getState()).hero).toHaveLength(MAX_HEADLINE);
+    // "Add to dashboard" from the KPI details adds to the user's supporting tiles.
+    const lone = all.find((id) => !kpiLayoutOf(useWorkspace.getState()).hero.includes(id)) as string;
+    useWorkspace.getState().toggleExtraKpi(lone);
+    expect(kpiLayoutOf(useWorkspace.getState()).supporting).toContain(lone);
+    // Back to recommended.
+    useWorkspace
+      .getState()
+      .updateWidget(useWorkspace.getState().widgets[0]?.id as string, { hidden: true, title: "Mine" });
+    useWorkspace.getState().resetCustomisation();
+    now = kpiLayoutOf(useWorkspace.getState());
+    expect(useWorkspace.getState().kpiLayout).toBeNull();
+    expect(now.hero).toEqual(before.hero);
+    expect(useWorkspace.getState().widgets.some((w) => w.hidden || w.title)).toBe(false);
+  });
+
+  it("a KPI the user builds lands on the dashboard, comes back from a config, and can be deleted", async () => {
+    await loadDemo();
+    const numeric = useWorkspace.getState().profile?.columns.find((c) => c.storage === "number")
+      ?.name as string;
+    await useWorkspace
+      .getState()
+      .saveCustomKpi(
+        {
+          id: "uk_test",
+          name: "My total",
+          value: { agg: "sum", column: numeric },
+          format: "number",
+          direction: "higher",
+        },
+        "supporting",
+      );
+    let s = useWorkspace.getState();
+    expect(s.context?.kpis.find((k) => k.id === "uk_test")?.available).toBe(true);
+    expect(kpiLayoutOf(s).supporting).toContain("uk_test");
+    useWorkspace.getState().updateWidget(s.widgets[0]?.id as string, { title: "Renamed chart" });
+    const cfg = savedConfig();
+    expect(cfg.customKpis.map((k) => k.id)).toEqual(["uk_test"]);
+    expect(cfg.kpiLayout?.supporting).toContain("uk_test");
+    expect(cfg.dashboard.widgets[0]?.title).toBe("Renamed chart");
+    // Start again from the file, then restore the config.
+    await loadDemo();
+    expect(useWorkspace.getState().customKpis).toEqual([]);
+    await useWorkspace.getState().applyConfig(cfg);
+    s = useWorkspace.getState();
+    expect(s.context?.kpis.some((k) => k.id === "uk_test")).toBe(true);
+    expect(kpiLayoutOf(s).supporting).toContain("uk_test");
+    expect(s.widgets.find((w) => w.title === "Renamed chart")).toBeDefined();
+    useWorkspace.getState().removeCustomKpi("uk_test");
+    await vi.waitFor(() =>
+      expect(useWorkspace.getState().context?.kpis.some((k) => k.id === "uk_test")).toBe(false),
+    );
+    expect(kpiLayoutOf(useWorkspace.getState()).supporting).not.toContain("uk_test");
   });
 });
 

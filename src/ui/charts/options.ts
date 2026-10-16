@@ -26,6 +26,7 @@ import type { KpiFormat } from "@/registry/schema";
 import { INDIA_STATES, matchIndianState, matchUsState, US_STATES } from "@/engine/profile/geo";
 import { inkOn, withAlpha, type ChartTokens } from "./tokens";
 import { oklch, oklchToHex } from "./palette/colour";
+import { isoDate } from "@/engine/core/dates";
 
 export interface OptionContext {
   tokens: ChartTokens;
@@ -176,6 +177,22 @@ function areaGradient(color: string): Obj {
 
 // ---------------------------------------------------------------- cartesian (line/area/bar/hbar/stacked/histogram/pareto)
 
+/** Bar-like kinds, whose axis pointer shades the hovered category. */
+const SHADOW_POINTER = new Set<ChartKind>([
+  "bar",
+  "hbar",
+  "histogram",
+  "groupedBar",
+  "stackedBar100",
+  "lollipop",
+]);
+
+/** Sum of a category's parts (blanks as zero), the 100% of a 100% stacked column. */
+function columnTotal(data: ChartData, idx: number): number {
+  if (data.matrix) return data.matrix.reduce((s, r) => s + Math.max(0, r[idx] ?? 0), 0);
+  return data.series.reduce((s, x) => s + Math.max(0, x.values[idx] ?? 0), 0);
+}
+
 /** True for a time bucket that the data or the date filter covers only in part: the last one, and (when flagged) the first. */
 function partialBucket(data: ChartData, idx: number): boolean {
   return Boolean(
@@ -190,7 +207,7 @@ function axisTooltip(ctx: OptionContext): Obj {
     ...baseTooltip(t),
     trigger: "axis",
     axisPointer: {
-      type: ctx.kind === "bar" || ctx.kind === "hbar" || ctx.kind === "histogram" ? "shadow" : "line",
+      type: SHADOW_POINTER.has(ctx.kind) ? "shadow" : "line",
       lineStyle: { color: t.axis },
       shadowStyle: { color: withAlpha(t.accent, 0.06) },
     },
@@ -207,10 +224,25 @@ function axisTooltip(ctx: OptionContext): Obj {
       const idx = first.dataIndex;
       const cat = data.categories[idx];
       let html = heading(cat?.label ?? "", t, { note: partialBucket(data, idx) ? "partial" : undefined });
+      // A 100% stack is drawn in shares; the tooltip gives each part's share and its value.
+      const total = ctx.kind === "stackedBar100" ? columnTotal(data, idx) : 0;
       for (const p of list) {
-        const s = data.series[p.seriesIndex] ?? data.series[0];
+        // Helper series (lollipop stems) carry no name and repeat a value already listed.
+        if (!str(p.seriesName)) continue;
+        const s =
+          data.series[p.seriesIndex] ??
+          data.series.find((x) => x.label === str(p.seriesName)) ??
+          data.series[0];
         if (!s) continue;
-        html += row(str(p.seriesName), fv(num(p.value), s.format, fmt, false), t, p.color);
+        const value = s.values[idx] ?? null;
+        html += row(
+          str(p.seriesName),
+          ctx.kind === "stackedBar100"
+            ? `${total ? `${(((value ?? 0) / total) * 100).toFixed(1)}%` : "—"} · ${fv(value, s.format, fmt, false)}`
+            : fv(value, s.format, fmt, false),
+          t,
+          p.color,
+        );
       }
       const rows = data.rows[idx];
       if (rows !== undefined) html += row("Rows", formatCount(rows, fmt.locale), t);
@@ -284,9 +316,18 @@ function markPoints(ctx: OptionContext, seriesIndex: number, isLine = false): Ob
 function cartesian(ctx: OptionContext): EChartsCoreOption {
   const { data, tokens: t, fmt, kind } = ctx;
   const labels = data.categories.map((c) => c.label);
-  const fmt0 = data.series[0]?.format ?? "number";
-  const horizontal = kind === "hbar";
-  const isLine = kind === "line" || kind === "area";
+  const percent = kind === "stackedBar100";
+  const fmt0 = percent ? "percent" : (data.series[0]?.format ?? "number");
+  const horizontal = kind === "hbar" || kind === "lollipop";
+  const isLine = kind === "line" || kind === "area" || kind === "step" || kind === "stackedArea";
+  // Series drawn from a split carry their split value's "Others" flag in seriesCategories.
+  const othersSeries = (i: number) => Boolean(data.matrix && data.seriesCategories?.[i]?.isOthers);
+  // A 100% stack shows each part as its share of the column.
+  const share = (v: number | null, idx: number) => {
+    if (!percent) return v;
+    const total = columnTotal(data, idx);
+    return total ? (v ?? 0) / total : null;
+  };
   const many = labels.length > 14;
   // Time and date-part axes get the engine's peak/low markers instead of a value on every bar.
   const timeAxis = ctx.spec.x.kind === "time" || ctx.spec.x.kind === "part";
@@ -295,6 +336,7 @@ function cartesian(ctx: OptionContext): EChartsCoreOption {
   const barsLabelled =
     !isLine &&
     kind !== "stackedBar" &&
+    !percent &&
     !timeAxis &&
     labels.length <= (horizontal ? 15 : 12) &&
     data.series.length === 1;
@@ -341,7 +383,7 @@ function cartesian(ctx: OptionContext): EChartsCoreOption {
     };
   }
 
-  if (kind === "stackedBar" && data.matrix && data.seriesCategories) {
+  if ((kind === "stackedBar" || percent) && data.matrix && data.seriesCategories) {
     // At most eight coloured segments (one per palette colour, never cycled) plus the
     // engine's "Others" segment in the neutral colour; only the top segment gets rounded ends.
     const segments = data.seriesCategories
@@ -352,7 +394,7 @@ function cartesian(ctx: OptionContext): EChartsCoreOption {
         type: "bar",
         name: sc.label,
         stack: "total",
-        data: (data.matrix?.[row] ?? []).map((v) => v ?? 0),
+        data: (data.matrix?.[row] ?? []).map((v, idx) => share(v, idx) ?? 0),
         barMaxWidth: 24,
         itemStyle: {
           color: colorFor(ctx, i, sc.isOthers),
@@ -364,16 +406,16 @@ function cartesian(ctx: OptionContext): EChartsCoreOption {
       });
     });
   } else {
-    const stacked = kind === "stackedBar";
+    const stacked = kind === "stackedBar" || percent;
     data.series.forEach((s, i) => {
-      const color = colorFor(ctx, i);
+      const color = colorFor(ctx, i, othersSeries(i));
       // Per-point styling: "Others" in the neutral colour; points outside the
       // cross-filter selection and an incomplete first or last period are faded.
       const values = s.values.map((v, idx) => {
         const cat = data.categories[idx];
         const partialPoint = partialBucket(data, idx);
         const fade = (cat && dimmed(ctx, cat.label)) || partialPoint;
-        const base: Obj = { value: v };
+        const base: Obj = { value: share(v, idx) };
         if (cat?.isOthers) base.itemStyle = { color: t.other, opacity: fade ? 0.35 : 1 };
         else if (fade) base.itemStyle = { opacity: partialPoint && isLine ? 0.55 : 0.35 };
         return base;
@@ -383,13 +425,21 @@ function cartesian(ctx: OptionContext): EChartsCoreOption {
           type: "line",
           name: s.label,
           data: values,
-          smooth: 0.15,
+          // A step line holds each value until the next change; a stacked area layers its series.
+          smooth: kind === "step" ? false : 0.15,
+          step: kind === "step" ? "end" : undefined,
+          stack: kind === "stackedArea" ? "total" : undefined,
           symbol: "circle",
           symbolSize: 8,
           showSymbol: labels.length <= 2,
-          lineStyle: { width: 2, color, cap: "round", join: "round" },
+          lineStyle: { width: kind === "stackedArea" ? 1.5 : 2, color, cap: "round", join: "round" },
           itemStyle: { color, borderColor: t.surface, borderWidth: 2 },
-          areaStyle: kind === "area" ? { color: areaGradient(color) } : undefined,
+          areaStyle:
+            kind === "area"
+              ? { color: areaGradient(color) }
+              : kind === "stackedArea"
+                ? { color: withAlpha(color, t.dark ? 0.5 : 0.55) }
+                : undefined,
           emphasis: { focus: "series" },
           endLabel:
             data.series.length === 1 && !ctx.forExport
@@ -408,6 +458,43 @@ function cartesian(ctx: OptionContext): EChartsCoreOption {
                 }
               : undefined,
           markPoint: markPoints(ctx, i, true),
+        });
+      } else if (kind === "lollipop") {
+        // A thin stem (silent, unnamed, so tooltips and legends skip it) and a dot at the value.
+        series.push({
+          type: "bar",
+          data: values,
+          barWidth: 2,
+          silent: true,
+          itemStyle: { color: withAlpha(color, 0.5), borderRadius: 1 },
+          animationDelay: (idx: number) => idx * 14,
+        });
+        series.push({
+          type: "line",
+          name: s.label,
+          data: values,
+          symbol: "circle",
+          symbolSize: 11,
+          showSymbol: true,
+          lineStyle: { opacity: 0 },
+          itemStyle: { color, borderColor: t.surface, borderWidth: 2 },
+          label: barsLabelled
+            ? {
+                show: true,
+                position: "right",
+                distance: 8,
+                color: t.muted,
+                fontSize: 10.5,
+                fontFamily: t.fontMono,
+                formatter: (p: { value: number | Obj }) =>
+                  fv(
+                    typeof p.value === "number" ? p.value : ((p.value as Obj)?.value as number),
+                    s.format,
+                    fmt,
+                  ),
+              }
+            : undefined,
+          emphasis: { scale: 1.25 },
         });
       } else {
         series.push({
@@ -447,7 +534,7 @@ function cartesian(ctx: OptionContext): EChartsCoreOption {
     });
   }
 
-  const names = series.map((s) => s.name as string);
+  const names = series.map((s) => s.name as string).filter(Boolean);
   const longCats = horizontal && labels.some((l) => l.length > 18);
   const catAxis = categoryAxis(
     t,
@@ -487,7 +574,7 @@ function cartesian(ctx: OptionContext): EChartsCoreOption {
           ? { axisLabel: { show: false }, splitLine: { show: false } }
           : { splitNumber: 3 }
         : {};
-  const valAxis = valueAxis(t, fmt0, fmt, valExtra);
+  const valAxis = valueAxis(t, fmt0, fmt, percent ? { ...valExtra, max: 1 } : valExtra);
   return {
     ...animation(ctx),
     grid: {
@@ -508,8 +595,8 @@ function cartesian(ctx: OptionContext): EChartsCoreOption {
 
 // ---------------------------------------------------------------- donut
 
-/** Donut with the total in the hole; "Others" slices use the neutral colour. */
-function donut(ctx: OptionContext): EChartsCoreOption {
+/** Donut with the total in the hole, or (`pie`) a full pie; "Others" slices use the neutral colour. */
+function donut(ctx: OptionContext, pie = false): EChartsCoreOption {
   const { data, tokens: t, fmt } = ctx;
   const s = data.series[0];
   const total = (s?.values ?? []).reduce<number>((a, v) => a + (v ?? 0), 0);
@@ -527,31 +614,39 @@ function donut(ctx: OptionContext): EChartsCoreOption {
       formatter: (p: { name: unknown; value: unknown; percent: unknown; color: unknown }) =>
         `${heading(str(p.name), t, { color: p.color })}${row(s?.label ?? "Value", fv(num(p.value), format, fmt, false), t)}${row("Share", typeof p.percent === "number" ? `${p.percent.toFixed(1)}%` : "", t)}`,
     },
-    graphic: [
-      {
-        type: "text",
-        left: "center",
-        top: "44%",
-        style: {
-          text: fv(total, format, fmt),
-          fill: t.fg,
-          fontSize: 18,
-          fontWeight: 600,
-          fontFamily: t.fontSans,
-          textAlign: "center",
-        },
-      },
-      {
-        type: "text",
-        left: "center",
-        top: "56%",
-        style: { text: "total", fill: t.subtle, fontSize: 11, fontFamily: t.fontSans, textAlign: "center" },
-      },
-    ],
+    graphic: pie
+      ? undefined
+      : [
+          {
+            type: "text",
+            left: "center",
+            top: "44%",
+            style: {
+              text: fv(total, format, fmt),
+              fill: t.fg,
+              fontSize: 18,
+              fontWeight: 600,
+              fontFamily: t.fontSans,
+              textAlign: "center",
+            },
+          },
+          {
+            type: "text",
+            left: "center",
+            top: "56%",
+            style: {
+              text: "total",
+              fill: t.subtle,
+              fontSize: 11,
+              fontFamily: t.fontSans,
+              textAlign: "center",
+            },
+          },
+        ],
     series: [
       {
         type: "pie",
-        radius: ["50%", "70%"],
+        radius: pie ? ["0%", "68%"] : ["50%", "70%"],
         center: ["50%", "52%"],
         padAngle: 1.5,
         itemStyle: { borderRadius: 4, borderColor: t.surface, borderWidth: 2 },
@@ -966,9 +1061,16 @@ function scatter(ctx: OptionContext): EChartsCoreOption {
     label: string;
     x: number;
     y: number;
+    size?: number | null;
   }>;
   const mx = ctx.spec.measures[0];
   const my = ctx.spec.measures[1];
+  const ms = ctx.spec.measures[2];
+  const bubble = ctx.kind === "bubble";
+  // Bubble areas, not radii, follow the third measure (a square root), from 8 to 42 px across.
+  const maxSize = Math.max(0, ...(data.points ?? []).map((p) => p.size ?? 0));
+  const sizeOf = (v: number | null | undefined) =>
+    v === null || v === undefined || v <= 0 || maxSize <= 0 ? 7 : 8 + 34 * Math.sqrt(v / maxSize);
   const series: Obj[] = [
     {
       type: "scatter",
@@ -976,7 +1078,9 @@ function scatter(ctx: OptionContext): EChartsCoreOption {
       data: pts.map((p) => ({
         value: [p.x, p.y],
         name: p.label,
-        itemStyle: { opacity: dimmed(ctx, p.label) ? 0.3 : 0.9 },
+        size: (p as { size?: number | null }).size ?? null,
+        symbolSize: bubble ? sizeOf((p as { size?: number | null }).size) : 11,
+        itemStyle: { opacity: dimmed(ctx, p.label) ? 0.3 : bubble ? 0.72 : 0.9 },
       })),
       symbolSize: 11,
       itemStyle: { color: t.palette[0], borderColor: t.surface, borderWidth: 2 },
@@ -991,7 +1095,7 @@ function scatter(ctx: OptionContext): EChartsCoreOption {
       labelLayout: { hideOverlap: true },
     },
   ];
-  if (data.trendline && pts.length >= 3) {
+  if (data.trendline && pts.length >= 3 && !bubble) {
     const xs = pts.map((p) => p.x);
     const lo = Math.min(...xs);
     const hi = Math.max(...xs);
@@ -1015,9 +1119,9 @@ function scatter(ctx: OptionContext): EChartsCoreOption {
     tooltip: {
       ...baseTooltip(t),
       trigger: "item",
-      formatter: (p: { name: unknown; value: unknown }) => {
+      formatter: (p: { name: unknown; value: unknown; data?: { size?: unknown } }) => {
         const [x, y] = Array.isArray(p.value) ? (p.value as unknown[]) : [];
-        return `${heading(str(p.name), t)}${row(mx?.label ?? "x", fv(num(x), mx?.format ?? "number", fmt, false), t)}${row(my?.label ?? "y", fv(num(y), my?.format ?? "number", fmt, false), t)}`;
+        return `${heading(str(p.name), t)}${row(mx?.label ?? "x", fv(num(x), mx?.format ?? "number", fmt, false), t)}${row(my?.label ?? "y", fv(num(y), my?.format ?? "number", fmt, false), t)}${bubble ? row(ms?.label ?? "Size", fv(num(p.data?.size), ms?.format ?? "number", fmt, false), t) : ""}`;
       },
     },
     xAxis: valueAxis(t, mx?.format ?? "number", fmt, {
@@ -1093,6 +1197,523 @@ function funnel(ctx: OptionContext): EChartsCoreOption {
   };
 }
 
+// ---------------------------------------------------------------- dumbbell
+
+/**
+ * Two dots per category joined by a line: the two measures (or the two
+ * split values) side by side, so the gap reads at a glance. The joining line
+ * is a stacked pair of bars: an invisible one up to the smaller value, then a
+ * thin one spanning the gap; both are silent, so tooltips and clicks go to
+ * the dots. Dots don't encode length, so the axis fits the data instead of
+ * starting at zero.
+ */
+function dumbbell(ctx: OptionContext): EChartsCoreOption {
+  const { data, tokens: t, fmt } = ctx;
+  const labels = data.categories.map((c) => c.label);
+  const [a, b] = data.series;
+  const format = a?.format ?? "number";
+  const lo = labels.map((_, i) => {
+    const x = a?.values[i] ?? null;
+    const y = b?.values[i] ?? null;
+    return x === null || y === null ? null : Math.min(x, y);
+  });
+  const gap = labels.map((_, i) => {
+    const x = a?.values[i] ?? null;
+    const y = b?.values[i] ?? null;
+    return x === null || y === null ? null : Math.abs(x - y);
+  });
+  const dots = (s: (typeof data.series)[number] | undefined, i: number): Obj => ({
+    type: "line",
+    name: s?.label ?? "",
+    data: (s?.values ?? []).map((v, idx) => {
+      const cat = data.categories[idx];
+      return { value: v, itemStyle: cat && dimmed(ctx, cat.label) ? { opacity: 0.35 } : undefined };
+    }),
+    symbol: "circle",
+    symbolSize: 12,
+    showSymbol: true,
+    lineStyle: { opacity: 0 },
+    itemStyle: { color: colorFor(ctx, i), borderColor: t.surface, borderWidth: 2 },
+    emphasis: { scale: 1.25 },
+    z: 3,
+  });
+  return {
+    ...animation(ctx),
+    grid: { ...GRID, top: 34, right: 24 },
+    legend: legend(ctx, [a?.label ?? "", b?.label ?? ""]),
+    tooltip: {
+      ...baseTooltip(t),
+      trigger: "axis",
+      axisPointer: { type: "shadow", shadowStyle: { color: withAlpha(t.accent, 0.06) } },
+      formatter: (params: unknown) => {
+        const first = (Array.isArray(params) ? params : [params])[0] as { dataIndex: number } | undefined;
+        if (!first) return "";
+        const i = first.dataIndex;
+        const va = a?.values[i] ?? null;
+        const vb = b?.values[i] ?? null;
+        return `${heading(labels[i] ?? "", t)}${row(a?.label ?? "", fv(va, format, fmt, false), t, colorFor(ctx, 0))}${row(b?.label ?? "", fv(vb, format, fmt, false), t, colorFor(ctx, 1))}${va !== null && vb !== null ? row("Gap", fv(Math.abs(va - vb), format, fmt, false), t) : ""}`;
+      },
+    },
+    xAxis: valueAxis(t, format, fmt, { scale: true, splitNumber: 4 }),
+    yAxis: categoryAxis(t, labels, {
+      inverse: true,
+      axisLabel: { color: t.label, fontSize: 11, fontFamily: t.fontSans, width: 130, overflow: "truncate" },
+    }),
+    series: [
+      { type: "bar", stack: "gap", data: lo, silent: true, barWidth: 3, itemStyle: { color: "transparent" } },
+      {
+        type: "bar",
+        stack: "gap",
+        data: gap,
+        silent: true,
+        barWidth: 3,
+        itemStyle: { color: t.axis, borderRadius: 2 },
+      },
+      dots(a, 0),
+      dots(b, 1),
+    ],
+    aria: { enabled: true, label: { description: data.altText } },
+  };
+}
+
+// ---------------------------------------------------------------- radar
+
+/**
+ * Radar. With several measures, each spoke is a measure on its own scale (0
+ * to its largest value) and each polygon a category; with a split, each
+ * spoke is a category on one shared scale and each polygon a split value.
+ * Values below zero set the spoke's minimum.
+ */
+function radar(ctx: OptionContext): EChartsCoreOption {
+  const { data, tokens: t, fmt } = ctx;
+  const split = Boolean(data.matrix && data.seriesCategories);
+  // Spokes and polygons for both layouts: [spoke][polygon] values with each spoke's format.
+  const spokes = split
+    ? data.categories.map((c) => ({ name: c.label, format: data.series[0]?.format ?? "number" }))
+    : data.series.map((s) => ({ name: s.label, format: s.format }));
+  const polygons = split
+    ? data.series.map((s, i) => ({ name: s.label, values: s.values, others: othersAt(data, i) }))
+    : data.categories.map((c, ci) => ({
+        name: c.label,
+        values: data.series.map((s) => s.values[ci] ?? null),
+        others: Boolean(c.isOthers),
+      }));
+  const all = polygons.flatMap((p) => p.values).filter((v): v is number => v !== null);
+  const sharedMax = Math.max(0, ...all);
+  const indicator = spokes.map((sp, k) => {
+    const vals = polygons.map((p) => p.values[k]).filter((v): v is number => v !== null && v !== undefined);
+    const max = split ? sharedMax : Math.max(0, ...vals);
+    const min = Math.min(0, ...vals);
+    return { name: sp.name, max: max > min ? max * 1.08 : min + 1, min };
+  });
+  return {
+    ...animation(ctx),
+    legend: {
+      ...(legend(
+        ctx,
+        polygons.map((p) => p.name),
+      ) ?? {}),
+      show: polygons.length > 1,
+    },
+    tooltip: {
+      ...baseTooltip(t),
+      trigger: "item",
+      formatter: (p: { name: unknown; value: unknown; color: unknown }) => {
+        const vals = Array.isArray(p.value) ? (p.value as unknown[]) : [];
+        return `${heading(str(p.name), t, { color: p.color })}${spokes.map((sp, k) => row(sp.name, fv(num(vals[k]), sp.format, fmt, false), t)).join("")}`;
+      },
+    },
+    radar: {
+      indicator,
+      center: ["50%", polygons.length > 1 ? "56%" : "52%"],
+      radius: "66%",
+      splitNumber: 4,
+      axisName: { color: t.label, fontSize: 11, fontFamily: t.fontSans },
+      splitLine: { lineStyle: { color: t.grid } },
+      splitArea: { show: false },
+      axisLine: { lineStyle: { color: t.axis } },
+    },
+    series: [
+      {
+        type: "radar",
+        symbol: "circle",
+        symbolSize: 5,
+        data: polygons.map((p, i) => {
+          const color = colorFor(ctx, i, p.others);
+          return {
+            name: p.name,
+            value: p.values.map((v) => v ?? 0),
+            lineStyle: { color, width: 2 },
+            itemStyle: { color },
+            areaStyle: { color: withAlpha(color, 0.14) },
+          };
+        }),
+      },
+    ],
+    aria: { enabled: true, label: { description: data.altText } },
+  };
+}
+
+/** True when series `i` of a split chart is the engine's "Others" group. */
+function othersAt(data: ChartData, i: number): boolean {
+  return Boolean(data.seriesCategories?.[i]?.isOthers);
+}
+
+// ---------------------------------------------------------------- gauge
+
+/** A round number at or above `v` (1, 2, 2.5 or 5 × a power of ten), the scale of a gauge with no goal. */
+function niceCeil(v: number): number {
+  if (!(v > 0)) return 1;
+  const p = 10 ** Math.floor(Math.log10(v));
+  const n = [1, 2, 2.5, 5, 10].find((k) => k * p >= v) ?? 10;
+  return n * p;
+}
+
+/**
+ * Gauge: one value on a 240° arc. The scale runs to the goal when one is set
+ * (with a tick at the goal once the value passes it), to 100% for a
+ * percentage, and otherwise to a round number above the value, which the
+ * caption names, so the arc never implies a goal that wasn't given.
+ */
+function gauge(ctx: OptionContext): EChartsCoreOption {
+  const { data, tokens: t, fmt } = ctx;
+  const s = data.series[0];
+  const v = s?.values[0] ?? null;
+  const format = s?.format ?? "number";
+  const target = ctx.spec.target;
+  const value = v ?? 0;
+  const max =
+    target !== undefined && target > 0
+      ? Math.max(target, value)
+      : format === "percent"
+        ? Math.max(1, value)
+        : niceCeil(Math.abs(value));
+  const caption =
+    target !== undefined && target > 0
+      ? `${target ? `${((value / target) * 100).toFixed(0)}% of the ${fv(target, format, fmt)} goal` : ""}`
+      : format === "percent"
+        ? (s?.label ?? "")
+        : `${s?.label ?? ""} · scale to ${fv(max, format, fmt)}`;
+  const arc = { startAngle: 210, endAngle: -30, min: 0, max, center: ["50%", "58%"], radius: "86%" };
+  const series: Obj[] = [
+    {
+      type: "gauge",
+      ...arc,
+      progress: { show: true, width: 14, roundCap: true, itemStyle: { color: t.palette[0] } },
+      axisLine: { roundCap: true, lineStyle: { width: 14, color: [[1, t.grid]] } },
+      pointer: { show: false },
+      axisTick: { show: false },
+      splitLine: { show: false },
+      axisLabel: { show: false },
+      anchor: { show: false },
+      title: { show: true, offsetCenter: [0, "34%"], color: t.muted, fontSize: 12, fontFamily: t.fontSans },
+      detail: {
+        valueAnimation: !ctx.forExport,
+        offsetCenter: [0, "2%"],
+        color: t.fg,
+        fontSize: 26,
+        fontWeight: 600,
+        fontFamily: t.fontSans,
+        formatter: () => fv(v, format, fmt),
+      },
+      data: [{ value: Math.max(0, Math.min(max, value)), name: caption }],
+    },
+  ];
+  // The goal as a short tick across the arc when the value has gone past it.
+  if (target !== undefined && target > 0 && target < max)
+    series.push({
+      type: "gauge",
+      ...arc,
+      progress: { show: false },
+      axisLine: { show: false },
+      axisTick: { show: false },
+      splitLine: { show: false },
+      axisLabel: { show: false },
+      anchor: { show: false },
+      title: { show: false },
+      detail: { show: false },
+      pointer: {
+        show: true,
+        icon: "rect",
+        length: "16%",
+        width: 3,
+        offsetCenter: [0, "-80%"],
+        itemStyle: { color: t.fg },
+      },
+      data: [{ value: target }],
+      silent: true,
+    });
+  return {
+    ...animation(ctx),
+    tooltip: {
+      ...baseTooltip(t),
+      trigger: "item",
+      formatter: () =>
+        `${heading(s?.label ?? "", t)}${row("Value", fv(v, format, fmt, false), t)}${target !== undefined ? row("Goal", fv(target, format, fmt, false), t) : ""}`,
+    },
+    series,
+    aria: { enabled: true, label: { description: data.altText } },
+  };
+}
+
+// ---------------------------------------------------------------- big number
+
+/**
+ * One figure, large (compact form), with the measure's name and its exact
+ * value under it; with a goal, a progress bar and the share of the goal.
+ * Drawn with ECharts graphics, so it exports like every other chart.
+ */
+function bigNumber(ctx: OptionContext): EChartsCoreOption {
+  const { data, tokens: t, fmt } = ctx;
+  const s = data.series[0];
+  const v = s?.values[0] ?? null;
+  const format = s?.format ?? "number";
+  const target = ctx.spec.target;
+  const progress = target !== undefined && target > 0 && v !== null ? v / target : null;
+  // Laid out in the group's own coordinates around x = 0; the group itself is centred in the card.
+  const W = 240;
+  const text = (y: number, value: string, fill: string, fontSize: number, fontWeight = 400): Obj => ({
+    type: "text",
+    x: 0,
+    y,
+    style: {
+      text: value,
+      fill,
+      fontSize,
+      fontWeight,
+      fontFamily: t.fontSans,
+      align: "center",
+      verticalAlign: "top",
+    },
+  });
+  const children: Obj[] = [
+    text(0, fv(v, format, fmt), t.fg, 44, 600),
+    text(58, `${s?.label ?? ""} · ${fv(v, format, fmt, false)}`, t.muted, 12),
+  ];
+  if (progress !== null && target !== undefined) {
+    children.push(
+      { type: "rect", x: -W / 2, y: 88, shape: { width: W, height: 6, r: 3 }, style: { fill: t.grid } },
+      {
+        type: "rect",
+        x: -W / 2,
+        y: 88,
+        shape: { width: W * Math.max(0, Math.min(1, progress)), height: 6, r: 3 },
+        style: { fill: t.palette[0] },
+      },
+      text(102, `${(progress * 100).toFixed(0)}% of the ${fv(target, format, fmt)} goal`, t.subtle, 11),
+    );
+  }
+  return {
+    ...animation(ctx),
+    graphic: [{ type: "group", left: "center", top: "middle", children }],
+    aria: { enabled: true, label: { description: data.altText } },
+  };
+}
+
+// ---------------------------------------------------------------- sunburst
+
+/**
+ * Sunburst: categories on the inner ring in the series colours ("Others" in
+ * the neutral colour), their split values on the outer ring in lighter and
+ * darker steps of the parent's colour (childShades, as in the treemap).
+ */
+function sunburst(ctx: OptionContext): EChartsCoreOption {
+  const { data, tokens: t, fmt } = ctx;
+  const format = data.series[0]?.format ?? ctx.spec.measures[0]?.format ?? "number";
+  const nodes = (data.tree ?? []).map((n, i) => {
+    const color = colorFor(ctx, i, n.label === "Others");
+    const kids = [...(n.children ?? [])].sort((a, b) => (b.value ?? 0) - (a.value ?? 0));
+    const shades = childShades(color, kids.length, t.dark);
+    return {
+      name: n.label,
+      value: n.value ?? 0,
+      itemStyle: { color, opacity: dimmed(ctx, n.label) ? 0.35 : 1 },
+      label: { color: inkOn(color, t) },
+      children: kids.map((c, k) => ({
+        name: c.label,
+        value: c.value ?? 0,
+        itemStyle: { color: shades[k] },
+        label: { color: inkOn(shades[k] as string, t) },
+      })),
+    };
+  });
+  const total = nodes.reduce((sum, n) => sum + (n.value ?? 0), 0);
+  return {
+    ...animation(ctx),
+    tooltip: {
+      ...baseTooltip(t),
+      trigger: "item",
+      formatter: (p: { value: unknown; treePathInfo?: Array<{ name: unknown }> }) => {
+        const path = (p.treePathInfo ?? [])
+          .map((x) => str(x.name))
+          .filter(Boolean)
+          .join(" › ");
+        const v = num(p.value);
+        return `${heading(path, t)}${row(ctx.spec.measures[0]?.label ?? "Value", fv(v, format, fmt, false), t)}${total > 0 && v !== null ? row("Share of total", `${((v / total) * 100).toFixed(1)}%`, t) : ""}`;
+      },
+    },
+    series: [
+      {
+        type: "sunburst",
+        radius: ["16%", "94%"],
+        center: ["50%", "52%"],
+        sort: undefined,
+        nodeClick: false,
+        itemStyle: { borderColor: t.surface, borderWidth: 2, borderRadius: 3 },
+        label: { fontSize: 10.5, fontFamily: t.fontSans, minAngle: 12, overflow: "truncate", width: 70 },
+        levels: [{}, { r0: "16%", r: "56%" }, { r0: "56%", r: "94%", label: { minAngle: 9 } }],
+        data: nodes,
+      },
+    ],
+    aria: { enabled: true, label: { description: data.altText } },
+  };
+}
+
+// ---------------------------------------------------------------- sankey
+
+/**
+ * Sankey from the x categories (left) into the split values (right): band
+ * width is the measure. Left nodes take the series colours and their bands
+ * a tint of the same; right nodes are neutral, so colour follows where a
+ * flow comes from. Blank and negative cells are left out (a flow can't be
+ * negative), with a note. Node names carry a side marker so the same label
+ * on both sides stays two nodes; labels and tooltips drop it.
+ */
+function sankey(ctx: OptionContext): EChartsCoreOption {
+  const { data, tokens: t, fmt } = ctx;
+  const format = ctx.spec.measures[0]?.format ?? "number";
+  const left = data.categories.map((c) => `L\u241F${c.label}`);
+  const right = (data.seriesCategories ?? []).map((c) => `R\u241F${c.label}`);
+  const plain = (name: unknown) => str(name).replace(/^[LR]\u241F/, "");
+  const links: Obj[] = [];
+  (data.matrix ?? []).forEach((row, yi) =>
+    row.forEach((v, xi) => {
+      if (v === null || !(v > 0)) return;
+      links.push({
+        source: left[xi],
+        target: right[yi],
+        value: v,
+        lineStyle: { color: withAlpha(colorFor(ctx, xi, data.categories[xi]?.isOthers), 0.32) },
+      });
+    }),
+  );
+  const nodes = [
+    ...left.map((name, i) => ({
+      name,
+      itemStyle: { color: colorFor(ctx, i, data.categories[i]?.isOthers), borderColor: t.surface },
+    })),
+    ...right.map((name) => ({ name, itemStyle: { color: t.subtle, borderColor: t.surface } })),
+  ];
+  return {
+    ...animation(ctx),
+    tooltip: {
+      ...baseTooltip(t),
+      trigger: "item",
+      formatter: (p: {
+        dataType?: string;
+        name: unknown;
+        value: unknown;
+        data?: { source?: unknown; target?: unknown };
+      }) =>
+        p.dataType === "edge"
+          ? `${heading(`${plain(p.data?.source)} → ${plain(p.data?.target)}`, t)}${row(ctx.spec.measures[0]?.label ?? "Value", fv(num(p.value), format, fmt, false), t)}`
+          : `${heading(plain(p.name), t)}${row(ctx.spec.measures[0]?.label ?? "Value", fv(num(p.value), format, fmt, false), t)}`,
+    },
+    series: [
+      {
+        type: "sankey",
+        left: 120,
+        right: 120,
+        top: 8,
+        bottom: 8,
+        nodeWidth: 12,
+        nodeGap: 8,
+        draggable: false,
+        layoutIterations: 32,
+        emphasis: { focus: "adjacency" },
+        label: {
+          color: t.muted,
+          fontSize: 11,
+          fontFamily: t.fontSans,
+          width: 110,
+          overflow: "truncate",
+          formatter: (p: { name: string }) => plain(p.name),
+        },
+        levels: [
+          { depth: 0, label: { position: "left" } },
+          { depth: 1, label: { position: "right" } },
+        ],
+        data: nodes,
+        links,
+      },
+    ],
+    aria: { enabled: true, label: { description: data.altText } },
+  };
+}
+
+// ---------------------------------------------------------------- calendar
+
+/**
+ * Calendar heatmap: one cell per day on a week-by-weekday grid, shaded on
+ * the sequential ramp; one calendar per year, the latest two. Dates go to
+ * ECharts as YYYY-MM-DD text, never as timestamps, so the wall-clock day is
+ * never shifted by the viewer's time zone.
+ */
+function calendar(ctx: OptionContext): EChartsCoreOption {
+  const { data, tokens: t, fmt } = ctx;
+  const s = data.series[0];
+  const format = s?.format ?? "number";
+  const days = data.categories
+    .map((c, i) => (typeof c.raw === "number" ? { day: isoDate(c.raw), v: s?.values[i] ?? null } : null))
+    .filter((d): d is { day: string; v: number | null } => d !== null && d.v !== null);
+  const years = [...new Set(days.map((d) => d.day.slice(0, 4)))].sort().slice(-2);
+  const vals = days.map((d) => d.v as number);
+  const min = vals.length ? Math.min(...vals) : 0;
+  const max = vals.length ? Math.max(...vals) : 1;
+  // Room in pixels, not a share of the height: 26px above each year for its month labels (a share
+  // clipped them on short cards) and 30px below the last for the colour scale; two years split
+  // the height at the middle.
+  const boxes =
+    years.length > 1
+      ? [
+          { top: 26, bottom: "53%" },
+          { top: "58%", bottom: 30 },
+        ]
+      : [{ top: 26, bottom: 30 }];
+  return {
+    ...animation(ctx),
+    tooltip: {
+      ...baseTooltip(t),
+      trigger: "item",
+      formatter: (p: { value: unknown }) => {
+        const [day, v] = Array.isArray(p.value) ? (p.value as unknown[]) : [];
+        return `${heading(str(day), t)}${row(s?.label ?? "Value", fv(num(v), format, fmt, false), t)}`;
+      },
+    },
+    visualMap: seqVisualMap(t, min, max, format, fmt),
+    calendar: years.map((y, i) => ({
+      range: y,
+      ...boxes[i],
+      left: 34,
+      right: 10,
+      cellSize: ["auto", "auto"],
+      splitLine: { show: false },
+      itemStyle: { color: t.surface2, borderColor: t.surface, borderWidth: 2 },
+      yearLabel: { show: years.length > 1, color: t.label, fontSize: 11, fontFamily: t.fontSans, margin: 22 },
+      monthLabel: { color: t.label, fontSize: 10, fontFamily: t.fontSans },
+      dayLabel: { firstDay: 1, nameMap: ["S", "M", "T", "W", "T", "F", "S"], color: t.label, fontSize: 9 },
+    })),
+    series: years.map((y, i) => ({
+      type: "heatmap",
+      coordinateSystem: "calendar",
+      calendarIndex: i,
+      data: days.filter((d) => d.day.startsWith(y)).map((d) => [d.day, d.v]),
+      itemStyle: { borderColor: t.surface, borderWidth: 2, borderRadius: 2 },
+    })),
+    aria: { enabled: true, label: { description: data.altText } },
+  };
+}
+
 /** The ECharts option for a chart, or null when there is nothing to draw (empty data, or a table view). */
 export function buildOption(ctx: OptionContext): EChartsCoreOption | null {
   if (ctx.data.empty) return null;
@@ -1101,6 +1722,24 @@ export function buildOption(ctx: OptionContext): EChartsCoreOption | null {
   switch (ctx.kind) {
     case "donut":
       return donut(ctx);
+    case "pie":
+      return donut(ctx, true);
+    case "dumbbell":
+      return dumbbell(ctx);
+    case "radar":
+      return radar(ctx);
+    case "gauge":
+      return gauge(ctx);
+    case "bigNumber":
+      return bigNumber(ctx);
+    case "sunburst":
+      return sunburst(ctx);
+    case "sankey":
+      return sankey(ctx);
+    case "calendar":
+      return calendar(ctx);
+    case "bubble":
+      return scatter(ctx);
     case "treemap":
       return treemap(ctx);
     case "heatmap":

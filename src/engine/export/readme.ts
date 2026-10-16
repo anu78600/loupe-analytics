@@ -44,6 +44,20 @@ const PBI_VISUAL: Record<ChartKind, string> = {
   pareto: "Line and clustered column chart: share as columns, cumulative share as a line on the same % axis",
   geoTile: "Shape map or Filled map by state (tile maps need an AppSource visual)",
   table: "Table",
+  pie: "Pie chart",
+  groupedBar: "Clustered column chart (the split field in Legend)",
+  stackedBar100: "100% stacked column chart",
+  stackedArea: "Stacked area chart",
+  step: "Line chart (Format → Lines → Stepped)",
+  lollipop: "Clustered bar chart with thin bars and data labels (or a lollipop AppSource visual)",
+  dumbbell: "Line chart with markers and no line, or a dumbbell AppSource visual",
+  bubble: "Scatter chart with the third measure in Size",
+  radar: "Radar chart (AppSource visual)",
+  gauge: "Gauge (the goal as Target value)",
+  sunburst: "Sunburst (AppSource visual) or Decomposition tree",
+  sankey: "Sankey chart (AppSource visual)",
+  calendar: "Matrix (weeks × weekdays) with background-colour conditional formatting",
+  bigNumber: "Card (new card visual)",
 };
 
 /**

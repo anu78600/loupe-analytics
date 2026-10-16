@@ -23,7 +23,7 @@ import {
 } from "lucide-react";
 import type { ChartSection, LayoutMode } from "@/engine/charts/types";
 import { formatCount } from "@/engine/core/format";
-import { allSpecs, useWorkspace } from "@/store/workspace";
+import { allSpecs, kpiLayoutOf, useWorkspace } from "@/store/workspace";
 import { useSettings } from "@/store/settings";
 import { cn } from "@/lib/utils";
 import { Button } from "@/ui/primitives/button";
@@ -41,7 +41,8 @@ import { KpiStrip, KpiTiles, SupportingKpis } from "./KpiCards";
 import { WidgetGrid } from "./WidgetGrid";
 import { Inspector } from "./Inspector";
 
-const SECTIONS: Array<{ id: ChartSection; title: string; blurb: string }> = [
+/** Dashboard sections in order (also the Customise step's chart groups). */
+export const SECTIONS: Array<{ id: ChartSection; title: string; blurb: string }> = [
   { id: "trend", title: "Trend", blurb: "How the headline numbers move over time." },
   { id: "breakdown", title: "Breakdowns", blurb: "Where the volume comes from." },
   { id: "drivers", title: "Drivers & segments", blurb: "What explains the differences." },
@@ -63,6 +64,8 @@ export function DashboardStep() {
   const select = useWorkspace((s) => s.select);
   const health = useWorkspace((s) => s.health);
   const customCharts = useWorkspace((s) => s.customCharts);
+  const kpiLayout = useWorkspace((s) => s.kpiLayout);
+  const extraKpis = useWorkspace((s) => s.extraKpis);
   const usage = useColumnUsage();
   const [filtersOpen, setFiltersOpen] = React.useState(false);
   const [inspectorOpen, setInspectorOpen] = React.useState(false);
@@ -78,6 +81,7 @@ export function DashboardStep() {
   );
 
   if (!context) return null;
+  const columnTiles = kpiLayoutOf({ context, kpiLayout, extraKpis }).columns;
   const specs = allSpecs({ context, customCharts });
   const subName = context.domain.subDomains.find((s) => s.id === context.subDomainId)?.name;
 
@@ -160,7 +164,7 @@ export function DashboardStep() {
           const sectionSpecs = specs.filter((s) => s.section === sec.id);
           const visible = sectionSpecs.filter((s) => s.modes.includes(mode));
           // The your-columns section also carries its KPI tiles, so it shows even without charts.
-          const tiles = sec.id === "columns" ? context.selection.columns : [];
+          const tiles = sec.id === "columns" ? columnTiles : [];
           if (!visible.length && !tiles.length) return null;
           return (
             <section key={sec.id} className="mt-9" aria-labelledby={`sec-${sec.id}`}>
