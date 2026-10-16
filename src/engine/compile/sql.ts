@@ -34,6 +34,11 @@ export interface SqlContext {
   col(ref: string): string;
   /** Storage kind behind a field, used to spell isTrue/isFalse. */
   colType(ref: string): StorageType;
+  /**
+   * A yes/no field's own spellings when the file used words ("Yes"/"No"): it is
+   * exported as text, so tests compare with the words (core/booleans.ts).
+   */
+  boolLabels?(ref: string): { true: string; false: string } | null;
   classValues(ref: string, cls: string): readonly string[];
   /** Expression behind a KPI ref; it is inlined, since SQL has no measures. */
   kpiExpr(id: string): Expr;
@@ -55,24 +60,51 @@ function num(n: number): string {
  * blank cell makes the inner test NULL, which COALESCE turns into FALSE, so
  * the row passes the NOT instead of being dropped by NOT (NULL).
  */
+/** The SQL written for a condition that holds for every row, and for none. */
+const ALWAYS_TRUE = "1 = 1";
+const ALWAYS_FALSE = "1 = 0";
+
 export function predicateSql(p: Predicate, ctx: SqlContext): string {
   // AND binds tighter than OR and `or` is always bracketed, so `and` needs no brackets.
-  if ("and" in p) return p.and.map((x) => predicateSql(x, ctx)).join(" AND ");
-  if ("or" in p) return `(${p.or.map((x) => predicateSql(x, ctx)).join(" OR ")})`;
-  if ("not" in p) return `NOT COALESCE((${predicateSql(p.not, ctx)}), FALSE)`;
+  // Conditions that are always true or false (a value class the file doesn't have) drop out:
+  // x AND TRUE is x and x OR FALSE is x, blanks included, so the query reads as it means.
+  if ("and" in p) {
+    const parts = p.and.map((x) => predicateSql(x, ctx));
+    if (parts.includes(ALWAYS_FALSE)) return ALWAYS_FALSE;
+    const kept = parts.filter((x) => x !== ALWAYS_TRUE);
+    return kept.length ? kept.join(" AND ") : ALWAYS_TRUE;
+  }
+  if ("or" in p) {
+    const parts = p.or.map((x) => predicateSql(x, ctx));
+    if (parts.includes(ALWAYS_TRUE)) return ALWAYS_TRUE;
+    const kept = parts.filter((x) => x !== ALWAYS_FALSE);
+    return kept.length ? `(${kept.join(" OR ")})` : ALWAYS_FALSE;
+  }
+  if ("not" in p) {
+    const inner = predicateSql(p.not, ctx);
+    if (inner === ALWAYS_TRUE) return ALWAYS_FALSE;
+    if (inner === ALWAYS_FALSE) return ALWAYS_TRUE;
+    return `NOT COALESCE((${inner}), FALSE)`;
+  }
   const c = ctx.col(p.field);
   if ("in" in p || "class" in p) {
     const values = "in" in p ? p.in : ctx.classValues(p.field, p.class);
-    return values.length ? `${c} IN (${values.map(quoteString).join(", ")})` : "1 = 0";
+    return values.length ? `${c} IN (${values.map(quoteString).join(", ")})` : ALWAYS_FALSE;
   }
   if ("notClass" in p) {
     const values = ctx.classValues(p.field, p.notClass);
-    return values.length ? `(${c} IS NULL OR ${c} NOT IN (${values.map(quoteString).join(", ")}))` : "1 = 1";
+    return values.length
+      ? `(${c} IS NULL OR ${c} NOT IN (${values.map(quoteString).join(", ")}))`
+      : ALWAYS_TRUE;
   }
   if ("isTrue" in p || "isFalse" in p) {
     const truthy = "isTrue" in p;
     const t = ctx.colType(p.field);
-    if (t === "boolean") return `${c} = ${truthy ? "TRUE" : "FALSE"}`;
+    if (t === "boolean") {
+      const words = ctx.boolLabels?.(p.field);
+      if (words) return `${c} = ${quoteString(truthy ? words.true : words.false)}`;
+      return `${c} = ${truthy ? "TRUE" : "FALSE"}`;
+    }
     if (t === "number") return `${c} = ${truthy ? 1 : 0}`;
     return truthy
       ? `LOWER(${c}) IN ('true', 'yes', 'y', 't', '1')`
@@ -94,7 +126,14 @@ const dayDiff = (a: string, b: string): string => `(CAST(${b} AS DATE) - CAST(${
 /** Row-level SQL expression, placed inside an aggregate. */
 export function rowExprSql(e: RowExpr, ctx: SqlContext): string {
   if ("num" in e) return num(e.num);
-  if ("field" in e) return ctx.col(e.field);
+  if ("field" in e) {
+    // A yes/no field spelled with words counts as 1/0 (blank stays NULL), as in the evaluator.
+    const words = ctx.boolLabels?.(e.field);
+    const c = ctx.col(e.field);
+    return words
+      ? `CASE ${c} WHEN ${quoteString(words.true)} THEN 1 WHEN ${quoteString(words.false)} THEN 0 END`
+      : c;
+  }
   if ("daysBetween" in e) return dayDiff(ctx.col(e.daysBetween[0]), ctx.col(e.daysBetween[1]));
   const a = rowExprSql(e.args[0], ctx);
   const b = rowExprSql(e.args[1], ctx);
@@ -114,6 +153,9 @@ export function rowExprSql(e: RowExpr, ctx: SqlContext): string {
 // with a bracket. A safety net: predicateSql brackets `or` itself.
 const andConds = (conds: readonly string[]): string =>
   conds.map((c) => (/\sOR\s/.test(c) && !c.startsWith("(") ? `(${c})` : c)).join(" AND ");
+
+/** Conditions without the always-true ones, which filter nothing. */
+const meaningful = (conds: readonly string[]): string[] => conds.filter((c) => c !== ALWAYS_TRUE);
 
 /** True if the expression (following refs) needs CTE-style compilation. */
 function isComplex(e: Expr, ctx: SqlContext, seen = new Set<string>()): boolean {
@@ -203,8 +245,7 @@ const periodExpr = (p: PeriodSpec, col = p.dateCol): string => p.keySql ?? `DATE
  * become NULL inside the aggregate, which every SQL aggregate ignores.
  */
 function aggSql(e: Extract<Expr, { agg: string }>, conds: string[], ctx: SqlContext): string {
-  const all = [...conds];
-  if (e.where) all.push(predicateSql(e.where, ctx));
+  const all = meaningful([...conds, ...(e.where ? [predicateSql(e.where, ctx)] : [])]);
   const when = all.length ? andConds(all) : "";
   const wrap = (x: string) => (when ? `CASE WHEN ${when} THEN ${x} END` : x);
   switch (e.agg) {
@@ -292,7 +333,8 @@ function buildExpr(e: Expr, conds: string[], b: Builder): string {
   const leaf = `leaf${++b.leafCounter}`;
   // Inside a leaf CTE the enclosing calc conditions go into WHERE rather than
   // CASE: every aggregate in the leaf sees only those rows, as in the evaluator.
-  const where = conds.length ? andConds(conds) : "";
+  const kept = meaningful(conds);
+  const where = kept.length ? andConds(kept) : "";
   if ("per" in e) {
     // Inner query: one row per entity (per period when trended) holding the
     // inner measure, with HAVING dropping entities; the outer query reduces them.

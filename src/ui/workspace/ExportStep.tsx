@@ -30,6 +30,7 @@ import {
   FileSpreadsheet,
   FileText,
   Lightbulb,
+  Palette,
   Loader2,
   Play,
   Upload,
@@ -613,7 +614,7 @@ function SqlCard() {
     <ExportCard
       icon={FileCode2}
       title="SQL"
-      description="A CREATE TABLE matching the detected schema, one view per KPI, monthly views with MoM/YoY, and RFM and cohort queries. Standard SQL with notes for PostgreSQL, MySQL and SQL Server."
+      description="A CREATE TABLE matching the detected schema, one view per KPI, monthly views with MoM/YoY, and RFM and cohort queries. The .html page shows every KPI's SQL and DAX side by side, in colour, to read in a browser."
     >
       <div className="flex flex-wrap gap-2">
         <Button
@@ -624,6 +625,22 @@ function SqlCard() {
           disabled={!sql}
         >
           <Download aria-hidden /> Download .sql
+        </Button>
+        <Button
+          variant="secondary"
+          onClick={async () => {
+            try {
+              downloadBlob(
+                await engine().exportCodeHtml(),
+                `${slugify(summary?.name ?? "loupe")}-sql-and-dax.html`,
+                "text/html;charset=utf-8",
+              );
+            } catch (e) {
+              toast.error((e as Error).message);
+            }
+          }}
+        >
+          <Palette aria-hidden /> SQL &amp; DAX in colour (.html)
         </Button>
         <Button variant="secondary" onClick={() => void verify()} disabled={Boolean(status)}>
           {status ? <Loader2 className="animate-spin" aria-hidden /> : <BadgeCheck aria-hidden />} Verify

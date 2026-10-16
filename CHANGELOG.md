@@ -5,6 +5,24 @@ Every step of building Loupe, newest first. Generated from `src/content/changelo
 - **MAJOR** (`x.0`): a new capability, subsystem or page.
 - **MINOR** (`x.y`): a refinement, fix or follow-up to that major version.
 
+## 34.0 · Your data as you wrote it, and SQL and DAX you can read
+
+*Major · 2026-10-16 11:28 UTC · Feature, Fix, Design, Tests*
+
+Exports no longer change your data: a column that says Yes/No stays Yes/No. The SQL and DAX are laid out to be read, grouped by topic and coloured so the language stands apart from your own columns and values, including a new page that shows every KPI's SQL and DAX side by side. And the dashboard says each thing once, so there is far less to read.
+
+- Fixed: yes/no columns written as words (Yes/No, Y/N…) were exported as TRUE/FALSE. The cleaned CSV, the Power BI data and model, and the SQL and DAX now keep your words, and their conditions compare with them ('Yes'), so they also run on your own table. Columns that already said TRUE/FALSE stay true/false. Dates are still written as YYYY-MM-DD on purpose, so Power BI and every database read them the same way.
+- SQL laid out to be read: a long query is broken over lines, with each condition and each CASE / WHEN / THEN / END on its own line, and conditions that can never filter anything (a status your file doesn't have) are left out instead of showing as 1 = 1.
+- kpis.sql: a short header with how to use it and what's inside, a banner per section, and one card per KPI with its name and Loupe's value on the title line, grouped by topic. The notes for MySQL, SQL Server and BigQuery moved to the end.
+- measures.dax: the same layout, with the measures grouped by topic and the Date table clearly marked.
+- Colour: SQL and DAX in the app (KPI details, Questions & SQL, the Export preview) and in the SQL PDF are coloured, with a key: blue for the language, brass for your table and columns, green for values from your data, grey for notes. The SQL PDF now also shows each KPI's DAX.
+- New: “SQL & DAX in colour” (Export › SQL, and inside the Power BI package): one page, opened in any browser, with every KPI's meaning, value, SQL and DAX side by side, grouped by topic with a contents list. A plain-text editor such as Notepad can't colour the .sql and .dax files; this page can.
+- Dashboard, calmer: the title and one line of facts (your file, the rows in view of the total, the columns used), with the actions beside them; what the changes compare with is said once above the KPIs instead of on every card; charts no longer repeat the rows, period and filters under their titles (it's in Why this chart); section titles stand alone; and the filter panel no longer squeezes a date range beside every period.
+- Fixed: the dashboard can no longer scroll sideways, which on some window sizes cut off the left panel.
+- New tests: the SQL layout only ever moves white space, for every KPI of every demo file, and DuckDB still returns the engine's value from the laid-out SQL; yes/no columns keep their words in the CSV, the model, the SQL and the DAX; the colour page is one self-contained file.
+
+Files: `src/engine/core/booleans.ts`, `src/engine/compile/codeTokens.ts`, `src/engine/compile/sqlFormat.ts`, `src/engine/compile/sql.ts`, `src/engine/compile/dax.ts`, `src/engine/compile/questionSql.ts`, `src/engine/kpi/context.ts`, `src/engine/export/csv.ts`, `src/engine/export/tmdl.ts`, `src/engine/export/sqlFile.ts`, `src/engine/export/daxFile.ts`, `src/engine/export/codeHtml.ts`, `src/engine/export/powerbi.ts`, `src/engine/export/readme.ts`, `src/engine/session.ts`, `src/workers/engine.worker.ts`, `src/styles/tokens.css`, `src/ui/common/code.tsx`, `src/ui/workspace/dashboard/KpiDetails.tsx`, `src/ui/workspace/export/textPdf.ts`, `src/ui/workspace/export/documents.ts`, `src/ui/workspace/ExportStep.tsx`, `src/ui/workspace/dashboard/DashboardStep.tsx`, `src/ui/workspace/dashboard/KpiCards.tsx`, `src/ui/workspace/dashboard/FilterRail.tsx`, `src/ui/charts/ChartCard.tsx`, `tests/yes-no-export.test.ts`, `tests/readable-code.test.ts`, `tests/export.test.ts`, `tests/helpers/duck.ts`, `CLAUDE.md`
+
 ## 33.3 · Your file, named everywhere
 
 *Minor · 2026-10-16 10:50 UTC · Design, Fix*

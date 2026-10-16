@@ -4,7 +4,8 @@
  *
  * SQL queries: every business question answered in step 5 (the question,
  * how it was read, the rows used, the headline answer, the answer table and
- * its SQL), then the SQL definition of every KPI shown on the dashboard.
+ * its SQL), then every KPI shown on the dashboard in SQL and in DAX. The code
+ * is coloured like the app's, with a key at the top.
  * Insights: the period and filters, the headline KPIs with their change,
  * then every insight in rank order with its basis and, when it points at a
  * chart, that chart drawn in the light theme.
@@ -94,6 +95,7 @@ export async function exportSqlPdf(input: SqlPdfInput, fileName: string): Promis
     "Each answer below was computed by Loupe from your data, and the query under it returns the same values: it uses each KPI's own definition, with the same rows. You can check any of them in the app (Questions & SQL › Check this SQL on your data).",
     { tone: "muted", size: 9 },
   );
+  doc.codeLegend();
 
   doc.heading("1. Your business questions");
   if (!input.questions.length)
@@ -138,17 +140,21 @@ export async function exportSqlPdf(input: SqlPdfInput, fileName: string): Promis
       doc.paragraph(`No SQL for ${s.label}: ${s.reason}`, { tone: "subtle", size: 8.5 });
   });
 
-  doc.heading("2. KPI definitions in SQL");
-  doc.paragraph("The KPIs on your dashboard, each as one query over the whole file.", {
-    tone: "muted",
-    size: 9,
-  });
+  doc.heading("2. KPI definitions in SQL and DAX");
+  doc.paragraph(
+    "The KPIs on your dashboard: each as one SQL query over the whole file, and as a Power BI measure.",
+    {
+      tone: "muted",
+      size: 9,
+    },
+  );
   withSql.forEach((k, i) => {
     if (i) doc.divider();
     doc.heading(k.name, 3);
     doc.paragraph(k.definition, { tone: "muted", size: 9, after: 1 });
     doc.paragraph(`Formula: ${k.formula}${k.caveat ? `. ${k.caveat}` : ""}`, { tone: "subtle", size: 8.5 });
-    doc.code(k.sql as string);
+    doc.code(k.sql as string, "SQL");
+    if (k.dax) doc.code(`${k.daxName} =\n${k.dax}`, "DAX measure", "dax");
   });
   doc.finish(fileName);
 }

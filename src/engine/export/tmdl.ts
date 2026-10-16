@@ -12,6 +12,7 @@
  * ISO dates whatever the locale. The DataFile parameter defaults to a
  * placeholder path that the user must change (the README says so).
  */
+import { exportKind } from "@/engine/core/booleans";
 import type { Column } from "@/engine/core/types";
 import type { ColumnProfile } from "@/engine/profile/types";
 import { buildMeasures, DATE_TABLE, dateRelColumn, dateTableDax, escapeFormatLiteral } from "./daxFile";
@@ -42,8 +43,13 @@ function description(text: string, tabs: number): string {
     .join("\n");
 }
 
-/** Tabular data type. Dates are always dateTime; the format string decides whether a time shows. */
+/**
+ * Tabular data type. Dates are always dateTime; the format string decides
+ * whether a time shows. A yes/no column the file spelled with words is text
+ * (core/booleans.ts), so "Yes"/"No" load as they are.
+ */
 function dataType(col: Column): string {
+  if (exportKind(col) === "string") return "string";
   switch (col.kind) {
     case "number":
       return col.format.integer ? "int64" : "double";
@@ -58,6 +64,7 @@ function dataType(col: Column): string {
 
 /** Power Query (M) type used when typing the CSV columns; must agree with dataType(). */
 function mType(col: Column): string {
+  if (exportKind(col) === "string") return "type text";
   switch (col.kind) {
     case "number":
       return col.format.integer ? "Int64.Type" : "type number";

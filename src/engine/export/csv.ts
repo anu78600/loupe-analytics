@@ -8,7 +8,8 @@
  * columns are written raw and never altered.
  *
  * Output is RFC 4180 style: comma-separated, CRLF line endings, fields quoted
- * only when needed, dates as ISO text, booleans as TRUE/FALSE, blanks empty.
+ * only when needed, dates as ISO text, yes/no columns in the file's own
+ * spelling (Yes/No stays Yes/No; see core/booleans.ts), blanks empty.
  * The guard alters the stored text, so the DuckDB verification path writes
  * unguarded CSV to compare like for like.
  */
@@ -72,7 +73,7 @@ function cellText(col: Column, r: number, guard: boolean): string {
     }
     case "boolean": {
       const v = col.values[r] as number;
-      return v < 0 ? "" : v === 1 ? "TRUE" : "FALSE";
+      return v < 0 ? "" : quoteCsv(v === 1 ? col.trueLabel : col.falseLabel);
     }
     case "string": {
       const c = col.codes[r] as number;

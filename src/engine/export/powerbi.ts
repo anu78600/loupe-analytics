@@ -7,6 +7,7 @@
  * loupe-config.json and the `<Table>.SemanticModel/` TMDL folder. A real
  * .pbix cannot be produced in a browser; the README explains this.
  */
+import { generateCodeHtml } from "./codeHtml";
 import { strToU8, zipSync, type Zippable } from "fflate";
 import { currencySymbol } from "@/engine/core/format";
 import { datasetToCsvChunks } from "./csv";
@@ -50,6 +51,8 @@ export function buildPowerBiPackage(
     [`${folder}/data.csv`]: csvBytes,
     [`${folder}/measures.dax`]: strToU8(generateDaxFile(ctx, symbol)),
     [`${folder}/kpis.sql`]: strToU8(generateSqlFile(ctx)),
+    // The same SQL and DAX in colour, to read in a browser (the .sql and .dax are plain text).
+    [`${folder}/kpis-sql-and-dax.html`]: strToU8(generateCodeHtml(ctx, symbol)),
     [`${folder}/data-dictionary.csv`]: strToU8(dictionaryCsv(ctx)),
     [`${folder}/data-dictionary.md`]: strToU8(dictionaryMarkdown(ctx)),
     [`${folder}/loupe-config.json`]: strToU8(configJson),

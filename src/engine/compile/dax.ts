@@ -27,6 +27,8 @@ export interface DaxContext {
   col(ref: string): string;
   /** Storage kind behind a field, used to spell isTrue/isFalse. */
   colType(ref: string): StorageType;
+  /** A yes/no field's own spellings when the file used words; it is a text column in the model. */
+  boolLabels?(ref: string): { true: string; false: string } | null;
   classValues(ref: string, cls: string): readonly string[];
   /** Measure reference for a KPI id, e.g. [Net Revenue]. */
   measure(id: string): string;
@@ -104,7 +106,11 @@ function predBool(p: Predicate, ctx: DaxContext): PredDax {
   if ("isTrue" in p || "isFalse" in p) {
     const truthy = "isTrue" in p;
     const t = ctx.colType(p.field);
-    if (t === "boolean") return { cols, bool: `${c} = ${truthy ? "TRUE ()" : "FALSE ()"}` };
+    if (t === "boolean") {
+      const words = ctx.boolLabels?.(p.field);
+      if (words) return { cols, bool: `${c} = ${daxString(truthy ? words.true : words.false)}` };
+      return { cols, bool: `${c} = ${truthy ? "TRUE ()" : "FALSE ()"}` };
+    }
     if (t === "number") return { cols, bool: `${c} = ${truthy ? 1 : 0}` };
     const tokens = truthy ? ["true", "yes", "y", "t", "1"] : ["false", "no", "n", "f", "0"];
     return { cols, bool: `LOWER ( ${c} ) IN { ${tokens.map(daxString).join(", ")} }` };
@@ -137,7 +143,12 @@ export function filterArgs(p: Predicate, ctx: DaxContext): string[] {
 /** Row-level DAX, evaluated inside SUMX/AVERAGEX/… over the table. */
 export function rowExprDax(e: RowExpr, ctx: DaxContext): string {
   if ("num" in e) return num(e.num);
-  if ("field" in e) return ctx.col(e.field);
+  if ("field" in e) {
+    // A yes/no field spelled with words counts as 1/0 (blank stays BLANK), as in the evaluator.
+    const words = ctx.boolLabels?.(e.field);
+    const c = ctx.col(e.field);
+    return words ? `SWITCH ( ${c}, ${daxString(words.true)}, 1, ${daxString(words.false)}, 0, BLANK () )` : c;
+  }
   if ("daysBetween" in e) {
     // Guard blanks explicitly: DATEDIFF would treat a BLANK date as day zero.
     const a = ctx.col(e.daysBetween[0]);
@@ -163,7 +174,11 @@ export function rowExprDax(e: RowExpr, ctx: DaxContext): string {
  * expression the matching X iterator; `where` wraps the result in CALCULATE.
  */
 function aggDax(e: Extract<Expr, { agg: string }>, ctx: DaxContext, st: State): string {
-  const plain = "of" in e && typeof e.of === "object" && "field" in e.of ? ctx.col(e.of.field) : null;
+  // A bare column takes SUM/AVERAGE…; a yes/no column of words is text, so it goes through the X form.
+  const plain =
+    "of" in e && typeof e.of === "object" && "field" in e.of && !ctx.boolLabels?.(e.of.field)
+      ? ctx.col(e.of.field)
+      : null;
   let core: string;
   switch (e.agg) {
     case "sum":

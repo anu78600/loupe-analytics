@@ -122,6 +122,7 @@ const api = {
   powerBiNewColumns: (visibleSpecIds: string[]) => session.powerBiNewColumns(visibleSpecIds),
 
   exportDictionary: (format: "csv" | "md") => session.exportDictionary(format),
+  exportCodeHtml: () => session.exportCodeHtml(),
 
   exportCsv(guard = true) {
     const bytes = session.exportCsv(guard);

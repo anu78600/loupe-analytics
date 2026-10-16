@@ -51,11 +51,9 @@ export function FilterRail({ onOpenHealth }: { onOpenHealth: () => void }) {
             </p>
           </div>
         </div>
-        <p className="mt-3 truncate text-2xs text-fg-muted" title={summary.fileName}>
-          {summary.fileName}
-        </p>
-        <p className="font-figures text-2xs text-fg-subtle">
-          {formatCount(summary.rowCount, locale)} rows · {context.grainLabel}
+        {/* The file's name heads the dashboard; here, its size and what one row is. */}
+        <p className="font-figures mt-3 text-2xs text-fg-subtle" title={summary.fileName}>
+          {formatCount(summary.rowCount, locale)} rows in the file · {context.grainLabel.toLowerCase()}
         </p>
         {summary.isDemo ? (
           <Badge tone="accent" className="mt-2">
@@ -100,7 +98,12 @@ function DateFilter() {
       : (presetRange(preset, bounds) ?? { from: bounds.min, to: bounds.max });
   return (
     <div>
-      <Eyebrow>Period · {context.dateColumn}</Eyebrow>
+      <div className="flex items-baseline justify-between gap-2">
+        <Eyebrow>Period</Eyebrow>
+        <span className="truncate text-2xs text-fg-subtle" title={`Dates from ${context.dateColumn}`}>
+          by {context.dateColumn}
+        </span>
+      </div>
       {isRosterView(context) ? (
         <p className="mt-1 text-2xs leading-relaxed text-fg-subtle">
           Each row is {/^[aeiou]/i.test(grainOf(context)) ? "an" : "a"} {grainOf(context)}: a date range keeps
@@ -113,13 +116,15 @@ function DateFilter() {
           const active = preset === p;
           return (
             <div key={p}>
+              {/* The range is in the tooltip and in the From/To fields below, not squeezed beside each option. */}
               <button
                 type="button"
                 role="radio"
                 aria-checked={active}
                 onClick={() => setPreset(p)}
+                title={r ? formatRange(r.from, r.to) : undefined}
                 className={cn(
-                  "flex w-full items-center justify-between rounded-[8px] px-2.5 py-1.5 text-left text-ui transition-colors",
+                  "flex w-full items-center rounded-[8px] px-2.5 py-1.5 text-left text-ui transition-colors",
                   active ? "bg-surface-2 text-fg" : "text-fg-muted hover:bg-surface-2 hover:text-fg",
                 )}
               >
@@ -130,9 +135,6 @@ function DateFilter() {
                     aria-hidden
                   />
                   {PRESET_LABEL[p]}
-                </span>
-                <span className="font-figures truncate pl-2 text-[10.5px] text-fg-subtle">
-                  {r ? formatRange(r.from, r.to) : ""}
                 </span>
               </button>
             </div>

@@ -24,14 +24,20 @@ import { Button } from "@/ui/primitives/button";
 import { Input } from "@/ui/primitives/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/primitives/tabs";
 import { useFmt } from "@/ui/common/hooks";
+import { CodeLegend, HighlightedCode, languageOf } from "@/ui/common/code";
 import { DeltaChip } from "./KpiCards";
 
+/**
+ * SQL or DAX in colour (ui/common/code.tsx), with what the colours mean and a
+ * copy button. The language comes from the label ("DAX · measure"), else SQL.
+ */
 export function CodeBlock({ code, language, label }: { code: string; language: string; label: string }) {
   const [copied, setCopied] = React.useState(false);
   return (
     <div className="relative overflow-hidden rounded-control border border-border bg-bg-subtle">
-      <div className="flex items-center justify-between border-b border-border px-3 py-1.5">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-border px-3 py-1.5">
         <span className="font-figures text-2xs tracking-[0.1em] text-fg-subtle uppercase">{language}</span>
+        <CodeLegend className="mr-auto ml-2 hidden sm:flex" />
         <Button
           size="xs"
           variant="ghost"
@@ -50,9 +56,9 @@ export function CodeBlock({ code, language, label }: { code: string; language: s
       <pre
         tabIndex={0}
         aria-label={`${label} code`}
-        className="max-h-72 overflow-auto p-3 text-[11.5px] leading-relaxed text-fg focus-visible:outline-offset-[-2px]"
+        className="max-h-80 overflow-auto p-3 text-[11.5px] leading-relaxed text-fg focus-visible:outline-offset-[-2px]"
       >
-        <code className="font-mono">{code}</code>
+        <HighlightedCode code={code} lang={languageOf(language)} />
       </pre>
     </div>
   );

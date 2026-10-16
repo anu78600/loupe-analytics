@@ -4,7 +4,11 @@
  * KPI cards: the hero strip and the supporting grid. Each card shows the
  * value, the change versus the comparison period (coloured by whether that is
  * good for this KPI's direction), a sparkline and an optional target, and
- * opens the "How this is calculated" details when clicked. Which KPIs show,
+ * opens the "How this is calculated" details when clicked.
+ *
+ * What the changes compare is said once, above the strip (ComparisonNote),
+ * rather than on every card; a card names its own comparison only when it
+ * differs from that, and every card's tooltip and accessible name carry it. Which KPIs show,
  * and in what order, is kpiLayoutOf(): the user's layout from the Customise
  * step, else the recommendation, where orderByGoal moves the heroes that
  * match the user's main goal to the front.
@@ -82,14 +86,43 @@ export function DeltaChip({
   );
 }
 
+/** The comparison most cards share (and, for all-time cards, the month they compare), for the note above the strip. */
+export function sharedComparison(values: readonly KpiValue[]): { label: string; current: string } | null {
+  const counts = new Map<string, number>();
+  for (const v of values)
+    if ((v.delta !== null || v.deltaAbs !== null) && v.comparisonLabel) {
+      const key = `${v.currentLabel ?? ""}\u0000${v.comparisonLabel}`;
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+  const top = [...counts.entries()].sort((a, b) => b[1] - a[1])[0];
+  if (!top) return null;
+  const [current = "", label = ""] = top[0].split("\u0000");
+  return { label, current };
+}
+
+/** "Change vs 1 Jan – 31 Dec 2024", or for all-time cards "Change: May 2026 vs May 2025". */
+export function ComparisonNote() {
+  const batch = useWorkspace((s) => s.kpiBatch);
+  const shared = batch ? sharedComparison(batch.values) : null;
+  if (!shared) return null;
+  return (
+    <p className="text-2xs text-fg-subtle">
+      {shared.current ? `Change: ${shared.current} ${shared.label}` : `Change ${shared.label}`}
+    </p>
+  );
+}
+
 export function KpiCard({
   meta,
   value,
   index,
+  shared,
 }: {
   meta: KpiMeta;
   value: KpiValue | undefined;
   index: number;
+  /** The comparison stated above the strip; the card repeats only one that differs. */
+  shared?: { label: string; current: string } | null;
 }) {
   const fmt = useFmt();
   const target = useWorkspace((s) => s.kpiTargets[meta.id]);
@@ -113,7 +146,7 @@ export function KpiCard({
         "group relative flex min-w-0 flex-col rounded-card border bg-surface-1 p-4 text-left shadow-card transition-[border-color,box-shadow] duration-200 hover:border-border-accent",
         selected ? "border-accent shadow-[0_0_0_3px_var(--accent-soft)]" : "border-border",
       )}
-      title={`${meta.name}: ${full}`}
+      title={`${meta.name}: ${full}${value?.comparisonLabel ? ` · change ${value.currentLabel ? `${value.currentLabel} ` : ""}${value.comparisonLabel}` : ""}`}
     >
       <span className="sr-only">Open details: </span>
       <div className="flex items-start justify-between gap-2">
@@ -135,22 +168,12 @@ export function KpiCard({
             {display}
           </p>
           <div className="mt-2.5 flex min-h-6 flex-wrap items-center gap-x-2 gap-y-1">
-            {/* All-time cards compare the latest month, so name that month and its value
-                beside the change instead of letting it read as growth of the all-time total. */}
-            {value.currentLabel && (value.delta !== null || value.deltaAbs !== null) ? (
-              <span className="text-2xs text-fg-muted">
-                {value.currentLabel}:{" "}
-                <span className="tabular text-fg">
-                  {formatValue(value.current, meta.format, {
-                    ...fmt,
-                    compact: meta.format !== "percent" && meta.format !== "ratio",
-                  })}
-                </span>
-              </span>
-            ) : null}
             <DeltaChip meta={meta} value={value} />
-            {value.delta !== null || value.deltaAbs !== null ? (
+            {/* The comparison is said once above the strip; a card names its own only when it differs. */}
+            {(value.delta !== null || value.deltaAbs !== null) &&
+            (value.comparisonLabel !== shared?.label || (value.currentLabel ?? "") !== shared?.current) ? (
               <span className="line-clamp-2 text-2xs text-fg-subtle" title={value.comparisonLabel}>
+                {value.currentLabel ? `${value.currentLabel} ` : ""}
                 {value.comparisonLabel}
               </span>
             ) : null}
@@ -221,6 +244,7 @@ export function KpiStrip() {
   const hero = kpiLayoutOf({ context, kpiLayout: own, extraKpis: extra }).hero;
   // The user's own order stands as set; the recommended heroes follow the user's main goal.
   const ids = own ? hero : orderByGoal(hero, metas, goal);
+  const shared = batch ? sharedComparison(batch.values) : null;
   if (!ids.length) return null;
   return (
     <div className="@container">
@@ -230,7 +254,9 @@ export function KpiStrip() {
       >
         {ids.map((id, i) => {
           const meta = metas.get(id);
-          return meta ? <KpiCard key={id} meta={meta} value={values.get(id)} index={i} /> : null;
+          return meta ? (
+            <KpiCard key={id} meta={meta} value={values.get(id)} index={i} shared={shared} />
+          ) : null;
         })}
       </section>
     </div>
@@ -270,6 +296,11 @@ export function KpiTiles({ ids, label }: { ids: string[]; label: string }) {
             key={id}
             type="button"
             onClick={() => select({ type: "kpi", id })}
+            title={
+              v?.comparisonLabel
+                ? `Change ${v.currentLabel ? `${v.currentLabel} ` : ""}${v.comparisonLabel}`
+                : meta.name
+            }
             className="flex min-w-0 flex-[1_1_160px] flex-col items-start gap-1 bg-surface-1 px-3.5 py-3 text-left transition-colors hover:bg-surface-2"
           >
             <span className="w-full truncate text-2xs text-fg-muted" title={meta.name}>
@@ -285,16 +316,7 @@ export function KpiTiles({ ids, label }: { ids: string[]; label: string }) {
                 <Skeleton className="h-5 w-16" />
               )}
             </span>
-            {v ? (
-              <span className="flex flex-wrap items-center gap-1.5">
-                <DeltaChip meta={meta} value={v} size="sm" />
-                {v.currentLabel && (v.delta !== null || v.deltaAbs !== null) ? (
-                  <span className="text-2xs text-fg-subtle">
-                    {v.currentLabel} {v.comparisonLabel}
-                  </span>
-                ) : null}
-              </span>
-            ) : null}
+            {v ? <DeltaChip meta={meta} value={v} size="sm" /> : null}
           </button>
         );
       })}

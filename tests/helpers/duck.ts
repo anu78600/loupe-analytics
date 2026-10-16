@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { DuckDBInstance, type DuckDBConnection } from "@duckdb/node-api";
 import type { Dataset } from "@/engine/core/types";
 import { datasetToCsv } from "@/engine/export/csv";
+import { exportKind } from "@/engine/core/booleans";
 
 export async function loadIntoDuckDB(
   ds: Dataset,
@@ -28,7 +29,7 @@ export async function loadIntoDuckDB(
               : c.hasTime
                 ? "TIMESTAMP"
                 : "DATE"
-            : c.kind === "boolean"
+            : exportKind(c) === "boolean"
               ? "BOOLEAN"
               : "VARCHAR";
       return `'${(headers.get(c.name) ?? c.name).replace(/'/g, "''")}': '${t}'`;

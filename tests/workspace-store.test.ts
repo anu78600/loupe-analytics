@@ -203,18 +203,16 @@ describe("customising KPIs and charts", () => {
     await loadDemo();
     const numeric = useWorkspace.getState().profile?.columns.find((c) => c.storage === "number")
       ?.name as string;
-    await useWorkspace
-      .getState()
-      .saveCustomKpi(
-        {
-          id: "uk_test",
-          name: "My total",
-          value: { agg: "sum", column: numeric },
-          format: "number",
-          direction: "higher",
-        },
-        "supporting",
-      );
+    await useWorkspace.getState().saveCustomKpi(
+      {
+        id: "uk_test",
+        name: "My total",
+        value: { agg: "sum", column: numeric },
+        format: "number",
+        direction: "higher",
+      },
+      "supporting",
+    );
     let s = useWorkspace.getState();
     expect(s.context?.kpis.find((k) => k.id === "uk_test")?.available).toBe(true);
     expect(kpiLayoutOf(s).supporting).toContain("uk_test");

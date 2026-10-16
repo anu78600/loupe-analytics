@@ -12,11 +12,13 @@
  *
  * TextPdf lays content top to bottom with automatic page breaks: headings,
  * wrapped paragraphs, label/value lines, highlighted callouts, monospaced
- * code blocks that wrap long lines and continue across pages, simple tables
- * and images. finish() adds the header (wordmark, title, file) and footer
+ * code blocks in the app's code colours (the language, the user's columns,
+ * their values and notes each in their own colour, as in ui/common/code.tsx)
+ * that wrap long lines and continue across pages, simple tables and images. finish() adds the header (wordmark, title, file) and footer
  * (generation note, page x of n) to every page and saves the file.
  */
 import type { jsPDF as JsPdf } from "jspdf";
+import { tokenize, type CodeLanguage, type TokenKind } from "@/engine/compile/codeTokens";
 
 type Rgb = [number, number, number];
 type Tone = "fg" | "muted" | "subtle" | "accent" | "success" | "warning";
@@ -32,6 +34,8 @@ interface Palette {
   border: Rgb;
   tint: Rgb;
   accentTint: Rgb;
+  /** Code colours by token kind (--code-* tokens). */
+  code: Partial<Record<TokenKind, Rgb>>;
 }
 
 function parseColour(css: string, fallback: Rgb): Rgb {
@@ -68,6 +72,14 @@ function readPalette(): Palette {
     border: v("--border-strong", [222, 222, 223]),
     tint: v("--bg-subtle", [241, 239, 234]),
     accentTint: v("--accent-soft", [246, 243, 238]),
+    code: {
+      keyword: v("--code-keyword", [44, 86, 201]),
+      function: v("--code-function", [117, 53, 176]),
+      name: v("--code-name", [131, 86, 0]),
+      string: v("--code-string", [26, 114, 57]),
+      number: v("--code-number", [168, 77, 5]),
+      comment: v("--code-comment", [99, 106, 115]),
+    },
   };
   probe.remove();
   return palette;
@@ -248,32 +260,54 @@ export class TextPdf {
   }
 
   /**
-   * A monospaced code block on a tinted background. Long lines wrap at the
-   * block's width with their indentation kept; the block continues on the
-   * next page when it doesn't fit.
+   * A monospaced code block on a tinted background, coloured like the app's
+   * code views. Long lines wrap at the block's width with their indentation
+   * kept; the block continues on the next page when it doesn't fit.
    */
-  code(text: string, label?: string): void {
+  code(text: string, label?: string, lang: CodeLanguage = "sql"): void {
     const size = 7.6;
     const lh = size * PT * 1.35;
     const pad = 2.5;
     this.font("mono", size);
     const charW = this.pdf.getTextWidth("M");
     const maxChars = Math.max(20, Math.floor((WIDTH - pad * 2) / charW));
-    const lines: string[] = [];
-    for (const raw of text.replace(/\t/g, "  ").split("\n")) {
+    // The code's tokens, split at line breaks into coloured runs per line.
+    type Run = { text: string; kind: TokenKind };
+    const source: Run[][] = [[]];
+    for (const t of tokenize(text.replace(/\t/g, "  "), lang)) {
+      t.text.split("\n").forEach((part, j) => {
+        if (j) source.push([]);
+        if (part) (source[source.length - 1] as Run[]).push({ text: part, kind: t.kind });
+      });
+    }
+    const lines: Run[][] = [];
+    for (const runs of source) {
+      const raw = runs.map((r) => r.text).join("");
       if (raw.length <= maxChars) {
-        lines.push(raw);
+        lines.push(runs);
         continue;
       }
+      // Continuation lines start two spaces in from the line's own indentation.
       const indent = (/^\s*/.exec(raw)?.[0] ?? "").slice(0, 12);
-      let rest = raw;
-      let first = true;
-      while (rest.length) {
-        const room = first ? maxChars : maxChars - indent.length - 2;
-        lines.push(first ? rest.slice(0, room) : `${indent}  ${rest.slice(0, room)}`);
-        rest = rest.slice(room);
-        first = false;
+      let line: Run[] = [];
+      let used = 0;
+      let room = maxChars;
+      for (const r of runs) {
+        let rest = r.text;
+        while (rest.length) {
+          if (used >= room) {
+            lines.push(line);
+            line = [{ text: `${indent}  `, kind: "space" }];
+            used = 0;
+            room = maxChars - indent.length - 2;
+          }
+          const take = Math.min(rest.length, room - used);
+          line.push({ text: rest.slice(0, take), kind: r.kind });
+          used += take;
+          rest = rest.slice(take);
+        }
       }
+      if (line.length) lines.push(line);
     }
     if (label) this.paragraph(label, { size: 8, tone: "subtle", after: 0.8 });
     let i = 0;
@@ -290,7 +324,12 @@ export class TextPdf {
       let ty = this.y + pad;
       for (const line of chunk) {
         ty += lh;
-        this.pdf.text(line, MARGIN_X + pad, ty - lh * 0.28);
+        let x = MARGIN_X + pad;
+        for (const run of line) {
+          this.pdf.setTextColor(...(this.colours.code[run.kind] ?? this.colours.fg));
+          this.pdf.text(run.text, x, ty - lh * 0.28);
+          x += this.pdf.getTextWidth(run.text);
+        }
       }
       this.y += h;
       i += chunk.length;
@@ -300,6 +339,28 @@ export class TextPdf {
       }
     }
     this.y += 3;
+  }
+
+  /** One line naming the code colours, each label after a swatch of its colour. */
+  codeLegend(): void {
+    const items: Array<[string, TokenKind]> = [
+      ["The SQL / DAX language", "keyword"],
+      ["Your table and columns", "name"],
+      ["Values from your data", "string"],
+      ["Notes", "comment"],
+    ];
+    this.ensure(7);
+    const y = this.y + 3;
+    let x = MARGIN_X;
+    for (const [label, kind] of items) {
+      this.pdf.setFillColor(...(this.colours.code[kind] ?? this.colours.fg));
+      this.pdf.roundedRect(x, y - 2.2, 2.4, 2.4, 0.5, 0.5, "F");
+      x += 3.6;
+      this.font("regular", 8, "muted");
+      this.pdf.text(label, x, y);
+      x += this.pdf.getTextWidth(label) + 6;
+    }
+    this.y += 7;
   }
 
   /** A simple table: a header row, then rows; cells are cut to one line. `right` marks right-aligned columns. */

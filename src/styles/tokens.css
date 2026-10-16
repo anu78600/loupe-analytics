@@ -117,6 +117,15 @@
   --grid-line: rgb(255 255 255 / 0.045);
   --spot: rgb(214 180 122 / 0.09);
   --spot-border: rgb(214 180 122 / 0.5);
+
+  /* SQL and DAX: the language in blue and violet, the user's own table and column names in
+     brass, values from their data in green, numbers in orange, notes in grey (≥ 4.5:1 on --bg-subtle). */
+  --code-keyword: #7aa2f7;
+  --code-function: #bb9af7;
+  --code-name: #e3b766;
+  --code-string: #79cf95;
+  --code-number: #f2a06a;
+  --code-comment: #828a96;
 }
 
 :root[data-theme="light"],
@@ -208,4 +217,11 @@
   --grid-line: rgb(18 20 23 / 0.055);
   --spot: rgb(129 98 38 / 0.07);
   --spot-border: rgb(129 98 38 / 0.42);
+
+  --code-keyword: #2c56c9;
+  --code-function: #7535b0;
+  --code-name: #835600;
+  --code-string: #1a7239;
+  --code-number: #a84d05;
+  --code-comment: #636a73;
 }

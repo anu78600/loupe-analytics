@@ -32,13 +32,13 @@ import { Badge } from "@/ui/primitives/badge";
 import { Segmented } from "@/ui/primitives/segmented";
 import { Sheet, SheetContent } from "@/ui/primitives/sheet";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/ui/primitives/dialog";
-import { Eyebrow } from "@/ui/primitives/misc";
+
 import { useColumnUsage } from "../useColumnUsage";
 import { AskChartButton } from "./AskChart";
 import { ChartColoursButton } from "../ChartColours";
 import { HealthPanel } from "../HealthPanel";
 import { ActiveFilters, FilterRail } from "./FilterRail";
-import { KpiStrip, KpiTiles, SupportingKpis } from "./KpiCards";
+import { ComparisonNote, KpiStrip, KpiTiles, SupportingKpis } from "./KpiCards";
 import { WidgetGrid } from "./WidgetGrid";
 import { Inspector } from "./Inspector";
 
@@ -88,7 +88,9 @@ export function DashboardStep() {
   const subName = context.domain.subDomains.find((s) => s.id === context.subDomainId)?.name;
 
   return (
-    <div className="mx-auto grid w-full max-w-[1760px] gap-6 px-4 py-6 md:px-6 lg:grid-cols-[256px_minmax(0,1fr)]">
+    // overflow-x: clip, so nothing inside can make the page scroll sideways and push the rail off the
+    // left edge (clip, unlike hidden, keeps the rail's sticky position working).
+    <div className="mx-auto grid w-full max-w-[1760px] gap-6 overflow-x-clip px-4 py-6 md:px-6 lg:grid-cols-[256px_minmax(0,1fr)]">
       <aside className="no-print hidden min-w-0 lg:block" aria-label="Dataset and filters">
         {/* Never scrolls sideways: everything in the rail fits its width. */}
         <div className="sticky top-20 max-h-[calc(100dvh-6rem)] overflow-x-hidden overflow-y-auto pr-1">
@@ -97,37 +99,39 @@ export function DashboardStep() {
       </aside>
 
       <div className="min-w-0" aria-busy={computing}>
-        <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
-          <div className="min-w-0">
-            <Eyebrow>Dashboard</Eyebrow>
-            <h1 className="mt-1.5 truncate font-display text-[34px] leading-none text-fg">
+        {/* Two levels only: the title, then one quiet line of facts; the actions sit to the right. */}
+        <header className="mb-5 flex flex-wrap items-start justify-between gap-x-6 gap-y-4">
+          <div className="min-w-0 flex-[1_1_380px]">
+            <h1 className="truncate font-display text-[34px] leading-tight text-fg">
               {context.domain.name}
+              {/* The data shape sits beside the industry, smaller, so the line fits next to the actions. */}
               {subName && !context.domain.generic ? (
-                <span className="text-fg-subtle"> · {subName}</span>
+                <span className="ml-2.5 text-[21px] text-fg-subtle">{subName}</span>
               ) : null}
             </h1>
-            {summary ? <FileIdentity summary={summary} className="mt-2.5" /> : null}
-            {usage ? (
-              <p className="mt-2 flex items-center gap-1.5 text-2xs text-fg-subtle">
-                <Columns3 className="size-3.5" aria-hidden />
-                Uses {usage.used} of your {usage.total} columns ·{" "}
-                {usage.hidden ? `${usage.hidden} hidden by you · ` : ""}
-                {usage.derived ? "only the unpivot columns you agreed to were added" : "no columns added"}
-              </p>
-            ) : null}
+            <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1.5 text-2xs text-fg-subtle">
+              {summary ? <FileIdentity summary={summary} size="sm" className="max-w-full" /> : null}
+              <span className="font-figures inline-flex items-center gap-1.5" aria-live="polite">
+                {computing ? <Loader2 className="size-3 animate-spin" aria-hidden /> : null}
+                {computing
+                  ? "Updating…"
+                  : lastCompute && summary
+                    ? lastCompute.rows === summary.rowCount
+                      ? `all ${formatCount(summary.rowCount, locale)} rows`
+                      : `${formatCount(lastCompute.rows, locale)} of ${formatCount(summary.rowCount, locale)} rows in view`
+                    : ""}
+              </span>
+              {usage ? (
+                <span className="inline-flex items-center gap-1.5">
+                  <Columns3 className="size-3.5" aria-hidden />
+                  {usage.used} of {usage.total} columns used
+                  {usage.hidden ? ` · ${usage.hidden} hidden by you` : ""}
+                  {usage.derived ? " · unpivot columns added" : ""}
+                </span>
+              ) : null}
+            </div>
           </div>
           <div className="no-print flex flex-wrap items-center gap-2">
-            <span
-              className="font-figures hidden items-center gap-1.5 text-2xs text-fg-subtle sm:inline-flex"
-              aria-live="polite"
-            >
-              {computing ? <Loader2 className="size-3 animate-spin" aria-hidden /> : null}
-              {computing
-                ? "Updating…"
-                : lastCompute
-                  ? `${formatCount(lastCompute.rows, locale)} rows · ${lastCompute.ms} ms`
-                  : ""}
-            </span>
             <Button variant="secondary" size="sm" className="lg:hidden" onClick={() => setFiltersOpen(true)}>
               <SlidersHorizontal aria-hidden /> Filters
             </Button>
@@ -155,9 +159,12 @@ export function DashboardStep() {
             <ChartColoursButton />
             <AskChartButton />
           </div>
-        </div>
-        <div className="mb-4">
+        </header>
+        <div className="mb-3 flex min-h-5 flex-wrap items-center justify-between gap-x-4 gap-y-2">
           <ActiveFilters inline />
+          <span className="ml-auto">
+            <ComparisonNote />
+          </span>
         </div>
         <div className="grid gap-4">
           <KpiStrip />
@@ -170,11 +177,13 @@ export function DashboardStep() {
           const tiles = sec.id === "columns" ? columnTiles : [];
           if (!visible.length && !tiles.length) return null;
           return (
-            <section key={sec.id} className="mt-9" aria-labelledby={`sec-${sec.id}`}>
-              <div className="mb-3 flex items-baseline justify-between gap-3">
-                <h2 id={`sec-${sec.id}`} className="text-sm font-medium text-fg">
-                  {sec.title} <span className="font-normal text-fg-subtle">· {sec.blurb}</span>
+            <section key={sec.id} className="mt-10" aria-labelledby={`sec-${sec.id}`}>
+              {/* A title and a hairline; what the section is for is in its tooltip, not more text to read. */}
+              <div className="mb-3 flex items-center gap-3" title={sec.blurb}>
+                <h2 id={`sec-${sec.id}`} className="text-[15px] font-medium tracking-[-0.01em] text-fg">
+                  {sec.title}
                 </h2>
+                <span aria-hidden className="h-px flex-1 bg-border" />
               </div>
               {tiles.length ? (
                 <div className="mb-4">

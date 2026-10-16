@@ -24,6 +24,9 @@ import { exportKpiIds, type ExportContext } from "./context";
 
 export const DATE_TABLE = "Date";
 
+/** Width of the comment rules in measures.dax. */
+const RULE = 82;
+
 /** Backslash-escapes each character so a currency symbol is literal in a .NET format string. */
 export const escapeFormatLiteral = (s: string): string => [...s.trim()].map((ch) => `\\${ch}`).join("");
 
@@ -146,12 +149,15 @@ export function buildMeasures(ctx: ExportContext, symbol: string): MeasureDef[] 
 }
 
 /**
- * The measures.dax text: numbered setup steps, the Date table (commented out,
- * to paste as a calculated table), one DEFINE MEASURE per measure grouped by
- * folder with Loupe's own value as a comment, and an EVALUATE ROW for
- * side-by-side checking: the hero KPIs, else the first visible measures, else
- * the row count, so the query is valid DAX whatever the dataset supports.
- * `symbol` must already be trimmed.
+ * The measures.dax text, laid out to be read: a short header with numbered
+ * setup steps, the Date table (commented out, to paste as a calculated
+ * table), the measures grouped by topic (a banner per display folder; DAX
+ * doesn't mind the order, and the model keeps buildMeasures' order), each
+ * under a card with its name and Loupe's own value on the rule, then what it
+ * means and its formula; and an EVALUATE ROW for side-by-side checking: the
+ * hero KPIs, else the first visible measures, else the row count, so the
+ * query is valid DAX whatever the dataset supports. `symbol` must already be
+ * trimmed.
  */
 export function generateDaxFile(ctx: ExportContext, symbol: string): string {
   const measures = buildMeasures(ctx, symbol);
@@ -185,43 +191,61 @@ export function generateDaxFile(ctx: ExportContext, symbol: string): string {
   ]);
 
   const lines: string[] = [];
-  lines.push(`// Loupe · DAX measures for ${ctx.ds.source.fileName}`);
+  const rule = (ch: string, indent = "") => `${indent}// ${ch.repeat(RULE - indent.length - 3)}`;
+  lines.push(rule("═"));
+  lines.push(`// LOUPE · DAX measures for ${ctx.ds.source.fileName}`);
+  lines.push(rule("═"));
   lines.push(
-    `// Domain: ${ctx.domain.name}${ctx.subDomain ? ` › ${ctx.subDomain.name}` : ""} · Generated ${ctx.generatedAt}`,
+    `// ${ctx.domain.name}${ctx.subDomain ? ` › ${ctx.subDomain.name}` : ""} · generated ${ctx.generatedAt}`,
   );
   lines.push("//");
-  lines.push("// HOW TO USE (Power BI Desktop, any recent version):");
+  lines.push("// How to use (Power BI Desktop, any recent version)");
   steps.forEach(([first, ...rest], i) => {
     lines.push(`//   ${i + 1}. ${first}`);
     for (const l of rest) lines.push(`//      ${l}`);
   });
-  lines.push(
-    `//   The EVALUATE at the end returns ${evaluated} so you can compare them with Loupe's numbers (in comments).`,
-  );
-  lines.push(
-    "//   Display folders and format strings are set in the TMDL model (semantic-model folder) or can be set by hand.",
-  );
+  lines.push("//");
+  lines.push(`// The EVALUATE at the end returns ${evaluated}, to compare with Loupe's value on each`);
+  lines.push("// measure's title line. Display folders and formats come with the TMDL model (semantic-model");
+  lines.push("// folder), or can be set by hand.");
   lines.push("");
   if (ctx.dateColumn) {
-    lines.push("// ===== Date table (Modeling → New table) =====");
+    lines.push(rule("═"));
+    lines.push("// DATE TABLE · Modeling → New table, then paste these lines without the leading //");
+    lines.push(rule("═"));
     lines.push(`// ${DATE_TABLE} =`);
     for (const l of dateTableDax(ctx.names.table, rel).split("\n")) lines.push(`// ${l}`);
     lines.push("");
   }
   // DEFINE needs at least one definition, so it is left out when there is no measure at all.
-  if (measures.length) lines.push("DEFINE");
+  if (measures.length) {
+    lines.push(rule("═"));
+    lines.push("// MEASURES");
+    lines.push(rule("═"));
+    lines.push("DEFINE");
+  }
+  // Grouped by topic, in the order each first appears; DAX resolves measures in any order.
+  const folders = [...new Set(measures.map((m) => m.folder))];
+  const grouped = [...measures].sort((a, b) => folders.indexOf(a.folder) - folders.indexOf(b.folder));
   let folder = "";
-  for (const m of measures) {
+  for (const m of grouped) {
     if (m.folder !== folder) {
       folder = m.folder;
       lines.push("");
-      lines.push(`    // ── ${folder.replace(/\\/g, " › ")} ${"─".repeat(Math.max(4, 60 - folder.length))}`);
+      lines.push(`    // ${folder.replace(/\\/g, " › ").toUpperCase()}`);
     }
     const v = ctx.kpiValues.get(m.id);
     const r = ctx.res.get(m.id);
-    lines.push(`    // ${m.description}`);
-    if (v !== undefined && r)
-      lines.push(`    // Loupe value on this data: ${formatValue(v, r.def.format, fmt)}`);
+    const value = v !== undefined && r ? formatValue(v, r.def.format, fmt) : "";
+    const head = `    // ── ${m.name} `;
+    const tail = value ? ` ${value} ──` : "";
+    lines.push("");
+    lines.push(`${head}${"─".repeat(Math.max(3, RULE - head.length - tail.length))}${tail}`);
+    if (r) {
+      lines.push(`    // ${r.def.definition}`);
+      lines.push(`    // Formula: ${r.def.formula}`);
+      if (r.variant?.caveat) lines.push(`    // Caveat: ${r.variant.caveat}`);
+    } else lines.push(`    // ${m.description}`);
     const expr = m.expression.split("\n");
     if (expr.length === 1) lines.push(`    MEASURE ${table}${daxMeasureName(m.name)} = ${expr[0]}`);
     else {

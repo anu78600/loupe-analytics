@@ -19,6 +19,9 @@
  * stored as if UTC (hence the getUTC* formatting). NaN is the null sentinel
  * in number and date columns, -1 in string codes and boolean values.
  */
+import { generateCodeHtml } from "@/engine/export/codeHtml";
+import { prettySql } from "@/engine/compile/sqlFormat";
+import { exportKind } from "@/engine/core/booleans";
 import type { Dataset, IngestOptions, LargeFileAssessment, ParseReport } from "@/engine/core/types";
 import { isoDate, isoDateTime, isoTime, todayWallClock, type TimeGrain } from "@/engine/core/dates";
 import {
@@ -864,7 +867,10 @@ export class Session {
       let dax: string | undefined;
       if (r.available && r.variant) {
         try {
-          sql = kpiQuery(r.variant.expr, { ...sqlCtx, table: quoteIdent(names.table.toLowerCase()) });
+          // Laid out for reading (the KPI details, PDFs and the readable SQL & DAX page).
+          sql = prettySql(
+            kpiQuery(r.variant.expr, { ...sqlCtx, table: quoteIdent(names.table.toLowerCase()) }),
+          );
         } catch {
           sql = undefined;
         }
@@ -1623,6 +1629,12 @@ export class Session {
     return generateDaxFile(ec, currencySymbol(ec.currency).trim());
   }
 
+  /** Every KPI's SQL and DAX in colour, as one readable page (export/codeHtml.ts). */
+  exportCodeHtml(): string {
+    const ec = this.exportContext();
+    return generateCodeHtml(ec, currencySymbol(ec.currency).trim());
+  }
+
   exportDictionary(format: "csv" | "md"): string {
     const ec = this.exportContext();
     return format === "csv" ? dictionaryCsv(ec) : dictionaryMarkdown(ec);
@@ -1744,10 +1756,13 @@ export class Session {
             {
               id: r.def.id,
               name: r.def.name,
-              sql: kpiQuery(r.variant?.expr as NonNullable<typeof r.variant>["expr"], {
-                ...sqlCtx,
-                table: quoteIdent(table),
-              }),
+              // The laid-out text, so the DuckDB check runs exactly what people read.
+              sql: prettySql(
+                kpiQuery(r.variant?.expr as NonNullable<typeof r.variant>["expr"], {
+                  ...sqlCtx,
+                  table: quoteIdent(table),
+                }),
+              ),
               engine: ec.kpiValues.get(r.def.id) ?? null,
               format: r.def.format,
             },
@@ -1770,7 +1785,7 @@ export class Session {
                 : c.hasTime
                   ? "TIMESTAMP"
                   : "DATE"
-              : c.kind === "boolean"
+              : exportKind(c) === "boolean"
                 ? "BOOLEAN"
                 : "VARCHAR",
       })),

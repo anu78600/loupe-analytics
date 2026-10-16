@@ -23,6 +23,8 @@
  * are left out of time groupings, and weekday is ISO (1 = Monday). Proven
  * equal to the engine in DuckDB by tests/questions.test.ts.
  */
+import { prettySql } from "./sqlFormat";
+import { wordLabels } from "@/engine/core/booleans";
 import type { Column, Dataset } from "@/engine/core/types";
 import { isoDateTime, type DatePart, type TimeGrain } from "@/engine/core/dates";
 import type { Expr } from "@/engine/query/expr";
@@ -122,6 +124,9 @@ function filterSql(f: Filter, col: Column | undefined, ctx: SqlContext): string 
       case "string":
         return quoteString(label);
       case "boolean":
+        // A column of words is text in the exported table, so it compares with the words.
+        if (wordLabels(col))
+          return label === col.trueLabel || label === col.falseLabel ? quoteString(label) : null;
         return label === col.trueLabel ? "TRUE" : label === col.falseLabel ? "FALSE" : null;
       case "date":
         return Number.isFinite(Number(label)) ? tsLiteral(Number(label)) : null;
@@ -258,5 +263,5 @@ export function questionSql(input: QuestionSqlInput, ds: Dataset, ctx: SqlContex
     ...(key.kind === "part" && key.part === "dow" ? ["-- Weekday: 1 = Monday … 7 = Sunday."] : []),
     ...skipped.map((s) => `-- Not in SQL: ${s.label}. ${s.reason}`),
   ];
-  return { sql: `${header.join("\n")}\n\n${statements.join("\n\n")}`, skipped };
+  return { sql: `${header.join("\n")}\n\n${statements.map((st) => prettySql(st)).join("\n\n")}`, skipped };
 }

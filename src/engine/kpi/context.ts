@@ -5,6 +5,7 @@
  * and the exported formula always read the same column. The SQL and DAX
  * contexts emit the export-safe names from CompileNames, not raw headers.
  */
+import { wordLabels } from "@/engine/core/booleans";
 import type { Column, Dataset, StorageType } from "@/engine/core/types";
 import type { Mapping } from "@/engine/detect/mapping";
 import { MissingFieldError, UnavailableKpiError, type Resolver } from "@/engine/query/evaluate";
@@ -105,6 +106,16 @@ export function storageOf(ds: Dataset, mapping: Mapping, ref: string): StorageTy
   return columnForRef(ds, mapping, ref).kind;
 }
 
+/** A yes/no field's own spellings when the file used words, so SQL and DAX compare with them (core/booleans.ts). */
+export function boolLabelsOf(
+  ds: Dataset,
+  mapping: Mapping,
+  ref: string,
+): { true: string; false: string } | null {
+  const col = columnForRef(ds, mapping, ref);
+  return col.kind === "boolean" ? wordLabels(col) : null;
+}
+
 /** Export names shared by the SQL, DAX and Power BI outputs (built by export/names.ts). */
 export interface CompileNames {
   /** Unquoted table name, e.g. "Orders". */
@@ -131,6 +142,7 @@ export function makeSqlContext(
       return quoteIdent(names.columns.get(col.name) ?? col.name);
     },
     colType: (ref) => storageOf(ds, mapping, ref),
+    boolLabels: (ref) => boolLabelsOf(ds, mapping, ref),
     classValues: resolver.classValues,
     kpiExpr: resolver.kpi,
   };
@@ -156,6 +168,7 @@ export function makeDaxContext(
       return daxColumn(names.table, names.columns.get(col.name) ?? col.name);
     },
     colType: (ref) => storageOf(ds, mapping, ref),
+    boolLabels: (ref) => boolLabelsOf(ds, mapping, ref),
     classValues: resolver.classValues,
     measure: (id) => daxMeasureName(names.measures.get(id) ?? id),
     dateTable: opts.dateTable ? daxTableName(opts.dateTable) : null,

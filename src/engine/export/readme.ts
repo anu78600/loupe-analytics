@@ -219,6 +219,9 @@ export function generateReadme(ctx: ExportContext, specs: ChartSpec[], symbol: s
     `| \`${names.table}.SemanticModel/\` | TMDL semantic model (tables, column types, measures with display folders and formats${ctx.dateColumn ? ", Date table, relationship" : ""}). |`,
   );
   out.push("| `kpis.sql` | The same KPIs in SQL (views), for a warehouse or DuckDB. |");
+  out.push(
+    "| `kpis-sql-and-dax.html` | Every KPI's SQL and DAX side by side, in colour, to read in a browser. |",
+  );
   out.push("| `data-dictionary.csv` | Every column: type, semantic role, additivity, completeness. |");
   out.push("| `data-dictionary.md` | The same dictionary as a readable table. |");
   out.push("| `loupe-config.json` | Reload this exact dashboard in Loupe with the same file. |");

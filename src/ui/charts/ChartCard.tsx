@@ -330,9 +330,6 @@ export function ChartCard({
             </h3>
             {spec.source === "custom" ? <Badge tone="accent">Custom</Badge> : null}
           </div>
-          <p className="mt-0.5 truncate text-2xs text-fg-subtle" title={caption}>
-            {caption}
-          </p>
         </div>
         <div className="no-print flex shrink-0 items-center gap-0.5 opacity-100 transition-opacity md:opacity-60 md:group-focus-within/card:opacity-100 md:group-hover/card:opacity-100">
           <Popover>
@@ -344,6 +341,8 @@ export function ChartCard({
             <PopoverContent align="end" className="w-80">
               <p className="text-2xs font-medium tracking-[0.1em] text-fg-subtle uppercase">Why this chart</p>
               <p className="mt-1.5 text-ui leading-relaxed text-fg">{spec.reason}</p>
+              {/* The slice this chart shows, kept here rather than under every chart's title. */}
+              <p className="mt-2 text-2xs text-fg-muted">Showing: {caption}</p>
               {spec.measures.length ? (
                 <p className="mt-2 text-2xs text-fg-muted">
                   Measures: {spec.measures.map((m) => m.label).join(", ")}
