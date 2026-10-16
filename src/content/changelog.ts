@@ -41,6 +41,28 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "35.2",
+    kind: "minor",
+    date: "2026-10-16T15:24:29Z",
+    title: "Check & map says which columns it left out, and why",
+    summary:
+      "“12 of 15 columns used” now opens the answer: the three columns nothing reads, each with the reason and what you can do about it. The KPI count opens the same way, and the page states what your file was read as.",
+    changes: [
+      "The column count in Check & map opens a breakdown: every column that isn't used, with the reason in plain words (for example “3,946 different values: too many to group or filter by”, “A second date: periods follow Date of Admission”, “An ID…”), what you could do about it, and a Hide button; the columns you hid, with Use again; and what each used column feeds (“2 KPIs · 4 charts · Date filter”).",
+      "The KPI count opens the list of KPIs: the ones your file supports with the columns they read, and for the others, the column each still needs.",
+      "Your columns has a filter (All · Used · Not used · Hidden), and a column that isn't used says why, right beside it. The note above the table names the unused columns.",
+      "Under the title, one line says what the file was read as: industry and data shape, rows and columns, the date span and which date it follows, and what one row is.",
+      "Fixed: a “Room Number” (and bed, seat, gate, batch numbers and the like) was read as a quantity, so the dashboard could show an average room number. It is now read as an ID: counted, never summed or averaged.",
+    ],
+    tags: ["Feature", "Fix", "Tests"],
+    files: [
+      "src/ui/workspace/MapStep.tsx",
+      "src/engine/charts/columnUsage.ts",
+      "src/engine/profile/roles.ts",
+      "tests/column-usage.test.ts",
+    ],
+  },
+  {
     version: "35.1",
     kind: "minor",
     date: "2026-10-16T14:28:56Z",

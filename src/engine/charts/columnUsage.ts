@@ -12,6 +12,9 @@
 import { fieldsOf } from "@/engine/query/expr";
 import type { Mapping } from "@/engine/detect/mapping";
 import type { ChartSpec, ResolvedAxis } from "./types";
+import type { ColumnProfile } from "@/engine/profile/types";
+import { formatCount, type NumberLocale } from "@/engine/core/format";
+import { friendly } from "@/engine/core/labels";
 
 /** What one column feeds. Names are display names (KPI names, chart titles). */
 export interface ColumnUse {
@@ -103,4 +106,78 @@ export function specColumns(spec: ChartSpec, columnOfRef: (ref: string) => strin
   const p = spec.analysisParams;
   if (p) for (const c of [p.customer, p.date, p.order, p.item]) if (c) cols.add(c);
   return cols;
+}
+
+/** Why a column feeds nothing, and what the user could do about it. */
+export interface UnusedReason {
+  /** One plain sentence. */
+  reason: string;
+  /** What the user can do, when there is something. */
+  hint?: string;
+}
+
+/**
+ * Why nothing reads a column, from its profile, so "12 of 15 columns used"
+ * can name the other three and say why: almost empty, one value, a second
+ * date, an ID, free text, too many values to group by, a number no KPI
+ * reads, or a field no available KPI needs. `mappedTo` is the template
+ * field it is read as, if any; `dateColumn` the main date.
+ */
+export function whyUnused(
+  c: ColumnProfile,
+  info: { dateColumn: string | null; mappedTo?: string; locale: NumberLocale },
+): UnusedReason {
+  const n = (x: number) => formatCount(x, info.locale);
+  const name = friendly(c.name);
+  if (c.nullPct >= 0.95)
+    return {
+      reason: `Almost empty: ${Math.round(c.nullPct * 100)}% of its rows are blank.`,
+      hint: "Hide it to keep the analysis tidy; it stays in your file.",
+    };
+  if (c.distinct <= 1) return { reason: "The same value on every row, so there is nothing to compare." };
+  if (c.role === "datetime" && info.dateColumn && c.name !== info.dateColumn)
+    return {
+      reason: `A second date: periods, trends and the date filter follow ${friendly(info.dateColumn)}.`,
+      hint: `To make it the main date, map it to the date field in Field mapping.`,
+    };
+  if (c.role === "time")
+    return {
+      reason: "A time of day; this view has no hour-of-day chart that reads it.",
+      hint: "Ask for a chart by hour of day to use it.",
+    };
+  if (c.role === "identifier")
+    return c.unique
+      ? {
+          reason:
+            "An ID that differs on every row: it names rows, so there is nothing to add up or group by.",
+          hint: "It stays in the data grid and in every export.",
+        }
+      : {
+          reason: `An ID (${n(c.distinct)} different values): KPIs count IDs when they need to, and none of this view's available KPIs counts this one.`,
+          hint: "It stays in the data grid and in every export.",
+        };
+  if (c.role === "text")
+    return {
+      reason: `Free text with ${n(c.distinct)} different values: too varied to chart or filter by.`,
+      hint: "It stays in the data grid and in every export.",
+    };
+  if ((c.role === "dimension" || c.role === "geo") && c.distinct > 500)
+    return {
+      reason: `${n(c.distinct)} different values: too many to group or filter by.`,
+      hint: `To use it, ask for a top-10 chart of ${name} (“Ask for a chart” on the dashboard).`,
+    };
+  if (info.mappedTo)
+    return {
+      reason: `Read as “${info.mappedTo}”, but none of the KPIs or charts available for this data needs that field.`,
+      hint: "Another data shape of the same industry may use it.",
+    };
+  if (c.storage === "number")
+    return {
+      reason: "A number column that no KPI or chart of this view reads.",
+      hint: "Build a KPI or a chart from it in Customise.",
+    };
+  return {
+    reason: "None of this industry's KPIs or charts needs it.",
+    hint: "Ask for a chart that uses it, in Customise or on the dashboard.",
+  };
 }
