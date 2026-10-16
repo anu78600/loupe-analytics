@@ -108,6 +108,15 @@
   --mesh-1: rgb(214 180 122 / 0.16);
   --mesh-2: rgb(60 121 209 / 0.12);
   --mesh-3: rgb(51 169 152 / 0.08);
+
+  /* Finish: the brass gradient on primary actions (dark ink on it ≥ 5.4:1), its glow, the sheen
+     that sweeps across on hover, the hero grid, and the pointer spotlight on landing cards. */
+  --accent-gradient: linear-gradient(135deg, #f0dab0 0%, #d6b47a 45%, #b08c50 100%);
+  --glow-accent: rgb(214 180 122 / 0.3);
+  --sheen: rgb(255 255 255 / 0.32);
+  --grid-line: rgb(255 255 255 / 0.045);
+  --spot: rgb(214 180 122 / 0.09);
+  --spot-border: rgb(214 180 122 / 0.5);
 }
 
 :root[data-theme="light"],
@@ -191,4 +200,12 @@
   --mesh-1: rgb(172 124 38 / 0.14);
   --mesh-2: rgb(74 145 248 / 0.1);
   --mesh-3: rgb(0 136 121 / 0.06);
+
+  /* Every stop keeps white text at ≥ 5:1. */
+  --accent-gradient: linear-gradient(135deg, #8c6a2b 0%, #816226 50%, #6f5422 100%);
+  --glow-accent: rgb(129 98 38 / 0.22);
+  --sheen: rgb(255 255 255 / 0.28);
+  --grid-line: rgb(18 20 23 / 0.055);
+  --spot: rgb(129 98 38 / 0.07);
+  --spot-border: rgb(129 98 38 / 0.42);
 }

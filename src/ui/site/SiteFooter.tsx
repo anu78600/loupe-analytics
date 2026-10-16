@@ -34,8 +34,7 @@ export function SiteFooter() {
         <div className="grid content-start gap-4">
           <Wordmark />
           <p className="max-w-sm text-ui leading-relaxed text-fg-muted">
-            Analyst-grade dashboards from clean data, with every KPI&apos;s formula, SQL and DAX shown. Built
-            for analysts. Computed entirely in your browser.
+            Analyst-grade dashboards from clean data, with the working shown.
           </p>
           <p className="flex items-center gap-2 text-ui text-fg-muted">
             <ShieldCheck className="size-4 text-success" aria-hidden /> Your data never leaves your browser.

@@ -58,6 +58,7 @@ Edit or add `src/registry/domains/<id>.json`, import it in `src/registry/index.t
 - A new chart kind goes in `CHART_KINDS` (`src/registry/schema.ts`) and `src/engine/charts/catalogue.ts`, with a case in `isKindCompatible`; the exhaustive `Record<ChartKind, …>` maps then make the typecheck name every other place it needs (widths, labels, icons, Power BI visual). `tests/chart-catalogue.test.ts` builds and draws each one from the e-commerce demo.
 - Chart colours come only from the tokens (`--chart-1…8`, `--seq-1…8`, `--chart-spark`) via `readChartTokens()`, never hard-coded, because the user's chart theme (`src/ui/charts/palette`, applied by `apply.ts` as a `<style>` plus `data-chart-theme` on `<html>`) redefines them. A chart that builds an option must redraw on `useChartThemeKey()`. Every preset must pass `checkPalette` in both themes (`tests/chart-themes.test.ts`), and "Loupe" must equal `tokens.css`.
 - Accessibility: keyboard reachable, visible focus, `aria-*` on custom widgets, reduced motion respected.
+- Landing page motion (`src/ui/landing`: `motion.tsx` primitives, `HeroStage`, `Pipeline`, `Bento`) plays only figures from `preview-data.ts` and counts from the registry or catalogue (`tests/landing-data.test.ts`). Ambient motion is CSS in `globals.css` (stops under the reduced-motion rule); loops go through `useLive`/`useTicker` so they stop off-screen; anything that renders differently under reduced motion uses `useCalm()`, not Framer's `useReducedMotion()`, which breaks hydration.
 
 ## Gotchas
 

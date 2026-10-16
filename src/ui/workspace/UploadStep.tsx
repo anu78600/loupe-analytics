@@ -115,83 +115,93 @@ function Dropzone() {
     if (f) void loadFile(f);
   };
   return (
+    // The beam sits on a wrapper: the zone itself clips its overflow, which would cut the beam off.
     <div
-      onDragEnter={(e) => {
-        e.preventDefault();
-        depth.current++;
-        setOver(true);
-      }}
-      onDragOver={(e) => e.preventDefault()}
-      onDragLeave={() => {
-        depth.current = Math.max(0, depth.current - 1);
-        if (depth.current === 0) setOver(false);
-      }}
-      onDrop={(e) => {
-        e.preventDefault();
-        depth.current = 0;
-        setOver(false);
-        take(e.dataTransfer.files);
-      }}
       className={cn(
-        "group relative overflow-hidden rounded-panel border bg-surface-1 transition-[border-color,box-shadow,transform] duration-300 ease-[var(--ease-out-quint)]",
-        over
-          ? "scale-[1.006] border-accent shadow-[0_0_0_6px_var(--accent-soft),var(--shadow-lift)]"
-          : "border-border-strong shadow-card hover:border-border-accent",
+        "beam-border rounded-panel before:opacity-0 before:transition-opacity before:duration-500 hover:before:opacity-100",
+        over && "before:opacity-100",
       )}
     >
       <div
-        aria-hidden
+        onDragEnter={(e) => {
+          e.preventDefault();
+          depth.current++;
+          setOver(true);
+        }}
+        onDragOver={(e) => e.preventDefault()}
+        onDragLeave={() => {
+          depth.current = Math.max(0, depth.current - 1);
+          if (depth.current === 0) setOver(false);
+        }}
+        onDrop={(e) => {
+          e.preventDefault();
+          depth.current = 0;
+          setOver(false);
+          take(e.dataTransfer.files);
+        }}
         className={cn(
-          "mesh pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-500",
-          over && "opacity-100",
+          "group relative overflow-hidden rounded-panel border bg-surface-1 transition-[border-color,box-shadow,transform] duration-300 ease-[var(--ease-out-quint)]",
+          over
+            ? "scale-[1.006] border-accent shadow-[0_0_0_6px_var(--accent-soft),var(--shadow-lift)]"
+            : "border-border-strong shadow-card hover:border-border-accent",
         )}
-      />
-      <div className="relative flex flex-col items-center px-6 py-14 text-center md:py-20">
-        <div className="relative mb-6 grid size-16 place-items-center">
-          <motion.span
-            aria-hidden
-            className="absolute inset-0 rounded-full border border-border-accent"
-            animate={over ? { scale: [1, 1.35], opacity: [0.6, 0] } : { scale: 1, opacity: 0 }}
-            transition={over ? { duration: 1.1, repeat: Infinity, ease: "easeOut" } : { duration: 0.2 }}
-          />
-          <span className="grid size-16 place-items-center rounded-full border border-border-strong bg-surface-2">
-            <UploadCloud
-              className={cn("size-6 transition-colors", over ? "text-accent" : "text-fg-muted")}
-              aria-hidden
-            />
-          </span>
-        </div>
-        <p className="text-lg font-medium text-fg">{over ? "Release to analyse" : "Drop a file to begin"}</p>
-        <p className="mt-1.5 text-ui text-fg-muted">
-          CSV, TSV, Excel (.xlsx, .xls) or JSON · up to ~2 million rows
-        </p>
-        <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
-          <Button variant="primary" size="lg" onClick={() => input.current?.click()}>
-            <FileSpreadsheet aria-hidden /> Choose a file
-          </Button>
-        </div>
-        <input
-          ref={input}
-          type="file"
-          accept={ACCEPT}
-          className="sr-only"
-          aria-label="Choose a data file"
-          onChange={(e) => {
-            take(e.target.files);
-            e.target.value = "";
-          }}
+      >
+        <div
+          aria-hidden
+          className={cn(
+            "mesh pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-500",
+            over && "opacity-100",
+          )}
         />
-        <div className="mt-8 flex flex-wrap justify-center gap-1.5">
-          {[
-            "Auto delimiter & encoding",
-            "DD/MM vs MM/DD resolved",
-            "Multi-sheet Excel",
-            "₹ lakh/crore aware",
-          ].map((t) => (
-            <Badge key={t} tone="outline">
-              {t}
-            </Badge>
-          ))}
+        <div className="relative flex flex-col items-center px-6 py-14 text-center md:py-20">
+          <div className="relative mb-6 grid size-16 place-items-center">
+            <motion.span
+              aria-hidden
+              className="absolute inset-0 rounded-full border border-border-accent"
+              animate={over ? { scale: [1, 1.35], opacity: [0.6, 0] } : { scale: 1, opacity: 0 }}
+              transition={over ? { duration: 1.1, repeat: Infinity, ease: "easeOut" } : { duration: 0.2 }}
+            />
+            <span className="grid size-16 place-items-center rounded-full border border-border-strong bg-surface-2">
+              <UploadCloud
+                className={cn("size-6 transition-colors", over ? "text-accent" : "text-fg-muted")}
+                aria-hidden
+              />
+            </span>
+          </div>
+          <p className="text-lg font-medium text-fg">
+            {over ? "Release to analyse" : "Drop a file to begin"}
+          </p>
+          <p className="mt-1.5 text-ui text-fg-muted">
+            CSV, TSV, Excel (.xlsx, .xls) or JSON · up to ~2 million rows
+          </p>
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
+            <Button variant="primary" size="lg" onClick={() => input.current?.click()}>
+              <FileSpreadsheet aria-hidden /> Choose a file
+            </Button>
+          </div>
+          <input
+            ref={input}
+            type="file"
+            accept={ACCEPT}
+            className="sr-only"
+            aria-label="Choose a data file"
+            onChange={(e) => {
+              take(e.target.files);
+              e.target.value = "";
+            }}
+          />
+          <div className="mt-8 flex flex-wrap justify-center gap-1.5">
+            {[
+              "Auto delimiter & encoding",
+              "DD/MM vs MM/DD resolved",
+              "Multi-sheet Excel",
+              "₹ lakh/crore aware",
+            ].map((t) => (
+              <Badge key={t} tone="outline">
+                {t}
+              </Badge>
+            ))}
+          </div>
         </div>
       </div>
     </div>

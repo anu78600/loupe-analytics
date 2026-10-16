@@ -118,6 +118,7 @@ export function WorkspaceTopBar({
 }) {
   const summary = useWorkspace((s) => s.summary);
   const startOver = useWorkspace((s) => s.startOver);
+  const stepIndex = useWorkspace((s) => STEPS.findIndex((x) => x.id === s.step));
   const locale = useSettings((s) => s.numberLocale);
   // The platform is only known in the browser; the server render assumes non-Mac (Ctrl+K).
   const mac = React.useSyncExternalStore(subscribePlatform, isMac, () => false);
@@ -188,6 +189,14 @@ export function WorkspaceTopBar({
           <ThemeToggle compact />
         </div>
       </div>
+      {/* How far through the steps you are, as a line along the bar's bottom edge. */}
+      <motion.div
+        aria-hidden
+        className="absolute inset-x-0 -bottom-px h-px origin-left bg-[image:var(--accent-gradient)]"
+        initial={false}
+        animate={{ scaleX: summary ? (stepIndex + 1) / STEPS.length : 0 }}
+        transition={{ type: "spring", stiffness: 160, damping: 30 }}
+      />
     </header>
   );
 }

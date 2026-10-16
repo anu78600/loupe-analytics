@@ -27,6 +27,7 @@ import { ROLE_LABEL } from "@/engine/profile/types";
 import type { Filter } from "@/engine/query/filter";
 import type { ChartData } from "@/engine/charts/types";
 import { DOMAINS } from "@/registry";
+import { CHART_TYPES } from "@/engine/charts/catalogue";
 
 /** Date presets the hero preview can switch between. */
 export const PREVIEW_PRESETS = ["last12m", "last6m", "last90d"] as const satisfies readonly DatePreset[];
@@ -85,6 +86,8 @@ export interface LandingData {
   /** Actual size of each demo dataset, generated at build time. */
   samples: Record<string, { rows: string; columns: number }>;
   health: { score: number; grade: string };
+  /** Chart types the Customise step's chart builder offers (engine/charts/catalogue.ts). */
+  chartTypes: number;
   states: PreviewState[];
   showcase: {
     kpi: { name: string; definition: string; formula: string; sql: string; dax: string; daxName: string };
@@ -307,6 +310,7 @@ export function buildLandingData(): LandingData {
       }),
     ),
     health: { score: load.health.score, grade: load.health.grade },
+    chartTypes: CHART_TYPES.filter((t) => t.buildable).length,
     states,
     showcase: {
       kpi: {

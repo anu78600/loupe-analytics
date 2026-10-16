@@ -587,7 +587,7 @@ export function HeroPreview({
       <motion.div
         role="figure"
         aria-label="Preview of a Loupe dashboard computed from the demo e-commerce dataset"
-        initial={reduce ? false : { opacity: 0, y: 28 }}
+        initial={{ opacity: 0, y: 28 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.9, ease: EASE, delay: 0.15 }}
         className="overflow-hidden rounded-panel border border-border-strong bg-surface-1 shadow-lift"

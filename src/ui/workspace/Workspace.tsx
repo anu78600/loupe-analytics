@@ -107,7 +107,11 @@ export function Workspace({ version }: { version: string }) {
     );
 
   return (
-    <div className="min-h-dvh bg-bg">
+    <div className="relative isolate min-h-dvh bg-bg">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[520px] bg-[radial-gradient(60%_100%_at_50%_0%,var(--mesh-1),transparent_75%)] opacity-70"
+      />
       <WorkspaceTopBar
         onOpenCommand={() => setCommandOpen(true)}
         onOpenSettings={() => setSettingsOpen(true)}

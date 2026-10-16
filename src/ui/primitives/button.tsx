@@ -1,8 +1,9 @@
 /**
- * Button with design-token variants (primary = brass accent) and sizes (sm,
- * md and icon use the 10px control radius). `asChild` renders the child
- * element instead (e.g. a link) via Radix Slot; buttonVariants gives other
- * elements the same look.
+ * Button with design-token variants and sizes (sm, md and icon use the 10px
+ * control radius). Primary is the brass gradient with a soft glow and a sheen
+ * that sweeps across on hover or keyboard focus (the `sheen` utility in
+ * globals.css). `asChild` renders the child element instead (e.g. a link)
+ * via Radix Slot; buttonVariants gives other elements the same look.
  */
 import * as React from "react";
 import { Slot } from "radix-ui";
@@ -12,7 +13,7 @@ import { cn } from "@/lib/utils";
 const buttonVariants = cva(
   [
     "relative inline-flex shrink-0 select-none items-center justify-center gap-2 whitespace-nowrap font-medium",
-    "transition-[background-color,border-color,color,box-shadow,transform] duration-200 ease-[var(--ease-out-quint)]",
+    "transition-[background-color,border-color,color,box-shadow,transform,filter] duration-200 ease-[var(--ease-out-quint)]",
     "disabled:pointer-events-none disabled:opacity-45 active:translate-y-px",
     "[&_svg]:pointer-events-none [&_svg]:shrink-0",
   ],
@@ -20,7 +21,7 @@ const buttonVariants = cva(
     variants: {
       variant: {
         primary:
-          "bg-accent text-accent-fg shadow-[0_1px_0_0_rgb(255_255_255/0.25)_inset,0_1px_2px_rgb(0_0_0/0.3)] hover:bg-accent-strong",
+          "sheen bg-accent bg-[image:var(--accent-gradient)] text-accent-fg shadow-[0_1px_0_0_rgb(255_255_255/0.28)_inset,0_1px_2px_rgb(0_0_0/0.3),0_8px_22px_-10px_var(--glow-accent)] hover:brightness-105 hover:shadow-[0_1px_0_0_rgb(255_255_255/0.28)_inset,0_0_0_1px_var(--accent-ring),0_12px_32px_-10px_var(--glow-accent)]",
         secondary:
           "border border-border-strong bg-surface-2 text-fg hover:border-border-accent hover:bg-surface-3",
         ghost: "text-fg-muted hover:bg-surface-2 hover:text-fg",

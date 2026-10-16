@@ -4,12 +4,14 @@
  * Top navigation for the marketing pages (landing and version log).
  *
  * Transparent over the hero, then turns into a frosted bar with a hairline once
- * the page scrolls. Below the md breakpoint the links collapse into a
- * disclosure panel. The workspace (/app) has its own top bar (ui/workspace/Shell).
+ * the page scrolls; a brass line along its bottom edge shows how far down the
+ * page you are. A soft highlight slides between the links under the pointer.
+ * Below the md breakpoint the links collapse into a disclosure panel. The
+ * workspace (/app) has its own top bar (ui/workspace/Shell).
  */
 import * as React from "react";
 import Link from "next/link";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, useScroll, useSpring } from "framer-motion";
 import { ArrowRight, Menu, X } from "lucide-react";
 import { Wordmark } from "@/ui/brand/logo";
 import { ThemeToggle } from "@/ui/common/theme-toggle";
@@ -28,6 +30,9 @@ const LINKS = [
 export function SiteHeader() {
   const [scrolled, setScrolled] = React.useState(false);
   const [open, setOpen] = React.useState(false);
+  const [hovered, setHovered] = React.useState<string | null>(null);
+  const { scrollYProgress } = useScroll();
+  const progress = useSpring(scrollYProgress, { stiffness: 220, damping: 32, restDelta: 0.001 });
 
   React.useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8);
@@ -55,13 +60,28 @@ export function SiteHeader() {
         <Link href="/" aria-label="Loupe home" className="rounded-control">
           <Wordmark size="sm" />
         </Link>
-        <nav aria-label="Primary" className="hidden items-center gap-0.5 md:flex">
+        <nav
+          aria-label="Primary"
+          className="hidden items-center gap-0.5 md:flex"
+          onPointerLeave={() => setHovered(null)}
+        >
           {LINKS.map((l) => (
             <Link
               key={l.href}
               href={l.href}
-              className="rounded-control px-3 py-2 text-ui text-fg-muted transition-colors hover:text-fg"
+              onPointerEnter={() => setHovered(l.href)}
+              onFocus={() => setHovered(l.href)}
+              onBlur={() => setHovered(null)}
+              className="relative rounded-control px-3 py-2 text-ui text-fg-muted transition-colors hover:text-fg"
             >
+              {hovered === l.href ? (
+                <motion.span
+                  layoutId="site-nav-hover"
+                  aria-hidden
+                  className="absolute inset-0 -z-10 rounded-control bg-surface-2"
+                  transition={{ type: "spring", stiffness: 420, damping: 36 }}
+                />
+              ) : null}
               {l.label}
             </Link>
           ))}
@@ -86,6 +106,11 @@ export function SiteHeader() {
           </Button>
         </div>
       </div>
+      <motion.div
+        aria-hidden
+        style={{ scaleX: progress }}
+        className="absolute inset-x-0 -bottom-px h-px origin-left bg-[image:var(--accent-gradient)]"
+      />
       <AnimatePresence initial={false}>
         {open ? (
           <motion.nav

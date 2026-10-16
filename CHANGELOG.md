@@ -5,6 +5,25 @@ Every step of building Loupe, newest first. Generated from `src/content/changelo
 - **MAJOR** (`x.0`): a new capability, subsystem or page.
 - **MINOR** (`x.y`): a refinement, fix or follow-up to that major version.
 
+## 33.0 · A premium look and an animated home page
+
+*Major · 2026-10-16 10:11 UTC · Feature, Design, Fix, Tests*
+
+The home page now shows rather than tells: each section is a headline and at most one short line, and the explaining is done by motion graphics built from Loupe's real output on the demo file. The whole app gets a richer finish too: brass gradient buttons with a soft glow, a light that runs round the file drop zone, and a line under the top bar that tracks your progress.
+
+- Hero: the headline rises into place word by word over slowly drifting colour and a fine measuring grid. The live dashboard preview tilts back in 3D and straightens as you scroll, with a brass light running round its frame; on very wide screens three of its real KPI figures float beside it.
+- How it works plays like a short film in five steps: the demo file drops in, the industry is recognised with its real confidence, columns are mapped with lines drawing between them, the chart gallery cycles through its types, and the dashboard assembles itself from its real figures. It plays only while on screen, holds while you point at it or use the keyboard in it, and has a Pause button.
+- Features are seven animated tiles: a KPI's real SQL and DAX type themselves out, the proof checklist ticks itself off, the category breakdown changes form (sorted bars, a donut, a treemap), a scanning light tags each column's role, the headline insight draws its trend, the export formats burst out of the package, and a request typed in words becomes its chart.
+- Industries: the number of industries, KPI definitions and chart templates count up, and the industries scroll past in two endless rows that stop under the pointer.
+- Privacy: an animated diagram shows your data flowing from your file into this browser tab and out as your dashboard, while the path to a server is visibly blocked.
+- Less text everywhere: one headline per section, demo cards with a light that follows the pointer, shorter FAQ answers and a shorter footer. The closing section has a slowly turning lens, the Loupe mark as an instrument.
+- Theme: primary buttons are a brass gradient with a soft glow and a sheen that sweeps across on hover or keyboard focus, with text contrast above 5:1 in both themes. The site header shows how far down the page you are and highlights the link under the pointer.
+- Workspace: a brass light runs round the file drop zone when you hover or drag a file over it, every step has a soft glow at the top, and a line under the top bar fills as you move through the eight steps.
+- Every figure in every animation is the engine's real output for the demo file, and every count comes from the industry registry or the chart catalogue; a new test checks both. With reduced motion turned on nothing loops or moves by itself and everything is shown straight away, and without JavaScript everything is shown too.
+- Fix: visitors who prefer reduced motion no longer trigger a page rebuild on the home page; the dashboard preview now starts the same way on the server and in the browser.
+
+Files: `src/ui/landing/sections.tsx`, `src/ui/landing/motion.tsx`, `src/ui/landing/HeroStage.tsx`, `src/ui/landing/Pipeline.tsx`, `src/ui/landing/Bento.tsx`, `src/ui/landing/HeroPreview.tsx`, `src/ui/landing/preview-data.ts`, `src/app/page.tsx`, `src/app/globals.css`, `src/styles/tokens.css`, `src/ui/primitives/button.tsx`, `src/ui/site/SiteHeader.tsx`, `src/ui/site/SiteFooter.tsx`, `src/ui/workspace/UploadStep.tsx`, `src/ui/workspace/Workspace.tsx`, `src/ui/workspace/Shell.tsx`, `tests/landing-data.test.ts`, `CLAUDE.md`
+
 ## 32.0 · Customise your dashboard
 
 *Major · 2026-10-16 06:43 UTC · Feature, Design, Tests*
