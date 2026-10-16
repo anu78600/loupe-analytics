@@ -18,14 +18,15 @@ import type { Column, Dataset } from "@/engine/core/types";
 import { autoGrain, bucketLabel, DAY_MS, endOfBucket, isoDate, type TimeGrain } from "@/engine/core/dates";
 import { formatCount, formatValue, type FormatOptions } from "@/engine/core/format";
 import { linearRegression, niceBins, quantileSorted } from "@/engine/core/stats";
-import type { Expr } from "@/engine/query/expr";
+import { isAdditiveExpr, type Expr } from "@/engine/query/expr";
 import { selectRowsCached, type Filter } from "@/engine/query/filter";
-import { compileRowExpr, evaluate, type Resolver, type Scope } from "@/engine/query/evaluate";
+import { compileRowExpr, evaluate, kpiOrUndefined, type Resolver, type Scope } from "@/engine/query/evaluate";
 import { buildGrouping, compactRows, type GroupKey } from "@/engine/query/groupby";
 import { OTHERS_LABEL, periodScope, runQuery, type ResultGroup } from "@/engine/query/run";
 import { evaluateMany, dateBounds } from "@/engine/kpi/compute";
 import type { ChartKind } from "@/registry/schema";
 import { computeBasket, computeCohorts, computeRfm } from "./analyses";
+import { chartHeadline } from "./headline";
 import {
   MAX_DONUT_SLICES,
   type Annotation,
@@ -229,8 +230,25 @@ function othersByX(
   return xRaws.map((r) => finite(byRaw.get(String(r))));
 }
 
-/** Data for one chart under the current filters, drill path and settings overrides. */
+/**
+ * Data for one chart under the current filters, drill path and settings
+ * overrides, with its takeaway (chartHeadline): the share of a total is only
+ * offered for a measure that adds up, which is decided here from its
+ * definition, since the chart data alone can't tell a sum from an average.
+ */
 export function computeChartData(input: ChartDataInput): ChartData {
+  const data = chartDataFor(input);
+  const first = input.spec.measures[0];
+  const expr = first ? kpiOrUndefined(input.resolver, first.id) : undefined;
+  const headline = chartHeadline(input.spec, data, input.fmt, {
+    additive: expr ? isAdditiveExpr(expr, (id) => kpiOrUndefined(input.resolver, id)) : false,
+    distinct: expr ? countsDistinct(expr, input.resolver) : false,
+  });
+  if (headline) data.headline = headline;
+  return data;
+}
+
+function chartDataFor(input: ChartDataInput): ChartData {
   const { ds, resolver, spec, dateColumn, fmt } = input;
   const kind = input.kind ?? spec.kind;
   const filters: Filter[] = [...input.filters];

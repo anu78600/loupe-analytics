@@ -1263,7 +1263,12 @@ function cohort(ctx: OptionContext): EChartsCoreOption {
         type: "heatmap",
         data: cells.map(([x, y, v]) =>
           x === 0
-            ? { value: [x, y, v], itemStyle: { color: withAlpha(t.seq[7] as string, t.dark ? 0.32 : 0.22) } }
+            ? {
+                value: [x, y, v],
+                itemStyle: { color: withAlpha(t.seq[7] as string, t.dark ? 0.32 : 0.22) },
+                // A set ink: left to ECharts, an inside label gets an outline in the cell's colour, which blurs it.
+                label: { color: t.muted, textBorderWidth: 0 },
+              }
             : typeof v === "number"
               ? { value: [x, y, v], label: { color: seqInk(t, v, 0, max || 1) } }
               : [x, y, v],
@@ -2038,8 +2043,8 @@ function calendar(ctx: OptionContext): EChartsCoreOption {
   };
 }
 
-/** The ECharts option for a chart, or null when there is nothing to draw (empty data, or a table view). */
-const GRAIN_WORD: Record<string, string> = {
+/** What one point on a time axis covers, as a word ("monthly"), by time grain. */
+export const GRAIN_WORD: Record<string, string> = {
   day: "daily",
   week: "weekly",
   month: "monthly",
@@ -2050,7 +2055,8 @@ const GRAIN_WORD: Record<string, string> = {
 /**
  * The line under a chart's title, as analysts write it: the unit and, on a
  * time axis, what each point covers ("In ₹ · monthly", "In % · weekly",
- * "Count · monthly"). Empty for tables and for charts mixing units.
+ * "Count · monthly"); a cohort grid's base ("In % of each cohort"). Empty for
+ * tables and for charts mixing units.
  */
 export function chartSubtitle(
   spec: ChartSpec,
@@ -2059,6 +2065,8 @@ export function chartSubtitle(
   kind: ChartKind,
 ): string {
   if (kind === "table") return "";
+  // A cohort grid's cells are shares of each cohort, whatever its measure counts.
+  if (data?.cohorts?.length) return "In % of each cohort";
   const formats = new Set(
     data?.series.length ? data.series.map((s) => s.format) : spec.measures.map((m) => m.format),
   );
@@ -2078,6 +2086,7 @@ export function chartSubtitle(
   return [unit, grain].filter(Boolean).join(" · ");
 }
 
+/** The ECharts option for a chart, or null when there is nothing to draw (empty data, or a table view). */
 export function buildOption(ctx: OptionContext): EChartsCoreOption | null {
   if (ctx.data.empty) return null;
   if (ctx.data.cohorts) return cohort(ctx);

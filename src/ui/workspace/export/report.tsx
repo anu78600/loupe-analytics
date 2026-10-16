@@ -1,10 +1,10 @@
 "use client";
 
 /**
- * Off-screen report rendering for PDF and full-dashboard PNG. Pages render in
- * the light theme at print resolution, charts use the same option builder as
- * the app, and every chart signals ECharts' "finished" before capture. The
- * PNG holds every chart on the dashboard, wide ones across both columns.
+ * Off-screen report rendering for the PDF report (and, through StaticChart
+ * and renderOffscreen, the presentation slides in slides.tsx). Pages render
+ * in the light theme at print resolution, charts use the same option builder
+ * as the app, and every chart signals ECharts' "finished" before capture.
  *
  * The PDF reads like an analyst's report: a cover stating the period, what
  * the changes compare with and how recent the data is; the headline KPIs; an
@@ -67,7 +67,20 @@ const PendingContext = React.createContext<{ add: () => () => void; echarts: ECh
   echarts: null,
 });
 
-function StaticChart({ chart, fmt, height }: { chart: ReportChart; fmt: FormatOptions; height: number }) {
+/** One chart drawn once, statically, at its laid-out size; signals the renderer when it has finished. */
+export function StaticChart({
+  chart,
+  fmt,
+  height,
+  pixelRatio = 2,
+}: {
+  chart: ReportChart;
+  fmt: FormatOptions;
+  /** Height in pixels; without it the chart fills its parent (which must have a height). */
+  height?: number;
+  /** Canvas pixels per laid-out pixel: 2 for print, more when a slide scales the chart up. */
+  pixelRatio?: number;
+}) {
   const ref = React.useRef<HTMLDivElement>(null);
   const { add, echarts } = React.useContext(PendingContext);
   React.useLayoutEffect(() => {
@@ -75,7 +88,7 @@ function StaticChart({ chart, fmt, height }: { chart: ReportChart; fmt: FormatOp
     const done = add();
     const inst: EChartsType = echarts.default.init(ref.current, undefined, {
       renderer: "canvas",
-      devicePixelRatio: 2,
+      devicePixelRatio: pixelRatio,
     });
     const option = buildOption({
       tokens: readChartTokens(ref.current),
@@ -103,8 +116,8 @@ function StaticChart({ chart, fmt, height }: { chart: ReportChart; fmt: FormatOp
       clearTimeout(t);
       inst.dispose();
     };
-  }, [chart, fmt, add, echarts]);
-  return <div ref={ref} style={{ width: "100%", height }} />;
+  }, [chart, fmt, add, echarts, pixelRatio]);
+  return <div ref={ref} style={{ width: "100%", height: height ?? "100%" }} />;
 }
 
 function ChartBlock({
@@ -135,7 +148,11 @@ function ChartBlock({
         </p>
       ) : null}
       <h3 className="mt-1 text-[19px] font-medium text-fg">{chart.spec.title}</h3>
-      {subtitle ? <p className="mt-0.5 text-[13px] text-fg-subtle">{subtitle}</p> : null}
+      {/* What the figure shows, in a sentence computed from its data. */}
+      {chart.data.headline && !chart.data.empty ? (
+        <p className="mt-1 text-[15px] leading-snug text-fg">{chart.data.headline}</p>
+      ) : null}
+      {subtitle ? <p className="mt-1 text-[13px] text-fg-subtle">{subtitle}</p> : null}
       <div className="mt-4 min-h-0 flex-1">
         {chart.data.empty ? (
           <p className="text-[14px] text-fg-subtle">{chart.data.notes[0] ?? "No data for this selection."}</p>
@@ -388,36 +405,6 @@ export function ReportDocument({ input }: { input: ReportInput }) {
   );
 }
 
-export function DashboardPoster({ input }: { input: ReportInput }) {
-  return (
-    <div className="bg-bg p-12 font-sans text-fg" style={{ width: 1600 }}>
-      <div className="mb-8 flex items-end justify-between border-b border-border pb-6">
-        <div>
-          <Wordmark size="md" />
-          <h1 className="mt-4 font-display text-[44px] leading-none">{input.title}</h1>
-          <p className="mt-2 text-[15px] text-fg-muted">
-            {input.period} · {input.filters} · {formatCount(input.rows, input.fmt.locale)} rows
-          </p>
-        </div>
-        <p className="text-[12px] text-fg-subtle">Generated {input.generatedAt}</p>
-      </div>
-      <div className="grid grid-cols-3 gap-4">
-        {input.hero.map((h) => (
-          <KpiTile key={h.meta.id} meta={h.meta} value={h.value} fmt={input.fmt} />
-        ))}
-      </div>
-      {/* Every chart on the dashboard, in its order; a wide chart takes the whole row as it does there. */}
-      <div className="mt-6 grid grid-cols-2 gap-6">
-        {input.charts.map((c) => (
-          <div key={c.spec.id} className={c.wide ? "col-span-2" : undefined}>
-            <ChartBlock chart={c} fmt={input.fmt} height={380} />
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 const frame = () => new Promise<void>((r) => requestAnimationFrame(() => r()));
 
 /** Mounts a tree off-screen in the light theme and resolves once every chart has finished drawing. */
@@ -490,23 +477,6 @@ export async function exportPdf(
       pdf.addImage(img, "JPEG", 0, 0, 210, 297, undefined, "FAST");
     }
     pdf.save(fileName);
-  } finally {
-    cleanup();
-  }
-}
-
-export async function exportDashboardPng(input: ReportInput, transparent: boolean): Promise<string> {
-  const { host, cleanup } = await renderOffscreen(<DashboardPoster input={input} />, 1600, { transparent });
-  try {
-    const { toPng } = await import("html-to-image");
-    const node = host.firstElementChild as HTMLElement;
-    if (transparent) node.style.background = "transparent";
-    // A long dashboard is drawn at a lower pixel ratio so the canvas stays within what browsers
-    // allow (16,384 px a side and about 120 million pixels in all), instead of failing to export.
-    const w = node.offsetWidth || 1600;
-    const h = node.offsetHeight || 1;
-    const pixelRatio = Math.max(1, Math.min(2, 16000 / h, Math.sqrt(120e6 / (w * h))));
-    return await toPng(node, { pixelRatio, backgroundColor: transparent ? undefined : "#f7f6f2" });
   } finally {
     cleanup();
   }

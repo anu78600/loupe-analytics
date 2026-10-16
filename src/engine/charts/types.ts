@@ -205,6 +205,12 @@ export interface ChartData {
   pareto?: { topShare: number; itemsForEighty: number; itemCount: number; topCount: number };
   funnel?: Array<{ label: string; value: number | null; fromPrev: number | null; fromFirst: number | null }>;
   caption: string;
+  /**
+   * What the chart says, in one sentence computed from this data
+   * (charts/headline.ts): shown under the chart's title and leading each
+   * figure in the slides and the PDF report. Absent when nothing can be said.
+   */
+  headline?: string;
   /** Plain-language summary for screen readers. */
   altText: string;
   /** Caveats about the data behind the chart (clipped bands, hidden groups, partial period...). */

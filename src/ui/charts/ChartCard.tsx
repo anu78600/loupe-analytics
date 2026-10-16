@@ -326,8 +326,17 @@ export function ChartCard({
             </h3>
             {spec.source === "custom" ? <Badge tone="accent">Custom</Badge> : null}
           </div>
-          {/* The unit and what each point covers, so a number is never read in the wrong unit. */}
-          {subtitle ? <p className="mt-0.5 text-2xs text-fg-subtle">{subtitle}</p> : null}
+          {/* What the chart says (its takeaway, computed from this data), then the unit: the title
+              says what the chart is about, this line what it shows. */}
+          {data?.headline && !data.empty ? (
+            <p
+              className="mt-1 line-clamp-2 border-l-2 border-accent pl-2 text-ui leading-snug text-fg"
+              title={data.headline}
+            >
+              {data.headline}
+            </p>
+          ) : null}
+          {subtitle ? <p className="mt-1 text-2xs text-fg-subtle">{subtitle}</p> : null}
         </div>
         <div className="no-print flex shrink-0 items-center gap-0.5 opacity-100 transition-opacity md:opacity-60 md:group-focus-within/card:opacity-100 md:group-hover/card:opacity-100">
           <Popover>

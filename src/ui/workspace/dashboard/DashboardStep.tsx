@@ -23,7 +23,7 @@ import {
   Plus,
   SlidersHorizontal,
 } from "lucide-react";
-import type { ChartSection, LayoutMode } from "@/engine/charts/types";
+import type { LayoutMode } from "@/engine/charts/types";
 import { formatCount } from "@/engine/core/format";
 import { formatDay } from "@/engine/core/dates";
 import { PRESET_LABEL } from "@/engine/core/periods";
@@ -44,19 +44,7 @@ import { ActiveFilters, FilterRail } from "./FilterRail";
 import { ComparisonNote, KpiStrip, KpiTiles, SupportingKpis } from "./KpiCards";
 import { WidgetGrid } from "./WidgetGrid";
 import { Inspector } from "./Inspector";
-
-/** Dashboard sections in order (also the Customise step's chart groups). */
-export const SECTIONS: Array<{ id: ChartSection; title: string; blurb: string }> = [
-  { id: "trend", title: "Trend", blurb: "How the headline numbers move over time." },
-  { id: "breakdown", title: "Breakdowns", blurb: "Where the volume comes from." },
-  { id: "drivers", title: "Drivers & segments", blurb: "What explains the differences." },
-  {
-    id: "columns",
-    title: "From your other columns",
-    blurb: "Columns in your file the template doesn't use, summarised from your data.",
-  },
-  { id: "detail", title: "Detail", blurb: "The rows behind the totals." },
-];
+import { SECTIONS } from "./sections";
 
 /** True when the chart being focused (focusChart) is one of the automatic charts for other columns. */
 function inColumnsSection(s: ReturnType<typeof useWorkspace.getState>): boolean {

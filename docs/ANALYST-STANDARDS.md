@@ -26,8 +26,13 @@ Loupe's output is read the way an analyst's work is read: by managers, finance t
   - bars start at zero;
   - a legend only for two or more series;
   - a table view for every chart.
+- **Say what the chart shows.** Every chart has a takeaway: one sentence under its title, computed from its own data, that says what it shows, the way an analyst titles a slide (`chartHeadline` in `engine/charts/headline.ts`). The dashboard, the slides and the PDF report all lead with it.
+  - A trend compares the first and last complete periods and names the peak ("Up 12.7% from Oct 2025 to Sep 2026, ending at its peak of ₹37.9L"). An incomplete period is never read as a fall, and a rate changes in pp.
+  - A share of the total is given only for a measure that adds up: a sum, a count or a distinct count, against the total over all rows ("Apparel leads with ₹86.7L, 28% of the total"). A rate or an average is compared highest to lowest instead ("COD is highest at 16.3%; Wallet is lowest at 1.9%").
+  - A stacked chart over time gives the make-up of its latest complete period. A donut gives the share its slices show. A table names its first row only. "Others" never leads.
+  - Where nothing can be said honestly (fewer than two complete periods, a single number) there is no sentence.
 - **Label everything.**
-  - Every chart has a unit line under its title ("In ₹ · monthly") (`chartSubtitle`).
+  - Every chart has a unit line under its title ("In ₹ · monthly"); a cohort grid's says its base ("In % of each cohort") (`chartSubtitle`).
   - Named categories are never thinned or tilted: labels wrap to two lines, and more than ten named columns turn into horizontal bars (`wrapLabel`).
   - Colour scales print their end values.
 - **Colour follows the value.** A category keeps its colour in every chart, under every filter and in every export, chosen by how common it is in the whole file (`valueRanks`, `stableColours`). "Others" is always the neutral grey and comes last.
@@ -91,5 +96,11 @@ Loupe's output is read the way an analyst's work is read: by managers, finance t
   - prints a chart's notes under it;
   - never shows a monthly chart for a one-day event;
   - writes a method that repeats as "as for insight n".
-- **The dashboard PNG** holds every chart, with wide charts across the full width.
+- **Presentation slides** are landscape 16:9, built the way an analyst builds a deck (`export/slidePlan.ts`, `export/slides.tsx`):
+  - an overview slide: the period and what the changes compare with, the headline KPIs with their changes and trends, and the key takeaways, each saying which slide shows it;
+  - then each dashboard section in order, titled with the question it answers ("Where the volume comes from"), two charts a slide for presenting or four for a compact deck; a table or a cohort grid gets a slide of its own;
+  - every chart leads with its takeaway, under a line saying what it is about and its unit;
+  - every slide carries its number ("4 / 16") and a source line: file, rows, period and filters;
+  - chart and table text is scaled up so it reads from across a room (axis labels about 18px on a 1920 × 1080 slide);
+  - the Export card shows the deck in miniature and counts it before it is made. The images are 3840 × 2160 (4K), numbered so they sort in order, in one zip, or as one landscape PDF. There is no tall single image of the dashboard: a slide is what gets presented.
 - **Tables in a PDF or image** show as many rows as fit, say how many more there are, and never capture scrollbars.

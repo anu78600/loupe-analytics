@@ -26,7 +26,7 @@ import { Segmented } from "@/ui/primitives/segmented";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/ui/primitives/select";
 import { Switch } from "@/ui/primitives/switch";
 import { Tooltip } from "@/ui/primitives/tooltip";
-import { SECTIONS } from "../dashboard/DashboardStep";
+import { SECTIONS } from "../dashboard/sections";
 import { CHART_ICON } from "./chartIcons";
 
 const WIDTHS: Array<{ w: number; label: string }> = [

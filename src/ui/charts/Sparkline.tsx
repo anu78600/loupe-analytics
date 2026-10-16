@@ -19,6 +19,7 @@ export function Sparkline({
   partialLast = false,
   height = 36,
   label,
+  strokeWidth = 1.75,
 }: {
   values: Array<number | null>;
   className?: string;
@@ -26,6 +27,8 @@ export function Sparkline({
   partialLast?: boolean;
   height?: number;
   label?: string;
+  /** Line width in pixels: heavier on a presentation slide. */
+  strokeWidth?: number;
 }) {
   // React ids can contain ':', which breaks the url(#…) gradient reference.
   const id = React.useId().replace(/:/g, "");
@@ -69,7 +72,7 @@ export function Sparkline({
         d={path}
         fill="none"
         stroke={color}
-        strokeWidth={1.75}
+        strokeWidth={strokeWidth}
         strokeLinecap="round"
         strokeLinejoin="round"
         vectorEffect="non-scaling-stroke"
@@ -79,8 +82,8 @@ export function Sparkline({
           d={`M${x(prev.i)},${y(prev.v)} L${x(last.i)},${y(last.v)}`}
           fill="none"
           stroke={color}
-          strokeWidth={1.5}
-          strokeDasharray="3 3"
+          strokeWidth={strokeWidth - 0.25}
+          strokeDasharray={`${strokeWidth * 1.7} ${strokeWidth * 1.7}`}
           vectorEffect="non-scaling-stroke"
           opacity={0.7}
         />

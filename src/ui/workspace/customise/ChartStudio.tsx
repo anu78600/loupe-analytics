@@ -65,7 +65,7 @@ import {
   type Draft,
 } from "./chartDraft";
 import { ChartPreview } from "../dashboard/AskChart";
-import { SECTIONS } from "../dashboard/DashboardStep";
+import { SECTIONS } from "../dashboard/sections";
 import { CHART_ICON } from "./chartIcons";
 
 // ---------------------------------------------------------------- the component

@@ -3,8 +3,11 @@
 /**
  * Step 8, Export. Only the exports people use, in three groups:
  *
- * - Share: the dashboard report (PDF: cover, KPIs, numbered figures,
- *   glossary), the dashboard image (PNG, every chart) and the insights (PDF).
+ * - Share: presentation slides (landscape 16:9 PNGs in a zip, or one PDF:
+ *   an overview, then two or four charts a slide, each led by its takeaway;
+ *   the card shows the deck in miniature and counts it before it is made),
+ *   the dashboard report (PDF: cover, KPIs, numbered figures, glossary) and
+ *   the insights (PDF).
  * - Build on it: the Power BI package (zip: semantic model, DAX, data, build
  *   guide), the SQL file (with the same SQL and DAX in colour to read, the
  *   business questions as a PDF once some were asked, and verification of
@@ -29,12 +32,12 @@ import {
   Download,
   FileArchive,
   FileCode2,
-  FileImage,
   FileSpreadsheet,
   FileText,
   Lightbulb,
   Loader2,
   Palette,
+  Presentation,
   Settings2,
   ShieldCheck,
   Upload,
@@ -52,13 +55,17 @@ import { allSpecs, stepNumber, useWorkspace } from "@/store/workspace";
 import { useSettings } from "@/store/settings";
 import { powerBiTheme, resolveTheme } from "@/ui/charts/palette/themes";
 import { engine } from "@/lib/engine-client";
-import { cn, downloadBlob, downloadDataUrl, exportFileName } from "@/lib/utils";
+import { cn, downloadBlob, exportFileName } from "@/lib/utils";
 import type { VerificationResult } from "@/lib/duckdb";
 import { Button } from "@/ui/primitives/button";
 import { Eyebrow } from "@/ui/primitives/misc";
+import { Segmented } from "@/ui/primitives/segmented";
+import { Switch } from "@/ui/primitives/switch";
 import { useFmt } from "@/ui/common/hooks";
 import { FileIdentity } from "./FileIdentity";
-import { exportDashboardPng, exportPdf, type ReportChart, type ReportInput } from "./export/report";
+import { exportPdf, type ReportChart, type ReportInput } from "./export/report";
+import { exportSlides } from "./export/slides";
+import { describeSlides, planSlides, type Slide, type SlideDensity } from "./export/slidePlan";
 import { exportInsightsPdf, exportSqlPdf } from "./export/documents";
 import { useColumnConsent, type ColumnRequest, type ProposedColumn } from "./NewColumnsDialog";
 
@@ -99,7 +106,12 @@ function powerBiConsent(
  * layout that have been computed, in dashboard order. The card counts and the
  * exports both read it, so "24 charts" is exactly what the file contains.
  */
-function reportCharts(s: ReturnType<typeof useWorkspace.getState>): ReportChart[] {
+function reportCharts(
+  s: Pick<
+    ReturnType<typeof useWorkspace.getState>,
+    "widgets" | "charts" | "mode" | "context" | "customCharts"
+  >,
+): ReportChart[] {
   const specs = allSpecs(s);
   return s.widgets
     .filter((w) => !w.hidden && specs.find((x) => x.id === w.id)?.modes.includes(s.mode))
@@ -226,10 +238,12 @@ export function ExportStep() {
       </header>
 
       <Section id="export-share" title="Share">
-        <div className="grid gap-4 md:grid-cols-3">
-          <ReportTile />
-          <ImageTile />
-          <InsightsTile />
+        <div className="grid gap-4 lg:grid-cols-3">
+          <SlidesPanel />
+          <div className="grid gap-4">
+            <ReportTile />
+            <InsightsTile />
+          </div>
         </div>
       </Section>
 
@@ -276,7 +290,7 @@ function Section({
 /** The file type in a small pill ("PDF", "ZIP"), top right of a card. */
 function TypePill({ children }: { children: React.ReactNode }) {
   return (
-    <span className="rounded-full border border-border-strong px-2 py-0.5 font-mono text-[10.5px] tracking-[0.08em] text-fg-subtle uppercase">
+    <span className="shrink-0 rounded-full border border-border-strong px-2 py-0.5 font-mono text-[10.5px] tracking-[0.08em] whitespace-nowrap text-fg-subtle uppercase">
       {children}
     </span>
   );
@@ -406,37 +420,168 @@ function ReportTile() {
   );
 }
 
-/** Dashboard image: every chart in one picture, for a slide or an email. */
-function ImageTile() {
+/** A slide in miniature: the overview, or its rows of charts, so the deck's shape is seen before it is made. */
+function MiniSlide({ slide, n }: { slide: Slide; n: number }) {
+  const label =
+    slide.kind === "overview" ? "Overview" : `${slide.title}${slide.parts > 1 ? ` ${slide.part}` : ""}`;
+  return (
+    <li className="flex flex-col items-center gap-1" title={`Slide ${n}: ${label}`}>
+      <div className="flex aspect-video w-[68px] flex-col gap-[3px] rounded-[6px] border border-border-strong bg-surface-2 p-[4px]">
+        {slide.kind === "overview" ? (
+          <>
+            <div className="h-[5px] w-3/5 rounded-[2px] bg-accent/70" />
+            <div className="grid flex-1 grid-cols-3 gap-[2px]">
+              {Array.from({ length: 6 }, (_, i) => (
+                <div key={i} className="rounded-[2px] bg-accent-soft" />
+              ))}
+            </div>
+          </>
+        ) : (
+          slide.rows.map((row, r) => (
+            <div key={r} className="flex flex-1 gap-[3px]">
+              {row.map((c) => (
+                <div key={c.spec.id} className="flex-1 rounded-[2px] bg-surface-3" />
+              ))}
+            </div>
+          ))
+        )}
+      </div>
+      <span className="font-figures text-[10px] text-fg-subtle">{n}</span>
+    </li>
+  );
+}
+
+/**
+ * Presentation slides, the featured share: the dashboard as landscape 16:9
+ * images (two or four charts a slide, each led by its takeaway), with the
+ * deck drawn in miniature and counted before it is made, as PNGs in a zip
+ * or one PDF. The automatic charts for other columns (folded on the
+ * dashboard) stay out unless asked for.
+ */
+function SlidesPanel() {
   const build = useReportInput();
   const summary = useWorkspace((s) => s.summary);
-  const charts = useWorkspace((s) => reportCharts(s).length);
+  const widgets = useWorkspace((s) => s.widgets);
+  const charts = useWorkspace((s) => s.charts);
+  const mode = useWorkspace((s) => s.mode);
+  const context = useWorkspace((s) => s.context);
+  const customCharts = useWorkspace((s) => s.customCharts);
+  const loadInsights = useWorkspace((s) => s.loadInsights);
+  const [density, setDensity] = React.useState<SlideDensity>(2);
+  const [withColumns, setWithColumns] = React.useState(false);
   const [busy, setBusy] = React.useState<string | null>(null);
-  const run = async () => {
-    const input = build();
-    if (!input) return;
-    setBusy("Rendering…");
+  const all = React.useMemo(
+    () => reportCharts({ widgets, charts, mode, context, customCharts }),
+    [widgets, charts, mode, context, customCharts],
+  );
+  const columnCharts = all.filter((c) => c.spec.section === "columns").length;
+  const slides = React.useMemo(
+    () => planSlides(withColumns ? all : all.filter((c) => c.spec.section !== "columns"), density),
+    [all, withColumns, density],
+  );
+  const run = async (format: "png" | "pdf") => {
+    setBusy("Preparing…");
     try {
-      const url = await exportDashboardPng(input, false);
-      downloadDataUrl(url, exportFileName(summary?.name, "dashboard", "png"));
-      toast.success("Dashboard image downloaded");
+      // The overview's takeaways are the insights: found first if they haven't been yet.
+      if (!useWorkspace.getState().insights) await loadInsights();
+      const input = build();
+      if (!input) return;
+      const base = exportFileName(summary?.name, "slides", format).replace(/\.(png|pdf)$/, "");
+      await exportSlides(input, slides, format, base, setBusy);
+      toast.success(
+        format === "png"
+          ? `${slides.length} slides downloaded as images`
+          : `${slides.length} slides downloaded as a PDF`,
+      );
     } catch (e) {
-      toast.error(`The image couldn't be made: ${(e as Error).message}`);
+      toast.error(`The slides couldn't be made: ${(e as Error).message}`);
     } finally {
       setBusy(null);
     }
   };
   return (
-    <Tile
-      icon={FileImage}
-      type="PNG"
-      title="Dashboard image"
-      line="Every chart in one high-resolution picture."
-      fact={`${charts} ${charts === 1 ? "chart" : "charts"} · light theme`}
-      action="Download PNG"
-      busy={busy}
-      onAction={() => void run()}
-    />
+    <article className={cn(SURFACE, "border-border-accent p-6 lg:col-span-2")}>
+      <CornerGlow />
+      <div className="relative flex items-start justify-between gap-4">
+        <div className="flex items-start gap-3.5">
+          <TileIcon icon={Presentation} large />
+          <div>
+            <h3 className="text-[17px] font-medium tracking-[-0.01em] text-fg">Presentation slides</h3>
+            <p className="mt-1 text-ui leading-relaxed text-fg-muted">
+              Landscape 16:9 slides with a takeaway on every chart, ready for PowerPoint, Keynote or a screen.
+            </p>
+          </div>
+        </div>
+        <TypePill>PNG · PDF</TypePill>
+      </div>
+
+      <div className="relative mt-5 flex flex-wrap items-center gap-x-5 gap-y-3">
+        <Segmented<"2" | "4">
+          ariaLabel="Charts per slide"
+          size="sm"
+          value={String(density) as "2" | "4"}
+          onChange={(v) => setDensity(v === "4" ? 4 : 2)}
+          // The hint after the count is left off on a phone, so each option stays on one line.
+          options={[
+            {
+              value: "2",
+              title: "2 charts a slide, for presenting",
+              label: (
+                <>
+                  2 charts a slide<span className="hidden sm:inline"> · for presenting</span>
+                </>
+              ),
+            },
+            {
+              value: "4",
+              title: "4 charts a slide, compact",
+              label: (
+                <>
+                  4 charts a slide<span className="hidden sm:inline"> · compact</span>
+                </>
+              ),
+            },
+          ]}
+        />
+        {columnCharts ? (
+          <label className="flex items-center gap-2 text-2xs text-fg-muted">
+            <Switch
+              checked={withColumns}
+              onCheckedChange={setWithColumns}
+              aria-label="Include charts from your other columns"
+            />
+            Include the {columnCharts} charts from your other columns
+          </label>
+        ) : null}
+      </div>
+
+      {/* The deck in miniature: how many images it takes, and what is on each. */}
+      <ol
+        className="relative mt-5 flex max-h-44 flex-wrap gap-x-2.5 gap-y-3 overflow-y-auto"
+        aria-label="The slides"
+      >
+        {slides.map((slide, i) => (
+          <MiniSlide key={i} slide={slide} n={i + 1} />
+        ))}
+      </ol>
+      <p className="relative mt-3 text-ui text-fg">
+        <span className="tabular font-medium">{slides.length} slides</span>
+        <span className="text-fg-muted"> · {describeSlides(slides)}</span>
+      </p>
+      <p className="tabular relative mt-0.5 text-2xs text-fg-subtle">
+        Each image 3840 × 2160 (4K), numbered in order. Opens with the headline KPIs and key takeaways.
+      </p>
+
+      <div className="relative mt-auto flex flex-wrap items-center gap-3 pt-6">
+        <Button variant="primary" size="lg" onClick={() => void run("png")} disabled={Boolean(busy)}>
+          {busy ? <Loader2 className="animate-spin" aria-hidden /> : <Download aria-hidden />}
+          {busy ?? "Download slides"}
+        </Button>
+        <Button variant="secondary" onClick={() => void run("pdf")} disabled={Boolean(busy)}>
+          <FileText aria-hidden /> As one PDF
+        </Button>
+      </div>
+    </article>
   );
 }
 
