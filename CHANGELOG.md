@@ -5,6 +5,21 @@ Every step of building Loupe, newest first. Generated from `src/content/changelo
 - **MAJOR** (`x.0`): a new capability, subsystem or page.
 - **MINOR** (`x.y`): a refinement, fix or follow-up to that major version.
 
+## 35.3 · A calmer, premium Export page with only the useful exports
+
+*Minor · 2026-10-16 15:34 UTC · Design, Fix*
+
+Export is rearranged into Share and Build on it, each export a compact card with one line of text and a real fact about the file, and the exports nobody needed separately are gone.
+
+- Share: the dashboard report (PDF, with its page count), the dashboard image (PNG, with its chart count) and the insights (PDF), side by side, each with one line on what it holds.
+- Build on it: the Power BI package as the featured card, with what's inside and three steps to use it, and after download its files and size; beside it, SQL (the KPI views, the same SQL and DAX in colour, and a one-click check that every KPI query returns the dashboard's number) and Data (cleaned CSV with your headers, data dictionary).
+- Removed, because they were already inside the Power BI package or rarely used: the separate measures.dax, the Markdown dictionary, the transparent-PNG switch, the long SQL preview and the SQL lab. The questions-with-SQL PDF appears in the SQL card once you have asked questions.
+- Reopening a dashboard later is a slim bar at the bottom: save the settings, load them with the same file.
+- Much less text: titles, one line each, and facts such as “A4 · 18 pages”, “31 charts”, “49,037 rows · your headers”.
+- Fixed: after a download, a card's contents could slide sideways and be cut off; cards now clip instead of scrolling.
+
+Files: `src/ui/workspace/ExportStep.tsx`
+
 ## 35.2 · Check & map says which columns it left out, and why
 
 *Minor · 2026-10-16 15:24 UTC · Feature, Fix, Tests*
