@@ -16,7 +16,7 @@
  */
 import type { Dataset } from "@/engine/core/types";
 import { autoGrain, bucketLabel, DAY_MS, endOfBucket, isoDate, type TimeGrain } from "@/engine/core/dates";
-import { formatValue, type FormatOptions } from "@/engine/core/format";
+import { formatCount, formatValue, type FormatOptions } from "@/engine/core/format";
 import { linearRegression, niceBins, quantileSorted } from "@/engine/core/stats";
 import type { Expr } from "@/engine/query/expr";
 import { selectRowsCached, type Filter } from "@/engine/query/filter";
@@ -426,6 +426,19 @@ export function computeChartData(input: ChartDataInput): ChartData {
       `${suppressed} group${suppressed > 1 ? "s" : ""} with fewer than ${minRows} rows ${suppressed > 1 ? "are" : "is"} ${where}.`,
     );
   }
+  // A "(blank)" group (rows with nothing in the axis column) whose measures are blank or zero too
+  // adds a label with no bar: it is left out, and the note says so. One with a value stays.
+  if (categorical && x.kind === "column") {
+    const empty = (g: ResultGroup) =>
+      g.labels[0]?.raw === null && !g.isOthers && g.values.every((v) => !Number.isFinite(v) || v === 0);
+    const blank = groups.find(empty);
+    if (blank) {
+      groups = groups.filter((g) => g !== blank);
+      notes.push(
+        `${formatCount(blank.rows, fmt.locale)} row${blank.rows === 1 ? "" : "s"} with no ${x.label} and no value ${blank.rows === 1 ? "is" : "are"} left out.`,
+      );
+    }
+  }
   const folded = groups.find((g) => g.isOthers)?.foldedGroups;
 
   const data: ChartData = {
@@ -650,12 +663,14 @@ export function computeChartData(input: ChartDataInput): ChartData {
       const dataEnd = Math.min(bounds?.max ?? Infinity, df && df.kind === "dateRange" ? df.to : Infinity);
       if (typeof first === "number" && xk.grain !== "day" && dataStart > first + DAY_MS) {
         data.partialFirst = true;
+        data.partialFirstStart = dataStart;
         notes.push(
           `${bucketLabel(first, xk.grain, true)} is incomplete (data starts ${isoDate(dataStart)}).`,
         );
       }
       if (typeof last === "number" && xk.grain !== "day" && dataEnd < endOfBucket(last, xk.grain) - DAY_MS) {
         data.partialLast = true;
+        data.partialLastEnd = dataEnd;
         notes.push(`${bucketLabel(last, xk.grain, true)} is incomplete (data ends ${isoDate(dataEnd)}).`);
       }
     }
@@ -668,6 +683,33 @@ export function computeChartData(input: ChartDataInput): ChartData {
         data.partialFirst,
         data.partialLast,
       );
+  }
+
+  // Every value zero or blank (returns in a selection of delivered orders): bars of no height and a
+  // flat line read as a broken chart, so the card says it in words. The values stay for the table.
+  const all = data.matrix ? data.matrix.flat() : data.series.flatMap((s) => s.values);
+  if (
+    !data.empty &&
+    data.categories.length &&
+    kind !== "scatter" &&
+    kind !== "bubble" &&
+    all.every((v) => v === null || v === 0)
+  ) {
+    const what = spec.measures.length === 1 ? (spec.measures[0]?.label ?? "This measure") : "Every measure";
+    const per =
+      x.kind === "time"
+        ? (data.grain ?? "period")
+        : x.kind === "part"
+          ? x.label.toLowerCase()
+          : x.kind === "none"
+            ? "group"
+            : x.label;
+    data.empty = true;
+    notes.unshift(
+      all.some((v) => v === 0)
+        ? `${what} is 0 for every ${per} in this selection.`
+        : `${what} has no value in this selection.`,
+    );
   }
 
   data.altText = describe(spec, data, fmt);

@@ -7,7 +7,7 @@
  * offering only chart types that suit the data.
  */
 import * as React from "react";
-import { MessageSquarePlus, Plus, X } from "lucide-react";
+import { MessageSquarePlus, Plus } from "lucide-react";
 import type { ChartKind, ChartMeasure, ChartSpec, ResolvedAxis } from "@/engine/charts/types";
 import { customSpec, isKindCompatible } from "@/engine/charts/recommend";
 import type { ColumnProfile } from "@/engine/profile/types";
@@ -65,21 +65,18 @@ function newCustomChartId(): string {
   return `custom_${Date.now().toString(36)}`;
 }
 
+/**
+ * The inspector's content. It lives in the dashboard's side sheet, whose own
+ * close button closes it; a second close here used to clear the selection
+ * only, leaving the sheet open on the chart builder.
+ */
 export function Inspector() {
   const selected = useWorkspace((s) => s.selected);
-  const select = useWorkspace((s) => s.select);
   return (
     <div className="grid gap-4">
-      <div className="flex items-center justify-between">
-        <Eyebrow>
-          {selected?.type === "kpi" ? "KPI" : selected?.type === "chart" ? "Chart" : "Build a chart"}
-        </Eyebrow>
-        {selected ? (
-          <Button size="icon-sm" variant="ghost" onClick={() => select(null)} aria-label="Close inspector">
-            <X aria-hidden />
-          </Button>
-        ) : null}
-      </div>
+      <Eyebrow>
+        {selected?.type === "kpi" ? "KPI" : selected?.type === "chart" ? "Chart" : "Build a chart"}
+      </Eyebrow>
       {selected?.type === "kpi" ? (
         <KpiDetails kpiId={selected.id} />
       ) : selected?.type === "chart" ? (

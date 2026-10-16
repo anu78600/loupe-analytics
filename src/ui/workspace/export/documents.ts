@@ -194,6 +194,7 @@ async function chartPng(
       data: chart.data,
       animate: false,
       forExport: true,
+      width,
     });
     if (!option) return null;
     const inst = echarts.default.init(host, undefined, {
@@ -268,6 +269,8 @@ export async function exportInsightsPdf(
     });
   // Figure numbers by chart id: each chart is drawn once, and a later insight points back to it.
   const figures = new Map<string, number>();
+  // The first insight to give each basis; a later one with the same method points back to it.
+  const bases = new Map<string, number>();
   for (const [i, ins] of input.insights.entries()) {
     onProgress?.(`Writing insight ${i + 1} of ${input.insights.length}…`);
     const linked = ins.chartId ? input.charts.get(ins.chartId) : undefined;
@@ -279,7 +282,9 @@ export async function exportInsightsPdf(
     const caption = chart ? `Figure ${number}. ${chart.spec.title}` : "";
     const title = `${i + 1}. ${ins.title}`;
     const kind = `${KIND_LABEL[ins.kind]} · ${ins.confidence} confidence`;
-    const basis = `Basis: ${ins.basis}`;
+    const firstWith = bases.get(ins.basis);
+    if (firstWith === undefined) bases.set(ins.basis, i + 1);
+    const basis = firstWith === undefined ? `Basis: ${ins.basis}` : `Basis: as for insight ${firstWith}.`;
     const see = chart && earlier !== undefined ? `Chart: Figure ${earlier} above (${chart.spec.title}).` : "";
     const notes = png && chart ? chart.data.notes.map((n) => `Note: ${n}`) : [];
     const height =

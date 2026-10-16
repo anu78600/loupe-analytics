@@ -144,6 +144,7 @@ export function DataTable({
   className,
   maxRows = 200,
   caption,
+  print = false,
 }: {
   spec: ChartSpec;
   data: ChartData;
@@ -151,6 +152,8 @@ export function DataTable({
   className?: string;
   maxRows?: number;
   caption?: string;
+  /** For a PDF or image: no scrollbars (they would be captured), and the cut-off said in words. */
+  print?: boolean;
 }) {
   const { cols, rows } = React.useMemo(() => tableFor(spec, data, fmt), [spec, data, fmt]);
   const [sort, setSort] = React.useState<{ i: number; dir: 1 | -1 } | null>(null);
@@ -169,7 +172,7 @@ export function DataTable({
     });
   }, [rows, sort]);
   return (
-    <div className={cn("h-full overflow-auto", className)}>
+    <div className={cn("h-full", print ? "overflow-hidden" : "overflow-auto", className)}>
       <table className="w-full border-separate border-spacing-0 text-ui">
         {caption ? <caption className="sr-only">{caption}</caption> : null}
         <thead className="sticky top-0 z-10 bg-surface-1">
@@ -231,7 +234,8 @@ export function DataTable({
       </table>
       {rows.length > maxRows ? (
         <p className="px-3 py-2 text-2xs text-fg-subtle">
-          Showing {maxRows} of {rows.length} rows. Export CSV for all.
+          Showing {maxRows} of {rows.length} rows.{" "}
+          {print ? "Every row is in the app and in this chart's CSV." : "Export CSV for all."}
         </p>
       ) : null}
     </div>

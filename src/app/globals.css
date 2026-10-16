@@ -331,6 +331,13 @@
     scrollbar-gutter: stable;
   }
 
+  /* An open menu or dialog locks scrolling (Radix) by hiding the scrollbar and adding its width
+     as a right margin. The gutter above already keeps that space, so the margin would push the
+     whole page sideways each time a dropdown opens. More specific than Radix's own rule. */
+  html body[data-scroll-locked] {
+    margin-right: 0 !important;
+  }
+
   body {
     background: var(--bg);
     color: var(--fg);

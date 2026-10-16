@@ -55,6 +55,12 @@ export const SECTIONS: Array<{ id: ChartSection; title: string; blurb: string }>
   { id: "detail", title: "Detail", blurb: "The rows behind the totals." },
 ];
 
+/** True when the chart being focused (focusChart) is one of the automatic charts for other columns. */
+function inColumnsSection(s: ReturnType<typeof useWorkspace.getState>): boolean {
+  const id = s.highlight;
+  return Boolean(id && allSpecs(s).find((x) => x.id === id)?.section === "columns");
+}
+
 export function DashboardStep() {
   const context = useWorkspace((s) => s.context);
   const summary = useWorkspace((s) => s.summary);
@@ -72,12 +78,17 @@ export function DashboardStep() {
   const [filtersOpen, setFiltersOpen] = React.useState(false);
   const [inspectorOpen, setInspectorOpen] = React.useState(false);
   const [healthOpen, setHealthOpen] = React.useState(false);
+  // The automatic charts for columns the template doesn't use start folded: the dashboard leads
+  // with the charts chosen for the business, and these are one click away. They open by themselves
+  // when an insight's "View chart" points at one of them.
+  const [columnsOpen, setColumnsOpen] = React.useState(() => inColumnsSection(useWorkspace.getState()));
   // The inspector is a slide-in panel, so the charts keep the full width: it opens when a
   // chart or KPI is picked (a KPI card, a chart's Customise) and from "Build manually".
   React.useEffect(
     () =>
       useWorkspace.subscribe((s, prev) => {
         if (s.selected && s.selected !== prev.selected) setInspectorOpen(true);
+        if (s.highlight !== prev.highlight && inColumnsSection(s)) setColumnsOpen(true);
       }),
     [],
   );
@@ -176,6 +187,7 @@ export function DashboardStep() {
           // The your-columns section also carries its KPI tiles, so it shows even without charts.
           const tiles = sec.id === "columns" ? columnTiles : [];
           if (!visible.length && !tiles.length) return null;
+          const foldable = sec.id === "columns" && visible.length > 0;
           return (
             <section key={sec.id} className="mt-10" aria-labelledby={`sec-${sec.id}`}>
               {/* A title and a hairline; what the section is for is in its tooltip, not more text to read. */}
@@ -184,13 +196,34 @@ export function DashboardStep() {
                   {sec.title}
                 </h2>
                 <span aria-hidden className="h-px flex-1 bg-border" />
+                {foldable ? (
+                  <Button
+                    size="xs"
+                    variant="ghost"
+                    aria-expanded={columnsOpen}
+                    aria-controls="sec-columns-charts"
+                    onClick={() => setColumnsOpen((o) => !o)}
+                  >
+                    {columnsOpen
+                      ? "Hide charts"
+                      : `Show ${visible.length} chart${visible.length === 1 ? "" : "s"}`}
+                    <ChevronDown
+                      className={cn("transition-transform", columnsOpen && "rotate-180")}
+                      aria-hidden
+                    />
+                  </Button>
+                ) : null}
               </div>
               {tiles.length ? (
                 <div className="mb-4">
                   <KpiTiles ids={tiles} label="KPIs from your other columns" />
                 </div>
               ) : null}
-              {visible.length ? <WidgetGrid specs={sectionSpecs} mode={mode} /> : null}
+              {visible.length && (!foldable || columnsOpen) ? (
+                <div id={foldable ? "sec-columns-charts" : undefined}>
+                  <WidgetGrid specs={sectionSpecs} mode={mode} />
+                </div>
+              ) : null}
             </section>
           );
         })}

@@ -181,6 +181,20 @@ export function ChartCard({
   // When this chart is the cross-filter source it keeps all categories and highlights the chosen one.
   const sourceHighlight = crossFilter && crossFilter.sourceId === spec.id ? crossFilter.value : null;
 
+  // The chart's width in 40px steps, so category labels get the characters their slot holds
+  // without the option being rebuilt on every pixel of a resize.
+  const [width, setWidth] = React.useState<number | undefined>(undefined);
+  React.useEffect(() => {
+    const el = bodyRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([entry]) => {
+      const w = Math.round((entry?.contentRect.width ?? 0) / 40) * 40;
+      if (w) setWidth((prev) => (prev === w ? prev : w));
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
   const option = React.useMemo(() => {
     if (!data || data.empty || !rendersWithECharts(kind, data)) return null;
     // themeKey is a dependency only: a theme change must re-read the CSS tokens below.
@@ -193,8 +207,9 @@ export function ChartCard({
       data,
       highlight: sourceHighlight,
       animate,
+      width,
     });
-  }, [data, kind, spec, fmt, themeKey, sourceHighlight, animate]);
+  }, [data, kind, spec, fmt, themeKey, sourceHighlight, animate, width]);
 
   // Sets a date range picked on this chart. Undo puts back exactly the period
   // that was active before (named preset or custom range), not "all time".
@@ -499,8 +514,10 @@ export function ChartCard({
       </div>
       {notes.length && data && !data.empty ? (
         <footer className="border-t border-border px-4 py-1.5">
-          <p className="truncate text-2xs text-fg-subtle" title={notes.join(" ")}>
+          {/* Two lines, so a note is read rather than cut; any further notes are in the tooltip. */}
+          <p className="line-clamp-2 text-2xs leading-relaxed text-fg-subtle" title={notes.join(" ")}>
             {notes[0]}
+            {notes.length > 1 ? ` (+${notes.length - 1} more)` : ""}
           </p>
         </footer>
       ) : null}

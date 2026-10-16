@@ -7,7 +7,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { buildOption, type GeoTileDatum } from "@/ui/charts/options";
+import { buildOption, wrapLabel, type GeoTileDatum } from "@/ui/charts/options";
 import { INK_DARK, inkOn, readChartTokens } from "@/ui/charts/tokens";
 import type { ChartData, ChartKind, ChartSpec } from "@/engine/charts/types";
 
@@ -194,5 +194,95 @@ describe("labels and axes", () => {
     expect(series).toHaveLength(9);
     expect(series.map((s) => s.name)).toContain("Others");
     expect(((series[8] as Obj).itemStyle as Obj).color).toBe(TOKENS.other);
+  });
+});
+
+describe("nothing dropped, nothing cut (34.2)", () => {
+  const monthSpec = spec("line", { x: { kind: "time", column: "Date", grain: "month", label: "Date" } });
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun"];
+  const monthData = data(months, {
+    categories: months.map((label, i) => ({ label, raw: Date.UTC(2026, i, 1) })),
+    partialLast: true,
+    partialLastEnd: Date.UTC(2026, 5, 20),
+  });
+
+  it("wraps a long category name onto two lines and marks a cut with an ellipsis", () => {
+    expect(wrapLabel("Net Banking", 8)).toBe("Net\nBanking");
+    expect(wrapLabel("Electronics Accessories", 12)).toBe("Electronics\nAccessories");
+    expect(wrapLabel("Beauty & Personal Care Essentials", 10)).toMatch(/^Beauty &\n.+…$/);
+    expect(wrapLabel("Short", 10)).toBe("Short");
+  });
+
+  it("shows every named category's label, never thinned or tilted", () => {
+    const labels = Array.from({ length: 8 }, (_, i) => `Payment method ${i + 1}`);
+    const axis = option("bar", spec("bar"), data(labels)).xAxis as Obj;
+    const label = axis.axisLabel as Obj;
+    expect(label.interval).toBe(0);
+    expect(label.hideOverlap).toBe(false);
+    expect(label.rotate).toBeUndefined();
+    expect((label.formatter as (v: string) => string)("Payment method 1")).toContain("Payment");
+  });
+
+  it("turns more than ten named columns into horizontal bars, one name per row", () => {
+    const labels = Array.from({ length: 14 }, (_, i) => `State ${i + 1}`);
+    const o = option("bar", spec("bar"), data(labels));
+    expect((o.yAxis as Obj).type).toBe("category");
+    expect((o.xAxis as Obj).type).toBe("value");
+  });
+
+  it("ends the solid line at the last complete period and dashes into the incomplete one", () => {
+    const o = option("line", monthSpec, monthData);
+    const [main, dashed] = seriesOf(o) as [Obj, Obj];
+    const mainData = main.data as Obj[];
+    expect((mainData[5] as Obj).value).toBeNull();
+    expect((mainData[4] as Obj).value).not.toBeNull();
+    expect(main.endLabel).toBeUndefined();
+    // The helper is unnamed and silent, so tooltips and legends skip it.
+    expect(dashed.name).toBeUndefined();
+    expect(dashed.silent).toBe(true);
+    expect((dashed.lineStyle as Obj).type).toEqual([4, 4]);
+    const points = dashed.data as Array<Obj | null>;
+    expect(points.slice(0, 4).every((p) => p === null)).toBe(true);
+    expect(((points[5] as Obj).label as Obj).formatter).toBe("to 20 Jun");
+    expect((o.grid as Obj).right).toBe(72);
+  });
+
+  it("says where a short last column stops", () => {
+    const bars = seriesOf(option("bar", { ...monthSpec, kind: "bar" }, monthData))[0] as Obj;
+    const last = (bars.data as Obj[])[5] as Obj;
+    expect((last.label as Obj).formatter).toBe("to 20 Jun");
+  });
+
+  it("prints a colour scale's end values and fits cell text to each cell", () => {
+    const o = option("geoTile", spec("geoTile", { geoRegion: "IN" }), data(["MH", "KA", "TN"]));
+    expect((o.visualMap as Obj).text).toEqual(["₹3L", "₹1L"]);
+    const tiles = seriesOf(o)[0]?.data as GeoTileDatum[];
+    const mh = tiles.find((t) => t.code === "MH");
+    const tn = tiles.find((t) => t.code === "TN");
+    // The largest and smallest values sit on opposite ends of the ramp, so their text can differ;
+    // each is one of the two inks, never the theme's default label colour.
+    for (const t of [mh, tn]) expect(["#14110a", "#ffffff", "#000000"]).toContain((t?.label as Obj).color);
+  });
+
+  it("keeps the Pareto 80% label inside the plot", () => {
+    const d = data(["A", "B", "C"], {
+      series: [
+        { id: "share", label: "Share of total", values: [0.5, 0.3, 0.2], format: "percent" },
+        { id: "cumulative", label: "Cumulative share", values: [0.5, 0.8, 1], format: "percent" },
+      ],
+    });
+    const line = seriesOf(option("pareto", spec("pareto"), d))[1] as Obj;
+    expect(((line.markLine as Obj).label as Obj).position).toBe("insideEndTop");
+  });
+
+  it("leaves out cohort months no cohort has reached", () => {
+    const d = data([], {
+      cohorts: [
+        { label: "Jan 26", cohort: 0, size: 100, retention: [1, 0.2, 0.1, null, null] },
+        { label: "Feb 26", cohort: 0, size: 80, retention: [1, 0.15, null, null, null] },
+      ],
+    });
+    const o = option("cohort", spec("cohort", { analysis: "cohort" }), d);
+    expect((o.xAxis as Obj).data).toEqual(["M0", "M1", "M2"]);
   });
 });

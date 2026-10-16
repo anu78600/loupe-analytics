@@ -5,6 +5,11 @@
  * bars ≤ 24px with 4px rounded data-ends, 2px lines, ≥ 8px markers with a
  * 2px surface ring, hairline solid gridlines, selective direct labels, a legend
  * only for ≥ 2 series, never a dual axis, never a truncated bar axis.
+ * Named categories are never dropped silently: their labels wrap (and many
+ * bars turn horizontal) instead of being thinned or rotated. An incomplete
+ * first or last period is drawn dashed and says where the data stops; colour
+ * scales print their end values, and text on a coloured cell takes the ink
+ * that contrasts with that cell.
  *
  * Pure functions: ChartData in, plain option object out, colours already
  * resolved from ChartTokens. The analyses with bespoke data (cohort, funnel)
@@ -26,7 +31,7 @@ import type { KpiFormat } from "@/registry/schema";
 import { INDIA_STATES, matchIndianState, matchUsState, US_STATES } from "@/engine/profile/geo";
 import { inkOn, withAlpha, type ChartTokens } from "./tokens";
 import { oklch, oklchToHex } from "./palette/colour";
-import { isoDate } from "@/engine/core/dates";
+import { isoDate, MONTHS_SHORT } from "@/engine/core/dates";
 
 export interface OptionContext {
   tokens: ChartTokens;
@@ -41,6 +46,8 @@ export interface OptionContext {
   animate: boolean;
   /** Static rendering for exports: no animation, zoom or end labels. */
   forExport?: boolean;
+  /** The chart's drawing width in px when known (the card measures it); sizes category labels. */
+  width?: number;
 }
 
 type Obj = Record<string, unknown>;
@@ -140,6 +147,63 @@ const GRID: Obj = {
   outerBoundsMode: "same",
   outerBoundsContain: "axisLabel",
 };
+
+/**
+ * Plot width in px: the measured chart width when known, else an estimate for
+ * a chart `w` columns wide on the 12-column dashboard (at least half, as rows
+ * are packed), with the value axis taken off. Only used to decide how many
+ * characters a category label gets, so a rough figure is enough.
+ */
+function plotWidth(ctx: OptionContext): number {
+  if (ctx.width) return Math.max(200, ctx.width - 70);
+  return Math.max(260, (Math.max(6, ctx.spec.size?.w ?? 6) / 12) * 1250 - 90);
+}
+
+/**
+ * A category label in at most `lines` lines of `maxChars` characters, broken
+ * at spaces, the last line ending in "…" when the label doesn't fit. The full
+ * label is always in the tooltip and the table view.
+ */
+export function wrapLabel(text: string, maxChars: number, lines = 2): string {
+  const limit = Math.max(3, maxChars);
+  if (text.length <= limit) return text;
+  const out: string[] = [];
+  let rest = text.trim();
+  while (rest && out.length < lines) {
+    if (rest.length <= limit) {
+      out.push(rest);
+      rest = "";
+      break;
+    }
+    const cut = rest.lastIndexOf(" ", limit);
+    const at = cut > limit / 3 ? cut : limit;
+    out.push(rest.slice(0, at).trim());
+    rest = rest.slice(at).trim();
+  }
+  if (rest) {
+    const last = out[out.length - 1] ?? "";
+    out[out.length - 1] = `${last.slice(0, Math.max(1, limit - 1)).trimEnd()}…`;
+  }
+  return out.join("\n");
+}
+
+/** "20 Dec": the day an incomplete period is cut at. */
+function shortDay(t: number): string {
+  const d = new Date(t);
+  return `${d.getUTCDate()} ${MONTHS_SHORT[d.getUTCMonth()]}`;
+}
+
+/**
+ * Text colour for a label on a sequential-scale cell: the ramp step that fills
+ * it (cells use seq[1…7], as seqVisualMap does), then the ink that contrasts
+ * with that step.
+ */
+function seqInk(t: ChartTokens, v: number, min: number, max: number): string {
+  const steps = t.seq.slice(1);
+  const hi = max > min ? max : min + 1;
+  const pos = Math.min(1, Math.max(0, (v - min) / (hi - min)));
+  return inkOn(steps[Math.round(pos * (steps.length - 1))] as string, t);
+}
 
 function animation(ctx: OptionContext): Obj {
   if (!ctx.animate || ctx.forExport) return { animation: false };
@@ -308,6 +372,66 @@ function markPoints(ctx: OptionContext, seriesIndex: number, isLine = false): Ob
   };
 }
 
+/** "to 20 Dec" for an incomplete last period, "from 3 Jan" for an incomplete first one. */
+function partialText(data: ChartData, idx: number): string {
+  if (idx === 0 && data.partialFirst && data.partialFirstStart !== undefined)
+    return `from ${shortDay(data.partialFirstStart)}`;
+  if (data.partialLastEnd !== undefined) return `to ${shortDay(data.partialLastEnd)}`;
+  return "partial";
+}
+
+/**
+ * The dashed helper series for one line: null everywhere except the segment
+ * from the last complete period into the incomplete one (and the first, when
+ * flagged), with a hollow point and "to 20 Dec" at the incomplete end.
+ * Silent and unnamed: tooltips (which read the engine's values) and legends
+ * skip it.
+ */
+function partialSegments(ctx: OptionContext, values: Obj[], color: string, kind: ChartKind): Obj {
+  const { data, tokens: t } = ctx;
+  const n = values.length;
+  const point = (idx: number, end: boolean): Obj | null => {
+    const v = values[idx]?.value;
+    if (v === null || v === undefined) return null;
+    if (!end) return { value: v, symbol: "none" };
+    return {
+      value: v,
+      symbol: "circle",
+      symbolSize: 7,
+      itemStyle: { color: t.surface, borderColor: color, borderWidth: 2 },
+      label: {
+        show: true,
+        position: idx === 0 ? "left" : "right",
+        distance: 6,
+        color: t.subtle,
+        fontSize: 10,
+        fontFamily: t.fontSans,
+        formatter: partialText(data, idx),
+      },
+    };
+  };
+  const seg = values.map((_, idx) => {
+    if (data.partialLast && idx === n - 1) return point(idx, true);
+    if (data.partialLast && idx === n - 2) return point(idx, false);
+    if (data.partialFirst && idx === 0) return point(idx, true);
+    if (data.partialFirst && idx === 1) return point(idx, false);
+    return null;
+  });
+  return {
+    type: "line",
+    data: seg,
+    silent: true,
+    showSymbol: true,
+    step: kind === "step" ? "end" : undefined,
+    lineStyle: { width: 2, color, type: [4, 4], cap: "round" },
+    itemStyle: { color },
+    areaStyle: kind === "area" ? { color: areaGradient(color), opacity: 0.5 } : undefined,
+    tooltip: { show: false },
+    emphasis: { disabled: true },
+    z: 1,
+  };
+}
+
 /**
  * Line, area, bar, hbar, stacked bar, histogram and pareto. A single value
  * axis in the first series' format; pareto puts share bars and the cumulative
@@ -318,7 +442,13 @@ function cartesian(ctx: OptionContext): EChartsCoreOption {
   const labels = data.categories.map((c) => c.label);
   const percent = kind === "stackedBar100";
   const fmt0 = percent ? "percent" : (data.series[0]?.format ?? "number");
-  const horizontal = kind === "hbar" || kind === "lollipop";
+  // Named categories need room for their names: more than ten columns turn into horizontal bars
+  // (one name per row) rather than losing labels to overlap or tilting them.
+  const named = ctx.spec.x.kind === "column";
+  const horizontal =
+    kind === "hbar" || kind === "lollipop" || (kind === "bar" && named && labels.length > 10);
+  // Named categories and value ranges ("0%–2.5%") each need their label; dates and date parts don't.
+  const everyLabel = named || ctx.spec.x.kind === "bins";
   const isLine = kind === "line" || kind === "area" || kind === "step" || kind === "stackedArea";
   // Series drawn from a split carry their split value's "Others" flag in seriesCategories.
   const othersSeries = (i: number) => Boolean(data.matrix && data.seriesCategories?.[i]?.isOthers);
@@ -328,7 +458,6 @@ function cartesian(ctx: OptionContext): EChartsCoreOption {
     const total = columnTotal(data, idx);
     return total ? (v ?? 0) / total : null;
   };
-  const many = labels.length > 14;
   // Time and date-part axes get the engine's peak/low markers instead of a value on every bar.
   const timeAxis = ctx.spec.x.kind === "time" || ctx.spec.x.kind === "part";
   // Direct value labels only where they stay legible: plain bars of one series, few of
@@ -341,6 +470,8 @@ function cartesian(ctx: OptionContext): EChartsCoreOption {
     labels.length <= (horizontal ? 15 : 12) &&
     data.series.length === 1;
   const series: Obj[] = [];
+  // Dashed segments into incomplete periods, appended after the named series.
+  const helpers: Obj[] = [];
 
   if (kind === "pareto") {
     const share = data.series[0];
@@ -367,7 +498,8 @@ function cartesian(ctx: OptionContext): EChartsCoreOption {
           silent: true,
           symbol: "none",
           lineStyle: { color: t.subtle, width: 1, type: "solid" },
-          label: { color: t.muted, fontSize: 10, formatter: "80%" },
+          // Inside the plot, above the line's end, so the narrow right margin doesn't cut it off.
+          label: { color: t.muted, fontSize: 10, formatter: "80%", position: "insideEndTop" },
           data: [{ yAxis: 0.8 }],
         },
       });
@@ -407,6 +539,8 @@ function cartesian(ctx: OptionContext): EChartsCoreOption {
     });
   } else {
     const stacked = kind === "stackedBar" || percent;
+    // Stacked areas add up per period, so their parts are never split into solid and dashed pieces.
+    const dashEnds = kind !== "stackedArea" && labels.length >= 3;
     data.series.forEach((s, i) => {
       const color = colorFor(ctx, i, othersSeries(i));
       // Per-point styling: "Others" in the neutral colour; points outside the
@@ -418,13 +552,31 @@ function cartesian(ctx: OptionContext): EChartsCoreOption {
         const base: Obj = { value: share(v, idx) };
         if (cat?.isOthers) base.itemStyle = { color: t.other, opacity: fade ? 0.35 : 1 };
         else if (fade) base.itemStyle = { opacity: partialPoint && isLine ? 0.55 : 0.35 };
+        // A faded single-series column says why it is short: the period isn't over in the data.
+        if (partialPoint && kind === "bar" && data.series.length === 1 && v !== null)
+          base.label = {
+            show: true,
+            position: "top",
+            distance: 6,
+            color: t.subtle,
+            fontSize: 10,
+            fontFamily: t.fontSans,
+            formatter: partialText(data, idx),
+          };
         return base;
       });
       if (isLine) {
+        // An incomplete first or last period isn't drawn as part of the solid line: the line stops at
+        // the last complete period and a dashed helper series (added after every named series, so
+        // tooltips keep their order; unnamed, so tooltips and legends skip it) runs on to it.
+        const dashed = dashEnds && (data.partialLast || data.partialFirst);
+        if (dashed) helpers.push(partialSegments(ctx, values, color, kind));
         series.push({
           type: "line",
           name: s.label,
-          data: values,
+          data: dashed
+            ? values.map((p, idx) => (partialBucket(data, idx) ? { ...p, value: null } : p))
+            : values,
           // A step line holds each value until the next change; a stacked area layers its series.
           smooth: kind === "step" ? false : 0.15,
           step: kind === "step" ? "end" : undefined,
@@ -441,8 +593,9 @@ function cartesian(ctx: OptionContext): EChartsCoreOption {
                 ? { color: withAlpha(color, t.dark ? 0.5 : 0.55) }
                 : undefined,
           emphasis: { focus: "series" },
+          // The value at the end of the line, unless the line now ends before an incomplete period.
           endLabel:
-            data.series.length === 1 && !ctx.forExport
+            data.series.length === 1 && !ctx.forExport && !(dashed && data.partialLast)
               ? {
                   show: true,
                   color: t.fg,
@@ -534,8 +687,12 @@ function cartesian(ctx: OptionContext): EChartsCoreOption {
     });
   }
 
+  series.push(...helpers);
   const names = series.map((s) => s.name as string).filter(Boolean);
   const longCats = horizontal && labels.some((l) => l.length > 18);
+  // Every named category keeps its label, wrapped to two lines of what its slot can hold; dates and
+  // date parts are regular, so thinning them (every other month) loses nothing.
+  const slotChars = Math.floor((plotWidth(ctx) / Math.max(1, labels.length) - 8) / 6.2);
   const catAxis = categoryAxis(
     t,
     labels,
@@ -552,13 +709,17 @@ function cartesian(ctx: OptionContext): EChartsCoreOption {
         }
       : {
           boundaryGap: !isLine,
-          axisLabel: {
-            color: t.label,
-            fontSize: 11,
-            fontFamily: t.fontSans,
-            hideOverlap: true,
-            rotate: many && !isLine && ctx.spec.x.kind === "column" ? 30 : 0,
-          },
+          axisLabel: everyLabel
+            ? {
+                color: t.label,
+                fontSize: 11,
+                fontFamily: t.fontSans,
+                interval: 0,
+                hideOverlap: false,
+                lineHeight: 13,
+                formatter: (v: unknown) => wrapLabel(str(v), slotChars),
+              }
+            : { color: t.label, fontSize: 11, fontFamily: t.fontSans, hideOverlap: true },
         },
   );
   // Only percentage lines may start above zero (scale: true); bars and areas
@@ -580,7 +741,14 @@ function cartesian(ctx: OptionContext): EChartsCoreOption {
     grid: {
       ...GRID,
       top: names.length > 1 ? 34 : GRID.top,
-      right: horizontal ? 52 : isLine && data.series.length === 1 ? 54 : 18,
+      // Room on the right for a line's end label, or for "to 20 Sep" after an incomplete last period.
+      right: horizontal
+        ? 52
+        : isLine && data.partialLast && kind !== "stackedArea"
+          ? 72
+          : isLine && data.series.length === 1
+            ? 54
+            : 18,
     },
     legend: legend(ctx, names),
     tooltip: axisTooltip(ctx),
@@ -646,6 +814,9 @@ function donut(ctx: OptionContext, pie = false): EChartsCoreOption {
     series: [
       {
         type: "pie",
+        // In a wide card the ring and its labels keep to a centred box: labels sit at the box's
+        // edges, near their slices, instead of at the far ends of the card.
+        ...(ctx.width && ctx.width > 720 ? { left: "center", width: 600 } : {}),
         radius: pie ? ["0%", "68%"] : ["50%", "70%"],
         center: ["50%", "52%"],
         padAngle: 1.5,
@@ -790,7 +961,10 @@ function treemap(ctx: OptionContext): EChartsCoreOption {
               ? `${p.name}\n${(((p.data.revenueShare as number) ?? 0) * 100).toFixed(0)}% revenue`
               : `${p.name}\n${fv(p.value, format, fmt)}`,
           lineHeight: 16,
-          overflow: "truncate",
+          // A long name wraps inside its tile ("New / Customers") rather than being cut; lines that
+          // don't fit a short tile are dropped with an ellipsis.
+          overflow: "break",
+          lineOverflow: "truncate",
         },
         upperLabel: { show: false },
         levels: [
@@ -827,6 +1001,8 @@ function seqVisualMap(
     itemWidth: 10,
     itemHeight: 140,
     calculable: false,
+    // The scale's end values, so a colour reads as a number (ECharts prints none without them).
+    text: [fv(max, format, fmt), fv(min, format, fmt)],
     textGap: 8,
     textStyle: { color: t.label, fontSize: 10, fontFamily: t.fontMono },
     formatter: (v: number) => fv(v, format, fmt),
@@ -876,7 +1052,10 @@ function heatmap(ctx: OptionContext): EChartsCoreOption {
       {
         type: "heatmap",
         // "-" is ECharts' marker for a missing value: the cell stays empty instead of reading as 0.
-        data: cells.map(([x, y, v]) => [x, y, v === null ? "-" : v]),
+        // Each value's label takes the ink that reads on its cell's colour.
+        data: cells.map(([x, y, v]) =>
+          v === null ? [x, y, "-"] : { value: [x, y, v], label: { color: seqInk(t, v, min, max) } },
+        ),
         itemStyle: { borderColor: t.surface, borderWidth: 2, borderRadius: 3 },
         label: showLabels
           ? {
@@ -903,13 +1082,20 @@ function heatmap(ctx: OptionContext): EChartsCoreOption {
 function cohort(ctx: OptionContext): EChartsCoreOption {
   const { data, tokens: t, fmt } = ctx;
   const rows = data.cohorts ?? [];
-  const width = rows[0]?.retention.length ?? 0;
+  // Up to the last month any cohort has reached: a trailing column no cohort has reached yet would be empty.
+  const width = rows.reduce((w, r) => {
+    let last = -1;
+    r.retention.forEach((v, i) => {
+      if (v !== null) last = i;
+    });
+    return Math.max(w, last + 1);
+  }, 0);
   const xs = Array.from({ length: width }, (_, i) => `M${i}`);
   const ys = rows.map((r) => `${r.label} · ${formatCount(r.size, fmt.locale)}`);
   const cells: Array<[number, number, number | string]> = [];
   let max = 0;
   rows.forEach((r, yi) =>
-    r.retention.forEach((v, xi) => {
+    r.retention.slice(0, width).forEach((v, xi) => {
       cells.push([xi, yi, v === null ? "-" : v]);
       if (v !== null && xi > 0) max = Math.max(max, v);
     }),
@@ -947,7 +1133,9 @@ function cohort(ctx: OptionContext): EChartsCoreOption {
         data: cells.map(([x, y, v]) =>
           x === 0
             ? { value: [x, y, v], itemStyle: { color: withAlpha(t.seq[7] as string, t.dark ? 0.32 : 0.22) } }
-            : [x, y, v],
+            : typeof v === "number"
+              ? { value: [x, y, v], label: { color: seqInk(t, v, 0, max || 1) } }
+              : [x, y, v],
         ),
         itemStyle: { borderColor: t.surface, borderWidth: 2, borderRadius: 3 },
         label: {
@@ -977,6 +1165,8 @@ export interface GeoTileDatum {
    */
   category?: string;
   itemStyle: Obj;
+  /** The state code's ink, chosen to read on the tile's colour. */
+  label?: Obj;
 }
 
 /**
@@ -1012,6 +1202,7 @@ function geoTiles(ctx: OptionContext): EChartsCoreOption {
       code: s.code,
       category: v?.label,
       itemStyle: v ? { opacity: dimmed(ctx, v.label) ? 0.35 : 1 } : { color: t.surface2 },
+      ...(v && v.value !== null ? { label: { color: seqInk(t, v.value, min, max) } } : {}),
     };
   });
   return {

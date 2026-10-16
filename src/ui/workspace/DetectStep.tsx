@@ -407,7 +407,11 @@ function BusinessForm() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="auto">Detected: {profileCurrency?.code ?? "INR"}</SelectItem>
+                {/* "Detected" only when the file showed a currency; otherwise it is the default. */}
+                <SelectItem value="auto">
+                  {(profileCurrency?.confidence ?? 0) >= 0.5 ? "Detected" : "Default"}:{" "}
+                  {profileCurrency?.code ?? "INR"}
+                </SelectItem>
                 {SUPPORTED_CURRENCIES.map((c) => (
                   <SelectItem key={c} value={c} hint={currencySymbol(c).trim()}>
                     {c}

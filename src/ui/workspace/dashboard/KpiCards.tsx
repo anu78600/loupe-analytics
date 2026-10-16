@@ -56,6 +56,8 @@ export function DeltaChip({
   const fmt = useFmt();
   const pct = meta.format === "percent";
   const change = pct ? value.deltaAbs : value.delta;
+  // Nothing in the selection: say so, rather than a change against an empty period.
+  if (value.rows === 0) return <span className="text-2xs text-fg-subtle">No rows in this selection</span>;
   if (change === null || change === undefined || !Number.isFinite(change)) {
     return <span className="text-2xs text-fg-subtle">{value.comparisonLabel || "No comparison"}</span>;
   }
@@ -131,8 +133,10 @@ export function KpiCard({
   const shown = useCountUp(value?.value ?? null);
   const compact =
     meta.format === "currency" || (meta.format !== "percent" && Math.abs(value?.value ?? 0) >= 100000);
-  const display = formatValue(shown, meta.format, { ...fmt, compact });
-  const full = formatValue(value?.value ?? null, meta.format, fmt);
+  // With no rows in the selection there is nothing to measure: "—", not a total of zero.
+  const noRows = value?.rows === 0;
+  const display = noRows ? "—" : formatValue(shown, meta.format, { ...fmt, compact });
+  const full = noRows ? "No rows in this selection" : formatValue(value?.value ?? null, meta.format, fmt);
   const progress =
     target && value?.value !== null && value?.value !== undefined ? value.value / target : null;
   return (
@@ -178,13 +182,15 @@ export function KpiCard({
               </span>
             ) : null}
           </div>
-          <div className="-mx-1 mt-3">
-            <Sparkline
-              values={value.spark.map((p) => p.v)}
-              partialLast={value.partialLast}
-              label={`${meta.name} trend`}
-            />
-          </div>
+          {noRows ? null : (
+            <div className="-mx-1 mt-3">
+              <Sparkline
+                values={value.spark.map((p) => p.v)}
+                partialLast={value.partialLast}
+                label={`${meta.name} trend`}
+              />
+            </div>
+          )}
           {progress !== null ? (
             <div className="mt-2">
               <div className="flex items-center justify-between text-2xs text-fg-subtle">
@@ -284,8 +290,8 @@ export function KpiTiles({ ids, label }: { ids: string[]; label: string }) {
   return (
     <section
       aria-label={label}
-      // Wrapping tiles that grow to fill their row, so the last row has no empty slots.
-      className="flex flex-wrap gap-px overflow-hidden rounded-card border border-border bg-border"
+      // Tiles of one width on an even grid, so a short last row doesn't stretch its tiles.
+      className="grid grid-cols-[repeat(auto-fill,minmax(168px,1fr))] gap-2"
     >
       {ids.map((id) => {
         const meta = metas.get(id);
@@ -301,17 +307,21 @@ export function KpiTiles({ ids, label }: { ids: string[]; label: string }) {
                 ? `Change ${v.currentLabel ? `${v.currentLabel} ` : ""}${v.comparisonLabel}`
                 : meta.name
             }
-            className="flex min-w-0 flex-[1_1_160px] flex-col items-start gap-1 bg-surface-1 px-3.5 py-3 text-left transition-colors hover:bg-surface-2"
+            className="flex min-w-0 flex-col items-start gap-1 rounded-card border border-border bg-surface-1 px-3.5 py-3 text-left transition-colors hover:border-border-accent hover:bg-surface-2"
           >
             <span className="w-full truncate text-2xs text-fg-muted" title={meta.name}>
               {meta.name}
             </span>
             <span className="tabular truncate text-base font-semibold tracking-[-0.01em] text-fg">
               {v ? (
-                formatValue(v.value, meta.format, {
-                  ...fmt,
-                  compact: meta.format !== "percent" && meta.format !== "ratio",
-                })
+                v.rows === 0 ? (
+                  "—"
+                ) : (
+                  formatValue(v.value, meta.format, {
+                    ...fmt,
+                    compact: meta.format !== "percent" && meta.format !== "ratio",
+                  })
+                )
               ) : (
                 <Skeleton className="h-5 w-16" />
               )}

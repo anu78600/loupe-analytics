@@ -73,6 +73,8 @@ function StaticChart({ chart, fmt, height }: { chart: ReportChart; fmt: FormatOp
       data: chart.data,
       animate: false,
       forExport: true,
+      // Laid out off-screen at its real size, so labels are fitted to the width it is drawn at.
+      width: ref.current.clientWidth || undefined,
     });
     let finished = false;
     const finish = () => {
@@ -108,7 +110,14 @@ function ChartBlock({ chart, fmt, height }: { chart: ReportChart; fmt: FormatOpt
           <StaticChart chart={chart} fmt={fmt} height={height} />
         ) : (
           <div style={{ height, overflow: "hidden" }}>
-            <DataTable spec={chart.spec} data={chart.data} fmt={fmt} maxRows={16} />
+            {/* As many rows as the space holds (header and the "showing" line taken off), never a scrollbar. */}
+            <DataTable
+              spec={chart.spec}
+              data={chart.data}
+              fmt={fmt}
+              maxRows={Math.max(3, Math.floor((height - 70) / 31))}
+              print
+            />
           </div>
         )}
       </div>

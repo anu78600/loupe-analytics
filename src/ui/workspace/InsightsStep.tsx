@@ -167,8 +167,14 @@ function InsightCard({ insight, index }: { insight: Insight; index: number }) {
           </div>
           <h2 className="mt-2 text-[15px] leading-snug font-medium text-fg">{insight.title}</h2>
           <p className="mt-1.5 text-ui leading-relaxed text-fg-muted">{insight.body}</p>
-          <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-            <p className="text-2xs text-fg-subtle">Basis: {insight.basis}</p>
+          <div className="mt-3 flex flex-wrap items-start justify-between gap-2">
+            {/* The method is the same for many insights; it is one click away rather than repeated on each. */}
+            <details className="min-w-0 flex-1 text-2xs text-fg-subtle">
+              <summary className="w-fit cursor-pointer rounded-[4px] select-none hover:text-fg-muted">
+                How this was found
+              </summary>
+              <p className="mt-1 max-w-prose leading-relaxed">{insight.basis}</p>
+            </details>
             {insight.chartId ? (
               <Button size="xs" variant="outline" onClick={() => focusChart(insight.chartId as string)}>
                 View chart

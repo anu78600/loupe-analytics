@@ -183,8 +183,12 @@ export interface ChartData {
   grain?: TimeGrain;
   /** The last time bucket ends after the data or the date filter does; it is excluded from peak/low annotations. */
   partialLast?: boolean;
+  /** With partialLast: the last day the data (or the date filter) covers, as wall-clock ms ("to 20 Dec"). */
+  partialLastEnd?: number;
   /** The first time bucket starts before the data or the date filter does; it is excluded from peak/low annotations. */
   partialFirst?: boolean;
+  /** With partialFirst: the first day the data (or the date filter) covers ("from 3 Jan"). */
+  partialFirstStart?: number;
   /** Groups set aside for having fewer than minGroupRows rows: hidden, or folded into Others when there is one (a note says which). */
   suppressed?: number;
   /** Groups folded into "Others". */

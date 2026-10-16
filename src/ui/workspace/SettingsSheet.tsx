@@ -45,6 +45,8 @@ export function SettingsSheet({
   const ai = useSettings((s) => s.ai);
   const setAi = useSettings((s) => s.setAi);
   const detected = useWorkspace((s) => s.profile?.currency.code ?? "INR");
+  // Below this confidence the code is the default, not something found in the file.
+  const evidence = useWorkspace((s) => (s.profile?.currency.confidence ?? 0) >= 0.5);
   const sampleCurrency = currency ?? detected;
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -101,7 +103,9 @@ export function SettingsSheet({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="auto">Detected ({detected})</SelectItem>
+                  <SelectItem value="auto">
+                    {evidence ? "Detected" : "Default"} ({detected})
+                  </SelectItem>
                   {SUPPORTED_CURRENCIES.map((c) => (
                     <SelectItem key={c} value={c} hint={currencySymbol(c).trim()}>
                       {c}

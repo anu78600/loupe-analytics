@@ -438,3 +438,40 @@ describe("analyses", () => {
     expect([top?.a, top?.b].sort()).toEqual(["501", "502"]);
   });
 });
+
+// ---------------------------------------------------------------- empty-looking charts (34.2)
+
+describe("charts that would look broken", () => {
+  const ds = dataset([
+    strCol("Courier", ["DTDC", "DTDC", "Blue Dart", null, null]),
+    numCol("Refund", [0, 0, 0, 0, 0]),
+    numCol("Amount", [10, 25, 30, 0, 0]),
+  ]);
+  const resolver = resolverFor(ds);
+  const chart = (measureId: string, label: string) =>
+    computeChartData({
+      ds,
+      resolver,
+      spec: spec({
+        kind: "hbar",
+        x: { kind: "column", column: "Courier", label: "Courier" },
+        measures: [measure(measureId, label)],
+      }),
+      filters: [],
+      dateColumn: null,
+      fmt,
+    });
+
+  it("say in words when every value is zero, instead of drawing bars of no height", () => {
+    const data = chart("agg:sum:Refund", "Refunds");
+    expect(data.empty).toBe(true);
+    expect(data.notes[0]).toBe("Refunds is 0 for every Courier in this selection.");
+  });
+
+  it("leave out a (blank) group that has no value either, and say so", () => {
+    const data = chart("agg:sum:Amount", "Amount");
+    expect(data.empty).toBe(false);
+    expect(data.categories.map((c) => c.label)).toEqual(["DTDC", "Blue Dart"]);
+    expect(data.notes).toContain("2 rows with no Courier and no value are left out.");
+  });
+});
