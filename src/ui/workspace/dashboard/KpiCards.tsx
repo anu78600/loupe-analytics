@@ -18,7 +18,7 @@ import { motion } from "framer-motion";
 import { ArrowDownRight, ArrowUpRight, Minus, Target } from "lucide-react";
 import type { KpiValue } from "@/engine/kpi/compute";
 import type { KpiMeta } from "@/engine/session";
-import { formatDelta, formatPointDelta, formatValue } from "@/engine/core/format";
+import { formatDelta, formatPointDelta, formatValue, isFlatChange } from "@/engine/core/format";
 import { kpiLayoutOf, useWorkspace } from "@/store/workspace";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/ui/primitives/misc";
@@ -59,7 +59,7 @@ export function DeltaChip({
   if (change === null || change === undefined || !Number.isFinite(change)) {
     return <span className="text-2xs text-fg-subtle">{value.comparisonLabel || "No comparison"}</span>;
   }
-  const flat = Math.abs(change) < (pct ? 0.0005 : 0.0005);
+  const flat = isFlatChange(change);
   const up = change > 0;
   const good = meta.direction === "neutral" || flat ? null : up === (meta.direction === "higher");
   const tone =

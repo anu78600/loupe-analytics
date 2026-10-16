@@ -6,14 +6,17 @@
  * how it was read, the rows used, the headline answer, the answer table and
  * its SQL), then every KPI shown on the dashboard in SQL and in DAX. The code
  * is coloured like the app's, with a key at the top.
- * Insights: the period and filters, the headline KPIs with their change,
- * then every insight in rank order with its basis and, when it points at a
- * chart, that chart drawn in the light theme.
+ * Insights: the period and filters, the headline KPIs with their change
+ * (percentage points for rates), then every insight in rank order with its
+ * basis and, when it points at a chart, that chart drawn in the light theme
+ * as a numbered figure with the chart's notes (an incomplete last month).
+ * Each chart is drawn once; a later insight about it points back to the
+ * figure. An insight is kept on one page with its chart.
  *
  * Nothing here computes a number: values come from the engine's answers,
  * KPI batch and chart data, formatted with the user's number format.
  */
-import { formatDelta, formatValue, type FormatOptions } from "@/engine/core/format";
+import { formatDelta, formatPointDelta, formatValue, type FormatOptions } from "@/engine/core/format";
 import type { ChartData, ChartKind, ChartSpec } from "@/engine/charts/types";
 import type { Insight } from "@/engine/insights/insights";
 import type { KpiValue } from "@/engine/kpi/compute";
@@ -68,6 +71,10 @@ const KIND_LABEL: Record<Insight["kind"], string> = {
 /** Up to this many answer rows are printed per question. */
 const MAX_ROWS = 15;
 
+/** Width and height (px) of a chart drawn into the insights PDF. */
+const FIGURE_W = 860;
+const FIGURE_H = 360;
+
 /** The SQL queries PDF: business questions with their answers and SQL, then each KPI's SQL. */
 export async function exportSqlPdf(input: SqlPdfInput, fileName: string): Promise<void> {
   const doc = await TextPdf.create({
@@ -92,7 +99,7 @@ export async function exportSqlPdf(input: SqlPdfInput, fileName: string): Promis
     ],
   ]);
   doc.paragraph(
-    "Each answer below was computed by Loupe from your data, and the query under it returns the same values: it uses each KPI's own definition, with the same rows. You can check any of them in the app (Questions & SQL › Check this SQL on your data).",
+    "Each answer below was computed by Loupe from your data, and the query under it returns the same values: the same definitions (a KPI's own, or a column's total or average) over the same rows. You can check any of them in the app (Questions & SQL › Check this SQL on your data).",
     { tone: "muted", size: 9 },
   );
   doc.codeLegend();
@@ -243,9 +250,10 @@ export async function exportInsightsPdf(
       input.hero.map(({ meta, value }) => [
         meta.name,
         formatValue(value?.value ?? null, meta.format, input.fmt),
-        value?.delta !== null && value?.delta !== undefined
-          ? formatDelta(value.delta, input.fmt.locale)
-          : "—",
+        // A rate moves in percentage points (40% → 42% is +2.0 pp), as on the dashboard's cards.
+        meta.format === "percent"
+          ? formatPointDelta(value?.deltaAbs, input.fmt.locale)
+          : formatDelta(value?.delta, input.fmt.locale),
         value?.comparisonLabel ?? "—",
       ]),
       [false, true, true, false],
@@ -258,21 +266,41 @@ export async function exportInsightsPdf(
     doc.paragraph("No insights stood out for this selection. Try a longer period or fewer filters.", {
       tone: "muted",
     });
+  // Figure numbers by chart id: each chart is drawn once, and a later insight points back to it.
+  const figures = new Map<string, number>();
   for (const [i, ins] of input.insights.entries()) {
-    if (i) doc.divider();
     onProgress?.(`Writing insight ${i + 1} of ${input.insights.length}…`);
-    doc.heading(`${i + 1}. ${ins.title}`, 3);
-    doc.paragraph(`${KIND_LABEL[ins.kind]} · ${ins.confidence} confidence`, {
-      tone: "subtle",
-      size: 8,
-      after: 1,
-    });
+    const linked = ins.chartId ? input.charts.get(ins.chartId) : undefined;
+    // A one-day spike or dip can't be seen on a weekly or monthly chart, so it gets no chart rather than the wrong one.
+    const chart = linked && !(ins.kind === "anomaly" && linked.data.grain !== "day") ? linked : undefined;
+    const earlier = chart && ins.chartId ? figures.get(ins.chartId) : undefined;
+    const png = chart && earlier === undefined ? await chartPng(chart, input.fmt, FIGURE_W, FIGURE_H) : null;
+    const number = figures.size + 1;
+    const caption = chart ? `Figure ${number}. ${chart.spec.title}` : "";
+    const title = `${i + 1}. ${ins.title}`;
+    const kind = `${KIND_LABEL[ins.kind]} · ${ins.confidence} confidence`;
+    const basis = `Basis: ${ins.basis}`;
+    const see = chart && earlier !== undefined ? `Chart: Figure ${earlier} above (${chart.spec.title}).` : "";
+    const notes = png && chart ? chart.data.notes.map((n) => `Note: ${n}`) : [];
+    const height =
+      doc.measureHeading(title, 3) +
+      doc.measureParagraph(kind, { size: 8, after: 1 }) +
+      doc.measureParagraph(ins.body, { after: 1.5 }) +
+      doc.measureParagraph(basis, { size: 8.5 }) +
+      (see ? doc.measureParagraph(see, { size: 8.5 }) : 0) +
+      (png ? doc.measureFigure(caption, FIGURE_W / FIGURE_H) : 0) +
+      notes.reduce((h, n) => h + doc.measureParagraph(n, { size: 8, after: 1 }), 0);
+    // The rule between insights is left out at the top of a new page.
+    if (!doc.keep(height + (i ? 4 : 0)) && i) doc.divider();
+    doc.heading(title, 3);
+    doc.paragraph(kind, { tone: "subtle", size: 8, after: 1 });
     doc.paragraph(ins.body, { after: 1.5 });
-    doc.paragraph(`Basis: ${ins.basis}`, { tone: "muted", size: 8.5 });
-    const chart = ins.chartId ? input.charts.get(ins.chartId) : undefined;
-    if (chart) {
-      const png = await chartPng(chart, input.fmt);
-      if (png) doc.figure(chart.spec.title, png, 860 / 360);
+    doc.paragraph(basis, { tone: "muted", size: 8.5 });
+    if (see) doc.paragraph(see, { tone: "subtle", size: 8.5 });
+    if (png && chart && ins.chartId) {
+      figures.set(ins.chartId, number);
+      doc.figure(caption, png, FIGURE_W / FIGURE_H);
+      for (const n of notes) doc.paragraph(n, { tone: "subtle", size: 8, after: 1 });
     }
   }
   doc.space(2);

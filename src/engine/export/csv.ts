@@ -11,10 +11,19 @@
  * only when needed, dates as ISO text, yes/no columns in the file's own
  * spelling (Yes/No stays Yes/No; see core/booleans.ts), blanks empty.
  * The guard alters the stored text, so the DuckDB verification path writes
- * unguarded CSV to compare like for like.
+ * unguarded CSV to compare like for like. Files meant for a spreadsheet start
+ * with UTF8_BOM, added where they are saved.
  */
 import type { Column, Dataset } from "@/engine/core/types";
 import { isoDate, isoDateTime, isoTime } from "@/engine/core/dates";
+
+/**
+ * The UTF-8 byte-order mark. Excel reads a CSV without it in the system's
+ * legacy code page, so ₹, € and accented names come out garbled; with it,
+ * Excel reads UTF-8. Added to the CSVs people open (cleaned data, the data
+ * dictionary, a chart's data), not to the Power BI package's data.csv.
+ */
+export const UTF8_BOM = "\uFEFF";
 
 const DANGEROUS_START = /^[=@\t\r]/;
 const SIGN_START = /^[+-]/;

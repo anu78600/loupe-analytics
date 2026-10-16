@@ -498,7 +498,10 @@ export interface TimeIntelValue {
   label: string;
   value: number | null;
   period: string;
+  /** A relative change (0.12 → +12.0%). */
   percent?: boolean;
+  /** A change in percentage points, the difference of two rates (0.012 → +1.2 pp). */
+  points?: boolean;
   note?: string;
 }
 
@@ -509,7 +512,9 @@ export interface TimeIntelValue {
  * QTD and YTD up to the end of `asOf`'s day; YTD against the same span a year
  * earlier; MoM between the two full months before `asOf`'s month; rolling
  * 7/30/90 calendar days ending on `asOf`. The 7-day moving average (rolling
- * 7-day value ÷ 7) is offered only for additive measures.
+ * 7-day value ÷ 7) is offered only for additive measures. For a `rate` (a
+ * percent KPI) the YoY and MoM changes are differences in percentage points,
+ * as on the KPI cards: 40% → 42% is +2.0 pp, not +5.0%.
  */
 export function computeTimeIntel(
   ds: Dataset,
@@ -518,6 +523,7 @@ export function computeTimeIntel(
   filters: readonly Filter[],
   dateColumn: string,
   asOf: number,
+  rate = false,
 ): TimeIntelValue[] {
   const others = filters.filter((f) => !(f.kind === "dateRange" && f.column === dateColumn));
   const at = (from: number, to: number) =>
@@ -553,12 +559,22 @@ export function computeTimeIntel(
     value: ytdPy,
     period: formatRange(pyFrom, pyTo),
   });
+  // A rate's change is its difference in points; anything else changes relative to where it was.
+  const change = (cur: number | null, prev: number | null) =>
+    cur === null || prev === null
+      ? null
+      : rate
+        ? cur - prev
+        : prev !== 0
+          ? (cur - prev) / Math.abs(prev)
+          : null;
+  const kind = rate ? { points: true } : { percent: true };
   out.push({
     key: "yoy",
     label: "YoY change (YTD)",
-    value: ytd !== null && ytdPy !== null && ytdPy !== 0 ? (ytd - ytdPy) / Math.abs(ytdPy) : null,
+    value: change(ytd, ytdPy),
     period: "YTD vs same period last year",
-    percent: true,
+    ...kind,
   });
   const lastMonthFrom = addMonths(startOfMonth(asOf), -1);
   const prevMonthFrom = addMonths(startOfMonth(asOf), -2);
@@ -567,9 +583,9 @@ export function computeTimeIntel(
   out.push({
     key: "mom",
     label: "MoM change (last full month)",
-    value: lm !== null && pm !== null && pm !== 0 ? (lm - pm) / Math.abs(pm) : null,
+    value: change(lm, pm),
     period: `${bucketLabel(lastMonthFrom, "month", true)} vs ${bucketLabel(prevMonthFrom, "month", true)}`,
-    percent: true,
+    ...kind,
   });
   for (const n of [7, 30, 90]) {
     out.push({

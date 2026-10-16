@@ -89,6 +89,7 @@ const api = {
     session.chart(filters, req, locale),
 
   timeIntel: (kpiId: string, filters: Filter[]) => session.timeIntel(kpiId, filters),
+  kpiCardSql: (kpiId: string, filters: Filter[]) => session.kpiCardSql(kpiId, filters),
 
   rows: (start: number, count: number) => session.rows(start, count),
 
@@ -122,7 +123,7 @@ const api = {
   powerBiNewColumns: (visibleSpecIds: string[]) => session.powerBiNewColumns(visibleSpecIds),
 
   exportDictionary: (format: "csv" | "md") => session.exportDictionary(format),
-  exportCodeHtml: () => session.exportCodeHtml(),
+  exportCodeHtml: (noNewColumns = false) => session.exportCodeHtml(noNewColumns),
 
   exportCsv(guard = true) {
     const bytes = session.exportCsv(guard);

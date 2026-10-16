@@ -27,7 +27,7 @@ import { prettySql } from "./sqlFormat";
 import { wordLabels } from "@/engine/core/booleans";
 import type { Column, Dataset } from "@/engine/core/types";
 import { isoDateTime, type DatePart, type TimeGrain } from "@/engine/core/dates";
-import type { Expr } from "@/engine/query/expr";
+import { countsByFirstDate, type Expr } from "@/engine/query/expr";
 import { BLANK_LABEL, type Filter } from "@/engine/query/filter";
 import {
   isComplexExpr,
@@ -53,6 +53,8 @@ export interface QuestionMeasure {
 
 export interface QuestionSqlInput {
   question: string;
+  /** Comment lines to head the SQL with instead of "Question / Read as" (the KPI card's SQL uses this). */
+  header?: string[];
   /** How the question was read, e.g. "Average Customer Rating by City". */
   understood: string;
   measures: QuestionMeasure[];
@@ -148,18 +150,8 @@ function filterSql(f: Filter, col: Column | undefined, ctx: SqlContext): string 
 }
 
 /** True when `e` (following refs) counts entities by their first date, which grouped or filtered SQL can't mirror. */
-function usesFirstDates(e: Expr, ctx: SqlContext, seen = new Set<string>()): boolean {
-  if ("newEntities" in e) return true;
-  if ("ref" in e) {
-    if (seen.has(e.ref)) return false;
-    seen.add(e.ref);
-    return usesFirstDates(ctx.kpiExpr(e.ref), ctx, seen);
-  }
-  if ("op" in e) return usesFirstDates(e.args[0], ctx, seen) || usesFirstDates(e.args[1], ctx, seen);
-  if ("calc" in e) return usesFirstDates(e.calc, ctx, seen);
-  if ("per" in e) return usesFirstDates(e.inner, ctx, seen);
-  if ("atLatest" in e) return usesFirstDates(e.expr, ctx, seen);
-  return false;
+function usesFirstDates(e: Expr, ctx: SqlContext): boolean {
+  return countsByFirstDate(e, (id) => ctx.kpiExpr(id));
 }
 
 /** SQL for one business question; see the file header for the shape and rules. */
@@ -257,8 +249,9 @@ export function questionSql(input: QuestionSqlInput, ds: Dataset, ctx: SqlContex
   }
   if (!statements.length) return { sql: "", skipped };
   const header = [
-    `-- Question: ${input.question.replace(/\s+/g, " ").trim()}`,
-    `-- Read as: ${input.understood}`,
+    ...(input.header
+      ? input.header.map((l) => `-- ${l}`)
+      : [`-- Question: ${input.question.replace(/\s+/g, " ").trim()}`, `-- Read as: ${input.understood}`]),
     "-- Runs on DuckDB and PostgreSQL against the table from the SQL export.",
     ...(key.kind === "part" && key.part === "dow" ? ["-- Weekday: 1 = Monday … 7 = Sunday."] : []),
     ...skipped.map((s) => `-- Not in SQL: ${s.label}. ${s.reason}`),

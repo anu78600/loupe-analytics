@@ -18,7 +18,8 @@ export interface ExportContext {
   /** Profile with the user's role overrides applied. */
   profile: DatasetProfile;
   domain: DomainDef;
-  subDomain?: { id: string; name: string };
+  /** The sub-domain used; `grain` is the template's "one row per …" (see grainLabel). */
+  subDomain?: { id: string; name: string; grain?: string };
   mapping: Mapping;
   res: KpiResolutionMap;
   selection: KpiSelection;

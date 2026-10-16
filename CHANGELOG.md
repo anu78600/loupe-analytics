@@ -5,6 +5,27 @@ Every step of building Loupe, newest first. Generated from `src/content/changelo
 - **MAJOR** (`x.0`): a new capability, subsystem or page.
 - **MINOR** (`x.y`): a refinement, fix or follow-up to that major version.
 
+## 34.1 · Numbers that agree everywhere
+
+*Minor · 2026-10-16 13:10 UTC · Fix, Data, Tests*
+
+A review against how professional analysts build reports found places where a number could mislead: SQL that didn't return the card's value, a question that answered from the wrong measure, rates compared in the wrong unit, and exports that said more than they held. Each is fixed, and tests now check them.
+
+- KPI details › SQL & DAX: the SQL now returns the number on the card. It runs over the card's period and filters (written as the query's WHERE), not the whole file. A KPI that counts customers by their first-ever date can't be filtered that way; its SQL says it covers the whole file.
+- Questions: “revenue” now means your Net revenue KPI (which leaves out cancelled, returned and RTO orders), so the answer adds up to the KPI card. Before, it summed the raw amount column. A KPI named for the words you used, give or take “net”, “gross” or “total”, is now preferred over a column.
+- Rates change in percentage points everywhere: the insights PDF's headline table, the KPI details' YoY and MoM (40% → 42% is +2.0 pp, not +5.0%), and the Power BI measures, which are now “YoY pp” and “MoM pp” for a rate, with a format of +2.0 pp. The README tells you which one to put on each card.
+- A change that shows as 0.0% is grey in the PDF report, as on the dashboard, rather than red.
+- Insights PDF: each insight stays on the same page as its chart; charts are numbered (Figure 1, 2…) and drawn once, a later insight pointing back to the figure; a chart's notes (such as an incomplete last month) are printed under it; and a one-day spike no longer shows a monthly chart where it can't be seen.
+- Dashboard PNG: holds every chart, not just the first eight, with wide charts across the full row. A very long dashboard is drawn at a slightly lower resolution so the image can still be made.
+- Power BI without new columns: the package's SQL keeps its monthly views (SQL adds nothing to Power BI), and the README no longer promises time-intelligence measures it doesn't contain. “SQL & DAX in colour” asks the same question as measures.dax, so its DAX matches the file you get.
+- README: the KPI values to check against now say which rows they cover (the whole file, with its dates), and why they can differ from the cards in Loupe. A KPI counted by first-ever date is marked, since over a whole file every customer is new.
+- One description of what a row is: the dashboard, the report cover and the data dictionary now use the same wording, built from the key found in your file when it has a real one.
+- CSVs for spreadsheets (cleaned data, data dictionary, a chart's data) start with a byte-order mark, so Excel shows ₹, € and accented names correctly instead of garbled characters.
+- SQL queries PDF: no longer claims every answer uses a KPI definition; a question about a column uses that column's total or average.
+- New tests: DuckDB returns each card's value from its SQL under a date range and a region filter; “revenue” is answered with Net revenue and adds up to the card; rates change in points in the app and in DAX; the README and package follow the column choice; the grain reads the same on the dashboard and in the dictionary.
+
+Files: `src/engine/session.ts`, `src/engine/compile/questionSql.ts`, `src/engine/compile/dax.ts`, `src/engine/charts/ask.ts`, `src/engine/core/format.ts`, `src/engine/kpi/compute.ts`, `src/engine/query/expr.ts`, `src/engine/profile/structure.ts`, `src/engine/export/context.ts`, `src/engine/export/csv.ts`, `src/engine/export/daxFile.ts`, `src/engine/export/dictionary.ts`, `src/engine/export/powerbi.ts`, `src/engine/export/readme.ts`, `src/workers/engine.worker.ts`, `src/ui/workspace/dashboard/KpiDetails.tsx`, `src/ui/workspace/dashboard/KpiCards.tsx`, `src/ui/workspace/export/report.tsx`, `src/ui/workspace/export/documents.ts`, `src/ui/workspace/export/textPdf.ts`, `src/ui/workspace/ExportStep.tsx`, `src/ui/charts/ChartCard.tsx`, `tests/questions.test.ts`, `tests/consistency.test.ts`, `tests/export.test.ts`, `tests/honest-numbers.test.ts`
+
 ## 34.0 · Your data as you wrote it, and SQL and DAX you can read
 
 *Major · 2026-10-16 11:28 UTC · Feature, Fix, Design, Tests*

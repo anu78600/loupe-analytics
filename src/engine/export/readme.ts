@@ -16,6 +16,9 @@
  * hierarchy instead or says the visual can't be built without a column.
  */
 import { formatValue } from "@/engine/core/format";
+import { formatRange } from "@/engine/core/dates";
+import { countsByFirstDate } from "@/engine/query/expr";
+import { dateBounds } from "@/engine/kpi/compute";
 import type { DatePart } from "@/engine/core/dates";
 import { daxColumn } from "@/engine/compile/dax";
 import type { ChartKind } from "@/registry/schema";
@@ -213,7 +216,7 @@ export function generateReadme(ctx: ExportContext, specs: ChartSpec[], symbol: s
     `| \`data.csv\` | Cleaned data. Snake_case headers, ISO dates (YYYY-MM-DD), dot decimals, UTF-8. Text cells that could run as spreadsheet formulas are prefixed with an apostrophe. |`,
   );
   out.push(
-    "| `measures.dax` | Every KPI as a DAX measure, plus time intelligence. Paste into DAX query view. |",
+    `| \`measures.dax\` | Every KPI as a DAX measure${ctx.dateColumn ? ", plus time intelligence (YTD, prior year, YoY change)" : ""}. Paste into DAX query view. |`,
   );
   out.push(
     `| \`${names.table}.SemanticModel/\` | TMDL semantic model (tables, column types, measures with display folders and formats${ctx.dateColumn ? ", Date table, relationship" : ""}). |`,
@@ -305,24 +308,46 @@ export function generateReadme(ctx: ExportContext, specs: ChartSpec[], symbol: s
   out.push("");
   out.push("## KPI values to check against");
   out.push("");
+  // Say which rows the values cover: the cards in Loupe show the period picked there, not the whole file.
+  const spanColumn = ctx.dateColumn ?? ctx.dateTableSkipped ?? null;
+  const span = spanColumn ? dateBounds(ctx.ds, spanColumn) : null;
   out.push(
-    "Values over the whole file, computed by Loupe. Power BI and the SQL views should return the same numbers.",
+    `Values over the whole file, computed by Loupe: all ${ctx.ds.rowCount.toLocaleString("en-US")} rows${span ? `, ${formatRange(span.min, span.max)}` : ""}, with no filter. That is what each measure returns in Power BI before any slicer, and what the SQL views return. The cards in Loupe show the period you picked there, so they can differ: filter the report to the same dates to compare.`,
   );
   out.push("");
   out.push("| KPI | Value | Formula |");
   out.push("| --- | --- | --- |");
+  const lookup = (id: string) => ctx.res.get(id)?.variant?.expr;
+  let firstDated = false;
   for (const r of hero) {
     if (!r) continue;
     const v = ctx.kpiValues.get(r.def.id);
+    const mark = r.variant && countsByFirstDate(r.variant.expr, lookup) ? " †" : "";
+    if (mark) firstDated = true;
     out.push(
-      `| ${names.measures.get(r.def.id) ?? r.def.name} | ${formatValue(v ?? null, r.def.format, fmt)} | ${r.def.formula} |`,
+      `| ${names.measures.get(r.def.id) ?? r.def.name}${mark} | ${formatValue(v ?? null, r.def.format, fmt)} | ${r.def.formula} |`,
+    );
+  }
+  if (firstDated) {
+    out.push("");
+    out.push(
+      "† Counts each customer (or other entity) once, in the period of their first-ever date. Over the whole file every one of them is new, so read it with a date slicer: it then matches the card in Loupe for the same period.",
     );
   }
   out.push("");
   out.push("## Dashboard layout (visual by visual)");
   out.push("");
   out.push(
-    `**Row 1: KPI cards.** One **Card (new)** per measure: ${hero.map((r) => `\`[${names.measures.get(r?.def.id ?? "") ?? r?.def.name}]\``).join(", ")}. Add the matching \`YoY %\` measure as the card's reference label.`,
+    `**Row 1: KPI cards.** One **Card (new)** per measure: ${hero.map((r) => `\`[${names.measures.get(r?.def.id ?? "") ?? r?.def.name}]\``).join(", ")}.${
+      ctx.dateColumn
+        ? ` Add the matching YoY change as each card's reference label: ${hero
+            .map((r) => {
+              const name = names.measures.get(r?.def.id ?? "") ?? r?.def.name;
+              return `\`[${name} ${r?.def.format === "percent" ? "YoY pp" : "YoY %"}]\``;
+            })
+            .join(", ")} (a rate changes in percentage points).`
+        : ""
+    }`,
   );
   out.push("");
   specs.forEach((s, i) => {

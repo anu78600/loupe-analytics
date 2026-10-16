@@ -292,19 +292,41 @@ export function exprDax(e: Expr, ctx: DaxContext, st: State = { vars: 0 }): stri
 export interface TimeIntelMeasure {
   suffix: string;
   expression: string;
+  /** A relative change, formatted as a percentage. */
   percent: boolean;
+  /** A change in percentage points (the difference of two rates, × 100). */
+  points?: boolean;
   description: string;
+}
+
+/** Power BI format string for a change in percentage points (2.3 → "+2.3 pp"). */
+export const POINTS_FORMAT = "+0.0 pp;-0.0 pp;0.0 pp";
+
+/**
+ * The change of a rate between [m] and an earlier [prev], in percentage points
+ * (42% vs 40% is 2.0); blank when either is blank, as subtracting a blank would
+ * return the current rate as the change.
+ */
+function pointsChange(m: string, prev: string): string {
+  return `VAR __current = ${m}\nVAR __previous = ${prev}\nRETURN\n    IF ( NOT ISBLANK ( __current ) && NOT ISBLANK ( __previous ), ( __current - __previous ) * 100 )`;
 }
 
 /**
  * Standard time-intelligence variants for a base measure (needs a marked Date table).
  * YoY % and MoM % reference [<base> PY] and [<base> PM] by name, so those
- * variants must be emitted under exactly those names. The 7-day moving average
+ * variants must be emitted under exactly those names. A `rate` (a percent
+ * KPI) gets YoY pp and MoM pp instead: the change in percentage points, as
+ * Loupe's cards show it, not a relative change. The 7-day moving average
  * (additive measures only) divides the trailing seven days' total by 7, like
  * the in-app value (kpi/compute.ts, "ma7"), so a day with no rows counts as
  * zero; AVERAGEX over the dates would skip such days and overstate the average.
  */
-export function timeIntelligence(base: string, additive: boolean, dateCol: string): TimeIntelMeasure[] {
+export function timeIntelligence(
+  base: string,
+  additive: boolean,
+  dateCol: string,
+  rate = false,
+): TimeIntelMeasure[] {
   const m = daxMeasureName(base);
   const py = daxMeasureName(`${base} PY`);
   const pm = daxMeasureName(`${base} PM`);
@@ -328,24 +350,40 @@ export function timeIntelligence(base: string, additive: boolean, dateCol: strin
       percent: false,
       description: "Same period last year.",
     },
-    {
-      suffix: "YoY %",
-      expression: fn("DIVIDE", [`${m} - ${py}`, py]),
-      percent: true,
-      description: "Change vs same period last year.",
-    },
+    rate
+      ? {
+          suffix: "YoY pp",
+          expression: pointsChange(m, py),
+          percent: false,
+          points: true,
+          description: "Change vs same period last year, in percentage points.",
+        }
+      : {
+          suffix: "YoY %",
+          expression: fn("DIVIDE", [`${m} - ${py}`, py]),
+          percent: true,
+          description: "Change vs same period last year.",
+        },
     {
       suffix: "PM",
       expression: fn("CALCULATE", [m, fn("DATEADD", [dateCol, "-1", "MONTH"])]),
       percent: false,
       description: "Previous month.",
     },
-    {
-      suffix: "MoM %",
-      expression: fn("DIVIDE", [`${m} - ${pm}`, pm]),
-      percent: true,
-      description: "Change vs previous month.",
-    },
+    rate
+      ? {
+          suffix: "MoM pp",
+          expression: pointsChange(m, pm),
+          percent: false,
+          points: true,
+          description: "Change vs previous month, in percentage points.",
+        }
+      : {
+          suffix: "MoM %",
+          expression: fn("DIVIDE", [`${m} - ${pm}`, pm]),
+          percent: true,
+          description: "Change vs previous month.",
+        },
     {
       suffix: "Rolling 30D",
       expression: fn("CALCULATE", [m, fn("DATESINPERIOD", [dateCol, `MAX ( ${dateCol} )`, "-30", "DAY"])]),

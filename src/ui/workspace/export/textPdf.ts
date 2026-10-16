@@ -185,6 +185,36 @@ export class TextPdf {
     this.y += mm;
   }
 
+  /**
+   * Starts a new page unless a block `height` mm tall fits below, so a block
+   * (an insight and its chart) isn't split. A block taller than a page starts
+   * where it is. True when a new page was started.
+   */
+  keep(height: number): boolean {
+    if (height > BOTTOM - TOP || this.y + height <= BOTTOM) return false;
+    this.ensure(height);
+    return true;
+  }
+
+  /** Height in mm heading() takes, for keep(). */
+  measureHeading(text: string, level: 1 | 2 | 3 = 2): number {
+    const size = level === 1 ? 20 : level === 2 ? 14 : 11;
+    const lines = this.wrap(text, size, "bold", WIDTH).length;
+    return lines * size * PT * 1.25 + (level === 1 ? 3 : level === 2 ? 5.5 : 3.5);
+  }
+
+  /** Height in mm paragraph() takes with the same options, for keep(). */
+  measureParagraph(text: string, opts: { size?: number; bold?: boolean; after?: number } = {}): number {
+    const size = opts.size ?? 9.5;
+    const lines = this.wrap(text, size, opts.bold ? "bold" : "regular", WIDTH).length;
+    return lines * size * PT * LEADING + (opts.after ?? 2);
+  }
+
+  /** Height in mm figure() takes, for keep(). */
+  measureFigure(caption: string, aspect: number): number {
+    return this.measureParagraph(caption, { size: 8, after: 0.5 }) + WIDTH / aspect + 3;
+  }
+
   /** A section heading; level 1 is the document title. */
   heading(text: string, level: 1 | 2 | 3 = 2): void {
     const size = level === 1 ? 20 : level === 2 ? 14 : 11;

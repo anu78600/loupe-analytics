@@ -9,6 +9,8 @@
  * file) and says so.
  */
 import { ROLE_LABEL } from "@/engine/profile/types";
+import { grainLabel } from "@/engine/profile/structure";
+import { GENERIC_ID } from "@/engine/detect/generic";
 import { tableToCsv } from "./csv";
 import type { ExportContext } from "./context";
 
@@ -90,7 +92,7 @@ export function dictionaryMarkdown(ctx: ExportContext): string {
   return [
     `# Data dictionary · ${ctx.ds.source.fileName}`,
     "",
-    `${ctx.ds.rowCount.toLocaleString("en-US")} rows · ${ctx.profile.grain.description} · Domain: ${ctx.domain.name}`,
+    `${ctx.ds.rowCount.toLocaleString("en-US")} rows · ${grainLabel(ctx.profile.grain, ctx.domain.id !== GENERIC_ID ? ctx.subDomain?.grain : undefined)} · Industry: ${ctx.domain.name}`,
     "",
     "| Column | Export name | Type | Role | Additivity | Mapped to | Blank | Distinct | Examples |",
     "| --- | --- | --- | --- | --- | --- | --- | --- | --- |",

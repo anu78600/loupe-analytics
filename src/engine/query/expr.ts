@@ -292,6 +292,31 @@ export function isAdditiveExpr(
   return false;
 }
 
+/**
+ * True when `e` counts entities by their first-ever date (new customers, and
+ * KPIs built on it such as returning customers). Such a KPI depends on the
+ * period it is read over: over a whole file every customer is new. `lookup`
+ * follows refs, as in isAdditiveExpr.
+ */
+export function countsByFirstDate(
+  e: Expr,
+  lookup?: (id: string) => Expr | undefined,
+  path: ReadonlySet<string> = new Set(),
+): boolean {
+  if ("newEntities" in e) return true;
+  if ("ref" in e) {
+    if (!lookup || path.has(e.ref)) return false;
+    const target = lookup(e.ref);
+    return target ? countsByFirstDate(target, lookup, new Set(path).add(e.ref)) : false;
+  }
+  if ("op" in e)
+    return countsByFirstDate(e.args[0], lookup, path) || countsByFirstDate(e.args[1], lookup, path);
+  if ("calc" in e) return countsByFirstDate(e.calc, lookup, path);
+  if ("per" in e) return countsByFirstDate(e.inner, lookup, path);
+  if ("atLatest" in e) return countsByFirstDate(e.expr, lookup, path);
+  return false;
+}
+
 /** SQL and DAX spelling of each comparison operator. */
 export const CMP_SYMBOL: Record<Cmp, string> = { gt: ">", gte: ">=", lt: "<", lte: "<=", eq: "=", neq: "<>" };
 

@@ -3,7 +3,8 @@
 /**
  * Off-screen report rendering for PDF and full-dashboard PNG. Pages render in
  * the light theme at print resolution, charts use the same option builder as
- * the app, and every chart signals ECharts' "finished" before capture.
+ * the app, and every chart signals ECharts' "finished" before capture. The
+ * PNG holds every chart on the dashboard, wide ones across both columns.
  */
 import * as React from "react";
 import { createRoot } from "react-dom/client";
@@ -12,7 +13,7 @@ import type { ChartData, ChartKind, ChartSpec } from "@/engine/charts/types";
 import type { HealthReport } from "@/engine/profile/quality";
 import type { Insight } from "@/engine/insights/insights";
 import type { FormatOptions } from "@/engine/core/format";
-import { formatCount, formatDelta, formatPointDelta, formatValue } from "@/engine/core/format";
+import { formatCount, formatDelta, formatPointDelta, formatValue, isFlatChange } from "@/engine/core/format";
 import type { KpiValue } from "@/engine/kpi/compute";
 import type { KpiMeta } from "@/engine/session";
 import { buildOption, rendersWithECharts } from "@/ui/charts/options";
@@ -25,6 +26,8 @@ export interface ReportChart {
   spec: ChartSpec;
   data: ChartData;
   kind: ChartKind;
+  /** Wider than half the dashboard: drawn across both columns of the PNG. */
+  wide?: boolean;
 }
 
 export interface ReportInput {
@@ -119,8 +122,9 @@ function ChartBlock({ chart, fmt, height }: { chart: ReportChart; fmt: FormatOpt
 function KpiTile({ meta, value, fmt }: { meta: KpiMeta; value: KpiValue | undefined; fmt: FormatOptions }) {
   const pct = meta.format === "percent";
   const change = pct ? value?.deltaAbs : value?.delta;
+  // A change that shows as 0.0% is neutral, as on the dashboard's cards, not bad news in red.
   const good =
-    change === null || change === undefined || meta.direction === "neutral"
+    change === null || change === undefined || meta.direction === "neutral" || isFlatChange(change)
       ? null
       : change > 0 === (meta.direction === "higher");
   return (
@@ -320,9 +324,12 @@ export function DashboardPoster({ input }: { input: ReportInput }) {
           <KpiTile key={h.meta.id} meta={h.meta} value={h.value} fmt={input.fmt} />
         ))}
       </div>
+      {/* Every chart on the dashboard, in its order; a wide chart takes the whole row as it does there. */}
       <div className="mt-6 grid grid-cols-2 gap-6">
-        {input.charts.slice(0, 8).map((c) => (
-          <ChartBlock key={c.spec.id} chart={c} fmt={input.fmt} height={380} />
+        {input.charts.map((c) => (
+          <div key={c.spec.id} className={c.wide ? "col-span-2" : undefined}>
+            <ChartBlock chart={c} fmt={input.fmt} height={380} />
+          </div>
         ))}
       </div>
     </div>
@@ -412,7 +419,12 @@ export async function exportDashboardPng(input: ReportInput, transparent: boolea
     const { toPng } = await import("html-to-image");
     const node = host.firstElementChild as HTMLElement;
     if (transparent) node.style.background = "transparent";
-    return await toPng(node, { pixelRatio: 2, backgroundColor: transparent ? undefined : "#f7f6f2" });
+    // A long dashboard is drawn at a lower pixel ratio so the canvas stays within what browsers
+    // allow (16,384 px a side and about 120 million pixels in all), instead of failing to export.
+    const w = node.offsetWidth || 1600;
+    const h = node.offsetHeight || 1;
+    const pixelRatio = Math.max(1, Math.min(2, 16000 / h, Math.sqrt(120e6 / (w * h))));
+    return await toPng(node, { pixelRatio, backgroundColor: transparent ? undefined : "#f7f6f2" });
   } finally {
     cleanup();
   }

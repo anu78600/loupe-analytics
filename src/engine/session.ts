@@ -23,7 +23,14 @@ import { generateCodeHtml } from "@/engine/export/codeHtml";
 import { prettySql } from "@/engine/compile/sqlFormat";
 import { exportKind } from "@/engine/core/booleans";
 import type { Dataset, IngestOptions, LargeFileAssessment, ParseReport } from "@/engine/core/types";
-import { isoDate, isoDateTime, isoTime, todayWallClock, type TimeGrain } from "@/engine/core/dates";
+import {
+  formatDay,
+  isoDate,
+  isoDateTime,
+  isoTime,
+  todayWallClock,
+  type TimeGrain,
+} from "@/engine/core/dates";
 import {
   currencySymbol,
   formatPlain,
@@ -50,6 +57,7 @@ import { detectDomain, type DetectionResult } from "@/engine/detect/detect";
 import { assignFields } from "@/engine/detect/match";
 import { buildMapping, type Mapping } from "@/engine/detect/mapping";
 import { buildGenericDomain, GENERIC_ID } from "@/engine/detect/generic";
+import { grainLabel } from "@/engine/profile/structure";
 import { resolveKpis, selectKpis, type KpiResolutionMap, type KpiSelection } from "@/engine/kpi/resolve";
 import { columnExtras, isColumnId } from "@/engine/kpi/columnKpis";
 import { isUserKpiId, userKpiExtras, type UserKpi } from "@/engine/kpi/userKpis";
@@ -65,7 +73,8 @@ import {
 import { kpiQuery, quoteIdent } from "@/engine/compile/sql";
 import { exprDax } from "@/engine/compile/dax";
 import type { Resolver } from "@/engine/query/evaluate";
-import { type Filter, selectRowsCached } from "@/engine/query/filter";
+import { describeFilter, type Filter, selectRowsCached } from "@/engine/query/filter";
+import type { Expr } from "@/engine/query/expr";
 import { customSpec, recommendCharts, type SkippedChart } from "@/engine/charts/recommend";
 import { computeChartData, type DrillState } from "@/engine/charts/data";
 import { specColumns } from "@/engine/charts/columnUsage";
@@ -963,8 +972,7 @@ export class Session {
       hiddenColumns: ds.columns.filter((c) => this.hidden.has(c.name)).map((c) => c.name),
       health: this.scope().health,
       customKpiIssues: mine.skipped,
-      grainLabel:
-        sub?.grain && domain.id !== GENERIC_ID ? `One row per ${sub.grain}` : active.grain.description,
+      grainLabel: grainLabel(active.grain, domain.id !== GENERIC_ID ? sub?.grain : undefined),
       currency,
       dimensions,
     };
@@ -1224,6 +1232,58 @@ export class Session {
    * other (non-date) filters applied. Empty when the KPI is unavailable or
    * there is no primary date column.
    */
+  /**
+   * The SQL that returns the number a KPI card shows: the KPI's own query
+   * over the card's rows (the dashboard's period and filters, written as the
+   * WHERE the Questions step uses), so the SQL under a card can't disagree
+   * with it. Without filters it is the KPI's whole-file query. A KPI that
+   * counts entities by their first-ever date can't be filtered in SQL; it
+   * then gets its whole-file query and `filtered: false`.
+   */
+  kpiCardSql(kpiId: string, allFilters: Filter[]): { sql: string; filtered: boolean } | null {
+    const ds = this.requireDs();
+    const ctx = this.requireCtx();
+    const r = ctx.res.get(kpiId);
+    if (!r?.available || !r.variant) return null;
+    const filters = this.usable(allFilters);
+    const name = displayName(ctx.kpiRenames, r.def.id, r.def.name);
+    const sqlCtx = makeSqlContext(ds, ctx.mapping, ctx.res, {
+      ...ctx.names,
+      table: ctx.names.table.toLowerCase(),
+    });
+    const whole = () => {
+      try {
+        return prettySql(kpiQuery(r.variant?.expr as Expr, sqlCtx));
+      } catch {
+        return null;
+      }
+    };
+    if (!filters.length) {
+      const sql = whole();
+      return sql ? { sql, filtered: false } : null;
+    }
+    const fmtDay = (t: number) => formatDay(t);
+    const q = questionSql(
+      {
+        question: name,
+        understood: name,
+        header: [
+          `${name}, for the rows on the card: ${filters.map((f) => describeFilter(f, fmtDay)).join("; ")}`,
+        ],
+        measures: [{ id: kpiId, label: name, expr: r.variant.expr }],
+        key: { kind: "none" },
+        keyLabel: "Value",
+        filters,
+        order: "desc",
+      },
+      ds,
+      sqlCtx,
+    );
+    if (q.sql) return { sql: q.sql, filtered: true };
+    const sql = whole();
+    return sql ? { sql, filtered: false } : null;
+  }
+
   timeIntel(kpiId: string, allFilters: Filter[]): TimeIntelValue[] {
     const ds = this.requireDs();
     const ctx = this.requireCtx();
@@ -1239,7 +1299,15 @@ export class Session {
       df && df.kind === "dateRange"
         ? Math.min(df.to, bounds?.max ?? df.to)
         : (bounds?.max ?? todayWallClock());
-    return computeTimeIntel(ds, ctx.resolver, r.variant.expr, filters, ctx.dateColumn, asOf);
+    return computeTimeIntel(
+      ds,
+      ctx.resolver,
+      r.variant.expr,
+      filters,
+      ctx.dateColumn,
+      asOf,
+      r.def.format === "percent",
+    );
   }
 
   /**
@@ -1629,9 +1697,12 @@ export class Session {
     return generateDaxFile(ec, currencySymbol(ec.currency).trim());
   }
 
-  /** Every KPI's SQL and DAX in colour, as one readable page (export/codeHtml.ts). */
-  exportCodeHtml(): string {
-    const ec = this.exportContext();
+  /**
+   * Every KPI's SQL and DAX in colour, as one readable page (export/codeHtml.ts).
+   * `noNewColumns` as for exportDax, so its DAX is the measures.dax the user gets.
+   */
+  exportCodeHtml(noNewColumns = false): string {
+    const ec = this.exportContext(noNewColumns);
     return generateCodeHtml(ec, currencySymbol(ec.currency).trim());
   }
 

@@ -207,6 +207,14 @@ export function formatPointDelta(diff: number | null | undefined, locale: Number
   return `${pp > 0 ? "+" : "−"}${body} pp`;
 }
 
+/**
+ * True when a change (relative, or a difference of fractions) shows as 0.0%
+ * or 0.0 pp. A flat change is drawn neutral, never as good or bad news.
+ */
+export function isFlatChange(change: number): boolean {
+  return Math.abs(change) < 0.0005;
+}
+
 export function formatCount(n: number, locale: NumberLocale): string {
   return formatPlain(n, 0, locale);
 }

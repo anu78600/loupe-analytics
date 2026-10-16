@@ -127,7 +127,7 @@ async function expectSqlMatches(conn: DuckDBConnection, a: QuestionAnswer) {
 }
 
 describe("questions on the sales demo", async () => {
-  const { ctx, conn, answer, ask } = await setup("sales");
+  const { s, ctx, conn, answer, ask } = await setup("sales");
   const kpi = (name: string) => ctx.kpis.find((k) => k.name === name && k.available)?.id as string;
   const last12m: Filter[] = (() => {
     const r = ctx.dateColumn && ctx.dateBounds ? presetRange("last12m", ctx.dateBounds) : null;
@@ -199,6 +199,37 @@ describe("questions on the sales demo", async () => {
     await expectSqlMatches(conn, a);
   });
 
+  it("gives each KPI card the SQL that returns its number, with the card's period and filters", async () => {
+    const filters: Filter[] = [...last12m, { kind: "in", column: "Region", values: ["North", "South"] }];
+    const ids = ["Revenue", "Gross margin %", "Repeat customer rate", "Average invoice value"].map(kpi);
+    const batch = s.kpiBatch(filters, ids, "INTL");
+    for (const id of ids) {
+      const card = s.kpiCardSql(id, filters);
+      expect(card?.filtered, id).toBe(true);
+      expect(card?.sql).toMatch(/for the rows on the card: .*Region/);
+      const statements = (card?.sql ?? "")
+        .split(/;\s*(?:\n|$)/)
+        .map((x) =>
+          x
+            .split("\n")
+            .filter((l) => !l.trim().startsWith("--"))
+            .join("\n")
+            .trim(),
+        )
+        .filter(Boolean);
+      const rows = (await conn.runAndReadAll(statements.at(-1) as string)).getRowObjectsJson();
+      const v = Object.values(rows[0] ?? {})[0];
+      const value = batch.values.find((x) => x.id === id)?.value ?? null;
+      expect(close2(v === null || v === undefined ? null : Number(v), value), `${id}: ${v} vs ${value}`).toBe(
+        true,
+      );
+    }
+    // New customers counts by first-ever date, which a filtered query can't reproduce: the whole-file query, said so.
+    expect(s.kpiCardSql(kpi("New customers"), filters)?.filtered).toBe(false);
+    // With no filter the card's SQL is the KPI's own whole-file query.
+    expect(s.kpiCardSql(ids[0] as string, [])).toMatchObject({ filtered: false });
+  });
+
   it("answers a whole-file question with one row", async () => {
     const { answer: a } = ask("What is the total revenue and gross profit?");
     expect(a.keyLabel).toBeNull();
@@ -233,6 +264,19 @@ describe("questions on the SaaS and e-commerce demos", async () => {
         topN: 100,
       }),
     );
+  });
+
+  it("reads 'revenue' as the Net revenue KPI, so the answer matches the KPI card", async () => {
+    const { s, ctx, conn, ask } = await setup("ecommerce");
+    expect(ctx.kpis.find((k) => k.id === "net_revenue")?.available, "Net revenue on the demo").toBe(true);
+    const { reading, answer } = ask("Which category has the highest revenue?");
+    expect(reading.ask.measures).toEqual([{ kind: "kpi", id: "net_revenue" }]);
+    // Net revenue leaves out cancelled, returned and RTO orders, so the categories add up to the card.
+    const card = s.kpiBatch([], ["net_revenue"], "INTL").values[0]?.value;
+    expect(answer.more).toBe(0);
+    const sum = answer.rows.reduce((a, r) => a + (r.values[0] ?? 0), 0);
+    expect(sum).toBeCloseTo(card as number, 2);
+    await expectSqlMatches(conn, answer);
   });
 
   it("matches by hour of day", async () => {

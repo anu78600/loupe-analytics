@@ -222,6 +222,19 @@ export function detectKeysAndGrain(ds: Dataset, cols: ColumnProfile[]): { keys: 
   return { keys: { primary, candidates, foreign }, grain };
 }
 
+/**
+ * The grain as shown everywhere (dashboard, report cover, data dictionary):
+ * the detected key when the file has a meaningful one ("One row per order"),
+ * else the template's assumption (`templateGrain`, "order line"), else the
+ * detected fallback. A key that only numbers the rows ("Row ID") says nothing
+ * about what a row is, so it gives way to the template.
+ */
+export function grainLabel(grain: GrainInfo, templateGrain?: string): string {
+  const rowNumber = /^One row per (row|record|index|serial|entry|s ?no|sr|sl)$/i.test(grain.description);
+  if (grain.confidence >= 0.8 && !rowNumber) return grain.description;
+  return templateGrain ? `One row per ${templateGrain}` : grain.description;
+}
+
 // ---------------------------------------------------------------- hierarchies
 
 // Name tokens that classify a hierarchy; geo wins first, then product, then organisation.

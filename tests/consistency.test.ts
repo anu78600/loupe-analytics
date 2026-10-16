@@ -113,6 +113,19 @@ describe.each(SAMPLES.map((s) => s.id))("the %s demo reconciles everywhere", (sa
       }
     }
   });
+
+  it("gives a rate's YoY change in percentage points, as its card does", () => {
+    if (!ctx.dateColumn) return;
+    for (const k of ctx.kpis.filter((x) => x.available && x.format === "percent")) {
+      const ti = s.timeIntel(k.id, []);
+      const yoy = ti.find((x) => x.key === "yoy");
+      expect(yoy, k.id).toMatchObject({ points: true });
+      expect(yoy?.percent, k.id).toBeUndefined();
+      const ytd = ti.find((x) => x.key === "ytd")?.value ?? null;
+      const py = ti.find((x) => x.key === "ytd_py")?.value ?? null;
+      if (ytd !== null && py !== null) expect(near(yoy?.value as number, ytd - py), k.id).toBe(true);
+    }
+  });
 });
 
 describe("monthly snapshots dated on the 1st", () => {

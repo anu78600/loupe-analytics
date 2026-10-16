@@ -223,6 +223,20 @@ interface Match {
   rate?: boolean;
 }
 
+// Words that qualify a measure without changing what it is: "Net revenue" is the revenue a business
+// reports, so a request for "revenue" means that KPI rather than a raw amount column.
+const QUALIFIERS = new Set(["net", "gross", "total", "overall", "all"]);
+
+/**
+ * True when a KPI's name is the words asked plus only qualifiers ("Net Revenue"
+ * for "revenue", "Gross Sales (GMV)" for "sales"); a bracketed acronym is ignored.
+ */
+function qualifiedName(name: string, termTokens: readonly string[]): boolean {
+  const words = tokenize(name.replace(/\([^)]*\)/g, " "));
+  const asked = new Set(termTokens);
+  return termTokens.every((t) => words.includes(t)) && words.every((w) => asked.has(w) || QUALIFIERS.has(w));
+}
+
 /**
  * Best KPI or column for a measure phrase ("sales", "customer rating"). When a
  * total is asked, a KPI that is a rate only wins if nothing that adds up
@@ -239,10 +253,15 @@ function matchMeasureOnce(term: string, ctx: AskContext, asked?: AskAgg): Match 
       nameSimilarity(tokenize(k.name), term),
       k.short ? nameSimilarity(tokenize(k.short), term) : 0,
     );
+    // A KPI named for the words asked plus only a qualifier ("revenue" → Net revenue, "profit" →
+    // Gross profit) beats a column found through a template synonym: the KPI applies the business
+    // rules (no cancelled or returned orders), so the answer matches the KPI card. "Revenue per
+    // sales rep" is another measure, so "sales" doesn't qualify for it. Closer names rank first.
+    const score = qualifiedName(k.name, termTokens) ? Math.max(s, 0.981 + 0.015 * s) : s;
     // A KPI wins ties with a column: it carries the template's definition and format.
-    if (s >= 0.6)
+    if (score >= 0.6)
       take({
-        score: s + 0.01,
+        score: score + 0.01,
         measure: { kind: "kpi", id: k.id },
         label: k.name,
         rate: k.format === "percent" || k.format === "ratio" || k.format === "decimal",

@@ -4,14 +4,16 @@
  * "How this is calculated" for one KPI: definition, formula, the fields and
  * value meanings used, grain, filters and period, benchmark and pitfalls; a
  * time-intelligence tab (MTD, QTD, YTD, YoY, MoM, rolling windows, moving
- * average) computed in the worker; and the SQL and DAX with copy buttons.
+ * average) computed in the worker; and the SQL and DAX with copy buttons. The
+ * SQL is the card's own: the KPI over the card's period and filters, so it
+ * returns the number on screen (Session.kpiCardSql).
  * Unavailable KPIs say what they need and suggest a substitute.
  */
 import * as React from "react";
 import { Check, Copy, Info, Loader2, TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
 import type { TimeIntelValue } from "@/engine/kpi/compute";
-import { formatValue } from "@/engine/core/format";
+import { formatDelta, formatPointDelta, formatValue } from "@/engine/core/format";
 import { formatRange } from "@/engine/core/dates";
 import { PRESET_LABEL } from "@/engine/core/periods";
 import { describeFilter } from "@/engine/query/filter";
@@ -96,6 +98,24 @@ export function KpiDetails({ kpiId }: { kpiId: string }) {
     };
   }, [kpiId, filterKey, meta?.available]);
   const tiLoading = Boolean(meta?.available) && ti?.key !== tiKey;
+  // The SQL for the card's own rows, tagged with the request it answers like the time intelligence.
+  const [cardSql, setCardSql] = React.useState<{
+    key: string;
+    value: { sql: string; filtered: boolean } | null;
+  } | null>(null);
+  React.useEffect(() => {
+    if (!meta?.available) return;
+    let alive = true;
+    void engine()
+      .kpiCardSql(kpiId, JSON.parse(filterKey))
+      .then((value) => {
+        if (alive) setCardSql({ key: `${kpiId}|${filterKey}`, value });
+      });
+    return () => {
+      alive = false;
+    };
+  }, [kpiId, filterKey, meta?.available]);
+  const sqlForCard = cardSql?.key === tiKey ? cardSql.value : null;
   // While a new request runs, keep showing the previous values rather than flashing empty.
   const tiValues = ti?.values ?? null;
 
@@ -276,11 +296,11 @@ export function KpiDetails({ kpiId }: { kpiId: string }) {
                         t.value === null ? "text-fg-subtle" : "text-fg",
                       )}
                     >
-                      {t.percent
-                        ? t.value === null
-                          ? "—"
-                          : `${t.value > 0 ? "+" : ""}${(t.value * 100).toFixed(1)}%`
-                        : formatValue(t.value, meta.format, fmt)}
+                      {t.points
+                        ? formatPointDelta(t.value, fmt.locale)
+                        : t.percent
+                          ? formatDelta(t.value, fmt.locale)
+                          : formatValue(t.value, meta.format, fmt)}
                     </td>
                   </tr>
                 ))}
@@ -292,8 +312,14 @@ export function KpiDetails({ kpiId }: { kpiId: string }) {
           </p>
         </TabsContent>
         <TabsContent value="code" className="mt-4 grid gap-3">
-          {meta.sql ? (
-            <CodeBlock code={meta.sql} language="SQL · standard" label="SQL" />
+          {sqlForCard ? (
+            <CodeBlock
+              code={sqlForCard.sql}
+              language={sqlForCard.filtered ? "SQL · the card's rows" : "SQL · whole file"}
+              label="SQL"
+            />
+          ) : meta.sql ? (
+            <CodeBlock code={meta.sql} language="SQL · whole file" label="SQL" />
           ) : (
             <p className="text-ui text-fg-muted">No SQL for this KPI.</p>
           )}
@@ -301,8 +327,9 @@ export function KpiDetails({ kpiId }: { kpiId: string }) {
             <CodeBlock code={`${meta.daxName} =\n${meta.dax}`} language="DAX · measure" label="DAX" />
           ) : null}
           <p className="text-2xs text-fg-subtle">
-            Generated from the same definition as the number on screen, so they can&apos;t disagree. Export ›
-            SQL can re-run it on your data in DuckDB to prove it.
+            {sqlForCard && !sqlForCard.filtered && filters.length
+              ? "This KPI counts each entity once, by its first-ever date, which a filtered query can't reproduce exactly, so this query is over the whole file. The card uses the period and filters you chose."
+              : "This query returns the number on the card: the same definition over the same rows (the period and filters you chose). The DAX is the Power BI measure, which your report's slicers filter. Export › SQL re-runs the KPIs on your data in DuckDB."}
           </p>
         </TabsContent>
       </Tabs>

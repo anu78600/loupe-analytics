@@ -36,6 +36,7 @@ import type { ChartData, ChartKind, ChartSpec } from "@/engine/charts/types";
 import { isKindCompatible } from "@/engine/charts/recommend";
 import { bucketLabel, endOfBucket, formatRange, isoDate } from "@/engine/core/dates";
 import { formatCount, type NumberLocale } from "@/engine/core/format";
+import { UTF8_BOM } from "@/engine/export/csv";
 import { PRESET_LABEL } from "@/engine/core/periods";
 import { useWorkspace, type Widget } from "@/store/workspace";
 import { engine } from "@/lib/engine-client";
@@ -279,7 +280,8 @@ export function ChartCard({
       toast.error("Nothing to export yet.");
       return;
     }
-    downloadBlob(csv, `${slugify(chartTitle)}.csv`, "text/csv;charset=utf-8");
+    // The byte-order mark makes Excel read the file as UTF-8, so labels with ₹ or accents stay intact.
+    downloadBlob(UTF8_BOM + csv, `${slugify(chartTitle)}.csv`, "text/csv;charset=utf-8");
   };
 
   const categoryCount = data?.categories.length;

@@ -43,6 +43,7 @@ import { PRESET_LABEL } from "@/engine/core/periods";
 import { describeFilter } from "@/engine/query/filter";
 import { compareFingerprints, fingerprintOf, parseConfig, type LoupeConfig } from "@/engine/export/config";
 import type { PackageManifest } from "@/engine/export/powerbi";
+import { UTF8_BOM } from "@/engine/export/csv";
 import { allSpecs, stepNumber, useWorkspace } from "@/store/workspace";
 import { useSettings } from "@/store/settings";
 import { powerBiTheme, resolveTheme } from "@/ui/charts/palette/themes";
@@ -109,7 +110,10 @@ function useReportInput(): () => ReportInput | null {
       .map((w) => {
         const spec = specs.find((x) => x.id === w.id);
         const data = s.charts[w.id];
-        return spec && data ? { spec, data, kind: w.kind ?? spec.kind } : null;
+        // Wider than 6 of the 12 grid columns: the PNG gives it a whole row, as the dashboard does.
+        return spec && data
+          ? { spec, data, kind: w.kind ?? spec.kind, wide: (w.w ?? spec.size.w) > 6 }
+          : null;
       })
       .filter((c): c is NonNullable<typeof c> => Boolean(c));
     const dims = s.filters().filter((f) => f.kind !== "dateRange");
@@ -396,14 +400,14 @@ function ReportCard() {
     <ExportCard
       icon={FileText}
       title="1 · Dashboard"
-      description="As a PDF report (A4, light theme): KPI summary, every visible chart with its reason, top findings and a data-health appendix. Or the whole dashboard as one high-resolution image. Single charts export from each chart's menu."
+      description="As a PDF report (A4, light theme): KPI summary, every visible chart with its reason, top findings and a data-health appendix. Or the whole dashboard, every chart, as one high-resolution image. Single charts export from each chart's menu."
     >
       <div className="flex flex-wrap gap-2">
         <Button variant="secondary" onClick={() => void pdf()} disabled={Boolean(busy)}>
           <FileText aria-hidden /> PDF report
         </Button>
         <Button variant="secondary" onClick={() => void png()} disabled={Boolean(busy)}>
-          <FileImage aria-hidden /> Dashboard PNG (2×)
+          <FileImage aria-hidden /> Dashboard PNG
         </Button>
       </div>
       <label className="mt-3 flex items-center gap-2 text-ui text-fg-muted">
@@ -578,9 +582,25 @@ function SqlCard() {
   } | null>(null);
   const summary = useWorkspace((s) => s.summary);
   const context = useWorkspace((s) => s.context);
+  const consent = useColumnConsent();
   React.useEffect(() => {
     void engine().exportSql().then(setSql);
   }, [context]);
+  // The page's DAX is measures.dax, so it asks the same question about the Date table's helper column.
+  const downloadHtml = async () => {
+    try {
+      const extra = await engine().powerBiNewColumns([]);
+      const add = await consent.ask(powerBiConsent(extra, "SQL & DAX page"));
+      if (add === null) return;
+      downloadBlob(
+        await engine().exportCodeHtml(!add),
+        `${slugify(summary?.name ?? "loupe")}-sql-and-dax.html`,
+        "text/html;charset=utf-8",
+      );
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+  };
   const verify = async () => {
     setResults(null);
     setStatus("Preparing data…");
@@ -616,6 +636,7 @@ function SqlCard() {
       title="SQL"
       description="A CREATE TABLE matching the detected schema, one view per KPI, monthly views with MoM/YoY, and RFM and cohort queries. The .html page shows every KPI's SQL and DAX side by side, in colour, to read in a browser."
     >
+      {consent.dialog}
       <div className="flex flex-wrap gap-2">
         <Button
           variant="secondary"
@@ -626,20 +647,7 @@ function SqlCard() {
         >
           <Download aria-hidden /> Download .sql
         </Button>
-        <Button
-          variant="secondary"
-          onClick={async () => {
-            try {
-              downloadBlob(
-                await engine().exportCodeHtml(),
-                `${slugify(summary?.name ?? "loupe")}-sql-and-dax.html`,
-                "text/html;charset=utf-8",
-              );
-            } catch (e) {
-              toast.error((e as Error).message);
-            }
-          }}
-        >
+        <Button variant="secondary" onClick={() => void downloadHtml()}>
           <Palette aria-hidden /> SQL &amp; DAX in colour (.html)
         </Button>
         <Button variant="secondary" onClick={() => void verify()} disabled={Boolean(status)}>
@@ -762,9 +770,10 @@ function MiscCard() {
         if (add === null) return;
         downloadBlob(await engine().exportDax(!add), `${base}-measures.dax`);
       }
+      // CSVs start with the byte-order mark so Excel reads them as UTF-8 (₹ and accents intact).
       if (kind === "dict-csv")
         downloadBlob(
-          await engine().exportDictionary("csv"),
+          UTF8_BOM + (await engine().exportDictionary("csv")),
           `${base}-data-dictionary.csv`,
           "text/csv;charset=utf-8",
         );
@@ -776,7 +785,10 @@ function MiscCard() {
         );
       if (kind === "csv") {
         const bytes = await engine().exportCsv(true);
-        downloadBlob(new Blob([bytes as BlobPart], { type: "text/csv;charset=utf-8" }), `${base}-clean.csv`);
+        downloadBlob(
+          new Blob([UTF8_BOM, bytes as BlobPart], { type: "text/csv;charset=utf-8" }),
+          `${base}-clean.csv`,
+        );
       }
     } catch (e) {
       toast.error((e as Error).message);

@@ -15,7 +15,7 @@ import type { Dataset, StringColumn, NumberColumn } from "@/engine/core/types";
 import type { ExportContext } from "@/engine/export/context";
 import { generateSqlFile, singleAggregate } from "@/engine/export/sqlFile";
 import { dateRelColumn, generateDaxFile } from "@/engine/export/daxFile";
-import { datePartSource } from "@/engine/export/readme";
+import { datePartSource, generateReadme } from "@/engine/export/readme";
 import { generateTmdl } from "@/engine/export/tmdl";
 import { datasetToCsv, guardCell, tableToCsv } from "@/engine/export/csv";
 import { close, loadIntoDuckDB } from "./helpers/duck";
@@ -168,6 +168,29 @@ describe("DAX file", () => {
     expect(empty).toContain(`ROW ( "Rows", COUNTROWS ( 'Orders' ) )`);
   });
 
+  it("gives a rate's YoY and MoM change in percentage points, guarded against blanks", () => {
+    const ec = exportContext();
+    const rates = ctx.selection.hero.filter((id) => ec.res.get(id)?.def.format === "percent");
+    expect(rates.length, "the demo has a hero rate").toBeGreaterThan(0);
+    for (const id of rates) {
+      const name = ec.names.measures.get(id) as string;
+      expect(dax).toContain(`${name} YoY pp`);
+      expect(dax).toContain(`${name} MoM pp`);
+      expect(dax).not.toContain(`${name} YoY %`);
+    }
+    // A blank prior year gives a blank change, not the current rate.
+    expect(dax).toContain(
+      "IF ( NOT ISBLANK ( __current ) && NOT ISBLANK ( __previous ), ( __current - __previous ) * 100 )",
+    );
+    const measures = Object.entries(generateTmdl(ec, "₹", "Orders"))
+      .filter(([path]) => path.endsWith(".tmdl"))
+      .map(([, text]) => text)
+      .join("\n");
+    expect(measures).toContain("formatString: +0.0 pp;-0.0 pp;0.0 pp");
+    // A total still changes relative to where it was.
+    expect(dax).toContain(`${ec.names.measures.get("net_revenue")} YoY %`);
+  });
+
   it("gives the date-only column a name no other column or measure has", () => {
     const ec = exportContext();
     expect(dateRelColumn(ec)).toBe("order_date_day");
@@ -229,6 +252,28 @@ describe("Power BI package", () => {
       "loupe-config.json",
     ])
       expect(readme).toContain(`\`${f}\``);
+  });
+
+  it("says which rows its check values cover, and labels a rate's card with its change in points", () => {
+    expect(readme).toMatch(
+      /Values over the whole file, computed by Loupe: all [\d,]+ rows, \d{1,2} \w{3} \d{4} – \d{1,2} \w{3} \d{4}, with no filter/,
+    );
+    expect(readme).toContain("The cards in Loupe show the period you picked there");
+    expect(readme).toContain("plus time intelligence (YTD, prior year, YoY change)");
+    const ec = exportContext();
+    const rate = ctx.selection.hero.find((id) => ec.res.get(id)?.def.format === "percent") as string;
+    expect(readme).toContain(`[${ec.names.measures.get(rate)} YoY pp]`);
+    expect(readme).toContain(`[${ec.names.measures.get("net_revenue")} YoY %]`);
+  });
+
+  it("marks a KPI counted by first-ever date, which reads oddly over the whole file", () => {
+    const ec = exportContext();
+    // The demo's New customers is a supporting KPI; make it a hero to see it in the check table.
+    const withNew = { ...ec, selection: { ...ec.selection, hero: [...ec.selection.hero, "new_customers"] } };
+    const text = generateReadme(withNew, [], "₹");
+    expect(text).toMatch(/\| New customers † \|/);
+    expect(text).toContain("Over the whole file every one of them is new");
+    expect(readme).not.toContain("†");
   });
 
   it("says plainly that no .pbix is produced", () => {
@@ -304,6 +349,11 @@ describe("Power BI package without new columns", () => {
     expect(readme).toContain("## No new columns");
     expect(readme).not.toMatch(/calculated column|Custom Column|order_date_day/);
     expect(readme).toContain("not built: an hour of day would need a new column");
+    // Only what the package holds: no time intelligence to promise or to use as a card label.
+    expect(readme).not.toMatch(/plus time intelligence|YoY change as each card/);
+    // SQL adds nothing to the model, so its monthly views stay whatever the answer.
+    expect(text("kpis.sql")).toBe(strFromU8(yes["loupe-powerbi/kpis.sql"] ?? new Uint8Array()));
+    expect(text("kpis.sql")).toMatch(/_monthly|by_month/i);
   });
 
   it("uses Power BI's own date hierarchy for parts it can, and says when it can't", () => {

@@ -10,7 +10,7 @@
 import { generateCodeHtml } from "./codeHtml";
 import { strToU8, zipSync, type Zippable } from "fflate";
 import { currencySymbol } from "@/engine/core/format";
-import { datasetToCsvChunks } from "./csv";
+import { datasetToCsvChunks, UTF8_BOM } from "./csv";
 import type { ExportContext } from "./context";
 import { generateDaxFile } from "./daxFile";
 import { dictionaryCsv, dictionaryMarkdown } from "./dictionary";
@@ -50,10 +50,15 @@ export function buildPowerBiPackage(
     [`${folder}/README.md`]: strToU8(generateReadme(ctx, visualSpecs, symbol)),
     [`${folder}/data.csv`]: csvBytes,
     [`${folder}/measures.dax`]: strToU8(generateDaxFile(ctx, symbol)),
-    [`${folder}/kpis.sql`]: strToU8(generateSqlFile(ctx)),
+    // SQL adds nothing to the Power BI model, so it keeps the date column (and its monthly views)
+    // even when the Date table was left out for want of a new column.
+    [`${folder}/kpis.sql`]: strToU8(
+      generateSqlFile(ctx.dateTableSkipped ? { ...ctx, dateColumn: ctx.dateTableSkipped } : ctx),
+    ),
     // The same SQL and DAX in colour, to read in a browser (the .sql and .dax are plain text).
     [`${folder}/kpis-sql-and-dax.html`]: strToU8(generateCodeHtml(ctx, symbol)),
-    [`${folder}/data-dictionary.csv`]: strToU8(dictionaryCsv(ctx)),
+    // The dictionary is read in a spreadsheet, so it carries the byte-order mark Excel needs for UTF-8.
+    [`${folder}/data-dictionary.csv`]: strToU8(UTF8_BOM + dictionaryCsv(ctx)),
     [`${folder}/data-dictionary.md`]: strToU8(dictionaryMarkdown(ctx)),
     [`${folder}/loupe-config.json`]: strToU8(configJson),
   };

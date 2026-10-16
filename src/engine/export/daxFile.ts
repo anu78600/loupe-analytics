@@ -14,6 +14,7 @@ import {
   daxString,
   daxTableName,
   exprDax,
+  POINTS_FORMAT,
   timeIntelligence,
   type TimeIntelMeasure,
 } from "@/engine/compile/dax";
@@ -95,7 +96,7 @@ export interface MeasureDef {
  * Every measure for the model (base KPIs + time intelligence), shared by measures.dax and TMDL.
  * Base measures follow exportKpiIds() order, hidden helpers in a "Helpers"
  * folder. With a primary date, hero KPIs get every time-intelligence variant
- * and supporting KPIs only PY and YoY %.
+ * and supporting KPIs only PY and the YoY change (YoY pp for a rate).
  */
 export function buildMeasures(ctx: ExportContext, symbol: string): MeasureDef[] {
   const daxCtx = makeDaxContext(ctx.ds, ctx.mapping, ctx.res, ctx.names, {
@@ -129,6 +130,7 @@ export function buildMeasures(ctx: ExportContext, symbol: string): MeasureDef[] 
         base,
         isAdditiveExpr(r.variant.expr, (k) => ctx.res.get(k)?.variant?.expr),
         dateCol,
+        r.def.format === "percent",
       );
       for (const t of keep ? pick(all, keep) : all) {
         out.push({
@@ -136,14 +138,19 @@ export function buildMeasures(ctx: ExportContext, symbol: string): MeasureDef[] 
           name: `${base} ${t.suffix}`,
           expression: t.expression,
           folder: `Time intelligence\\${base}`,
-          format: t.percent ? "+0.0%;-0.0%;0.0%" : pbiFormat(r.def.format, ctx.currency, symbol),
+          format: t.points
+            ? POINTS_FORMAT
+            : t.percent
+              ? "+0.0%;-0.0%;0.0%"
+              : pbiFormat(r.def.format, ctx.currency, symbol),
           description: t.description,
           hidden: false,
         });
       }
     };
     for (const id of ctx.selection.hero) add(id, null);
-    for (const id of [...ctx.selection.supporting, ...ctx.selection.columns]) add(id, ["PY", "YoY %"]);
+    for (const id of [...ctx.selection.supporting, ...ctx.selection.columns])
+      add(id, ["PY", "YoY %", "YoY pp"]);
   }
   return out;
 }
