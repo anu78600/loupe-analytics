@@ -75,6 +75,31 @@ const RULE = 78;
 const banner = (title: string): string =>
   [`-- ${"═".repeat(RULE - 3)}`, `-- ${title}`, `-- ${"═".repeat(RULE - 3)}`].join("\n");
 
+/**
+ * SQL view names from the measures' own names, as an analyst would name them:
+ * "Net revenue" → kpi_net_revenue, "Gross margin %" → kpi_gross_margin_pct,
+ * never an internal id ("kpi_yc_avg_mrp"). Lower snake case, unique; the
+ * monthly views add "_monthly".
+ */
+export function viewNames(ids: string[], names: Map<string, string>): Map<string, string> {
+  const used = new Set<string>();
+  const out = new Map<string, string>();
+  for (const id of ids) {
+    const base =
+      (names.get(id) ?? id)
+        .toLowerCase()
+        .replace(/%/g, " pct ")
+        .replace(/#/g, " num ")
+        .replace(/[^a-z0-9]+/g, "_")
+        .replace(/^_+|_+$/g, "") || id;
+    let view = `kpi_${base}`;
+    for (let n = 2; used.has(view); n++) view = `kpi_${base}_${n}`;
+    used.add(view);
+    out.set(id, view);
+  }
+  return out;
+}
+
 /** A KPI card's title rule: "-- ── Net Revenue ──────── ₹5,36,54,021 ──". */
 const cardRule = (title: string, right: string): string => {
   const head = `-- ── ${title} `;
@@ -190,12 +215,13 @@ export function generateSqlFile(ctx: ExportContext): string {
     (a, b) =>
       topics.indexOf(res.get(a)?.def.group ?? "Other") - topics.indexOf(res.get(b)?.def.group ?? "Other"),
   );
+  const views = viewNames(ids, names.measures);
   let topic = "";
   for (const id of ids) {
     const r = res.get(id);
     if (!r?.available || !r.variant) continue;
     const name = names.measures.get(id) ?? r.def.name;
-    const view = quoteIdent(`kpi_${id}`);
+    const view = quoteIdent(views.get(id) ?? `kpi_${id}`);
     let body: string;
     try {
       body = prettySql(kpiQuery(r.variant.expr, sqlCtx, null));
@@ -234,6 +260,8 @@ export function generateSqlFile(ctx: ExportContext): string {
       )}`,
     );
     const heroish = [...ctx.selection.hero, ...ctx.selection.supporting.slice(0, 6)];
+    // The same names as the KPI views above, with "_monthly".
+    const monthlyViews = viewNames(exportKpiIds(ctx), names.measures);
     for (const id of heroish) {
       const r = res.get(id);
       if (!r?.available || !r.variant) continue;
@@ -246,10 +274,17 @@ export function generateSqlFile(ctx: ExportContext): string {
       } catch {
         continue;
       }
-      const base = quoteIdent(`kpi_${id}_monthly_base`);
+      const viewName = monthlyViews.get(id) ?? `kpi_${id}`;
+      const base = quoteIdent(`${viewName}_monthly_base`);
+      // A rate changes in percentage points (0.42 vs 0.40 is +0.02), as on the cards and in DAX.
+      const rate = r.def.format === "percent";
+      const change = (lag: string, which: "mom" | "yoy") =>
+        rate
+          ? `value - ${lag} AS ${which}_change_pp`
+          : `(value - ${lag}) * 1.0 / NULLIF(${lag}, 0) AS ${which}_change`;
       const additive = isAdditiveExpr(r.variant.expr, (k) => res.get(k)?.variant?.expr);
       parts.push(
-        `${cardRule(`${names.measures.get(id) ?? r.def.name}, monthly`, "")}\nCREATE VIEW ${base} AS\n${monthly};\n\nCREATE VIEW ${quoteIdent(`kpi_${id}_monthly`)} AS\nSELECT\n  period,\n  value,\n  LAG(value) OVER (ORDER BY period) AS previous_month,\n  (value - LAG(value) OVER (ORDER BY period)) * 1.0 / NULLIF(LAG(value) OVER (ORDER BY period), 0) AS mom_change,\n  LAG(value, 12) OVER (ORDER BY period) AS same_month_last_year,\n  (value - LAG(value, 12) OVER (ORDER BY period)) * 1.0 / NULLIF(LAG(value, 12) OVER (ORDER BY period), 0) AS yoy_change${
+        `${cardRule(`${names.measures.get(id) ?? r.def.name}, monthly`, "")}\nCREATE VIEW ${base} AS\n${monthly};\n\nCREATE VIEW ${quoteIdent(`${viewName}_monthly`)} AS\nSELECT\n  period,\n  value,\n  LAG(value) OVER (ORDER BY period) AS previous_month,\n  ${change("LAG(value) OVER (ORDER BY period)", "mom")},\n  LAG(value, 12) OVER (ORDER BY period) AS same_month_last_year,\n  ${change("LAG(value, 12) OVER (ORDER BY period)", "yoy")}${
           additive
             ? ",\n  SUM(value) OVER (PARTITION BY EXTRACT(YEAR FROM period) ORDER BY period) AS ytd"
             : ""

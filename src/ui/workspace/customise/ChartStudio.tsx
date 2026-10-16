@@ -137,7 +137,7 @@ export function ChartStudio({ editing, onDone }: { editing: ChartSpec | null; on
             <span className="text-fg-muted">
               {editing.source === "custom"
                 ? "Your changes replace it."
-                : "It's a recommended chart, so your version is saved as your own chart and the original is hidden."}
+                : "It's a recommended chart, so your version is saved as a custom chart and the original is hidden."}
             </span>
           </p>
         ) : null}

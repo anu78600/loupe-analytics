@@ -252,7 +252,7 @@ export function ReportDocument({ input }: { input: ReportInput }) {
         ) : null}
         {input.insights.length ? (
           <>
-            <h2 className="mt-8 text-[15px] font-medium text-fg">Top findings</h2>
+            <h2 className="mt-8 text-[15px] font-medium text-fg">Top insights</h2>
             <ol className="mt-3 grid gap-3">
               {input.insights.slice(0, 4).map((i, n) => (
                 <li key={i.id} className="flex gap-3 text-[14px]">

@@ -2,7 +2,7 @@
  * Assembles the Power BI package (.zip) from the individual generators.
  *
  * Runs in the worker and zips synchronously with fflate. Everything sits under
- * one "loupe-powerbi/" folder: README.md, data.csv (injection-guarded,
+ * one folder, named like the zip ("loupe-powerbi" by default): README.md, data.csv (injection-guarded,
  * export-safe headers), measures.dax, kpis.sql, the data dictionary,
  * loupe-config.json and the `<Table>.SemanticModel/` TMDL folder. A real
  * .pbix cannot be produced in a browser; the README explains this.
@@ -32,9 +32,11 @@ export interface PackageManifest {
 export function buildPowerBiPackage(
   ctx: ExportContext,
   configJson: string,
+  folderName?: string,
 ): { zip: Uint8Array; manifest: PackageManifest } {
   const symbol = currencySymbol(ctx.currency).trim();
-  const folder = "loupe-powerbi";
+  // Only a plain name can be a folder: anything else falls back to the default.
+  const folder = folderName && /^[\w.-]+$/.test(folderName) ? folderName : "loupe-powerbi";
   const headers = ctx.names.columns;
   const csvParts = datasetToCsvChunks(ctx.ds, { headers, guardInjection: true });
   // Concatenate chunk bytes without building one giant JS string.

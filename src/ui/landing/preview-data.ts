@@ -28,6 +28,7 @@ import type { Filter } from "@/engine/query/filter";
 import type { ChartData } from "@/engine/charts/types";
 import { DOMAINS } from "@/registry";
 import { CHART_TYPES } from "@/engine/charts/catalogue";
+import { kpiLabel } from "@/engine/core/labels";
 
 /** Date presets the hero preview can switch between. */
 export const PREVIEW_PRESETS = ["last12m", "last6m", "last90d"] as const satisfies readonly DatePreset[];
@@ -140,7 +141,7 @@ function toKpis(ctx: ContextResult, session: Session, filters: Filter[], ids: st
     return [
       {
         id: v.id,
-        name: meta.short ?? meta.name,
+        name: kpiLabel(meta),
         format: meta.format,
         value: v.value,
         display: formatValue(v.value, meta.format, { ...LOCALE_OPTS, compact: true }),

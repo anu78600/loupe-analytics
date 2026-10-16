@@ -30,6 +30,7 @@ import {
   type ResolvedAxis,
 } from "./types";
 import { CHART_TYPES } from "./catalogue";
+import { averageOf, friendly, kpiLabel, totalOf } from "@/engine/core/labels";
 
 export interface RecommendInput {
   domain: DomainDef;
@@ -56,7 +57,7 @@ const colProfile = (profile: DatasetProfile, name: string | undefined): ColumnPr
  */
 export function measureMeta(id: string, domain: DomainDef, profile: DatasetProfile): ChartMeasure {
   const k = domain.kpis.find((x) => x.id === id);
-  if (k) return { id, label: k.short ?? k.name, format: k.format, direction: k.direction };
+  if (k) return { id, label: kpiLabel(k), format: k.format, direction: k.direction };
   const m = /^agg:(\w+):(.*)$/.exec(id);
   if (m) {
     const [, agg, column] = m as unknown as [string, string, string];
@@ -65,8 +66,12 @@ export function measureMeta(id: string, domain: DomainDef, profile: DatasetProfi
       agg === "count"
         ? "Rows"
         : agg === "countDistinct"
-          ? `Distinct ${column}`
-          : `${agg === "avg" ? "Average" : agg === "sum" ? "Total" : agg[0]?.toUpperCase() + agg.slice(1)} ${column}`;
+          ? `Distinct ${friendly(column)}`
+          : agg === "avg"
+            ? averageOf(column)
+            : agg === "sum"
+              ? totalOf(column)
+              : `${agg[0]?.toUpperCase()}${agg.slice(1)} ${friendly(column)}`;
     const format: KpiFormat =
       agg === "count" || agg === "countDistinct"
         ? "integer"
@@ -112,14 +117,14 @@ function resolveAxis(
     if (!column) return { missing: label(axis.time) };
     const tp = colProfile(profile, column);
     if (tp?.storage !== "date" || tp.role === "time") return { missing: `${label(axis.time)} as a date` };
-    return { axis: { kind: "time", column, grain: axis.grain ?? "auto", label: column } };
+    return { axis: { kind: "time", column, grain: axis.grain ?? "auto", label: friendly(column) } };
   }
   if ("field" in axis) {
     const column = mapping.fields[axis.field];
     if (!column) return { missing: label(axis.field) };
     const p = colProfile(profile, column);
     if (p && p.distinct < 2) return { missing: `${label(axis.field)} with more than one value` };
-    return { axis: { kind: "column", column, label: column } };
+    return { axis: { kind: "column", column, label: friendly(column) } };
   }
   if ("part" in axis) {
     const column = mapping.fields[axis.of];
@@ -133,7 +138,7 @@ function resolveAxis(
       if (time)
         return {
           axis: { kind: "part", column: time.name, part: "hour", label: "Hour of day" },
-          note: `${column} has no time of day, so the hour comes from your separate ${time.name} column.`,
+          note: `${friendly(column)} has no time of day, so the hour comes from your separate ${friendly(time.name)} column.`,
         };
       return {
         axis: { kind: "part", column, part: "month", label: "Month" },
@@ -176,6 +181,20 @@ function defaultModes(t: ChartTemplate): LayoutMode[] {
   return exec ? ["executive", "analyst", "compact"] : ["analyst"];
 }
 
+/**
+ * A template's reason without "top 10 plus Others" when the column has no
+ * more values than that, so a chart of six categories doesn't promise an
+ * Others bar it can't have. Both wordings are handled: "… readable. Top 10
+ * plus Others." and "… sorted bars, top 15 plus Others(, with …)."
+ */
+export function fitTopN(reason: string, distinct: number | undefined, topN: number | undefined): string {
+  if (!topN || distinct === undefined || distinct > topN) return reason;
+  return reason
+    .replace(/\.\s*Top \d+ plus Others\./, ".")
+    .replace(/,\s*top \d+ plus Others(?=[.,])/i, "")
+    .trim();
+}
+
 /** Resolves the domain's templates into ChartSpecs, sorted by section then priority, plus the skipped ones with reasons. */
 export function recommendCharts(input: RecommendInput): { specs: ChartSpec[]; skipped: SkippedChart[] } {
   const { domain, mapping, res, profile, subDomain } = input;
@@ -216,6 +235,7 @@ export function recommendCharts(input: RecommendInput): { specs: ChartSpec[]; sk
       title = title.replace(/hour/i, "month");
     }
     const xCol = x.axis && x.axis.kind === "column" ? colProfile(profile, x.axis.column) : undefined;
+    reason = fitTopN(reason, xCol?.distinct, topN);
     // Set for any state-level IN/US x column, not just tile maps, so a tile map alternative can be drawn.
     const geoRegion =
       xCol?.geoLevel === "state" && (xCol.geoRegion === "IN" || xCol.geoRegion === "US")

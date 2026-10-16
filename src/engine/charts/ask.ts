@@ -25,6 +25,7 @@ import type { ColumnProfile } from "@/engine/profile/types";
 import type { ChartKind, KpiFormat } from "@/registry/schema";
 import { customSpec, isKindCompatible, timeColumnFor } from "./recommend";
 import { MAX_DONUT_SLICES, type ChartMeasure, type ChartSpec, type ResolvedAxis } from "./types";
+import { friendly, kpiLabel, wasWere } from "@/engine/core/labels";
 
 export type AskAgg = "sum" | "avg" | "median" | "min" | "max" | "count" | "countDistinct";
 
@@ -228,8 +229,8 @@ interface Match {
 const QUALIFIERS = new Set(["net", "gross", "total", "overall", "all"]);
 
 /**
- * True when a KPI's name is the words asked plus only qualifiers ("Net Revenue"
- * for "revenue", "Gross Sales (GMV)" for "sales"); a bracketed acronym is ignored.
+ * True when a KPI's name is the words asked plus only qualifiers ("Net revenue"
+ * for "revenue", "Gross sales (GMV)" for "sales"); a bracketed acronym is ignored.
  */
 function qualifiedName(name: string, termTokens: readonly string[]): boolean {
   const words = tokenize(name.replace(/\([^)]*\)/g, " "));
@@ -691,7 +692,7 @@ export function designAsk(ask: ChartAsk, ctx: AskContext, newId: () => string): 
       kind = m <= 2 ? "hbar" : "bar";
       why =
         m === 1
-          ? `Sorted bars, largest first${avg ? " (an average, so it is compared, never added up)" : ""}, top ${ask.topN ?? 10} plus Others.`
+          ? `Sorted bars, largest first${avg ? " (an average, so it is compared, never added up)" : ""}${(xCol?.distinct ?? Infinity) > (ask.topN ?? 10) ? `, top ${ask.topN ?? 10} plus Others` : ""}.`
           : `Grouped bars in the same unit, one colour per measure, top ${ask.topN ?? 10} by the first.`;
     }
 
@@ -877,9 +878,12 @@ export function readQuestion(text: string, ctx: AskContext): QuestionReading {
   return { ...reading, ask, order };
 }
 
-/** A KPI or column name inside a sentence: each word lower-case, except acronyms (AOV, GMV, MRR, GST). */
+/**
+ * A KPI or column name inside a sentence: read with spaces ("customer_state" →
+ * "customer state"), each word lower-case except acronyms (AOV, GMV, MRR, GST).
+ */
 export function phrase(name: string): string {
-  return name
+  return friendly(name)
     .split(" ")
     .map((w) => (/^[A-Z0-9%]{2,}$/.test(w) ? w : w.toLowerCase()))
     .join(" ");
@@ -931,35 +935,38 @@ export function suggestQuestions(ctx: AskContext): SuggestedQuestion[] {
   const add = (text: string, ask: ChartAsk, order: AskOrder = "desc") => out.push({ text, ask, order });
 
   if (k1 && date)
-    add(`How has ${phrase(k1.name)} changed month by month?`, {
-      measures: [kpi(k1)],
-      by: { kind: "time", column: date, grain: "month" },
-    });
+    add(
+      `How ${wasWere(kpiLabel(k1)) === "were" ? "have" : "has"} ${phrase(kpiLabel(k1))} changed month by month?`,
+      {
+        measures: [kpi(k1)],
+        by: { kind: "time", column: date, grain: "month" },
+      },
+    );
   if (k1 && cats[0])
-    add(`Which ${phrase(cats[0].name)} has the highest ${phrase(k1.name)}?`, {
+    add(`Which ${phrase(cats[0].name)} has the highest ${phrase(kpiLabel(k1))}?`, {
       measures: [kpi(k1)],
       by: { kind: "column", column: cats[0].name },
       topN: 10,
     });
   if (k2 && (cats[1] ?? cats[0]))
-    add(`How do ${plural(phrase((cats[1] ?? cats[0])?.name ?? ""))} compare on ${phrase(k2.name)}?`, {
+    add(`How do ${plural(phrase((cats[1] ?? cats[0])?.name ?? ""))} compare on ${phrase(kpiLabel(k2))}?`, {
       measures: [kpi(k2)],
       by: { kind: "column", column: (cats[1] ?? cats[0])?.name ?? "" },
       topN: 10,
     });
   if (k1 && items)
-    add(`What are the top 10 ${plural(phrase(items.name))} by ${phrase(k1.name)}?`, {
+    add(`What are the top 10 ${plural(phrase(items.name))} by ${phrase(kpiLabel(k1))}?`, {
       measures: [kpi(k1)],
       by: { kind: "column", column: items.name },
       topN: 10,
     });
   if (k1 && date)
-    add(`Which day of the week has the most ${phrase(k1.name)}?`, {
+    add(`Which day of the week has the most ${phrase(kpiLabel(k1))}?`, {
       measures: [kpi(k1)],
       by: { kind: "part", column: date, part: "dow" },
     });
   if (k1 && hourCol)
-    add(`At what hour of the day is ${phrase(k1.name)} highest?`, {
+    add(`At what hour of the day is ${phrase(kpiLabel(k1))} highest?`, {
       measures: [kpi(k1)],
       by: { kind: "part", column: hourCol, part: "hour" },
     });
@@ -974,7 +981,7 @@ export function suggestQuestions(ctx: AskContext): SuggestedQuestion[] {
       "asc",
     );
   if (k1 && k2)
-    add(`What are the overall ${phrase(k1.name)} and ${phrase(k2.name)}?`, {
+    add(`What are the overall ${phrase(kpiLabel(k1))} and ${phrase(kpiLabel(k2))}?`, {
       measures: [kpi(k1), kpi(k2)],
       by: { kind: "none" },
     });

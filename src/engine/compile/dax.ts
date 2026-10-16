@@ -399,7 +399,7 @@ export function timeIntelligence(
   ];
   if (additive) {
     out.push({
-      suffix: "7D Moving Avg",
+      suffix: "Rolling 7D Avg",
       expression: fn("DIVIDE", [
         fn("CALCULATE", [m, fn("DATESINPERIOD", [dateCol, `MAX ( ${dateCol} )`, "-7", "DAY"])]),
         "7",

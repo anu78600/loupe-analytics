@@ -146,7 +146,7 @@ describe("the readable files", () => {
     expect(html).toContain("Your table and columns");
     expect(html).toContain(`<span class="n">&quot;net_amount&quot;</span>`);
     expect(html).toContain(`<span class="k">SELECT</span>`);
-    expect(html).toContain("Net Revenue");
+    expect(html).toContain("Net revenue");
     const cards = (html.match(/<section class="kpi"/g) ?? []).length;
     expect(cards).toBeGreaterThan(10);
   });

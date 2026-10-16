@@ -52,6 +52,7 @@
  *   sub-periods don't share is low, and too few sub-periods (or a per-entity
  *   measure, whose value depends on the window's length) is medium.
  */
+import { article, wasWere } from "@/engine/core/labels";
 import type { Dataset } from "@/engine/core/types";
 import {
   addMonths,
@@ -61,7 +62,7 @@ import {
   formatDay,
   startOfDay,
   startOfMonth,
-  WEEKDAYS_SHORT,
+  WEEKDAYS_LONG,
 } from "@/engine/core/dates";
 import { formatDelta, formatPointDelta, formatValue, type FormatOptions } from "@/engine/core/format";
 import { linearRegression, median, robustSigma } from "@/engine/core/stats";
@@ -76,6 +77,18 @@ import type { KpiFormat } from "@/registry/schema";
 
 export type InsightKind =
   "trend" | "anomaly" | "concentration" | "seasonality" | "segment" | "driver" | "mix" | "caveat";
+
+/** What each kind of insight is called: one wording for the app and the insights PDF. */
+export const INSIGHT_KIND_LABEL: Record<InsightKind, string> = {
+  trend: "Trend",
+  anomaly: "Anomaly",
+  concentration: "Concentration",
+  seasonality: "Seasonality",
+  segment: "Segment gap",
+  driver: "Driver",
+  mix: "Mix effect",
+  caveat: "Caveat",
+};
 
 export interface Insight {
   id: string;
@@ -180,6 +193,9 @@ function toneFor(direction: InsightKpi["direction"], change: number): Insight["t
   if (direction === "neutral" || change === 0) return "neutral";
   return change > 0 === (direction === "higher") ? "positive" : "negative";
 }
+
+/** "an 85.8 pp gap", "a 5.2 pp gap". */
+const gapText = (pp: string) => `${article(pp)} ${pp} gap`;
 
 function chartFor(specs: ChartSpec[], predicate: (s: ChartSpec) => boolean): string | undefined {
   return specs.find(predicate)?.id;
@@ -623,7 +639,7 @@ function periodTrends(
       sentences: [
         daily
           ? `${k.name} averaged ${f(a)} a day in ${curInfo.label}, ${text} vs ${f(b)} a day in ${batch.comparison?.label}; the data covers ${Math.round(curDays)} and ${Math.round(cmpDays)} days of the two periods.`
-          : `${k.name} was ${f(a)} in ${curInfo.label}, ${text} vs ${f(b)} in ${batch.comparison?.label}.`,
+          : `${k.name} ${wasWere(k.name)} ${f(a)} in ${curInfo.label}, ${text} vs ${f(b)} in ${batch.comparison?.label}.`,
         consistencyText(t, change > 0),
       ],
       basis: `The same two periods as the KPI cards${batch.current ? " (narrowed to what the data covers in both)" : ""}${daily ? ", per day of data because the data covers the two periods unequally" : ""}.${testBasis(t)}${untested}`,
@@ -737,7 +753,7 @@ function monthTrends(
         ? `${k.name} ${change > 0 ? "up" : "down"} ${unsigned(text)} year on year in ${lastLabel}`
         : `${k.name} ${change > 0 ? "up" : "down"} ${unsigned(text)} in ${lastLabel} vs ${baseLabel}`,
       sentences: [
-        `${k.name} was ${f(last.v)} in ${lastLabel}, ${text} vs ${baseLabel} (${f(base.v)}).`,
+        `${k.name} ${wasWere(k.name)} ${f(last.v)} in ${lastLabel}, ${text} vs ${baseLabel} (${f(base.v)}).`,
         consistencyText(test, change > 0),
         slope
           ? `Over the last ${window.length} complete months the trend is ${slope.perMonth > 0 ? "upward" : "downward"}, about ${unsigned(formatDelta(slope.perMonth, fmt.locale))} of the average per month (R² ${slope.r2.toFixed(2)}).`
@@ -863,7 +879,7 @@ function anomalyInsights(input: InsightInput): Insight[] {
       id: `anomaly-${k.id}-${a.t}`,
       kind: "anomaly" as const,
       title: `Unusual ${spike ? "spike" : "dip"} in ${k.name} on ${formatDay(a.t)}`,
-      body: `${k.name} was ${f(a.v)} on ${formatDay(a.t)}, ${spike ? `${ratio.toFixed(1)}× the typical day` : `${Math.round((1 - ratio) * 100)}% below a typical day`} (28-day median ${f(a.med)}). ${spike ? "Check for a sale, campaign or bulk order." : "Check for an outage, stock-out or data gap."}`,
+      body: `${k.name} ${wasWere(k.name)} ${f(a.v)} on ${formatDay(a.t)}, ${spike ? `${ratio.toFixed(1)}× the typical day` : `${Math.round((1 - ratio) * 100)}% below a typical day`} (28-day median ${f(a.med)}). ${spike ? "Check what happened that day: a one-off event, a bulk entry or a data error." : "Check what happened that day: an interruption, a one-off event or missing data."}`,
       tone: spike ? ("neutral" as const) : ("warning" as const),
       impact: impactScore(RELEVANCE.anomaly, weight(k), strength(Math.abs(a.z), 8), "medium"),
       confidence: "medium" as const,
@@ -974,16 +990,17 @@ function seasonalityInsights(input: InsightInput): Insight[] {
     const min = active.reduce<{ v: number; i: number } | null>((a, b) => (!a || b.v < a.v ? b : a), null);
     const gap = max && min && max.i !== min.i ? (max.v - min.v) / min.v : 0;
     if (mean > 0 && max && min && gap >= 0.15) {
-      const maxDay = WEEKDAYS_SHORT[max.i];
-      const minDay = WEEKDAYS_SHORT[min.i];
+      // Sentences name the day in full ("Saturday"), as a report would.
+      const maxDay = WEEKDAYS_LONG[max.i];
+      const minDay = WEEKDAYS_LONG[min.i];
       const idleText = idle.length
-        ? ` ${joinAnd(idle.map((d) => `${WEEKDAYS_SHORT[d.i]} averages ${f(d.v)}`))}, so the gap is measured against the quietest day with activity.`
+        ? ` ${joinAnd(idle.map((d) => `${WEEKDAYS_LONG[d.i]} averages ${f(d.v)}`))}, so the gap is measured against the quietest day with activity.`
         : "";
       out.push({
         id: `seasonality-dow-${k.id}`,
         kind: "seasonality",
         title: `${maxDay} is the strongest day for ${k.name}`,
-        body: `An average ${maxDay} brings ${Math.round(gap * 100)}% more ${k.name.toLowerCase()} than an average ${minDay}.${idleText} Time promotions and staffing to the weekly rhythm.`,
+        body: `An average ${maxDay} brings ${Math.round(gap * 100)}% more ${k.name.toLowerCase()} than an average ${minDay}.${idleText} Plan capacity and timing around this weekly rhythm.`,
         tone: "neutral",
         impact: impactScore(
           RELEVANCE.seasonality,
@@ -1020,7 +1037,7 @@ function seasonalityInsights(input: InsightInput): Insight[] {
           id: `seasonality-month-${k.id}`,
           kind: "seasonality",
           title: `${name} runs ${Math.round(lift * 100)}% above an average month`,
-          body: `Across the years in the data, ${name} averages ${Math.round(lift * 100)}% more ${k.name.toLowerCase()} per day than the yearly mean, a recurring peak to plan inventory and logistics for.`,
+          body: `Across the years in the data, ${name} averages ${Math.round(lift * 100)}% more ${k.name.toLowerCase()} per day than the yearly mean, a recurring peak worth planning for.`,
           tone: "neutral",
           impact: impactScore(RELEVANCE.seasonality, weight(k), strength(lift, 0.4), "medium"),
           confidence: "medium",
@@ -1087,7 +1104,7 @@ function segmentInsights(input: InsightInput): Insight[] {
         id: `segment-${k.id}-${seg.column}`,
         kind: "segment",
         title: `${k.name}: ${hi.label} ${Number.isFinite(ratio) && ratio < 50 ? `${ratio.toFixed(1)}×` : "far above"} ${lo.label}`,
-        body: `Across ${seg.label.toLowerCase()}, ${k.name} ranges from ${f(lo.v)} (${lo.label}) to ${f(hi.v)} (${hi.label})${pct ? `, a ${formatPointDelta(gapAbs, fmt.locale).replace(/^\+/, "")} gap` : ""}.${k.direction !== "neutral" ? ` ${worse.label} is the segment to look at first.` : ""}`,
+        body: `Across ${seg.label.toLowerCase()}, ${k.name} ranges from ${f(lo.v)} (${lo.label}) to ${f(hi.v)} (${hi.label})${pct ? `, ${gapText(formatPointDelta(gapAbs, fmt.locale).replace(/^\+/, ""))}` : ""}.${k.direction !== "neutral" ? ` ${worse.label} is the segment to look at first.` : ""}`,
         tone: k.direction === "neutral" ? "neutral" : "warning",
         impact: impactScore(RELEVANCE.segment, weight(k), gapStrength * reach, confidence),
         confidence,
@@ -1303,7 +1320,7 @@ function caveatInsights(input: InsightInput): Insight[] {
       id: "caveat-small",
       kind: "caveat",
       title: "Small selection",
-      body: `Only ${rows} rows match the current filters. Percentages can swing widely from a few records; widen the filters before drawing conclusions.`,
+      body: `Only ${rows} rows match the current filters. Percentages can swing widely on a few rows; widen the filters before drawing conclusions.`,
       tone: "warning",
       impact: impactScore(RELEVANCE.smallSelection, 1, 1, "high"),
       confidence: "high",

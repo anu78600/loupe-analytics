@@ -48,7 +48,7 @@ import { allSpecs, stepNumber, useWorkspace } from "@/store/workspace";
 import { useSettings } from "@/store/settings";
 import { powerBiTheme, resolveTheme } from "@/ui/charts/palette/themes";
 import { engine } from "@/lib/engine-client";
-import { downloadBlob, downloadDataUrl, slugify } from "@/lib/utils";
+import { downloadBlob, downloadDataUrl, exportFileName } from "@/lib/utils";
 import type { VerificationResult } from "@/lib/duckdb";
 import { Button } from "@/ui/primitives/button";
 import { Badge } from "@/ui/primitives/badge";
@@ -77,7 +77,7 @@ function powerBiConsent(
   const parts = columns.some((c) => c.kind === "datePart");
   return {
     title: n === 1 ? `Add 1 column in the ${what}?` : `Add ${n} columns in the ${what}?`,
-    intro: `Everything else is built from your own columns. These ${n === 1 ? "column is" : "columns are"} only added inside Power BI; your file and Loupe's numbers stay the same either way.`,
+    intro: `Everything else is built from your own columns. ${n === 1 ? "This column is" : "These columns are"} only added inside Power BI; your file and Loupe's numbers stay the same either way.`,
     columns,
     ifNo: [
       noDateTable
@@ -286,14 +286,16 @@ function PowerBiCard() {
       if (add === null) return;
       // The chart colours travel as a Power BI report theme, so the report can match the dashboard.
       const theme = resolveTheme(useSettings.getState().chartTheme);
-      const out = await engine().exportPowerBi(JSON.stringify(cfg, null, 2), visible, !add, {
-        name: theme.name,
-        json: powerBiTheme(theme),
-      });
-      downloadBlob(
-        new Blob([out.zip as BlobPart], { type: "application/zip" }),
-        `${slugify(summary?.name ?? "loupe")}-powerbi.zip`,
+      // The zip and the folder inside it share one name, so an unzipped package says what it is.
+      const zipName = exportFileName(summary?.name, "powerbi-package", "zip");
+      const out = await engine().exportPowerBi(
+        JSON.stringify(cfg, null, 2),
+        visible,
+        !add,
+        { name: theme.name, json: powerBiTheme(theme) },
+        zipName.replace(/\.zip$/, ""),
       );
+      downloadBlob(new Blob([out.zip as BlobPart], { type: "application/zip" }), zipName);
       setManifest(out.manifest);
       toast.success(
         extra.length && !add
@@ -371,7 +373,7 @@ function ReportCard() {
     if (!input) return;
     setBusy("Preparing…");
     try {
-      await exportPdf(input, `${slugify(summary?.name ?? "loupe")}-report.pdf`, setBusy);
+      await exportPdf(input, exportFileName(summary?.name, "dashboard-report", "pdf"), setBusy);
       toast.success("PDF report downloaded");
     } catch (e) {
       toast.error(`PDF export failed: ${(e as Error).message}`);
@@ -387,7 +389,7 @@ function ReportCard() {
       const url = await exportDashboardPng(input, transparent);
       downloadDataUrl(
         url,
-        `${slugify(summary?.name ?? "loupe")}-dashboard${transparent ? "-transparent" : ""}.png`,
+        exportFileName(summary?.name, transparent ? "dashboard-transparent" : "dashboard", "png"),
       );
       toast.success("Dashboard PNG downloaded");
     } catch (e) {
@@ -400,7 +402,7 @@ function ReportCard() {
     <ExportCard
       icon={FileText}
       title="1 · Dashboard"
-      description="As a PDF report (A4, light theme): KPI summary, every visible chart with its reason, top findings and a data-health appendix. Or the whole dashboard, every chart, as one high-resolution image. Single charts export from each chart's menu."
+      description="As a PDF report (A4, light theme): KPI summary, every visible chart with its reason, the top insights and a data-health appendix. Or the whole dashboard, every chart, as one high-resolution image. Single charts export from each chart's menu."
     >
       <div className="flex flex-wrap gap-2">
         <Button variant="secondary" onClick={() => void pdf()} disabled={Boolean(busy)}>
@@ -457,7 +459,7 @@ function SqlPdfCard() {
           kpis,
           describe: (f) => describeFilter(f, formatDay),
         },
-        `${slugify(summary.name)}-sql-queries.pdf`,
+        exportFileName(summary.name, "sql-queries", "pdf"),
       );
       toast.success("SQL queries PDF downloaded");
     } catch (e) {
@@ -539,7 +541,7 @@ function InsightsPdfCard() {
           insights: input.insights,
           charts,
         },
-        `${slugify(summary?.name ?? "loupe")}-insights.pdf`,
+        exportFileName(summary?.name, "insights", "pdf"),
         setBusy,
       );
       toast.success("Insights PDF downloaded");
@@ -594,7 +596,7 @@ function SqlCard() {
       if (add === null) return;
       downloadBlob(
         await engine().exportCodeHtml(!add),
-        `${slugify(summary?.name ?? "loupe")}-sql-and-dax.html`,
+        exportFileName(summary?.name, "kpis-sql-and-dax", "html"),
         "text/html;charset=utf-8",
       );
     } catch (e) {
@@ -641,7 +643,7 @@ function SqlCard() {
         <Button
           variant="secondary"
           onClick={() =>
-            sql && downloadBlob(sql, `${slugify(summary?.name ?? "loupe")}-kpis.sql`, "application/sql")
+            sql && downloadBlob(sql, exportFileName(summary?.name, "kpis", "sql"), "application/sql")
           }
           disabled={!sql}
         >
@@ -759,7 +761,8 @@ function SqlCard() {
 
 function MiscCard() {
   const summary = useWorkspace((s) => s.summary);
-  const base = slugify(summary?.name ?? "loupe");
+  // Named like the same files inside the Power BI package: measures, data-dictionary, data.
+  const name = (artefact: string, ext: string) => exportFileName(summary?.name, artefact, ext);
   const consent = useColumnConsent();
   const dl = async (kind: "dax" | "dict-csv" | "dict-md" | "csv") => {
     try {
@@ -768,26 +771,26 @@ function MiscCard() {
         const extra = await engine().powerBiNewColumns([]);
         const add = await consent.ask(powerBiConsent(extra, "DAX measures"));
         if (add === null) return;
-        downloadBlob(await engine().exportDax(!add), `${base}-measures.dax`);
+        downloadBlob(await engine().exportDax(!add), name("measures", "dax"));
       }
       // CSVs start with the byte-order mark so Excel reads them as UTF-8 (₹ and accents intact).
       if (kind === "dict-csv")
         downloadBlob(
           UTF8_BOM + (await engine().exportDictionary("csv")),
-          `${base}-data-dictionary.csv`,
+          name("data-dictionary", "csv"),
           "text/csv;charset=utf-8",
         );
       if (kind === "dict-md")
         downloadBlob(
           await engine().exportDictionary("md"),
-          `${base}-data-dictionary.md`,
+          name("data-dictionary", "md"),
           "text/markdown;charset=utf-8",
         );
       if (kind === "csv") {
         const bytes = await engine().exportCsv(true);
         downloadBlob(
           new Blob([UTF8_BOM, bytes as BlobPart], { type: "text/csv;charset=utf-8" }),
-          `${base}-clean.csv`,
+          name("data", "csv"),
         );
       }
     } catch (e) {
@@ -829,7 +832,7 @@ function ConfigCard() {
     if (!cfg) return;
     downloadBlob(
       JSON.stringify(cfg, null, 2),
-      `${slugify(summary?.name ?? "loupe")}.loupe.json`,
+      exportFileName(summary?.name, "loupe-config", "json"),
       "application/json",
     );
   };
@@ -859,7 +862,7 @@ function ConfigCard() {
     <ExportCard
       icon={FileJson}
       title="Shareable config"
-      description="Saves the domain, mapping, value meanings, roles, KPI names and targets, layout, custom charts and filters. Load it with the same file to get the same dashboard."
+      description="Saves the industry, mapping, value meanings, roles, KPI names and targets, layout, custom charts and filters. Load it with the same file to get the same dashboard."
     >
       <div className="flex flex-wrap gap-2">
         <Button variant="secondary" onClick={download}>

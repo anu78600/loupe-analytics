@@ -37,10 +37,11 @@ import { isKindCompatible } from "@/engine/charts/recommend";
 import { bucketLabel, endOfBucket, formatRange, isoDate } from "@/engine/core/dates";
 import { formatCount, type NumberLocale } from "@/engine/core/format";
 import { UTF8_BOM } from "@/engine/export/csv";
+import { CHART_TYPES } from "@/engine/charts/catalogue";
 import { PRESET_LABEL } from "@/engine/core/periods";
 import { useWorkspace, type Widget } from "@/store/workspace";
 import { engine } from "@/lib/engine-client";
-import { cn, downloadBlob, downloadDataUrl, slugify } from "@/lib/utils";
+import { cn, downloadBlob, downloadDataUrl, exportFileName } from "@/lib/utils";
 import { Button } from "@/ui/primitives/button";
 import { Badge } from "@/ui/primitives/badge";
 import { Tooltip } from "@/ui/primitives/tooltip";
@@ -63,41 +64,14 @@ import { buildOption, rendersWithECharts, type GeoTileDatum } from "./options";
 import { readChartTokens } from "./tokens";
 
 /** User-facing name of each chart kind (kind menus and labels). */
-export const KIND_LABEL: Record<ChartKind, string> = {
-  line: "Line",
-  area: "Area",
-  bar: "Columns",
-  hbar: "Bars",
-  stackedBar: "Stacked columns",
-  donut: "Donut",
-  treemap: "Treemap",
-  scatter: "Scatter",
-  histogram: "Histogram",
-  box: "Box plot",
-  heatmap: "Heatmap",
-  funnel: "Funnel",
-  waterfall: "Waterfall",
-  bullet: "Bullet",
-  cohort: "Cohort heatmap",
-  bump: "Bump",
-  pareto: "Pareto",
-  geoTile: "Tile map",
-  table: "Table",
-  pie: "Pie",
-  groupedBar: "Grouped columns",
-  stackedBar100: "100% stacked columns",
-  stackedArea: "Stacked area",
-  step: "Step line",
-  lollipop: "Lollipop",
-  dumbbell: "Dumbbell",
-  bubble: "Bubble",
-  radar: "Radar",
-  gauge: "Gauge",
-  sunburst: "Sunburst",
-  sankey: "Sankey",
-  calendar: "Calendar heatmap",
-  bigNumber: "Big number",
-};
+/**
+ * Each chart kind's name, taken from the chart catalogue, so the switcher,
+ * the builder and the catalogue page never call one chart two things.
+ */
+export const KIND_LABEL = Object.fromEntries(CHART_TYPES.map((t) => [t.kind, t.name])) as Record<
+  ChartKind,
+  string
+>;
 
 const TOPN = [5, 10, 15, 20];
 
@@ -264,8 +238,11 @@ export function ChartCard({
 
   // Charts export from ECharts' own canvas on the card's surface colour;
   // table views are rasterised from the DOM (html-to-image, loaded on demand).
+  // Single charts follow the export naming: "{dataset}_{chart title}_{date}.{ext}".
+  const fileName = (ext: string, suffix = "") =>
+    exportFileName(useWorkspace.getState().summary?.name, `${chartTitle}${suffix}`, ext);
   const exportPng = async (transparent: boolean) => {
-    const name = `${slugify(chartTitle)}${transparent ? "-transparent" : ""}.png`;
+    const name = fileName("png", transparent ? " transparent" : "");
     if (option && chartRef.current && !tableView) {
       const bg = readChartTokens().surface;
       const url = chartRef.current.toPng({ transparent, background: bg });
@@ -284,7 +261,7 @@ export function ChartCard({
 
   const exportSvg = async () => {
     const svg = await chartRef.current?.toSvg();
-    if (svg) downloadBlob(svg, `${slugify(chartTitle)}.svg`, "image/svg+xml");
+    if (svg) downloadBlob(svg, fileName("svg"), "image/svg+xml");
     else toast.error("SVG export is available for chart views, not tables.");
   };
 
@@ -296,7 +273,7 @@ export function ChartCard({
       return;
     }
     // The byte-order mark makes Excel read the file as UTF-8, so labels with ₹ or accents stay intact.
-    downloadBlob(UTF8_BOM + csv, `${slugify(chartTitle)}.csv`, "text/csv;charset=utf-8");
+    downloadBlob(UTF8_BOM + csv, fileName("csv"), "text/csv;charset=utf-8");
   };
 
   const categoryCount = data?.categories.length;

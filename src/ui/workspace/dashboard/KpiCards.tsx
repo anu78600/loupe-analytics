@@ -25,6 +25,7 @@ import { Skeleton } from "@/ui/primitives/misc";
 import { Tooltip } from "@/ui/primitives/tooltip";
 import { Sparkline } from "@/ui/charts/Sparkline";
 import { useCountUp, useFmt } from "@/ui/common/hooks";
+import { kpiLabel } from "@/engine/core/labels";
 
 const GOAL_GROUPS: Record<string, string[]> = {
   growth: ["Revenue", "Orders", "Customers", "Funnel", "Marketing", "Sales"],
@@ -155,7 +156,7 @@ export function KpiCard({
       <span className="sr-only">Open details: </span>
       <div className="flex items-start justify-between gap-2">
         <p className="truncate text-ui font-medium text-fg-muted" title={meta.name}>
-          {meta.short ? `${meta.name.replace(` (${meta.short})`, "")}` : meta.name}
+          {kpiLabel(meta)}
         </p>
         {meta.caveat ? (
           <Tooltip content={meta.caveat}>

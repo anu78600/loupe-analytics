@@ -58,6 +58,7 @@ import { assignFields } from "@/engine/detect/match";
 import { buildMapping, type Mapping } from "@/engine/detect/mapping";
 import { buildGenericDomain, GENERIC_ID } from "@/engine/detect/generic";
 import { grainLabel } from "@/engine/profile/structure";
+import { friendly, friendlyStart } from "@/engine/core/labels";
 import { resolveKpis, selectKpis, type KpiResolutionMap, type KpiSelection } from "@/engine/kpi/resolve";
 import { columnExtras, isColumnId } from "@/engine/kpi/columnKpis";
 import { isUserKpiId, userKpiExtras, type UserKpi } from "@/engine/kpi/userKpis";
@@ -937,7 +938,7 @@ export class Session {
       )
       .map((c) => ({
         column: c.name,
-        label: fieldLabel.get(c.name) ?? c.name,
+        label: fieldLabel.get(c.name) ?? friendlyStart(c.name),
         distinct: c.distinct,
         geo: c.geoLevel,
       }));
@@ -1190,7 +1191,8 @@ export class Session {
             c.distinct <= 30,
         )
         .slice(0, 5)
-        .map((c) => ({ column: c.name, label: c.name }));
+        // Insight sentences read the column with spaces ("customer_segment" → "customer segment").
+        .map((c) => ({ column: c.name, label: friendly(c.name) }));
     }
     // Concentration ("top items' share"): the product column, else the
     // lowest-cardinality text identifier/dimension with 10–50,000 values.
@@ -1217,7 +1219,7 @@ export class Session {
       batch: this.lastBatch,
       segments,
       concentration: conc
-        ? { column: conc, label: m.product_name || m.product_id ? "product" : conc }
+        ? { column: conc, label: m.product_name || m.product_id ? "product" : friendly(conc) }
         : undefined,
       inProgress: m.order_status && pending.length ? { column: m.order_status, values: pending } : undefined,
       specs,
@@ -1668,18 +1670,20 @@ export class Session {
    * `configJson` is embedded verbatim as loupe-config.json. With
    * `noNewColumns` the package adds no column (see exportContext).
    * `reportTheme` (the chart colours as a Power BI theme) is added as
-   * loupe-theme.json.
+   * loupe-theme.json. `folder` names the zip's top folder (the zip's own
+   * name, so unzipping gives a folder that says what it holds).
    */
   exportPowerBi(
     configJson: string,
     visibleSpecIds: string[],
     noNewColumns = false,
     reportTheme?: { name: string; json: string },
+    folder?: string,
   ): { zip: Uint8Array; manifest: PackageManifest } {
     const ec = this.exportContext(noNewColumns);
     ec.specs = this.orderedSpecs(ec.specs, visibleSpecIds);
     if (reportTheme) ec.reportTheme = reportTheme;
-    return buildPowerBiPackage(ec, configJson);
+    return buildPowerBiPackage(ec, configJson, folder);
   }
 
   /** The table name the SQL exports and business-question queries read (lower-case, unquoted). */
@@ -1749,9 +1753,9 @@ export class Session {
           "Customer share",
           "Revenue",
           "Revenue share",
-          "Avg recency (days)",
-          "Avg frequency",
-          "Avg monetary",
+          "Average recency (days)",
+          "Average frequency",
+          "Average monetary value",
         ],
         data.rfm.map((s) => [
           s.segment,

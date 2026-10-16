@@ -933,8 +933,8 @@ function treemap(ctx: OptionContext): EChartsCoreOption {
               t,
             );
             html += row("Revenue share", `${(seg.revenueShare * 100).toFixed(1)}%`, t);
-            html += row("Avg recency", `${Math.round(seg.avgRecency)} days`, t);
-            html += row("Avg orders", seg.avgFrequency.toFixed(1), t);
+            html += row("Average recency", `${Math.round(seg.avgRecency)} days`, t);
+            html += row("Average orders", seg.avgFrequency.toFixed(1), t);
           }
           return html;
         }

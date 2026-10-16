@@ -174,7 +174,7 @@ export function AiSummary({ insights }: { insights: Insight[] }) {
           <div>
             <p className="text-sm font-medium text-fg">Executive summary</p>
             <p className="text-ui text-fg-muted">
-              Optional. Claude rewrites the computed findings as a brief; you review the exact payload first.
+              Optional. Claude rewrites the computed insights as a brief; you review the exact payload first.
             </p>
           </div>
         </div>
@@ -210,8 +210,8 @@ export function AiSummary({ insights }: { insights: Insight[] }) {
             })}
           </ul>
           <p className="mt-3 flex items-center gap-1.5 text-2xs text-fg-subtle">
-            <Lock className="size-3" aria-hidden /> Written by {ai.model} from the findings below. Figures not
-            found in those findings are flagged as unverified.
+            <Lock className="size-3" aria-hidden /> Written by {ai.model} from the insights below. Figures not
+            found in those insights are flagged as unverified.
           </p>
         </div>
       ) : null}

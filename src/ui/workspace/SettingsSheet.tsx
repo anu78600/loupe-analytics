@@ -160,7 +160,7 @@ export function SettingsSheet({
             </div>
             <p className="text-ui leading-relaxed text-fg-muted">
               Adds a second opinion on the industry and an executive summary written from the computed
-              findings. Everything else works without it. Each request shows you the exact payload first; it
+              insights. Everything else works without it. Each request shows you the exact payload first; it
               contains schema, aggregates and a few masked rows, never your dataset.
             </p>
             {ai.enabled ? (

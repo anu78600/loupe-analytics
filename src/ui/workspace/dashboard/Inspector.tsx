@@ -33,6 +33,7 @@ import { KIND_LABEL } from "@/ui/charts/ChartCard";
 import { KpiDetails } from "./KpiDetails";
 import { AskChartDialog } from "./AskChart";
 import { askFromSpec } from "@/engine/charts/ask";
+import { kpiLabel } from "@/engine/core/labels";
 
 const AGGS = [
   { id: "sum", label: "Sum" },
@@ -166,7 +167,7 @@ function measureFromKpi(k: {
   format: KpiFormat;
   direction: "higher" | "lower" | "neutral";
 }): ChartMeasure {
-  return { id: k.id, label: k.short ?? k.name, format: k.format, direction: k.direction };
+  return { id: k.id, label: kpiLabel(k), format: k.format, direction: k.direction };
 }
 
 function aggMeasure(agg: string, col: ColumnProfile | undefined): ChartMeasure {

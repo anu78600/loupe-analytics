@@ -649,11 +649,7 @@ function ManageCharts() {
                 <p className="truncate text-ui text-fg">{spec.title}</p>
                 <p className="text-2xs text-fg-subtle">
                   {KIND_LABEL[w.kind ?? spec.kind]}
-                  {custom
-                    ? " · added by you"
-                    : spec.section === "columns"
-                      ? " · from your other columns"
-                      : ""}
+                  {custom ? " · custom" : spec.section === "columns" ? " · from your other columns" : ""}
                   {inMode ? "" : ` · not in ${mode} layout`}
                 </p>
               </div>

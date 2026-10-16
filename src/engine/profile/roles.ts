@@ -598,7 +598,7 @@ function numericRole(x: RoleInput): RoleDecision {
     let additivity: Additivity = "additive";
     let why = x.currencyFormat
       ? `Currency symbol (${x.currencyFormat}) in the values.`
-      : "Money-related name.";
+      : "The name says it is money (amount, price, revenue…).";
     if (has(t, SEMI_ADDITIVE)) {
       additivity = "semi-additive";
       why += " A balance/snapshot: add across items, not across time.";
@@ -738,7 +738,9 @@ function stringRole(x: RoleInput): RoleDecision {
   return decide(
     "dimension",
     x.distinct <= 50 ? 0.82 : 0.68,
-    x.distinct <= 50 ? `${x.distinct} distinct categories.` : "Categorical values.",
+    x.distinct <= 50
+      ? `${x.distinct} distinct ${x.distinct === 1 ? "value" : "values"}, used as categories.`
+      : "Text values used as categories.",
   );
 }
 

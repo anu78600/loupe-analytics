@@ -5,6 +5,26 @@ Every step of building Loupe, newest first. Generated from `src/content/changelo
 - **MAJOR** (`x.0`): a new capability, subsystem or page.
 - **MINOR** (`x.y`): a refinement, fix or follow-up to that major version.
 
+## 34.3 · Names and words a report would use
+
+*Minor · 2026-10-16 14:00 UTC · Design, Fix, Tests*
+
+The third round of the analyst review, on wording: column names read with spaces, every KPI has one name everywhere, sentences are grammatical, and every export is named the same way, as a careful analyst would name them.
+
+- Column names read with spaces wherever Loupe writes them: chart titles, filters, questions and insights say “New order date” and “GST Amount”, not “New_order_date” or “GST_Amount”. Your file, the data grid and the exports keep your headers exactly as written.
+- One name per KPI: a chart's legend and tooltip now use the same name as the KPI card (“Average order value”, not “AOV” in one place and the full name in another). KPI names are in sentence case, like the rest of the app: “Net revenue”, “Gross margin %”.
+- Grammar: “New customers were 52” (not “was”), “an 85.8 pp gap”, “1 day”, “Saturday” instead of “Sat”, “How have gross sales changed…”, and “This column is…” for a single column.
+- “Top 10 plus Others” is only said when there are more than ten groups; a donut's Others is a slice, not a bar; the README no longer points at an analysis note that doesn't exist.
+- Filters read the same everywhere: “Category: Apparel”, “Category: not Apparel”, “Order date: 1 Jan – 31 Mar 2026”.
+- Power BI: a measure that clashes with a column is named “Total revenue”, as an analyst would, never “Revenue (KPI)”; a measure may share its table's name. The 7-day measure is “Rolling 7D Avg”, in line with “Rolling 30D”.
+- SQL views are named after their measures (kpi_net_revenue, kpi_gross_margin_pct, kpi_average_mrp), never after internal ids, and a rate's monthly view gives its change in percentage points.
+- Export file names follow one pattern: dataset, what it is, date (for example sales-orders_dashboard-report_2026-10-16.pdf), with the same names as the files inside the Power BI package, whose folder is now named like the zip.
+- One word for each thing: rows (not records), insights (not findings), industry (not domain), Custom for what you made, Average (not Avg), the chart names of the chart catalogue, and the same insight types in the app and the PDF.
+- Insight advice suits any industry (“Check what happened that day: a one-off event, a bulk entry or a data error”) rather than assuming a shop.
+- Small fixes: “Order #” exports as order_num (not order_no, which reads like a yes/no flag), the data dictionary's descriptions are full sentences, and the house chart theme is “Loupe”, not “Loupe · Loupe”.
+
+Files: `src/engine/core/labels.ts`, `src/engine/core/format.ts`, `src/engine/core/dates.ts`, `src/engine/kpi/columnKpis.ts`, `src/engine/kpi/context.ts`, `src/engine/detect/generic.ts`, `src/engine/charts/recommend.ts`, `src/engine/charts/ask.ts`, `src/engine/query/filter.ts`, `src/engine/insights/insights.ts`, `src/engine/profile/roles.ts`, `src/engine/export/names.ts`, `src/engine/export/sqlFile.ts`, `src/engine/export/powerbi.ts`, `src/engine/export/readme.ts`, `src/engine/compile/dax.ts`, `src/engine/session.ts`, `src/registry/domains/ecommerce.json`, `src/registry/domains/manufacturing.json`, `src/lib/utils.ts`, `src/ui/charts/ChartCard.tsx`, `src/ui/workspace/ExportStep.tsx`, `src/ui/workspace/InsightsStep.tsx`, `src/ui/workspace/dashboard/FilterRail.tsx`, `tests/naming.test.ts`
+
 ## 34.2 · Charts that never hide or cut what they show
 
 *Minor · 2026-10-16 13:34 UTC · Fix, Design, Tests*

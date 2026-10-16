@@ -181,7 +181,10 @@ function axisText(spec: ChartSpec, ctx: ExportContext): string {
     case "bins":
       return `X axis: bins of ${spec.x.label} (New group → Bins)`;
     case "none":
-      return "See the analysis note";
+      // The line after this one says how to build an analysis; anything else is a single value.
+      return spec.analysis === "rfm" || spec.analysis === "cohort" || spec.analysis === "basket"
+        ? "Axis: set by the analysis (next line)"
+        : "No axis: one value for the whole selection";
   }
 }
 
@@ -361,7 +364,7 @@ export function generateReadme(ctx: ExportContext, specs: ChartSpec[], symbol: s
     out.push(`- Values: ${s.measures.map((m) => `[${names.measures.get(m.id) ?? m.label}]`).join(", ")}`);
     if (s.topN)
       out.push(
-        `- Filter: Top N = ${s.topN} by ${names.measures.get(s.measures[0]?.id ?? "") ?? s.measures[0]?.label}${s.others ? ' (Loupe also shows an "Others" bar; in Power BI use a group or leave it out)' : ""}`,
+        `- Filter: Top N = ${s.topN} by ${names.measures.get(s.measures[0]?.id ?? "") ?? s.measures[0]?.label}${s.others ? ` (Loupe also shows an "Others" ${s.kind === "donut" || s.kind === "pie" ? "slice" : s.kind === "treemap" ? "tile" : "bar"}; in Power BI use a group or leave it out)` : ""}`,
       );
     if (s.minGroupRows)
       out.push(

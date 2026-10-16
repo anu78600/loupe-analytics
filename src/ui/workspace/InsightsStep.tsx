@@ -24,7 +24,7 @@ import {
   Waves,
   type LucideIcon,
 } from "lucide-react";
-import type { Insight, InsightKind } from "@/engine/insights/insights";
+import { INSIGHT_KIND_LABEL, type Insight, type InsightKind } from "@/engine/insights/insights";
 import { PRESET_LABEL } from "@/engine/core/periods";
 import { formatRange } from "@/engine/core/dates";
 import { stepNumber, useWorkspace } from "@/store/workspace";
@@ -38,14 +38,14 @@ import { ActiveFilters } from "./dashboard/FilterRail";
 import { AiSummary } from "./AiSummary";
 
 const KIND: Record<InsightKind, { label: string; icon: LucideIcon }> = {
-  trend: { label: "Trend", icon: Activity },
-  anomaly: { label: "Anomaly", icon: Waves },
-  concentration: { label: "Concentration", icon: PieChart },
-  seasonality: { label: "Seasonality", icon: CalendarRange },
-  segment: { label: "Segment gap", icon: Split },
-  driver: { label: "Driver", icon: Scale },
-  mix: { label: "Mix effect", icon: Layers },
-  caveat: { label: "Caveat", icon: AlertTriangle },
+  trend: { label: INSIGHT_KIND_LABEL.trend, icon: Activity },
+  anomaly: { label: INSIGHT_KIND_LABEL.anomaly, icon: Waves },
+  concentration: { label: INSIGHT_KIND_LABEL.concentration, icon: PieChart },
+  seasonality: { label: INSIGHT_KIND_LABEL.seasonality, icon: CalendarRange },
+  segment: { label: INSIGHT_KIND_LABEL.segment, icon: Split },
+  driver: { label: INSIGHT_KIND_LABEL.driver, icon: Scale },
+  mix: { label: INSIGHT_KIND_LABEL.mix, icon: Layers },
+  caveat: { label: INSIGHT_KIND_LABEL.caveat, icon: AlertTriangle },
 };
 
 const TONE: Record<Insight["tone"], { label: string; className: string; icon: LucideIcon }> = {
@@ -126,7 +126,7 @@ export function InsightsStep() {
       ) : (
         <Card className="flex flex-col items-center gap-2 p-10 text-center">
           <Lightbulb className="size-6 text-fg-subtle" aria-hidden />
-          <p className="text-sm text-fg">No material findings for this selection.</p>
+          <p className="text-sm text-fg">No insights stand out for this selection.</p>
           <p className="max-w-md text-ui text-fg-muted">
             Insights need enough history and volume to be meaningful. Widen the date range or remove filters,
             then recompute.

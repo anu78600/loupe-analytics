@@ -87,7 +87,7 @@
     { "id": "web", "name": "Web analytics / funnel", "description": "Sessions through to purchases.", "signals": ["sessions", "page_views", "add_to_cart", "checkouts", "purchases"], "grain": "day" }
   ],
   "kpis": [
-    { "id": "gross_sales", "name": "Gross Sales (GMV)", "short": "GMV", "definition": "Total value of everything ordered, before discounts, cancellations and returns.", "formula": "Sum of line gross value (quantity × unit selling price) across all orders", "format": "currency", "direction": "higher", "tier": "hero", "priority": 2, "group": "Revenue",
+    { "id": "gross_sales", "name": "Gross sales (GMV)", "short": "GMV", "definition": "Total value of everything ordered, before discounts, cancellations and returns.", "formula": "Sum of line gross value (quantity × unit selling price) across all orders", "format": "currency", "direction": "higher", "tier": "hero", "priority": 2, "group": "Revenue",
       "variants": [
         { "id": "gross_col", "label": "Gross amount column", "expr": { "agg": "sum", "of": { "field": "gross_amount" } } },
         { "id": "qty_price", "label": "Quantity × unit price", "expr": { "agg": "sum", "of": { "op": "mul", "args": [{ "field": "quantity" }, { "field": "unit_price" }] } } },
@@ -106,7 +106,7 @@
         { "id": "gross_minus_disc", "label": "Gross − discounts", "expr": { "op": "sub", "args": [{ "ref": "gross_sales" }, { "ref": "discounts" }] } },
         { "id": "gross_only", "label": "Gross (no discounts recorded)", "expr": { "ref": "gross_sales" }, "caveat": "No discount column, so net sales equal gross sales." }
       ] },
-    { "id": "net_revenue", "name": "Net Revenue", "definition": "Revenue actually kept: net of discounts and excluding cancelled, returned and RTO orders.", "formula": "Net sales on orders that were not cancelled, returned or RTO", "format": "currency", "direction": "higher", "tier": "hero", "priority": 1, "group": "Revenue",
+    { "id": "net_revenue", "name": "Net revenue", "definition": "Revenue actually kept: net of discounts and excluding cancelled, returned and RTO orders.", "formula": "Net sales on orders that were not cancelled, returned or RTO", "format": "currency", "direction": "higher", "tier": "hero", "priority": 1, "group": "Revenue",
       "variants": [
         { "id": "status", "label": "Excludes cancelled / returned / RTO by status", "expr": { "calc": { "ref": "net_sales" }, "where": { "and": [{ "field": "order_status", "notClass": "cancelled" }, { "field": "order_status", "notClass": "returned" }, { "field": "order_status", "notClass": "rto" }] } } },
         { "id": "return_flag", "label": "Excludes rows flagged as returned", "expr": { "calc": { "ref": "net_sales" }, "where": { "not": { "field": "is_returned", "isTrue": true } } } },
@@ -124,7 +124,7 @@
         { "id": "status", "label": "By status", "expr": { "calc": { "ref": "orders" }, "where": { "and": [{ "field": "order_status", "notClass": "cancelled" }, { "field": "order_status", "notClass": "returned" }, { "field": "order_status", "notClass": "rto" }] } } },
         { "id": "return_flag", "label": "By return flag", "expr": { "calc": { "ref": "orders" }, "where": { "not": { "field": "is_returned", "isTrue": true } } } }
       ] },
-    { "id": "aov", "name": "Average Order Value", "short": "AOV", "definition": "Net revenue earned per realised order.", "formula": "Net revenue ÷ realised orders (ratio of sums, not an average of order values)", "format": "currency", "direction": "higher", "tier": "hero", "priority": 4, "group": "Orders",
+    { "id": "aov", "name": "Average order value", "short": "AOV", "definition": "Net revenue earned per realised order.", "formula": "Net revenue ÷ realised orders (ratio of sums, not an average of order values)", "format": "currency", "direction": "higher", "tier": "hero", "priority": 4, "group": "Orders",
       "variants": [
         { "id": "realised", "label": "Net revenue ÷ realised orders", "expr": { "op": "div", "args": [{ "ref": "net_revenue" }, { "ref": "realised_orders" }] } },
         { "id": "all", "label": "Net revenue ÷ orders", "expr": { "op": "div", "args": [{ "ref": "net_revenue" }, { "ref": "orders" }] }, "caveat": "No status column, so the denominator includes cancelled orders." }
@@ -159,7 +159,7 @@
       ] },
     { "id": "gross_profit", "name": "Gross profit", "definition": "Net revenue minus cost of goods sold.", "formula": "Net revenue − COGS", "format": "currency", "direction": "higher", "tier": "supporting", "priority": 11, "group": "Profitability",
       "variants": [{ "id": "diff", "label": "Net revenue − COGS", "expr": { "op": "sub", "args": [{ "ref": "net_revenue" }, { "ref": "cogs" }] } }] },
-    { "id": "gross_margin", "name": "Gross Margin %", "definition": "Share of net revenue left after the cost of goods.", "formula": "(Net revenue − COGS) ÷ net revenue", "format": "percent", "direction": "higher", "tier": "hero", "priority": 5, "group": "Profitability",
+    { "id": "gross_margin", "name": "Gross margin %", "definition": "Share of net revenue left after the cost of goods.", "formula": "(Net revenue − COGS) ÷ net revenue", "format": "percent", "direction": "higher", "tier": "hero", "priority": 5, "group": "Profitability",
       "variants": [{ "id": "ratio", "label": "Gross profit ÷ net revenue", "expr": { "op": "div", "args": [{ "ref": "gross_profit" }, { "ref": "net_revenue" }] } }],
       "benchmark": { "low": 0.3, "high": 0.6, "note": "Indicative range for D2C brands; varies widely by category." } },
     { "id": "cancellation_rate", "name": "Cancellation rate", "definition": "Share of orders cancelled before fulfilment.", "formula": "Cancelled orders ÷ orders", "format": "percent", "direction": "lower", "tier": "supporting", "priority": 9, "group": "Fulfilment",

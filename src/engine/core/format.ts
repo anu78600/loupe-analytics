@@ -166,8 +166,10 @@ export function formatValue(
     }
     case "ratio":
       return `${sign}${formatPlain(value, opts.decimals ?? 2, opts.locale)}`;
-    case "days":
-      return `${sign}${formatPlain(value, opts.decimals ?? 1, opts.locale)} days`;
+    case "days": {
+      const body = formatPlain(value, opts.decimals ?? 1, opts.locale);
+      return `${sign}${body} ${body === "1" ? "day" : "days"}`;
+    }
     case "integer":
       if (opts.compact && Math.abs(value) >= 100000) return `${sign}${formatCompact(value, opts.locale)}`;
       return `${sign}${formatPlain(value, 0, opts.locale)}`;

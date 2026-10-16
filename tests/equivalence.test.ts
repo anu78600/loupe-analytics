@@ -667,13 +667,13 @@ describe("newEntities in grouped queries", () => {
 
 describe("DAX 7-day moving average", () => {
   it("divides the trailing 7-day total by 7 rather than averaging the days that have data", () => {
-    const ma = timeIntelligence("Sales", true, "'Date'[Date]").find((t) => t.suffix === "7D Moving Avg");
+    const ma = timeIntelligence("Sales", true, "'Date'[Date]").find((t) => t.suffix === "Rolling 7D Avg");
     expect(ma?.expression).not.toContain("AVERAGEX");
     expect(ma?.expression.replace(/\s+/g, " ")).toBe(
       "DIVIDE ( CALCULATE ( [Sales], DATESINPERIOD ( 'Date'[Date], MAX ( 'Date'[Date] ), -7, DAY ) ), 7 )",
     );
     // Non-additive measures get no moving average at all.
-    expect(timeIntelligence("Margin", false, "'Date'[Date]").some((t) => t.suffix === "7D Moving Avg")).toBe(
+    expect(timeIntelligence("Margin", false, "'Date'[Date]").some((t) => t.suffix === "Rolling 7D Avg")).toBe(
       false,
     );
   });

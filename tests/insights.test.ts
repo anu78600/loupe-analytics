@@ -135,7 +135,7 @@ describe("insights on the e-commerce demo", () => {
         total,
       ).toBe(false);
     }
-    expect(insights.some((i) => /^(Net Revenue|Orders|Customers|New customers): /.test(i.title))).toBe(false);
+    expect(insights.some((i) => /^(Net revenue|Orders|Customers|New customers): /.test(i.title))).toBe(false);
     for (const i of segments) {
       const expr = lookup(i.metricId as string) as Expr;
       expect(isAdditiveExpr(expr, lookup), i.title).toBe(false);
@@ -188,9 +188,9 @@ describe("weekday rhythm", () => {
     };
     const out = generateInsights(input(ds, [orders], "Order Date"));
     const dow = out.find((i) => i.id === "seasonality-dow-orders");
-    expect(dow?.title).toBe("Sat is the strongest day for Orders");
-    expect(dow?.body).toContain("brings 50% more orders than an average Mon");
-    expect(dow?.body).toContain("Sun averages 0");
+    expect(dow?.title).toBe("Saturday is the strongest day for Orders");
+    expect(dow?.body).toContain("brings 50% more orders than an average Monday");
+    expect(dow?.body).toContain("Sunday averages 0");
     for (const i of out) expect(`${i.title} ${i.body}`, i.id).not.toMatch(/\d{4,}%|Infinity|NaN/);
   });
 });
@@ -235,7 +235,7 @@ describe("insights through the session", () => {
     expect(about.length).toBeGreaterThan(0);
     for (const i of about) {
       expect(`${i.title} ${i.body}`).toContain("Sales after returns");
-      expect(`${i.title} ${i.body}`).not.toContain("Net Revenue");
+      expect(`${i.title} ${i.body}`).not.toContain("Net revenue");
     }
   });
 

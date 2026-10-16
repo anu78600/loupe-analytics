@@ -70,6 +70,20 @@ export function slugify(input: string): string {
   );
 }
 
+/**
+ * A download's file name, the same pattern for every export:
+ * "{dataset}_{artefact}_{YYYY-MM-DD}.{ext}", e.g.
+ * "sales-orders_dashboard-report_2026-10-16.pdf". The dataset comes first so a
+ * folder of exports groups by file; the local date says which run it is; the
+ * artefact names match the files inside the Power BI package (measures, kpis,
+ * data-dictionary…). Call it when the download happens, not during render.
+ */
+export function exportFileName(dataset: string | undefined, artefact: string, ext: string): string {
+  const d = new Date();
+  const day = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  return `${slugify(dataset ?? "loupe")}_${slugify(artefact)}_${day}.${ext}`;
+}
+
 /** Copies to the clipboard; false when the Clipboard API is missing or permission is refused. */
 export async function copyText(text: string): Promise<boolean> {
   try {

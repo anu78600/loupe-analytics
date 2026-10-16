@@ -10,11 +10,14 @@
  * repeating identifier columns get a distinct count; boolean columns get a
  * "share true" rate; text dimensions with 2–60 values drive the breakdowns.
  * The mapping is the identity: every field is its own column, with score 1.
+ * Names and titles read the headers with spaces (core/labels.ts) and count
+ * "rows", the word used everywhere else in Loupe.
  */
 import type { ColumnProfile, DatasetProfile } from "@/engine/profile/types";
 import type { Expr } from "@/engine/query/expr";
 import type { ChartTemplate, DomainDef, FieldDef, KpiDef } from "@/registry/schema";
 import type { Mapping } from "./mapping";
+import { averageOf, friendly, totalOf } from "@/engine/core/labels";
 
 export const GENERIC_ID = "generic";
 
@@ -48,7 +51,13 @@ export function buildGenericDomain(profile: DatasetProfile): { domain: DomainDef
   const fields: FieldDef[] = profile.columns.map((c) => {
     const id = fieldId(c.name, used);
     idOf.set(c.name, id);
-    return { id, label: c.name, roles: [c.role], synonyms: [c.name, c.name.toLowerCase()], weight: 1 };
+    return {
+      id,
+      label: friendly(c.name),
+      roles: [c.role],
+      synonyms: [c.name, c.name.toLowerCase()],
+      weight: 1,
+    };
   });
   const fid = (c: ColumnProfile) => idOf.get(c.name) as string;
   const date = profile.primaryDate ? profile.columns.find((c) => c.name === profile.primaryDate) : undefined;
@@ -83,8 +92,9 @@ export function buildGenericDomain(profile: DatasetProfile): { domain: DomainDef
     kpis.push({ ...rest, variants: [{ id: "main", label: k.formula, expr, ...(caveat ? { caveat } : {}) }] });
   };
   kpi({
+    // The id stays "records" so saved settings keep working; the name is the app's word.
     id: "records",
-    name: "Records",
+    name: "Rows",
     definition: "Number of rows in the selection.",
     formula: "Count of rows",
     format: "integer",
@@ -95,13 +105,13 @@ export function buildGenericDomain(profile: DatasetProfile): { domain: DomainDef
     expr: { agg: "count" },
   });
   ids.slice(0, 2).forEach((c, i) => {
-    // A unique id's distinct count would just repeat Records.
+    // A unique id's distinct count would just repeat Rows.
     if (c.unique) return;
     kpi({
       id: `distinct_${fid(c)}`,
-      name: `Distinct ${c.name}`,
-      definition: `Number of different ${c.name} values.`,
-      formula: `Count of distinct ${c.name}`,
+      name: `Distinct ${friendly(c.name)}`,
+      definition: `Number of different ${friendly(c.name)} values.`,
+      formula: `Count of distinct ${friendly(c.name)}`,
       format: "integer",
       direction: "neutral",
       tier: i === 0 ? "hero" : "supporting",
@@ -115,9 +125,9 @@ export function buildGenericDomain(profile: DatasetProfile): { domain: DomainDef
     if (c.additivity === "semi-additive" && date) {
       kpi({
         id: sid,
-        name: `${c.name} (latest)`,
-        definition: `${c.name} on the latest date in the selection; it is a balance, so it is not added across dates.`,
-        formula: `Sum of ${c.name} on the latest ${date.name}`,
+        name: `${friendly(c.name)} (latest)`,
+        definition: `${friendly(c.name)} on the latest date in the selection; it is a balance, so it is not added across dates.`,
+        formula: `Sum of ${friendly(c.name)} on the latest ${friendly(date.name)}`,
         format: c.role === "currency" ? "currency" : "number",
         direction: "neutral",
         tier: i < 2 ? "hero" : "supporting",
@@ -129,9 +139,9 @@ export function buildGenericDomain(profile: DatasetProfile): { domain: DomainDef
     }
     kpi({
       id: sid,
-      name: `Total ${c.name}`,
-      definition: `Sum of ${c.name} across the selection.`,
-      formula: `Sum of ${c.name}`,
+      name: totalOf(c.name),
+      definition: `Sum of ${friendly(c.name)} across the selection.`,
+      formula: `Sum of ${friendly(c.name)}`,
       format: c.role === "currency" ? "currency" : c.numeric?.integer ? "integer" : "number",
       direction: "higher",
       tier: i < 2 ? "hero" : "supporting",
@@ -142,9 +152,9 @@ export function buildGenericDomain(profile: DatasetProfile): { domain: DomainDef
     if (i === 0) {
       kpi({
         id: `avg_${fid(c)}_per_record`,
-        name: `${c.name} per record`,
-        definition: `Average ${c.name} per row (total ÷ rows).`,
-        formula: `Sum of ${c.name} ÷ rows`,
+        name: `${friendly(c.name)} per row`,
+        definition: `Average ${friendly(c.name)} per row (total ÷ rows).`,
+        formula: `Sum of ${friendly(c.name)} ÷ rows`,
         format: c.role === "currency" ? "currency" : "decimal",
         direction: "higher",
         tier: "hero",
@@ -157,9 +167,9 @@ export function buildGenericDomain(profile: DatasetProfile): { domain: DomainDef
   averages.slice(0, 4).forEach((c, i) => {
     kpi({
       id: `avg_${fid(c)}`,
-      name: `Average ${c.name}`,
-      definition: `Simple average of ${c.name} across rows.`,
-      formula: `Average of ${c.name}`,
+      name: averageOf(c.name),
+      definition: `Simple average of ${friendly(c.name)} across rows.`,
+      formula: `Average of ${friendly(c.name)}`,
       format:
         c.role === "percentage"
           ? c.percentScale === 100
@@ -182,9 +192,9 @@ export function buildGenericDomain(profile: DatasetProfile): { domain: DomainDef
   flags.slice(0, 3).forEach((c, i) => {
     kpi({
       id: `rate_${fid(c)}`,
-      name: `${c.name} rate`,
-      definition: `Share of rows where ${c.name} is true.`,
-      formula: `Rows where ${c.name} is true ÷ rows with a value`,
+      name: `${friendly(c.name)} rate`,
+      definition: `Share of rows where ${friendly(c.name)} is true.`,
+      formula: `Rows where ${friendly(c.name)} is true ÷ rows with a value`,
       format: "percent",
       direction: "neutral",
       tier: "supporting",
@@ -202,7 +212,7 @@ export function buildGenericDomain(profile: DatasetProfile): { domain: DomainDef
 
   const primary = kpis.find((k) => k.id.startsWith("total_")) ?? kpis[0];
   const primaryId = primary?.id ?? "records";
-  const primaryName = primary?.name ?? "Records";
+  const primaryName = primary?.name ?? "Rows";
   const charts: ChartTemplate[] = [];
   const chart = (c: ChartTemplate) => charts.push(c);
   if (date) {
@@ -213,7 +223,7 @@ export function buildGenericDomain(profile: DatasetProfile): { domain: DomainDef
       section: "trend",
       x: { time: fid(date) },
       measures: [primaryId],
-      reason: `A date column (${date.name}) and a measure: a line over time shows the trend.`,
+      reason: `A date column (${friendly(date.name)}) and a measure: a line over time shows the trend.`,
       alternatives: ["line", "bar"],
       size: { w: 8, h: 4 },
       priority: 1,
@@ -236,7 +246,7 @@ export function buildGenericDomain(profile: DatasetProfile): { domain: DomainDef
       });
     chart({
       id: "g_weekday",
-      title: "Records by weekday",
+      title: "Rows by weekday",
       kind: "bar",
       section: "drivers",
       x: { part: "dow", of: fid(date) },
@@ -250,12 +260,12 @@ export function buildGenericDomain(profile: DatasetProfile): { domain: DomainDef
   if (timeOfDay && !date?.temporal?.hasTime) {
     chart({
       id: "g_hour",
-      title: `Records by hour of ${timeOfDay.name}`,
+      title: `Rows by hour of ${friendly(timeOfDay.name)}`,
       kind: "bar",
       section: "drivers",
       x: { part: "hour", of: fid(timeOfDay) },
       measures: ["records"],
-      reason: `${timeOfDay.name} holds times of day: columns by hour show when activity peaks.`,
+      reason: `${friendly(timeOfDay.name)} holds times of day: columns by hour show when activity peaks.`,
       alternatives: ["line"],
       size: { w: 4, h: 4 },
       priority: 6,
@@ -266,7 +276,7 @@ export function buildGenericDomain(profile: DatasetProfile): { domain: DomainDef
     const small = d.distinct <= 6;
     chart({
       id: `g_by_${fid(d)}`,
-      title: `${primaryName} by ${d.name}`,
+      title: `${primaryName} by ${friendly(d.name)}`,
       kind:
         d.geoLevel === "state" && (d.geoRegion === "IN" || d.geoRegion === "US")
           ? "geoTile"
@@ -281,7 +291,7 @@ export function buildGenericDomain(profile: DatasetProfile): { domain: DomainDef
       reason:
         small && i > 0
           ? `Part-to-whole with ${d.distinct} categories: a donut reads at a glance.`
-          : `A category (${d.name}) and a measure: sorted bars, top 10 plus Others.`,
+          : `A category (${friendly(d.name)}) and a measure: sorted bars${d.distinct > 10 ? ", top 10 plus Others" : ""}.`,
       alternatives: ["hbar", "bar", "treemap", "donut"],
       size: { w: i === 0 ? 6 : 4, h: 5 },
       priority: 1 + i,
@@ -291,14 +301,14 @@ export function buildGenericDomain(profile: DatasetProfile): { domain: DomainDef
   if (firstMeasure) {
     chart({
       id: "g_hist",
-      title: `Distribution of ${firstMeasure.name}`,
+      title: `Distribution of ${friendly(firstMeasure.name)}`,
       kind: "histogram",
       section: "drivers",
       x: {
         bins: { field: fid(firstMeasure) },
         count: 14,
         format: firstMeasure.role === "currency" ? "currency" : "number",
-        label: `${firstMeasure.name} band`,
+        label: `${friendly(firstMeasure.name)} band`,
       },
       measures: ["records"],
       reason: "One numeric column's spread: a histogram of value bands.",
@@ -312,7 +322,7 @@ export function buildGenericDomain(profile: DatasetProfile): { domain: DomainDef
     const b = measures[1] as ColumnProfile;
     chart({
       id: "g_scatter",
-      title: `${a.name} vs ${b.name} by ${dims[0].name}`,
+      title: `${friendly(a.name)} vs ${friendly(b.name)} by ${friendly(dims[0].name)}`,
       kind: "scatter",
       section: "drivers",
       x: { field: fid(dims[0]) },
@@ -328,7 +338,7 @@ export function buildGenericDomain(profile: DatasetProfile): { domain: DomainDef
     if (r.distinct <= 12 && c.distinct <= 24)
       chart({
         id: "g_heatmap",
-        title: `${primaryName}: ${r.name} × ${c.name}`,
+        title: `${primaryName}: ${friendly(r.name)} × ${friendly(c.name)}`,
         kind: "heatmap",
         section: "drivers",
         x: { field: fid(c) },
@@ -343,7 +353,7 @@ export function buildGenericDomain(profile: DatasetProfile): { domain: DomainDef
   if (dims[0]) {
     chart({
       id: "g_table",
-      title: `Detail by ${dims[0].name}`,
+      title: `Detail by ${friendly(dims[0].name)}`,
       kind: "table",
       section: "detail",
       x: { field: fid(dims[0]) },

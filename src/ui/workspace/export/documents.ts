@@ -18,7 +18,7 @@
  */
 import { formatDelta, formatPointDelta, formatValue, type FormatOptions } from "@/engine/core/format";
 import type { ChartData, ChartKind, ChartSpec } from "@/engine/charts/types";
-import type { Insight } from "@/engine/insights/insights";
+import { INSIGHT_KIND_LABEL, type Insight } from "@/engine/insights/insights";
 import type { KpiValue } from "@/engine/kpi/compute";
 import type { KpiMeta, QuestionAnswer } from "@/engine/session";
 import { loadECharts } from "@/ui/charts/EChart";
@@ -57,16 +57,8 @@ export interface InsightsPdfInput extends DocMeta {
   charts: Map<string, { spec: ChartSpec; data: ChartData; kind: ChartKind }>;
 }
 
-const KIND_LABEL: Record<Insight["kind"], string> = {
-  trend: "Trend",
-  anomaly: "Anomaly",
-  concentration: "Concentration",
-  seasonality: "Seasonality",
-  segment: "Segment",
-  driver: "Driver",
-  mix: "Mix",
-  caveat: "Caveat",
-};
+// The app's own wording for each kind of insight.
+const KIND_LABEL = INSIGHT_KIND_LABEL;
 
 /** Up to this many answer rows are printed per question. */
 const MAX_ROWS = 15;

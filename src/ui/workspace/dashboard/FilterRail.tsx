@@ -23,6 +23,7 @@ import { Checkbox, Eyebrow, Separator } from "@/ui/primitives/misc";
 import { Input, Label } from "@/ui/primitives/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/ui/primitives/popover";
 import { DomainIcon } from "@/ui/common/domain-icon";
+import { friendly } from "@/engine/core/labels";
 
 const PRESETS: DatePreset[] = ["all", "last12m", "last6m", "last90d", "last30d", "ytd", "prevYear"];
 
@@ -101,13 +102,13 @@ function DateFilter() {
       <div className="flex items-baseline justify-between gap-2">
         <Eyebrow>Period</Eyebrow>
         <span className="truncate text-2xs text-fg-subtle" title={`Dates from ${context.dateColumn}`}>
-          by {context.dateColumn}
+          by {friendly(context.dateColumn)}
         </span>
       </div>
       {isRosterView(context) ? (
         <p className="mt-1 text-2xs leading-relaxed text-fg-subtle">
           Each row is {/^[aeiou]/i.test(grainOf(context)) ? "an" : "a"} {grainOf(context)}: a date range keeps
-          those whose {context.dateColumn} falls in it.
+          those whose {friendly(context.dateColumn)} falls in it.
         </p>
       ) : null}
       <div className="mt-2 grid gap-0.5" role="radiogroup" aria-label="Date range">
@@ -333,13 +334,13 @@ export function ActiveFilters({ inline = false }: { inline?: boolean }) {
     if (f.kind === "in")
       chips.push({
         key: f.column,
-        label: `${f.column}: ${f.values.length > 2 ? `${f.values.length} selected` : f.values.join(", ")}`,
+        label: `${friendly(f.column)}: ${f.values.length > 2 ? `${f.values.length} selected` : f.values.join(", ")}`,
         onRemove: () => setFilter(f.column, []),
       });
   if (cross)
     chips.push({
       key: "cross",
-      label: `${cross.column} = ${cross.value}`,
+      label: `${friendly(cross.column)}: ${cross.value}`,
       onRemove: () => setCross(cross.sourceId, cross.column, null),
     });
   if (!chips.length) return inline ? null : <p className="text-2xs text-fg-subtle">No filters applied.</p>;

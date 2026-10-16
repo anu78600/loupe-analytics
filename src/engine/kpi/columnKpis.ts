@@ -19,6 +19,7 @@
  * definition reads one column of the file.
  */
 import type { ColumnProfile, DatasetProfile } from "@/engine/profile/types";
+import { averageOf, friendly, totalOf } from "@/engine/core/labels";
 import { tokenize } from "@/engine/profile/names";
 import { isAdditiveExpr, type Expr } from "@/engine/query/expr";
 import type { Mapping } from "@/engine/detect/mapping";
@@ -28,7 +29,7 @@ import type { KpiResolutionMap } from "./resolve";
 /** Id prefix of everything built here ("your column"); no registry id uses it. */
 export const COLUMN_PREFIX = "yc_";
 /** KPI group (and Power BI display folder) of the column KPIs. */
-export const COLUMN_GROUP = "From your columns";
+export const COLUMN_GROUP = "From your other columns";
 /** At most this many columns get KPIs, and the first CHARTED of them get charts. */
 const MAX_KPIS = 8;
 const CHARTED = 4;
@@ -172,7 +173,7 @@ export function columnExtras(input: ColumnExtrasInput): ColumnExtras {
     const known = fieldFor.get(c.name);
     if (known) return known;
     const id = `${COLUMN_PREFIX}f_${slug(c.name, used)}`;
-    out.fields.push({ id, label: c.name, roles: [c.role], synonyms: [], weight: 1 });
+    out.fields.push({ id, label: friendly(c.name), roles: [c.role], synonyms: [], weight: 1 });
     out.mapping[id] = c.name;
     fieldFor.set(c.name, id);
     return id;
@@ -204,23 +205,26 @@ export function columnExtras(input: ColumnExtrasInput): ColumnExtras {
     let definition: string;
     let formula: string;
     let caveat: string | undefined;
+    // Titles and sentences read the header with spaces ("GST_Amount" → "GST Amount").
+    const label = friendly(c.name);
+    const dateLabel = date ? friendly(date.name) : "";
     if (how === "average") {
       expr = { agg: "avg", of: { field: f } };
-      name = `Average ${c.name}`;
-      definition = `Average ${c.name} across the rows in the selection (blank cells are left out).`;
-      formula = `Average of ${c.name}`;
+      name = averageOf(c.name);
+      definition = `Average ${label} across the rows in the selection (blank cells are left out).`;
+      formula = `Average of ${label}`;
       if (c.role === "rate" || c.role === "percentage")
         caveat = "A simple average of row values; each row counts once, whatever its size.";
     } else if (how === "latest" && date) {
       expr = { atLatest: field(date), expr: { agg: "sum", of: { field: f } } };
-      name = `${c.name} (latest)`;
-      definition = `${c.name} on the latest ${date.name} in the selection; it is a balance, so it is not added across dates.`;
-      formula = `Sum of ${c.name} on the latest ${date.name}`;
+      name = `${label} (latest)`;
+      definition = `${label} on the latest ${dateLabel} in the selection; it is a balance, so it is not added across dates.`;
+      formula = `Sum of ${label} on the latest ${dateLabel}`;
     } else {
       expr = { agg: "sum", of: { field: f } };
-      name = `Total ${c.name}`;
-      definition = `Sum of ${c.name} across the rows in the selection.`;
-      formula = `Sum of ${c.name}`;
+      name = totalOf(c.name);
+      definition = `Sum of ${label} across the rows in the selection.`;
+      formula = `Sum of ${label}`;
     }
     // Say why the column has its own KPI: the template either doesn't know it, or
     // recognises it but computes its KPIs another way (e.g. profit as revenue − cost).
@@ -229,8 +233,8 @@ export function columnExtras(input: ColumnExtrasInput): ColumnExtras {
       domain.id === "generic"
         ? ""
         : known
-          ? ` The ${domain.name} template reads ${c.name} as "${known.label}" but computes its own KPIs another way, so this is the plain total or average of your column.`
-          : ` The ${domain.name} template doesn't use ${c.name}, so Loupe summarises it straight from your file.`;
+          ? ` The ${domain.name} template reads ${label} as "${known.label}" but computes its own KPIs another way, so this is the plain total or average of your column.`
+          : ` The ${domain.name} template doesn't use ${label}, so Loupe summarises it straight from your file.`;
     out.kpis.push({
       id,
       name,
@@ -254,8 +258,8 @@ export function columnExtras(input: ColumnExtrasInput): ColumnExtras {
         x: { time: field(date) },
         measures: [id],
         reason: avg
-          ? `${c.name} is averaged, so a line shows how the average moves; it is never summed.`
-          : `${c.name} adds up over time: one column per period.`,
+          ? `${label} is averaged, so a line shows how the average moves; it is never summed.`
+          : `${label} adds up over time: one column per period.`,
         alternatives: how === "total" ? ["line", "area"] : ["bar"],
         size: { w: 6, h: 4 },
         priority: 1 + i * 2,
@@ -265,7 +269,7 @@ export function columnExtras(input: ColumnExtrasInput): ColumnExtras {
     if (dim)
       out.charts.push({
         id: `${COLUMN_PREFIX}by_${s}`,
-        title: `${name} by ${dim.name}`,
+        title: `${name} by ${friendly(dim.name)}`,
         // Totals by state read well as a tile map; averages are compared, so they get sorted bars.
         kind:
           !avg && dim.geoLevel === "state" && (dim.geoRegion === "IN" || dim.geoRegion === "US")
@@ -278,9 +282,10 @@ export function columnExtras(input: ColumnExtrasInput): ColumnExtras {
         others: true,
         // An average over a handful of rows is noise; those groups are set aside, as everywhere else.
         ...(avg ? { minGroupRows: 5 } : {}),
+        // "Top 10 plus Others" only where there are more than ten groups to fold.
         reason: avg
-          ? `Average ${c.name} for each ${dim.name}, sorted, so the highest and lowest stand out. Groups with fewer than 5 rows are set aside.`
-          : `Where ${c.name} comes from: sorted bars by ${dim.name}, top 10 plus Others.`,
+          ? `Average ${label} for each ${friendly(dim.name)}, sorted, so the highest and lowest stand out. Groups with fewer than 5 rows are set aside.`
+          : `Where ${label} comes from: sorted bars by ${friendly(dim.name)}${dim.distinct > 10 ? ", top 10 plus Others" : ""}.`,
         alternatives: avg ? ["hbar", "bar", "table"] : ["hbar", "bar", "treemap", "table"],
         size: { w: 6, h: 4 },
         priority: 2 + i * 2,
@@ -315,12 +320,12 @@ function hourOfDay(input: ColumnExtrasInput, out: ColumnExtras, field: (c: Colum
   if (!measure) return;
   out.charts.push({
     id: `${COLUMN_PREFIX}hour_${slug(time.name, new Set())}`,
-    title: `${measure.def.name} by hour of ${time.name}`,
+    title: `${measure.def.name} by hour of ${friendly(time.name)}`,
     kind: "bar",
     section: "columns",
     x: { part: "hour", of: field(time) },
     measures: [measure.def.id],
-    reason: `${time.name} holds times of day in a column of its own: columns by hour show when activity peaks. It is never mixed with the date.`,
+    reason: `${friendly(time.name)} holds times of day in a column of its own: columns by hour show when activity peaks. It is never mixed with the date.`,
     alternatives: ["line"],
     size: { w: 6, h: 4 },
     priority: 0,

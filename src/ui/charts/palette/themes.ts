@@ -249,7 +249,8 @@ export function powerBiTheme(theme: ResolvedTheme): string {
   const { series, ramp } = theme.light;
   return `${JSON.stringify(
     {
-      name: `Loupe · ${theme.name}`,
+      // "Loupe" alone for the house theme, never "Loupe · Loupe".
+      name: theme.name === "Loupe" ? "Loupe" : `Loupe · ${theme.name}`,
       dataColors: series,
       background: "#FFFFFF",
       foreground: "#14171C",

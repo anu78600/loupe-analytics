@@ -6,6 +6,7 @@
  * rather than emptying the dashboard. Bounds are inclusive. Blank cells fail
  * dateRange and range filters; "in" filters reach blanks through BLANK_LABEL.
  */
+import { friendly } from "@/engine/core/labels";
 import type { Column, Dataset } from "@/engine/core/types";
 
 export type Filter =
@@ -158,9 +159,11 @@ export function selectRowsCached(ds: Dataset, filters: readonly Filter[], ignore
 
 /** Short human-readable text for a filter chip (first three values, then "+N"). */
 export function describeFilter(f: Filter, fmtDate: (t: number) => string): string {
-  if (f.kind === "dateRange") return `${f.column}: ${fmtDate(f.from)} – ${fmtDate(f.to)}`;
-  if (f.kind === "range") return `${f.column}: ${f.min ?? "−∞"} – ${f.max ?? "∞"}`;
+  // One form everywhere ("Category: Apparel", "Order date: 1 Oct – 31 Dec 2025"), the column read with spaces.
+  const col = friendly(f.column);
+  if (f.kind === "dateRange") return `${col}: ${fmtDate(f.from)} – ${fmtDate(f.to)}`;
+  if (f.kind === "range") return `${col}: ${f.min ?? "−∞"} – ${f.max ?? "∞"}`;
   const vals =
     f.values.length > 3 ? `${f.values.slice(0, 3).join(", ")} +${f.values.length - 3}` : f.values.join(", ");
-  return `${f.column} ${f.exclude ? "is not" : "is"} ${vals}`;
+  return `${col}: ${f.exclude ? "not " : ""}${vals}`;
 }

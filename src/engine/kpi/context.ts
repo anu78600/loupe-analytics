@@ -86,7 +86,8 @@ export function cleanColumnNames(names: readonly string[]): Map<string, string> 
         .normalize("NFKD")
         .replace(/[̀-ͯ]/g, "")
         .replace(/%/g, " pct ")
-        .replace(/#/g, " no ")
+        // "Order #" → order_num: "no" would read as a yes/no flag.
+        .replace(/#/g, " num ")
         .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, "_")

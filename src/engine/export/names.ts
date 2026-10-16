@@ -23,9 +23,10 @@ export function tableNameFor(domain: DomainDef): string {
 
 /**
  * Names for one export run: snake_case column names, the table name, and a
- * measure name per KPI (user rename or default). A measure that clashes with
- * a column, the table, the Date table or another measure gets " (KPI)"
- * appended until it is unique.
+ * measure name per KPI (user rename or default). A measure may share the
+ * table's name (DAX tells 'Orders' from [Orders]), but not a column's, the
+ * Date table's or another measure's: it then becomes "Total revenue", as an
+ * analyst would name it, and only failing that gets a number ("Revenue 2").
  */
 export function compileNames(
   ds: Dataset,
@@ -35,14 +36,15 @@ export function compileNames(
   const table = tableNameFor(domain);
   const columns = cleanColumnNames(ds.columns.map((c) => c.name));
   const taken = new Set([...columns.values()].map((c) => c.toLowerCase()));
-  taken.add(table.toLowerCase());
   // Reserved for the generated Date table.
   taken.add("date");
   const measures = new Map<string, string>();
   for (const k of domain.kpis) {
     // Square brackets are stripped: DAX uses them to delimit measure references.
-    let name = (renames[k.id] ?? k.name).replace(/[[\]]/g, "").trim() || k.id;
-    while (taken.has(name.toLowerCase())) name = `${name} (KPI)`;
+    const base = (renames[k.id] ?? k.name).replace(/[[\]]/g, "").trim() || k.id;
+    let name = base;
+    if (taken.has(name.toLowerCase())) name = `Total ${base.charAt(0).toLowerCase()}${base.slice(1)}`;
+    for (let n = 2; taken.has(name.toLowerCase()); n++) name = `${base} ${n}`;
     taken.add(name.toLowerCase());
     measures.set(k.id, name);
   }

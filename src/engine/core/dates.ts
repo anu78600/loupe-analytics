@@ -42,6 +42,8 @@ export const MONTHS_LONG = [
   "December",
 ];
 export const WEEKDAYS_SHORT = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+/** Full weekday names, Monday first, for sentences ("Saturday is the strongest day"). */
+export const WEEKDAYS_LONG = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
 export type TimeGrain = "day" | "week" | "month" | "quarter" | "year";
 export type DatePart = "dow" | "hour" | "month" | "dom";

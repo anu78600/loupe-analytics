@@ -52,13 +52,13 @@ function tableFor(spec: ChartSpec, data: ChartData, fmt: FormatOptions): { cols:
         { key: "rshare", label: "% revenue", numeric: true, render: pct },
         {
           key: "recency",
-          label: "Avg recency",
+          label: "Average recency",
           numeric: true,
           render: (v) => (typeof v === "number" ? `${Math.round(v)} d` : "—"),
         },
         {
           key: "freq",
-          label: "Avg orders",
+          label: "Average orders",
           numeric: true,
           render: (v) => (typeof v === "number" ? v.toFixed(1) : "—"),
         },
