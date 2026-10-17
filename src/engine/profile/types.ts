@@ -228,6 +228,44 @@ export interface WideFormatInfo {
   suggestion: string;
 }
 
+/**
+ * A tall scorecard: one row per metric (per period or entity), the metric's
+ * name in one column and its figure in one or more value columns, as in an
+ * MIS or board-pack sheet ("Metric | Month | Actual | Target"). Values of
+ * different metrics are in different units, so they are never added or
+ * averaged together; turning the metrics into columns (parse/pivot.ts) gives
+ * each its own column. Found by structure.detectTallFormat.
+ */
+export interface TallFormatInfo {
+  /** The column naming the metric on each row ("Metric", "KPI", "Particulars"). */
+  metricColumn: string;
+  /** The metric names, in first-seen order. */
+  metrics: string[];
+  /** Numeric columns holding the figures ("Value", "Actual", "Target", "LY"); the first is the main one. */
+  valueColumns: string[];
+  /** Columns that say which period or entity a row is for, kept as the rows of the pivoted table. */
+  idColumns: string[];
+  suggestion: string;
+}
+
+/**
+ * Two measures that belong together as plan and outcome: a target, budget,
+ * plan, forecast or quota beside the actual figure it is measured against
+ * ("Target (₹ Lakh)" and "Achievement (₹ Lakh)", "Umsatz Plan" and "Umsatz
+ * Ist"). Found by pairs.detectColumnPairs; attainment and variance KPIs are
+ * built from them.
+ */
+export interface ColumnPair {
+  /** The outcome column. */
+  actual: string;
+  /** The plan column it is measured against. */
+  target: string;
+  /** What the pair measures, from the words the two headers share ("Revenue", "Umsatz"). */
+  label: string;
+  /** Which kind of plan: "target", "budget", "plan", "forecast", "quota" or "last year". */
+  kind: "target" | "budget" | "plan" | "forecast" | "quota" | "last year";
+}
+
 export interface CurrencyInfo {
   code: string;
   /** Where the code came from, in plain English. */
@@ -248,6 +286,10 @@ export interface DatasetProfile {
   /** Gap analysis of primaryDate. */
   timeSeries: TimeSeriesInfo | null;
   wide: WideFormatInfo | null;
+  /** A tall "one row per metric" scorecard, when the table is one. */
+  tall: TallFormatInfo | null;
+  /** Plan and outcome measures that belong together. */
+  pairs: ColumnPair[];
   /** Dataset-level display currency. */
   currency: CurrencyInfo;
   durationMs: number;

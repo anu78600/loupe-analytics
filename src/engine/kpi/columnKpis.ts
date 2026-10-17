@@ -15,16 +15,25 @@
  * compare cohorts, not periods. A separate time-of-day column the template
  * doesn't chart gets an hour-of-day chart there too.
  *
+ * Plan and outcome columns that belong together (profile.pairs: "Revenue
+ * Budget" beside "Revenue Actual", "Sales LY" beside "Sales TY") are
+ * compared too, when the template doesn't read both: attainment (actual ÷
+ * plan, a ratio of sums) and variance (actual − plan), or growth vs last
+ * year, built by pairKpis, which the generic fallback uses as well.
+ *
+ * A tall scorecard's value columns (profile.tall) hold every metric's
+ * figures in their own units, so they are never totalled or averaged here.
+ *
  * The results are ordinary registry-shaped definitions (fields with an
  * identity mapping, KPIs, chart templates) merged into the domain by the
  * session, so the evaluator, SQL, DAX, exports and insights treat them like
  * any other KPI. Nothing is estimated and no column is created: every
- * definition reads one column of the file.
+ * definition reads the file's own columns.
  */
-import type { ColumnProfile, DatasetProfile } from "@/engine/profile/types";
+import type { ColumnPair, ColumnProfile, DatasetProfile } from "@/engine/profile/types";
 import { averageOf, friendly, totalOf } from "@/engine/core/labels";
 import { tokenize } from "@/engine/profile/names";
-import { isAdditiveExpr, type Expr } from "@/engine/query/expr";
+import { isAdditiveExpr, type Expr, type Predicate, type RowExpr } from "@/engine/query/expr";
 import type { Mapping } from "@/engine/detect/mapping";
 import type { ChartTemplate, DomainDef, FieldDef, KpiDef } from "@/registry/schema";
 import type { KpiResolutionMap } from "./resolve";
@@ -36,6 +45,8 @@ export const COLUMN_GROUP = "From your other columns";
 /** At most this many columns get KPIs, and the first CHARTED of them get charts. */
 const MAX_KPIS = 8;
 const CHARTED = 4;
+/** At most this many plan/outcome pairs are compared. */
+const MAX_PAIRS = 4;
 
 /** True for a KPI, field or chart id built by columnExtras. */
 export const isColumnId = (id: string): boolean => id.startsWith(COLUMN_PREFIX);
@@ -94,6 +105,185 @@ function directionOf(name: string): KpiDef["direction"] {
   if (t.some((w) => LOWER.has(w))) return "lower";
   if (t.some((w) => HIGHER.has(w))) return "higher";
   return "neutral";
+}
+
+// ---------------------------------------------------------------- plan vs actual
+
+/** A plan/outcome pair whose two columns the analysis may read. */
+export interface UsablePair {
+  pair: ColumnPair;
+  actual: ColumnProfile;
+  target: ColumnProfile;
+}
+
+/**
+ * The profile's plan/outcome pairs (profile/pairs.ts) whose two columns are
+ * both in the analysis profile, so a hidden column is never read, and
+ * neither is a tall scorecard's value column, whose rows mix units.
+ */
+export function usablePairs(profile: DatasetProfile): UsablePair[] {
+  const byName = new Map(profile.columns.map((c) => [c.name, c]));
+  const tallValues = new Set(profile.tall?.valueColumns ?? []);
+  return profile.pairs.flatMap((pair) => {
+    const actual = byName.get(pair.actual);
+    const target = byName.get(pair.target);
+    if (!actual || !target || tallValues.has(actual.name) || tallValues.has(target.name)) return [];
+    return [{ pair, actual, target }];
+  });
+}
+
+/** What pairKpis needs for one pair. */
+export interface PairKpiInput extends UsablePair {
+  /** Field ids that read the actual and the plan column. */
+  actualField: string;
+  targetField: string;
+  /** Field id of the analysis date column: balances are compared on the latest date. Null when there is none. */
+  dateField: string | null;
+  dateLabel: string;
+  /** Id prefix ("yc_" for column KPIs, "" in the generic fallback). */
+  prefix: string;
+  /** Slugs already taken, so the ids stay unique; the new ones are added. */
+  used: Set<string>;
+  group: string;
+  /** Tier of the first KPI (attainment or growth) and of the variance. */
+  tiers: readonly [KpiDef["tier"], KpiDef["tier"]];
+  priority: number;
+  /** Appended to every definition (why the KPI exists). */
+  why: string;
+}
+
+/**
+ * How a pair is compared: sums for amounts and counts; sums on the latest
+ * date for balances when there is a date; the row-by-row gap, averaged, for
+ * percentages, rates and other figures that are never added up.
+ */
+function pairSummary(p: UsablePair, hasDate: boolean): Summary {
+  const both = [p.actual, p.target];
+  if (both.some((c) => c.role === "rate" || c.role === "percentage" || c.additivity === "non-additive"))
+    return "average";
+  if (both.some((c) => c.additivity === "semi-additive") && hasDate) return "latest";
+  return "total";
+}
+
+/**
+ * The KPIs that compare a pair, named the way analysts write them:
+ * - amounts and counts: "{label} attainment vs {plan}" (sum of actual ÷ sum
+ *   of plan, a ratio of sums shown as a percentage, blank when the plan adds
+ *   up to 0, as in SQL) and "{label} variance vs {plan}" (sum of actual −
+ *   sum of plan, in the actual's units); "Target attainment" and "Variance
+ *   vs target" when the headers share no words;
+ * - against last year: "{label} growth vs last year", (actual − LY) ÷ LY,
+ *   and "{label} variance vs last year";
+ * - balances, with a date: the same on the latest date that has both
+ *   figures, never added across dates;
+ * - percentages and rates: the variance only, as the average row-by-row gap,
+ *   in percentage points ("pp") for percentages; a ratio of two rates is no
+ *   attainment.
+ * Every comparison reads only the rows that have both figures, so a month
+ * with a target but no result yet does not count against it.
+ */
+export function pairKpis(input: PairKpiInput): KpiDef[] {
+  const { pair, actual, target, actualField: a, targetField: t, dateField } = input;
+  const how = pairSummary(input, Boolean(dateField));
+  const A = friendly(actual.name);
+  const T = friendly(target.name);
+  const ly = pair.kind === "last year";
+  const subject = pair.label;
+  const kindWord = pair.kind;
+  const base = slug(`${subject || "all"} ${kindWord}`, input.used);
+  const both: Predicate = {
+    and: [
+      { field: a, notNull: true },
+      { field: t, notNull: true },
+    ],
+  };
+  const latest = how === "latest" ? dateField : null;
+  // Balances: the latest date among the rows that have both figures (the filter applies first).
+  const scope = (e: Expr): Expr => ({ calc: latest ? { atLatest: latest, expr: e } : e, where: both });
+  const sumA: Expr = { agg: "sum", of: { field: a } };
+  const sumT: Expr = { agg: "sum", of: { field: t } };
+  // Beating a sales target or quota is good news; a rate's target is as often a ceiling (an NPA ratio,
+  // a churn rate), so rates keep the direction their name gives, if any.
+  let direction = directionOf(actual.name);
+  if (direction === "neutral" && how !== "average" && (pair.kind === "target" || pair.kind === "quota"))
+    direction = "higher";
+  const suffix = latest ? " (latest)" : "";
+  const onLatest = latest
+    ? ` Taken on the latest ${input.dateLabel} that has both figures: it is a balance, so it is not added across dates.`
+    : "";
+  const rows = "over the rows that have both figures, so a row with only one of them is left out";
+  const varianceName = `${subject ? `${subject} variance` : "Variance"} vs ${kindWord}`;
+  // Neutral wording: above the plan is good news for sales and bad news for costs.
+  const above = `Above 0 means ${A} is higher than ${T}.`;
+  const out: KpiDef[] = [];
+
+  if (how === "average") {
+    // Percentages stored as fractions (0.12) become points, so the gap reads in pp either way.
+    const pct = actual.role === "percentage";
+    const gap: RowExpr = { op: "sub", args: [{ field: a }, { field: t }] };
+    const of: RowExpr = pct && actual.percentScale === 1 ? { op: "mul", args: [gap, { num: 100 }] } : gap;
+    out.push({
+      id: `${input.prefix}var_${base}`,
+      name: `${varianceName}${pct ? " (pp)" : ""}`,
+      definition: `The average gap between ${A} and ${T}, row by row (${A} − ${T})${pct ? ", in percentage points" : ""}, ${rows}. ${above}${input.why}`,
+      formula: `Average of (${A} − ${T})${pct ? ", in pp" : ""}`,
+      format: actual.role === "currency" ? "currency" : "decimal",
+      direction,
+      tier: input.tiers[1],
+      priority: input.priority + 1,
+      group: input.group,
+      variants: [
+        {
+          id: "main",
+          label: `Average of (${A} − ${T})`,
+          expr: { agg: "avg", of, where: both },
+          caveat: "A simple average of row gaps; each row counts once, whatever its size.",
+        },
+      ],
+    });
+    return out;
+  }
+
+  const ratio: Expr = ly
+    ? { op: "div", args: [{ op: "sub", args: [sumA, sumT] }, sumT] }
+    : { op: "div", args: [sumA, sumT] };
+  const ratioName = ly
+    ? `${subject ? `${subject} growth` : "Growth"} vs last year`
+    : subject
+      ? `${subject} attainment vs ${kindWord}`
+      : `${kindWord.charAt(0).toUpperCase()}${kindWord.slice(1)} attainment`;
+  const ratioFormula = ly ? `(Sum of ${A} − sum of ${T}) ÷ sum of ${T}` : `Sum of ${A} ÷ sum of ${T}`;
+  out.push({
+    id: `${input.prefix}${ly ? "growth" : "attain"}_${base}`,
+    name: `${ratioName}${suffix}`,
+    definition: ly
+      ? `How much ${A} changed from ${T}: (sum of ${A} − sum of ${T}) ÷ sum of ${T}, ${rows}. Blank when ${T} adds up to 0.${onLatest}${input.why}`
+      : `${A} as a share of ${T}: the sum of ${A} ÷ the sum of ${T}, a ratio of sums, ${rows}. Blank when ${T} adds up to 0.${onLatest}${input.why}`,
+    formula: ratioFormula,
+    format: "percent",
+    direction,
+    tier: input.tiers[0],
+    priority: input.priority,
+    group: input.group,
+    variants: [{ id: "main", label: ratioFormula, expr: scope(ratio) }],
+  });
+  const money = actual.role === "currency" || target.role === "currency";
+  const whole = Boolean(actual.numeric?.integer && target.numeric?.integer);
+  out.push({
+    id: `${input.prefix}var_${base}`,
+    name: `${varianceName}${suffix}`,
+    definition: `${A} minus ${T}: the sum of ${A} − the sum of ${T}, ${rows}. ${above}${onLatest}${input.why}`,
+    formula: `Sum of ${A} − sum of ${T}`,
+    format: money ? "currency" : whole ? "integer" : "number",
+    direction,
+    tier: input.tiers[1],
+    priority: input.priority + 1,
+    group: input.group,
+    variants: [
+      { id: "main", label: `Sum of ${A} − sum of ${T}`, expr: scope({ op: "sub", args: [sumA, sumT] }) },
+    ],
+  });
+  return out;
 }
 
 /**
@@ -178,8 +368,12 @@ export function columnExtras(input: ColumnExtrasInput): ColumnExtras {
   }
   const rank = (c: ColumnProfile) =>
     c.role === "currency" ? 0 : c.role === "rate" || c.role === "percentage" ? 1 : 2;
+  // A tall scorecard's value columns hold every metric's figures, each in its own unit: a total or an
+  // average of one would add percentages to rupees, so they get none (parse/pivot.ts gives each metric
+  // a column of its own instead).
+  const tallValues = new Set(profile.tall?.valueColumns ?? []);
   const columns = profile.columns
-    .filter((c) => isCandidate(c) && !read.has(c.name) && c.name !== dateColumn)
+    .filter((c) => isCandidate(c) && !read.has(c.name) && c.name !== dateColumn && !tallValues.has(c.name))
     .sort((a, b) => rank(a) - rank(b) || Math.abs(b.numeric?.sum ?? 0) - Math.abs(a.numeric?.sum ?? 0))
     .slice(0, MAX_KPIS);
   const out: ColumnExtras = { fields: [], kpis: [], charts: [], mapping: {} };
@@ -318,6 +512,35 @@ export function columnExtras(input: ColumnExtrasInput): ColumnExtras {
       });
     }
   });
+
+  // Plan and outcome columns the template doesn't compare (it may read one of them, as revenue say):
+  // attainment and variance, ahead of the plain totals in the section.
+  const pairSlugs = new Set<string>();
+  usablePairs(profile)
+    .filter((p) => !(read.has(p.actual.name) && read.has(p.target.name)))
+    .slice(0, MAX_PAIRS)
+    .forEach((p, j) => {
+      const A = friendly(p.actual.name);
+      const T = friendly(p.target.name);
+      out.kpis.push(
+        ...pairKpis({
+          ...p,
+          actualField: field(p.actual),
+          targetField: field(p.target),
+          dateField: date ? field(date) : null,
+          dateLabel: date ? friendly(date.name) : "",
+          prefix: COLUMN_PREFIX,
+          used: pairSlugs,
+          group: COLUMN_GROUP,
+          tiers: ["detail", "detail"],
+          priority: 90 + j * 2,
+          why:
+            domain.id === "generic"
+              ? ""
+              : ` The ${domain.name} template doesn't compare ${A} with ${T}, so Loupe does it straight from your file.`,
+        }),
+      );
+    });
   hourOfDay(input, out, field);
   return out;
 }

@@ -262,6 +262,11 @@ interface WorkspaceState {
   resolveLargeFile: (opts: IngestOptions | null) => Promise<void>;
   /** Replaces the dataset with its long (unpivoted) form; overrides and layout reset. */
   unpivot: () => Promise<void>;
+  /**
+   * Replaces a tall scorecard with its pivoted form (one column per metric);
+   * overrides and layout reset, as for unpivot.
+   */
+  pivot: () => Promise<void>;
   /** Terminates the worker (freeing the dataset), forgets the last file and returns the whole store to its initial state. */
   startOver: () => void;
   /**
@@ -915,6 +920,20 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
           if (token === loadSeq) set({ loading: null, error: toError(e) });
         }
       }),
+
+    pivot: () =>
+      queueLoad(
+        { phase: "profiling", title: "Turning metrics into columns…", progress: null },
+        async (token) => {
+          try {
+            const res = await engine().pivot();
+            // The same file reshaped: the currency chosen for it stays.
+            if (token === loadSeq) handleLoad(res, null, true);
+          } catch (e) {
+            if (token === loadSeq) set({ loading: null, error: toError(e) });
+          }
+        },
+      ),
 
     startOver: () => {
       resetEngine();

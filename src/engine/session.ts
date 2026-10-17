@@ -2,10 +2,10 @@
  * Stateful analysis session (lives inside the Web Worker). Holds the dataset
  * and every derived artefact; the UI only ever receives small results.
  *
- * Lifecycle: ingest() / ingestSample() / unpivot() → adopt() (profile, health,
- * domain detection) → configure() (domain + mapping + overrides → KPI
- * resolution, chart specs, SQL/DAX per KPI; hidden columns leave the
- * profile everything is built from) → kpiBatch() / chart() /
+ * Lifecycle: ingest() / ingestSample() / unpivot() / pivot() → adopt()
+ * (profile, health, domain detection) → configure() (domain + mapping +
+ * overrides → KPI resolution, chart specs, SQL/DAX per KPI; hidden columns
+ * leave the profile everything is built from) → kpiBatch() / chart() /
  * rowCount() / insights() / timeIntel() → export*(). Calling a method before
  * its stage throws ("No dataset loaded." / "No analysis context."), and
  * adopting a new dataset drops the context, so configure() must run again.
@@ -45,10 +45,11 @@ import type {
   ColumnProfile,
   DatasetProfile,
   SemanticRole,
+  TallFormatInfo,
   ValueCount,
 } from "@/engine/profile/types";
 import { detectDomain, type DetectionResult } from "@/engine/detect/detect";
-import { assignFields } from "@/engine/detect/match";
+import { assignFields, matchableColumns } from "@/engine/detect/match";
 import { buildMapping, type Mapping } from "@/engine/detect/mapping";
 import { buildGenericDomain, GENERIC_ID } from "@/engine/detect/generic";
 import { grainLabel } from "@/engine/profile/structure";
@@ -89,6 +90,7 @@ import { newColumnsFor, type NewColumn } from "@/engine/export/readme";
 import { dictionaryCsv, dictionaryMarkdown } from "@/engine/export/dictionary";
 import { datasetToCsvChunks, roundAggregate, tableToCsv } from "@/engine/export/csv";
 import { unpivotDataset } from "@/engine/parse/unpivot";
+import { pivotDataset, pivotPlan, pivotSummary, type PivotPlan } from "@/engine/parse/pivot";
 import { DOMAINS, getDomain } from "@/registry";
 import type { DomainDef, FieldDef, KpiFormat, SubDomainDef, ValueClassDef } from "@/registry/schema";
 import type { DateCadence } from "@/engine/core/periods";
@@ -719,6 +721,62 @@ export class Session {
     return this.adopt(next, report, {});
   }
 
+  /** The tall scorecard profiling found, or an error when it found none. */
+  private requireTall(): TallFormatInfo {
+    const tall = this.baseProfile?.tall;
+    if (!tall) throw new Error("No scorecard layout detected.");
+    return tall;
+  }
+
+  /**
+   * What pivot() would do: the rows it makes, the columns it adds (exact
+   * names) and leaves out, and the rows it can't place, so Detect can ask
+   * first. Throws when profiling found no tall scorecard.
+   */
+  pivotPlan(): PivotPlan {
+    return pivotPlan(this.requireDs(), this.requireTall());
+  }
+
+  /**
+   * Turns the tall scorecard found by profiling (one metric per row) into one
+   * column per metric (parse/pivot.ts), then adopts the result as a new
+   * dataset, so the context must be configured again. The parse report keeps
+   * the notes on the columns that stay, adds one for each new column with
+   * cells the file had but that couldn't be read, and says what was done.
+   * Throws when profiling found no tall scorecard.
+   */
+  pivot(): LoadResult {
+    const ds = this.requireDs();
+    const tall = this.requireTall();
+    const plan = pivotPlan(ds, tall);
+    const next = pivotDataset(ds, tall);
+    const prev = this.report as ParseReport;
+    const kept = new Set(plan.kept);
+    const added = new Set(plan.columns.map((c) => c.name));
+    const notes = next.columns
+      .filter((c) => added.has(c.name) && c.unreadable?.rows.length)
+      .map((c) => {
+        const u = c.unreadable as NonNullable<typeof c.unreadable>;
+        const count = u.rows.length;
+        return {
+          column: c.name,
+          invalidCount: count,
+          examples: u.texts.slice(0, 3),
+          note: `${count.toLocaleString("en-US")} ${count === 1 ? "value" : "values"} couldn't be read and ${count === 1 ? "was" : "were"} treated as blank.`,
+        };
+      });
+    const report: ParseReport = {
+      ...prev,
+      rowCount: next.rowCount,
+      columnCount: next.columns.length,
+      // Notes and date readings of columns that are gone would point at nothing.
+      columnNotes: [...prev.columnNotes.filter((note) => kept.has(note.column)), ...notes],
+      dateFormats: prev.dateFormats.filter((d) => kept.has(d.column)),
+      warnings: [...prev.warnings, pivotSummary(plan, tall)],
+    };
+    return this.adopt(next, report, {});
+  }
+
   /**
    * Builds the analysis context from scratch: role overrides → hidden
    * columns left out → domain and mapping → sub-domain → KPI resolution and
@@ -756,7 +814,7 @@ export class Session {
       mapping = g.mapping;
     } else {
       domain = getDomain(req.domainId) as DomainDef;
-      mapping = buildMapping(domain, active, assignFields(domain, active.columns), {
+      mapping = buildMapping(domain, active, assignFields(domain, matchableColumns(active)), {
         fields: req.mappingOverrides,
         classes: req.classOverrides,
       });

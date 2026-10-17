@@ -19,8 +19,8 @@
  *    generic word such as "name" or "date" matched. A column that many
  *    domains can explain ("Order Date", "Status") says little about which
  *    one fits; one that few can explain (an AWB number, a coupon code) says a
- *    lot. Distinctiveness = 2 / (1 + number of domains with a field matching
- *    it).
+ *    lot. Distinctiveness = 2 / (1 + number of domains with a field, or a
+ *    KPI name, matching it).
  * 3. Contrast, per pair of domains. Against each rival, the share of the two
  *    domains' combined distinctive evidence that the rival explains better
  *    (column by column, so a field that is core to the rival but peripheral
@@ -31,6 +31,24 @@
  *    domains that each explain distinctive columns the other cannot (a
  *    supply-chain export with both product and shipping data) both lose, so
  *    they stay close and the user is asked.
+ *
+ * KPI names count too. The tables analysts build carry an industry's
+ * vocabulary in its KPI names rather than in field names: a summary's columns
+ * are KPIs ("AUM (₹ Cr)", "GNPA %", "Collection Efficiency %") and a tall
+ * scorecard names a metric on each row ("ARPU", "Occupancy %"). A measure
+ * column's header, or a metric name of profile.tall, that matches a KPI's
+ * name, short name or alias (nameSimilarity at least KPI_NAME_THRESHOLD, one
+ * KPI per name and one name per KPI) adds KPI_WEIGHT × similarity to the
+ * KPI's domain, exactly where a matched field's weight × score goes: the
+ * column's evidence in step 1's vocabulary and in steps 2 and 3. It only
+ * counts for a name none of the domain's fields match, so a transaction
+ * table, whose columns the fields already explain, scores as before. It is
+ * listed after the field evidence, as "<KPI> (KPI) ← <column>", or "←
+ * Metric: ARPU" for a scorecard's metric name. A tall scorecard's value
+ * columns named only with layout words ("Value", "Target", "YTD Actual") are
+ * left out of field matching altogether (match.ts matchableColumns): they
+ * hold every metric's figures, so their names say how the sheet is laid out,
+ * not which industry it serves.
  *
  * Confidence = (fit − deduction) × 100, capped at 99. The guided manual flow
  * opens below CONFIDENCE_THRESHOLD or when the top two domains are within
@@ -45,12 +63,29 @@
  */
 import type { DatasetProfile } from "@/engine/profile/types";
 import { grainLabel } from "@/engine/profile/structure";
+import { kpiLabel } from "@/engine/core/labels";
 import type { DomainDef, SubDomainDef } from "@/registry/schema";
-import { assignCandidates, matchCandidates, type FieldAssignment } from "./match";
+import {
+  assignCandidates,
+  matchableColumns,
+  matchCandidates,
+  matchKpiNames,
+  namesToRead,
+  type FieldAssignment,
+  type KpiNameMatch,
+  type NameToRead,
+} from "./match";
 
+/**
+ * One reason a domain fits: a column matched to one of its fields, or a
+ * column header or scorecard metric name matched to one of its KPIs. KPI
+ * evidence has a `kpi:` field id and a "(KPI)" label, and comes after the
+ * field evidence.
+ */
 export interface Evidence {
   fieldId: string;
   fieldLabel: string;
+  /** The column, or "<metric column>: <metric>" for a scorecard's metric name. */
   column: string;
   score: number;
   via: FieldAssignment["via"];
@@ -133,17 +168,32 @@ export const GENERIC_EVIDENCE = 0.5;
  */
 export const EVENT_SHAPE_PREFERENCE = 0.5;
 
+/**
+ * Weight of a KPI-name match, as for a core field: a column named after a
+ * KPI ("GNPA %", "RevPAR") says as much about the industry as a column
+ * matched to one of its main fields.
+ */
+export const KPI_WEIGHT = 2.5;
+
 /** Step 1 of the score: one domain against the profile, without looking at the other domains. */
 interface DomainFit {
   domain: DomainDef;
   assignments: FieldAssignment[];
+  /** Headers and metric names matched to the domain's KPIs (match.ts matchKpiNames). */
+  kpiMatches: KpiNameMatch[];
+  /** The evidence keys the KPI matches explain, those none of the domain's fields match. */
+  kpiKeys: Set<string>;
   /** Every sub-domain, the chosen one first (see pickShape). */
   subs: SubDomainScore[];
   best: SubDomainScore;
   sub: SubDomainDef | undefined;
   /** 0–1 before the contrast deduction. */
   fit: number;
-  /** Column → best field weight × match score over all of the domain's fields (not only the assigned one). */
+  /**
+   * Column → best field weight × match score over all of the domain's fields
+   * (not only the assigned one); for a column no field matches, KPI_WEIGHT ×
+   * similarity of a KPI-name match. A scorecard's metric name has a key of its own.
+   */
   evidence: Map<string, number>;
 }
 
@@ -186,9 +236,11 @@ function pickShape(shapes: readonly ShapeEvidence[]): { order: SubDomainScore[];
   return { order: [chosen, ...rest].map((s) => s.score), coverage: pool[0]?.score.coverage ?? 0 };
 }
 
-function fitDomain(domain: DomainDef, profile: DatasetProfile): DomainFit {
-  const candidates = matchCandidates(domain, profile.columns);
+function fitDomain(domain: DomainDef, profile: DatasetProfile, names: readonly NameToRead[]): DomainFit {
+  // A tall scorecard's value columns are its layout, not the industry's vocabulary (matchableColumns).
+  const candidates = matchCandidates(domain, matchableColumns(profile));
   const assignments = assignCandidates(candidates);
+  const kpiMatches = matchKpiNames(domain, names);
   const byField = new Map(assignments.map((a) => [a.fieldId, a]));
   const weightOf = new Map(domain.fields.map((f) => [f.id, f.weight]));
   const dateFields = new Set(domain.fields.filter((f) => f.roles.includes("datetime")).map((f) => f.id));
@@ -221,6 +273,15 @@ function fitDomain(domain: DomainDef, profile: DatasetProfile): DomainFit {
     const v = c.weight * c.score * (c.generic ? GENERIC_EVIDENCE : 1);
     evidence.set(c.column, Math.max(evidence.get(c.column) ?? 0, v));
   }
+  // A header or metric named after one of the domain's KPIs is its vocabulary too, weighted like a
+  // core field. A column one of the domain's fields already explains keeps that field's evidence: in a
+  // transaction table the fields say what the columns are, and a KPI name only adds where they can't.
+  const kpiKeys = new Set<string>();
+  for (const m of kpiMatches) {
+    if (evidence.has(m.key)) continue;
+    evidence.set(m.key, KPI_WEIGHT * m.score);
+    kpiKeys.add(m.key);
+  }
 
   // Two views of how well the domain fits, and the better one counts. Completeness: the best
   // coverage among the shapes that count (pickShape), plus breadth over the assigned fields (12
@@ -248,7 +309,7 @@ function fitDomain(domain: DomainDef, profile: DatasetProfile): DomainFit {
   const valueHits = assignments.filter((a) => a.via !== "name").length;
   fit += Math.min(0.06, valueHits * 0.03);
 
-  return { domain, assignments, subs, best, sub, fit, evidence };
+  return { domain, assignments, kpiMatches, kpiKeys, subs, best, sub, fit, evidence };
 }
 
 /** Step 2: 2 / (1 + number of domains whose fields matched the column), for every matched column. */
@@ -291,9 +352,10 @@ function candidate(f: DomainFit, contrast: ContrastPenalty): DomainCandidate {
   const labelOf = new Map(domain.fields.map((x) => [x.id, x.label]));
   const weightOf = new Map(domain.fields.map((x) => [x.id, x.weight]));
   const byField = new Set(assignments.map((a) => a.fieldId));
+  const kpiOf = new Map(domain.kpis.map((k) => [k.id, k]));
   // Capped at 99: a detection is never presented as certain.
   const confidence = Math.max(0, Math.min(99, Math.round(f.fit * 100 - contrast.points)));
-  const evidence: Evidence[] = assignments
+  const fields: Evidence[] = assignments
     .map((a) => ({
       fieldId: a.fieldId,
       fieldLabel: labelOf.get(a.fieldId) ?? a.fieldId,
@@ -303,6 +365,22 @@ function candidate(f: DomainFit, contrast: ContrastPenalty): DomainCandidate {
       weight: weightOf.get(a.fieldId) ?? 1,
     }))
     .sort((x, y) => y.weight * y.score - x.weight * x.score);
+  // KPI names follow the fields, as counted in fitDomain: only names no field of the domain explains.
+  // A metric name is a cell value of the metric column, so it is evidence from the values.
+  const kpis: Evidence[] = f.kpiMatches
+    .filter((m) => f.kpiKeys.has(m.key))
+    .map((m) => {
+      const k = kpiOf.get(m.kpiId);
+      return {
+        fieldId: `kpi:${m.kpiId}`,
+        fieldLabel: `${k ? kpiLabel(k) : m.kpiId} (KPI)`,
+        column: m.key,
+        score: m.score,
+        via: m.metric ? ("values" as const) : ("name" as const),
+        weight: KPI_WEIGHT,
+      };
+    });
+  const evidence = [...fields, ...kpis];
   const missingSignals = (sub?.signals ?? [])
     .filter((id) => !byField.has(id))
     .map((id) => ({ fieldId: id, label: labelOf.get(id) ?? id }));
@@ -322,7 +400,8 @@ function candidate(f: DomainFit, contrast: ContrastPenalty): DomainCandidate {
 
 /** Scores every domain; returns the top three candidates, whether the user must confirm, and why. */
 export function detectDomain(domains: readonly DomainDef[], profile: DatasetProfile): DetectionResult {
-  const fits = domains.map((d) => fitDomain(d, profile));
+  const names = namesToRead(profile);
+  const fits = domains.map((d) => fitDomain(d, profile, names));
   const spec = distinctiveness(fits);
   const candidates = fits
     .map((own) => {
@@ -359,7 +438,9 @@ export function detectDomain(domains: readonly DomainDef[], profile: DatasetProf
     needsConfirmation = true;
     reason = `${top.name} (${top.confidence}%) and ${second.name} (${second.confidence}%) are within ${AMBIGUITY_GAP} points, so please choose.`;
   } else {
-    reason = `${top.name} matched ${top.evidence.length} columns with ${top.confidence}% confidence.`;
+    const fields = top.evidence.filter((e) => !e.fieldId.startsWith("kpi:")).length;
+    const kpis = top.evidence.length - fields;
+    reason = `${top.name} matched ${fields} column${fields === 1 ? "" : "s"}${kpis ? ` and ${kpis} KPI name${kpis === 1 ? "" : "s"}` : ""} with ${top.confidence}% confidence.`;
   }
   const shapes = Object.fromEntries(candidates.map((c) => [c.domainId, c.subDomain.id]));
   return { candidates: candidates.slice(0, 3), needsConfirmation, reason, structural, shapes };

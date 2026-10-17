@@ -41,6 +41,39 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "42.0",
+    kind: "major",
+    date: "2026-10-17T12:28:07Z",
+    title: "Understands the tables analysts build",
+    summary:
+      "Loupe now recognises the tables analysts make themselves (MIS summaries, KPI scorecards, target vs achievement sheets) and tells shop and B2B sales apart from online shopping. On the real-world benchmark the right industry is named first for 80.0% of tables (up from 67.3%), and a wrong industry is presented without asking for 0.8% (down from 2.3%).",
+    changes: [
+      "Tall scorecards (one row per metric, such as “Metric | Month | Actual | Target”) are recognised. The Detect step offers to turn the metrics into columns, each with its own unit. Until then, no KPI adds or averages figures of different metrics together; each metric gets its own KPI instead.",
+      "Plan and actual columns are paired (Target and Achievement, Budget and Actual, Plan and Ist, LY and TY), giving attainment, variance and growth-vs-last-year KPIs that compile to SQL and DAX like every other KPI.",
+      "KPI names are evidence of an industry: a column or metric named GNPA, ARPU, RevPAR, OTIF, CSAT or Attrition % points to its industry. KPIs now carry the abbreviations analysts use.",
+      "Shop, POS and B2B sales are told apart from online shopping: tills, cashiers, bills, stores, distributors and sales reps point to Sales & Retail, while shipping, couriers, COD and marketplaces point to E-commerce.",
+      "A new Store & POS sales shape, with revenue, bills, average bill value, units per bill, sales per store and card & UPI share.",
+      "The benchmark's floors were raised to the new scores.",
+    ],
+    tags: ["Feature", "Data", "Tests"],
+    files: [
+      "src/engine/profile/structure.ts",
+      "src/engine/profile/pairs.ts",
+      "src/engine/parse/pivot.ts",
+      "src/engine/session.ts",
+      "src/engine/detect/detect.ts",
+      "src/engine/detect/match.ts",
+      "src/engine/detect/generic.ts",
+      "src/engine/kpi/columnKpis.ts",
+      "src/registry/schema.ts",
+      "src/registry/domains/",
+      "src/ui/workspace/DetectStep.tsx",
+      "tests/scorecard.test.ts",
+      "tests/pairs-and-kpi-names.test.ts",
+      "tests/sales-vs-ecommerce.test.ts",
+    ],
+  },
+  {
     version: "41.0",
     kind: "major",
     date: "2026-10-17T11:04:26Z",
@@ -2544,11 +2577,6 @@ export const RELEASES: Release[] = [
  * Remove an item when its version ships.
  */
 export const PLANNED: Array<{ title: string; detail: string }> = [
-  {
-    title: "Understand the tables analysts build",
-    detail:
-      "Summaries that must never be summed twice, time series and panel data, survey responses, cohort tables, event logs, budget vs actual, P&L statements, lookup tables and “Metric, Value” scorecards, each with sensible KPIs and charts.",
-  },
   {
     title: "Ten more industries",
     detail:

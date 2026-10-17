@@ -9,9 +9,20 @@
  * `exclude` token in the column name multiplies a synonym's similarity by 0.3
  * unless that synonym contains the token itself. Pairs scoring at least
  * MATCH_THRESHOLD are assigned greedily, one to one.
+ *
+ * KPI names are matched here too (matchKpiNames): a measure column's header,
+ * or a tall scorecard's metric name, against each KPI's name, short name and
+ * aliases. Detection reads those matches as evidence of the KPI's industry.
  */
-import type { ColumnProfile, SemanticRole } from "@/engine/profile/types";
-import { isGenericPhrase, nameSimilarity, phraseTokens } from "@/engine/profile/names";
+import type { ColumnProfile, DatasetProfile, SemanticRole } from "@/engine/profile/types";
+import {
+  GENERIC_TOKENS,
+  isGenericPhrase,
+  jaroWinkler,
+  nameSimilarity,
+  phraseTokens,
+  tokenize,
+} from "@/engine/profile/names";
 import type { DomainDef, FieldDef } from "@/registry/schema";
 
 /** A field-to-column score in [0, 1] and its parts, kept as detection evidence. */
@@ -263,6 +274,229 @@ export function assignCandidates(candidates: readonly MatchCandidate[]): FieldAs
     usedFields.add(c.fieldId);
     usedCols.add(c.column);
     out.push({ fieldId: c.fieldId, column: c.column, score: c.score, via: c.via });
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------- KPI names
+
+/**
+ * Name similarity at which a header or metric name counts as a KPI's name:
+ * the KPI's words with up to two unit or qualifier words beside them ("AUM
+ * (₹ Cr)" for AUM, "Collection Efficiency %" for collection efficiency), never
+ * one distinctive word of a longer name ("Revenue Target" is not Revenue).
+ */
+export const KPI_NAME_THRESHOLD = 0.75;
+
+/** A name detection reads as a possible KPI name: a measure column's header, or a scorecard's metric. */
+export interface NameToRead {
+  /** Evidence key: the column's name, or "<metric column>: <metric>" for a metric name. */
+  key: string;
+  /** The column the name comes from. */
+  column: string;
+  tokens: readonly string[];
+  /** A metric name read from the values of a tall scorecard's metric column. */
+  metric: boolean;
+}
+
+/** One header or metric name matched to one KPI of a domain. */
+export interface KpiNameMatch {
+  key: string;
+  column: string;
+  metric: boolean;
+  kpiId: string;
+  /** Best similarity over the KPI's name, short name and aliases. */
+  score: number;
+}
+
+/** Roles of the columns whose headers may name a KPI: a KPI is a number, so only measures can. */
+const KPI_COLUMN_ROLES: ReadonlySet<SemanticRole> = new Set(["measure", "currency", "percentage", "rate"]);
+
+/**
+ * Words that say which figure a scorecard's value column holds (the value,
+ * the actual, the target, last year's, the year to date, a month) rather
+ * than what it measures.
+ */
+const LAYOUT_WORDS: ReadonlySet<string> = new Set([
+  "target",
+  "budget",
+  "plan",
+  "forecast",
+  "quota",
+  "ly",
+  "py",
+  "ty",
+  "cy",
+  "achievement",
+  "achieved",
+  "ach",
+  "act",
+  "ytd",
+  "mtd",
+  "qtd",
+  "fy",
+  "variance",
+  "var",
+  "jan",
+  "feb",
+  "mar",
+  "apr",
+  "may",
+  "jun",
+  "jul",
+  "aug",
+  "sep",
+  "sept",
+  "oct",
+  "nov",
+  "dec",
+]);
+
+/**
+ * The columns field matching reads. A tall scorecard's value columns named
+ * only with layout words ("Value", "Target", "Actual", "YTD Budget", "Sep-26
+ * Actual") hold the figures of every metric, so their names describe the
+ * scorecard's layout, not the industry it serves: an industry with "amount"
+ * and "budget" fields would otherwise claim every scorecard. Its metric names
+ * are read as KPI names instead (namesToRead). A value column named for what
+ * it measures ("Impressions") is still that industry's vocabulary.
+ */
+export function matchableColumns(profile: DatasetProfile): readonly ColumnProfile[] {
+  const values = new Set(profile.tall?.valueColumns ?? []);
+  if (!values.size) return profile.columns;
+  const layout = (c: ColumnProfile) =>
+    values.has(c.name) &&
+    c.tokens.every((t) => LAYOUT_WORDS.has(t) || GENERIC_TOKENS.has(t) || /^\d+$/.test(t));
+  return profile.columns.filter((c) => !layout(c));
+}
+
+/**
+ * The names a file offers as KPI names: the header of every measure column
+ * that is not almost entirely blank (a scorecard's value columns aside, see
+ * matchableColumns) and, when the profile found a tall scorecard whose metric
+ * column is still in the profile (not hidden), each of its metric names.
+ */
+export function namesToRead(profile: DatasetProfile): NameToRead[] {
+  const out: NameToRead[] = matchableColumns(profile)
+    .filter((c) => c.storage === "number" && KPI_COLUMN_ROLES.has(c.role) && c.nullPct < 0.999)
+    .map((c) => ({ key: c.name, column: c.name, tokens: c.tokens, metric: false }));
+  const tall = profile.tall;
+  if (tall && profile.columns.some((c) => c.name === tall.metricColumn))
+    for (const m of tall.metrics)
+      out.push({
+        key: `${tall.metricColumn}: ${m}`,
+        column: tall.metricColumn,
+        tokens: tokenize(m),
+        metric: true,
+      });
+  return out;
+}
+
+/**
+ * Words a header may add to a KPI's name and still name that KPI: the
+ * generic ones (units, currency, scale, "average", "total", "%"), periods
+ * ("Monthly Attrition %", "YTD Revenue"), plan and outcome words ("GNPA %
+ * Target", "ARPU LY") and stopwords.
+ */
+const KPI_QUALIFIERS: ReadonlySet<string> = new Set([
+  "target",
+  "budget",
+  "plan",
+  "forecast",
+  "quota",
+  "ly",
+  "py",
+  "ty",
+  "cy",
+  "achievement",
+  "achieved",
+  "ach",
+  "act",
+  "monthly",
+  "annual",
+  "annualised",
+  "annualized",
+  "yearly",
+  "quarterly",
+  "weekly",
+  "daily",
+  "ytd",
+  "mtd",
+  "qtd",
+  "ttm",
+  "ltm",
+  "opening",
+  "closing",
+  "of",
+  "the",
+  "a",
+  "an",
+  "in",
+  "on",
+  "at",
+  "by",
+  "for",
+  "to",
+  "from",
+  "and",
+  "with",
+]);
+
+/**
+ * True when every word of the header is a word of the phrase, a qualifier
+ * (KPI_QUALIFIERS, GENERIC_TOKENS, a bare number) or another spelling of one
+ * of the phrase's words ("utilization" for "utilisation"). nameSimilarity
+ * forgives up to two extra words of any kind; a KPI name must not, since an
+ * extra distinctive word names something else ("New SB Accounts Opened" is
+ * not SaaS's new accounts, "Bed Occupancy %" not a hotel's occupancy).
+ */
+function addsOnlyQualifiers(header: readonly string[], phrase: string): boolean {
+  const own = phraseTokens(phrase);
+  return header.every(
+    (t) =>
+      own.includes(t) ||
+      KPI_QUALIFIERS.has(t) ||
+      GENERIC_TOKENS.has(t) ||
+      /^\d+$/.test(t) ||
+      own.some((o) => Math.min(o.length, t.length) >= 5 && jaroWinkler(o, t) >= 0.93),
+  );
+}
+
+/**
+ * The domain's KPIs whose name, short name or an alias the given names match
+ * (similarity at least KPI_NAME_THRESHOLD, adding only qualifier words),
+ * assigned one to one, best match first: a KPI explains one name and a name
+ * evidences one KPI. Hidden helper KPIs and phrases made only of generic
+ * words are not read.
+ */
+export function matchKpiNames(domain: DomainDef, names: readonly NameToRead[]): KpiNameMatch[] {
+  if (!names.length) return [];
+  const found: KpiNameMatch[] = [];
+  for (const k of domain.kpis) {
+    if (k.hidden) continue;
+    const phrases = [k.name, ...(k.short ? [k.short] : []), ...(k.aliases ?? [])].filter(
+      (p) => !isGenericPhrase(p),
+    );
+    for (const n of names) {
+      let best = 0;
+      for (const p of phrases) {
+        const s = nameSimilarity(n.tokens, p);
+        if (s > best && (s >= 1 || addsOnlyQualifiers(n.tokens, p))) best = s;
+        if (best >= 1) break;
+      }
+      if (best >= KPI_NAME_THRESHOLD)
+        found.push({ key: n.key, column: n.column, metric: n.metric, kpiId: k.id, score: best });
+    }
+  }
+  found.sort((a, b) => b.score - a.score);
+  const usedKpis = new Set<string>();
+  const usedNames = new Set<string>();
+  const out: KpiNameMatch[] = [];
+  for (const m of found) {
+    if (usedKpis.has(m.kpiId) || usedNames.has(m.key)) continue;
+    usedKpis.add(m.kpiId);
+    usedNames.add(m.key);
+    out.push(m);
   }
   return out;
 }

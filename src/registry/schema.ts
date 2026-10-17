@@ -206,6 +206,15 @@ export const kpiSchema = z
     name: z.string(),
     /** Short label for charts and tight spaces. */
     short: z.string().optional(),
+    /**
+     * Other names analysts give this KPI in their own reports: abbreviations
+     * ("GNPA", "RevPAR", "OTIF"), report labels ("Gross NPA %", "Occupancy %")
+     * and translations. Detection reads a column header or a scorecard's
+     * metric name that matches the name, short name or an alias as evidence
+     * of this KPI's industry (detect/detect.ts), so list only names that
+     * mean this KPI, never a merely related one.
+     */
+    aliases: z.array(z.string().min(1)).optional(),
     definition: z.string(),
     /** Human-readable formula, shown next to the definition. */
     formula: z.string(),

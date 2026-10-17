@@ -52,18 +52,20 @@ export const PLANNED_INDUSTRIES = [
  *   confidently wrong 2.3%.
  * - 41.0, reading every column: industry 67.3%, held out 68.8%, shape 87.8%,
  *   roles 99.1%, confidently wrong 2.3%.
+ * - 42.0, analysts' tables and shop sales: industry 80.0%, held out 80.6%,
+ *   shape 89.6%, roles 99.1%, confidently wrong 0.8%.
  */
 const FLOORS = {
   /** Industry ranked first, every layout of a covered industry. */
-  industry: 0.672,
+  industry: 0.8,
   /** The same, held-out layouts only. */
-  industryHoldout: 0.688,
+  industryHoldout: 0.806,
   /** Shape picked, where a layout names one and its industry was found. */
-  shape: 0.877,
+  shape: 0.896,
   /** Labelled columns given the expected role. */
   roles: 0.99,
   /** At most this share of layouts with a wrong industry presented without asking. */
-  confidentlyWrong: 0.023,
+  confidentlyWrong: 0.008,
 };
 
 const ROWS = 240;

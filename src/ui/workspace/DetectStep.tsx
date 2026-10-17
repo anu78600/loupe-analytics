@@ -12,8 +12,11 @@
  * confirms and opens step 3 (Check & map), where the whole file is shown
  * with its problems marked. Also says how dates nothing could prove were
  * read (with a switch), and that the data is a sample when it is; hosts the
- * optional AI second opinion, and the wide-format banner, whose unpivot adds
- * two columns and so asks first (useColumnConsent).
+ * optional AI second opinion, the wide-format banner, whose unpivot adds
+ * two columns and so asks first (useColumnConsent), and the scorecard
+ * notice: a tall "Metric | Month | Value" table whose metrics can become
+ * columns of their own. The worker plans that pivot first, so the dialog
+ * names exactly the columns it adds and the ones it leaves out.
  */
 import { FileIdentity } from "./FileIdentity";
 import * as React from "react";
@@ -27,14 +30,18 @@ import {
   Columns3,
   Hash,
   Sparkles,
+  TableColumnsSplit,
   ToggleLeft,
   Type,
   Waypoints,
 } from "lucide-react";
+import { toast } from "sonner";
+import { engine } from "@/lib/engine-client";
+import type { PivotPlan } from "@/engine/parse/pivot";
 import { stepNumber, useWorkspace } from "@/store/workspace";
 import { useSettings } from "@/store/settings";
 import { SUPPORTED_CURRENCIES, currencySymbol, formatCount } from "@/engine/core/format";
-import { grainLabel } from "@/engine/profile/structure";
+import { grainLabel, listOf } from "@/engine/profile/structure";
 import type { DomainCandidate } from "@/engine/detect/detect";
 import type { DomainListItem } from "@/engine/session";
 import { cn } from "@/lib/utils";
@@ -80,8 +87,12 @@ export function DetectStep() {
   const report = useWorkspace((s) => s.report);
   const domainId = useWorkspace((s) => s.domainId);
   const unpivot = useWorkspace((s) => s.unpivot);
+  const pivot = useWorkspace((s) => s.pivot);
+  const loading = useWorkspace((s) => s.loading);
   const locale = useSettings((s) => s.numberLocale);
   const consent = useColumnConsent();
+  // While the worker plans the pivot, so a second click doesn't open a second dialog.
+  const [planning, setPlanning] = React.useState(false);
   if (!detection || !profile || !summary) return null;
   // The grain as the dashboard will word it: the chosen industry's assumption replaces a key that
   // only numbers the rows (never "One row per row").
@@ -114,6 +125,57 @@ export function DetectStep() {
       noLabel: "Keep my columns",
     });
     if (ok) await unpivot();
+  };
+  const tall = profile.tall;
+  // Turning metrics into columns replaces the metric and value columns with one column per metric, so it
+  // too only runs after a yes. The worker works out the exact columns first.
+  const askPivot = async (opener: HTMLElement) => {
+    if (!tall) return;
+    setPlanning(true);
+    let plan: PivotPlan;
+    try {
+      plan = await engine().pivotPlan();
+    } catch (e) {
+      toast.error(`The scorecard couldn't be read: ${(e as Error).message}`);
+      return;
+    } finally {
+      setPlanning(false);
+    }
+    const each = plan.kept.length ? ` for each ${listOf(plan.kept)}` : "";
+    const rows = plan.kept.length
+      ? `, with one row per ${listOf(plan.kept)} (${countOf(plan.rows, "row", locale)})`
+      : plan.rows === 1
+        ? ", all on one row"
+        : `, on ${countOf(plan.rows, "row", locale)}`;
+    const notes = [
+      plan.unitColumn ? `Each metric's unit from "${plan.unitColumn}" goes into its column's name.` : "",
+      plan.repeats
+        ? `Where a metric appears more than once for the same ${plan.kept.length ? listOf(plan.kept) : "table"}, each repeat gets a row of its own.`
+        : "",
+      plan.skipped
+        ? `${countOf(plan.skipped, "row", locale)} without a metric name or without figures ${plan.skipped === 1 ? "is" : "are"} left out${plan.lostFigures ? `, with ${countOf(plan.lostFigures, "figure", locale)} on them` : ""}.`
+        : "",
+    ].filter(Boolean);
+    const ok = await consent.ask(
+      {
+        title: `Turning metrics into columns adds ${countOf(plan.columns.length, "column", locale)}`,
+        intro: [
+          `Each of the ${countOf(tall.metrics.length, "metric", locale)} in "${tall.metricColumn}" gets ${tall.valueColumns.length === 1 ? "a column" : "columns"} of its own${rows}. Every figure keeps its unit and lands in exactly one cell; nothing is added up. The dashboard is then rebuilt from the new layout.`,
+          ...notes,
+        ].join(" "),
+        columns: plan.columns.map((c) => ({
+          name: c.name,
+          source: `"${c.value}" on the rows where ${tall.metricColumn} is "${c.metric}"`,
+          reason: c.value === tall.valueColumns[0] ? `its figure${each}` : `its ${c.value} figure${each}`,
+        })),
+        replaces: plan.removed,
+        ifNo: "Your columns stay exactly as they are, and the dashboard keeps using them.",
+        yesLabel: `Add ${countOf(plan.columns.length, "column", locale)}`,
+        noLabel: "Keep my layout",
+      },
+      opener,
+    );
+    if (ok) await pivot();
   };
   return (
     <div className="mx-auto w-full max-w-[1400px] px-4 py-8 md:px-6">
@@ -175,9 +237,28 @@ export function DetectStep() {
           <Button size="sm" variant="secondary" onClick={() => void askUnpivot()}>
             <Waypoints aria-hidden /> Unpivot (adds 2 columns)…
           </Button>
-          {consent.dialog}
         </div>
       ) : null}
+      {tall ? (
+        <div
+          role="note"
+          className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-card border border-info/30 bg-info-soft px-4 py-3"
+        >
+          {/* Grows beside the button on wide screens; below 16rem of room the button wraps underneath. */}
+          <p className="min-w-[16rem] flex-1 text-sm text-fg">
+            <span className="font-medium">This looks like a scorecard.</span> {tall.suggestion}
+          </p>
+          <Button
+            size="sm"
+            variant="secondary"
+            disabled={planning || Boolean(loading)}
+            onClick={(e) => void askPivot(e.currentTarget)}
+          >
+            <TableColumnsSplit aria-hidden /> Turn metrics into columns…
+          </Button>
+        </div>
+      ) : null}
+      {consent.dialog}
       <div className="grid gap-5 lg:grid-cols-12">
         <DetectionCard />
         <BusinessForm />

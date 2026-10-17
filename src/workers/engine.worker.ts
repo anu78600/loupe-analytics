@@ -44,6 +44,11 @@ const api = {
 
   unpivot: () => session.unpivot(),
 
+  /** What turning a scorecard's metrics into columns would add and leave out, so Detect can ask first. */
+  pivotPlan: () => session.pivotPlan(),
+
+  pivot: () => session.pivot(),
+
   configure: (req: ContextRequest) => session.configure(req),
 
   /** Marks a dashboard request as the newest; older in-flight requests stop at the next chart. */

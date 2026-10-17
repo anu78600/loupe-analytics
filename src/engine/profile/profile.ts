@@ -33,10 +33,12 @@ import type {
 import { detectStatePattern, detectStringPatterns } from "./patterns";
 import { inferRole } from "./roles";
 import { nameCurrency, tokenize } from "./names";
+import { detectColumnPairs } from "./pairs";
 import {
   analyseTimeSeries,
   detectHierarchies,
   detectKeysAndGrain,
+  detectTallFormat,
   detectWideFormat,
   pickPrimaryDate,
 } from "./structure";
@@ -426,6 +428,8 @@ export function profileDataset(ds: Dataset, opts: { currencyHint?: string } = {}
     primaryDate,
     timeSeries,
     wide: detectWideFormat(columns),
+    tall: detectTallFormat(ds, columns),
+    pairs: detectColumnPairs(columns),
     currency: detectCurrency(columns, opts.currencyHint),
     durationMs: Math.round(performance.now() - started),
   };

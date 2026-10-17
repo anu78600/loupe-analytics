@@ -1,5 +1,6 @@
 /**
- * Cross-reference checks the Zod schema can't express (fields, classes, KPI refs, chart measures, cycles).
+ * Cross-reference checks the Zod schema can't express (fields, classes, KPI refs, KPI aliases, chart
+ * measures, cycles).
  *
  * Returns human-readable problems, empty when the domain is consistent.
  * index.ts logs them but still loads the domain; tests/registry.test.ts
@@ -7,6 +8,7 @@
  */
 import type { AxisDef, DomainDef } from "./schema";
 import { classesOf, fieldsOf, refsOf, type RowExpr } from "@/engine/query/expr";
+import { normalizedName } from "@/engine/profile/names";
 
 /** Field ids an axis references. */
 function axisFields(a: AxisDef | undefined): string[] {
@@ -20,8 +22,8 @@ function axisFields(a: AxisDef | undefined): string[] {
 
 /**
  * Checks one parsed domain: unknown or duplicate ids, value classes (class and
- * notClass) that don't exist, chart fields and measures, sub-domain names, and
- * KPI reference cycles across all variants.
+ * notClass) that don't exist, KPI aliases that name another KPI, chart fields
+ * and measures, sub-domain names, and KPI reference cycles across all variants.
  */
 export function validateDomainRefs(d: DomainDef): string[] {
   const problems: string[] = [];
@@ -52,6 +54,19 @@ export function validateDomainRefs(d: DomainDef): string[] {
       }
     }
   }
+  // A KPI alias is evidence that a column or scorecard metric is that KPI (detect/match.ts), so one
+  // that also names another KPI of the domain would point two ways. Compared as tokenised names, so
+  // "Occupancy %" and "occupancy percent" are one name.
+  const named = new Map<string, string>();
+  for (const k of d.kpis)
+    for (const n of [k.name, ...(k.short ? [k.short] : [])]) named.set(normalizedName(n), k.id);
+  for (const k of d.kpis)
+    for (const a of k.aliases ?? []) {
+      const key = normalizedName(a);
+      const other = named.get(key);
+      if (other && other !== k.id) problems.push(`KPI ${k.id} alias "${a}" names KPI "${other}"`);
+      else named.set(key, k.id);
+    }
   const subIds = new Set(d.subDomains.map((s) => s.id));
   for (const s of d.subDomains)
     for (const sig of s.signals)

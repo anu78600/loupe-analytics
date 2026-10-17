@@ -9,6 +9,19 @@
  * averages (rates and percentages carry an "unweighted" caveat);
  * repeating identifier columns get a distinct count; boolean columns get a
  * "share true" rate; text dimensions with 2–60 values drive the breakdowns.
+ * Plan and outcome columns (profile.pairs: "Target" and "Achievement",
+ * "Sales LY" and "Sales TY") get attainment and variance KPIs, or growth vs
+ * last year (kpi/columnKpis.ts pairKpis); the first pair's attainment is a
+ * hero.
+ *
+ * A tall scorecard (profile.tall: "Metric | Month | Value | Target") holds a
+ * different metric, in its own unit, on each row, so its value columns are
+ * never totalled or averaged across rows. Each metric gets a KPI of its own
+ * instead: the main value where the metric column names it, on the latest
+ * period when there is one, averaged when several rows (branches, regions)
+ * share that period, and charts follow those KPIs. Turning the metrics into
+ * columns (parse/pivot.ts) does the rest.
+ *
  * The mapping is the identity: every field is its own column, with score 1.
  * Names and titles read the headers with spaces (core/labels.ts) and count
  * "rows", the word used everywhere else in Loupe.
@@ -18,6 +31,7 @@ import type { Expr } from "@/engine/query/expr";
 import type { ChartTemplate, DomainDef, FieldDef, KpiDef } from "@/registry/schema";
 import type { Mapping } from "./mapping";
 import { averageOf, friendly, totalOf } from "@/engine/core/labels";
+import { pairKpis, usablePairs } from "@/engine/kpi/columnKpis";
 
 export const GENERIC_ID = "generic";
 
@@ -44,6 +58,96 @@ const isAvgOnly = (c: ColumnProfile) =>
   c.role === "percentage" ||
   ((c.role === "measure" || c.role === "currency") && c.additivity === "non-additive");
 
+/** At most this many scorecard metrics get KPIs, the first SCORECARD_HEROES of them as heroes. */
+const SCORECARD_METRICS = 24;
+const SCORECARD_HEROES = 5;
+/** At most this many plan/outcome pairs are compared. */
+const MAX_PAIRS = 4;
+
+/** A tall scorecard as the analysis profile still has it (no hidden column is read). */
+interface Scorecard {
+  metric: ColumnProfile;
+  value: ColumnProfile;
+  metrics: readonly string[];
+  /** The period column among the scorecard's id columns, if there is one. */
+  period: ColumnProfile | undefined;
+  /** The id column that tells several rows of one metric and period apart (a branch), if any. */
+  entity: ColumnProfile | undefined;
+}
+
+/**
+ * Reads profile.tall against the analysis profile: the metric column and the
+ * first value column still in it, the period among the id columns, and,
+ * when the rows outnumber metrics × periods, the id column with the most
+ * values as the entity the metric is reported for. Null when the metric
+ * column or every value column is hidden.
+ */
+function scorecardOf(profile: DatasetProfile): Scorecard | null {
+  const tall = profile.tall;
+  if (!tall) return null;
+  const byName = new Map(profile.columns.map((c) => [c.name, c]));
+  const metric = byName.get(tall.metricColumn);
+  const value = tall.valueColumns.map((n) => byName.get(n)).find((c) => c !== undefined);
+  if (!metric || !value || !tall.metrics.length) return null;
+  const ids = tall.idColumns.map((n) => byName.get(n)).filter((c): c is ColumnProfile => c !== undefined);
+  const period = ids.find((c) => c.role === "datetime" && c.storage === "date");
+  const periods = Math.max(1, period?.distinct ?? 1);
+  const entity =
+    profile.rowCount > tall.metrics.length * periods
+      ? ids.filter((c) => c !== period && c.distinct > 1).sort((a, b) => b.distinct - a.distinct)[0]
+      : undefined;
+  return { metric, value, metrics: tall.metrics, period, entity };
+}
+
+/**
+ * One KPI per scorecard metric: the main value column on the rows whose
+ * metric column names that metric, taken on the latest period that metric
+ * has (the filter applies first, so a metric reported quarterly still shows
+ * its last quarter). A metric with one row per period shows that row's value;
+ * where several rows share a period (one per branch) they are averaged, each
+ * counting once, and the name says so: adding them up is only right for some
+ * metrics, and the value column alone can't tell which. Shown as plain
+ * numbers, since the unit is in the metric's name, not in the column.
+ */
+function scorecardKpis(s: Scorecard, fid: (c: ColumnProfile) => string): KpiDef[] {
+  const used = new Set<string>();
+  const V = friendly(s.value.name);
+  const M = friendly(s.metric.name);
+  const latest = s.period ? `, on the latest ${friendly(s.period.name)}` : "";
+  return s.metrics.slice(0, SCORECARD_METRICS).map((m, i) => {
+    const inner: Expr = { agg: "avg", of: { field: fid(s.value) } };
+    const expr: Expr = {
+      calc: s.period ? { atLatest: fid(s.period), expr: inner } : inner,
+      where: { field: fid(s.metric), in: [m] },
+    };
+    const formula = `${s.entity ? "Average of " : ""}${V} where ${M} is "${m}"${latest}`;
+    const definition = s.entity
+      ? `${V} where ${M} is "${m}"${latest}, averaged over the ${friendly(s.entity.name)} rows, each counting once. The rows mix metrics in different units, so each metric is read on its own; turn the metrics into columns to total the ones that add up.`
+      : `${V} where ${M} is "${m}"${latest}. The rows mix metrics in different units, so each metric is read on its own.`;
+    return {
+      id: `metric_${fieldId(m, used)}`,
+      name: s.entity ? averageOf(m) : m,
+      definition,
+      formula,
+      format: "number",
+      direction: "neutral",
+      tier: i < SCORECARD_HEROES ? "hero" : i < SCORECARD_HEROES + 12 ? "supporting" : "detail",
+      priority: 2 + i,
+      group: "Scorecard",
+      variants: [
+        {
+          id: "main",
+          label: formula,
+          expr,
+          ...(s.entity
+            ? { caveat: "A simple average across rows; each counts once, whatever its size." }
+            : {}),
+        },
+      ],
+    };
+  });
+}
+
 /** Builds the fallback domain and its identity mapping from a dataset profile. */
 export function buildGenericDomain(profile: DatasetProfile): { domain: DomainDef; mapping: Mapping } {
   const used = new Set<string>();
@@ -61,17 +165,22 @@ export function buildGenericDomain(profile: DatasetProfile): { domain: DomainDef
   });
   const fid = (c: ColumnProfile) => idOf.get(c.name) as string;
   const date = profile.primaryDate ? profile.columns.find((c) => c.name === profile.primaryDate) : undefined;
+  // A tall scorecard's value columns hold a different metric, in its own unit, on each row: a total or
+  // an average across rows would add percentages to rupees, so they feed only the per-metric KPIs.
+  const scorecard = scorecardOf(profile);
+  const tallValues = new Set(profile.tall?.valueColumns ?? []);
   const measures = profile.columns
-    .filter((c) => isMeasure(c) && c.numeric && c.nullPct < 0.95)
+    .filter((c) => isMeasure(c) && c.numeric && c.nullPct < 0.95 && !tallValues.has(c.name))
     .sort(
       (a, b) =>
         (b.role === "currency" ? 1 : 0) - (a.role === "currency" ? 1 : 0) ||
         Math.abs(b.numeric?.sum ?? 0) - Math.abs(a.numeric?.sum ?? 0),
     );
-  const averages = profile.columns.filter((c) => isAvgOnly(c) && c.nullPct < 0.95);
+  const averages = profile.columns.filter((c) => isAvgOnly(c) && c.nullPct < 0.95 && !tallValues.has(c.name));
   const ids = profile.columns
     .filter((c) => c.role === "identifier" && c.distinct > 1)
     .sort((a, b) => b.distinct - a.distinct);
+  // A breakdown by the metric column would put one metric's KPI against the others' empty bars.
   const dims = profile.columns
     .filter(
       (c) =>
@@ -79,7 +188,8 @@ export function buildGenericDomain(profile: DatasetProfile): { domain: DomainDef
         c.storage === "string" &&
         c.distinct >= 2 &&
         c.distinct <= 60 &&
-        c.nullPct < 0.5,
+        c.nullPct < 0.5 &&
+        c.name !== profile.tall?.metricColumn,
     )
     .sort((a, b) => a.distinct - b.distinct);
   const flags = profile.columns.filter((c) => c.role === "boolean");
@@ -104,6 +214,7 @@ export function buildGenericDomain(profile: DatasetProfile): { domain: DomainDef
     group: "Volume",
     expr: { agg: "count" },
   });
+  if (scorecard) scorecardKpis(scorecard, fid).forEach((k) => kpis.push(k));
   ids.slice(0, 2).forEach((c, i) => {
     // A unique id's distinct count would just repeat Rows.
     if (c.unique) return;
@@ -209,28 +320,55 @@ export function buildGenericDomain(profile: DatasetProfile): { domain: DomainDef
       },
     });
   });
+  // Plan against outcome: attainment and variance (or growth vs last year), the first pair's attainment
+  // among the heroes, since it is what a target or budget sheet is kept for.
+  const pairSlugs = new Set<string>();
+  usablePairs(profile)
+    .slice(0, MAX_PAIRS)
+    .forEach((p, j) =>
+      pairKpis({
+        ...p,
+        actualField: fid(p.actual),
+        targetField: fid(p.target),
+        dateField: date ? fid(date) : null,
+        dateLabel: date ? friendly(date.name) : "",
+        prefix: "",
+        used: pairSlugs,
+        group: "Plan vs actual",
+        tiers: j === 0 ? ["hero", "supporting"] : ["supporting", "supporting"],
+        priority: j === 0 ? 2 : 20 + j * 2,
+        why: "",
+      }).forEach((k) => kpis.push(k)),
+    );
 
-  const primary = kpis.find((k) => k.id.startsWith("total_")) ?? kpis[0];
+  // The scorecard's first metric leads the charts; otherwise the largest total, else the row count.
+  const primary =
+    kpis.find((k) => k.id.startsWith("metric_")) ?? kpis.find((k) => k.id.startsWith("total_")) ?? kpis[0];
   const primaryId = primary?.id ?? "records";
   const primaryName = primary?.name ?? "Rows";
+  // A scorecard's metrics are values at a point in time, never parts of a whole: no donuts, lines not areas.
+  const levels = Boolean(scorecard);
   const charts: ChartTemplate[] = [];
   const chart = (c: ChartTemplate) => charts.push(c);
   if (date) {
     chart({
       id: "g_trend",
       title: `${primaryName} over time`,
-      kind: "area",
+      kind: levels ? "line" : "area",
       section: "trend",
       x: { time: fid(date) },
       measures: [primaryId],
-      reason: `A date column (${friendly(date.name)}) and a measure: a line over time shows the trend.`,
-      alternatives: ["line", "bar"],
+      reason: levels
+        ? `${primaryName} on each ${friendly(date.name)}: a line shows how the metric moves.`
+        : `A date column (${friendly(date.name)}) and a measure: a line over time shows the trend.`,
+      alternatives: levels ? ["bar"] : ["line", "bar"],
       size: { w: 8, h: 4 },
       priority: 1,
     });
-    const second =
-      kpis.find((k) => k.id.startsWith("total_") && k.id !== primaryId) ??
-      kpis.find((k) => k.id === "records");
+    const second = levels
+      ? kpis.find((k) => k.id.startsWith("metric_") && k.id !== primaryId)
+      : (kpis.find((k) => k.id.startsWith("total_") && k.id !== primaryId) ??
+        kpis.find((k) => k.id === "records"));
     if (second)
       chart({
         id: "g_trend2",
@@ -244,18 +382,20 @@ export function buildGenericDomain(profile: DatasetProfile): { domain: DomainDef
         size: { w: 4, h: 4 },
         priority: 2,
       });
-    chart({
-      id: "g_weekday",
-      title: "Rows by weekday",
-      kind: "bar",
-      section: "drivers",
-      x: { part: "dow", of: fid(date) },
-      measures: ["records"],
-      reason: "Day-of-week pattern: columns in calendar order reveal weekly seasonality.",
-      alternatives: ["line"],
-      size: { w: 4, h: 4 },
-      priority: 5,
-    });
+    // A scorecard's rows are metrics, not events, so counting them by weekday would mean nothing.
+    if (!levels)
+      chart({
+        id: "g_weekday",
+        title: "Rows by weekday",
+        kind: "bar",
+        section: "drivers",
+        x: { part: "dow", of: fid(date) },
+        measures: ["records"],
+        reason: "Day-of-week pattern: columns in calendar order reveal weekly seasonality.",
+        alternatives: ["line"],
+        size: { w: 4, h: 4 },
+        priority: 5,
+      });
   }
   if (timeOfDay && !date?.temporal?.hasTime) {
     chart({
@@ -272,13 +412,14 @@ export function buildGenericDomain(profile: DatasetProfile): { domain: DomainDef
     });
   }
   dims.slice(0, 3).forEach((d, i) => {
-    // IN/US states get a tile map; otherwise sorted bars, or a donut for a small (≤ 6 values) non-first dimension.
-    const small = d.distinct <= 6;
+    // IN/US states get a tile map; otherwise sorted bars, or a donut for a small (≤ 6 values) non-first
+    // dimension, unless the measure is a scorecard metric, which is no part of a whole.
+    const small = d.distinct <= 6 && !levels;
     chart({
       id: `g_by_${fid(d)}`,
       title: `${primaryName} by ${friendly(d.name)}`,
       kind:
-        d.geoLevel === "state" && (d.geoRegion === "IN" || d.geoRegion === "US")
+        d.geoLevel === "state" && (d.geoRegion === "IN" || d.geoRegion === "US") && !levels
           ? "geoTile"
           : small && i > 0
             ? "donut"
@@ -395,6 +536,11 @@ export function buildGenericDomain(profile: DatasetProfile): { domain: DomainDef
     pitfalls: [
       "No industry was confirmed, so KPIs are structural (totals, counts, averages) rather than business definitions.",
       "Averages of rate or percentage columns are unweighted; confirm an industry or rebuild the rate from its parts.",
+      ...(profile.tall
+        ? [
+            "Each row holds a different metric in its own unit, so nothing adds or averages the value columns across metrics; each metric is read on its own.",
+          ]
+        : []),
     ],
   };
   const mapping: Mapping = {
