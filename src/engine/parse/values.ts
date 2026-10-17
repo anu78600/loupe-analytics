@@ -1,14 +1,25 @@
 /**
- * Value-level parsers: null tokens, numbers with currency/percent, booleans,
- * plus the decimal-separator decision for a column (detectNumberStyle).
+ * Value-level parsers: null tokens, numbers with currency/percent, numbers
+ * with a scale word ("14.5 Lacs"), booleans and yes/no words in other
+ * languages, plus the column-level decisions about them: the decimal
+ * separator (detectNumberStyle), whether scale words are read at full size
+ * (detectScaleWords) and which language's yes/no pair a column uses
+ * (yesNoPairOf).
  *
  * Shared by type inference (builder.inferPlan, on a sample) and by the column
  * accumulators (on every cell), so they stay small and side-effect free.
  * They return null rather than throwing; the caller decides whether that
- * counts as an invalid value.
+ * counts as an invalid value. The words of other languages live in words.ts.
  */
+import { tokenize } from "@/engine/profile/names";
+import { foldWord, SCALE_WORDS, type ScaleWord, YES_NO_PAIRS, type YesNoPair } from "./words";
 
-/** Spellings treated as blank, compared trimmed and lower-cased (includes spreadsheet errors such as #N/A). */
+/**
+ * Spellings treated as blank, compared trimmed and lower-cased (includes
+ * spreadsheet errors such as #N/A, the en dash reports print for nil, and
+ * "not available" as other languages abbreviate it: N/D, S/D and S/I in
+ * Spanish and Portuguese, k. A. in German).
+ */
 const NULL_TOKENS = new Set([
   "",
   "na",
@@ -21,6 +32,7 @@ const NULL_TOKENS = new Set([
   "-",
   "--",
   "—",
+  "–",
   "#n/a",
   "#null!",
   "#value!",
@@ -28,6 +40,12 @@ const NULL_TOKENS = new Set([
   "?",
   "missing",
   "not available",
+  "n/d",
+  "n.d.",
+  "s/d",
+  "s/i",
+  "k.a.",
+  "k. a.",
 ]);
 
 export function isNullToken(raw: string): boolean {
@@ -151,10 +169,13 @@ const SCIENTIFIC = /^\d+(?:\.\d+)?e[+-]?\d+$/i;
 // Space-grouped thousands (12 500,00 in French and other European locales, 1 234 567.89 elsewhere). A space
 // is never a decimal separator, so the remaining mark is the decimal whatever the column's style.
 const SPACE_GROUPED = /^\d{1,3}(?: \d{3})+(?:[.,]\d+)?$/;
+// Apostrophe-grouped thousands, as Switzerland and Liechtenstein write them (1'234'567.89, 1’234.50); like
+// a space, an apostrophe is never the decimal mark.
+const APOSTROPHE_GROUPED = /^\d{1,3}(?:['’]\d{3})+(?:[.,]\d+)?$/;
 
 /**
  * Parses "₹1,23,456.50", "(1,234)", "12.5%", "USD 500", "1.234,56" (comma style), "12 500,00"
- * (space-grouped, any style) and "Rs. 500/-".
+ * (space-grouped, any style), "CHF 1'234.50" (apostrophe-grouped, any style) and "Rs. 500/-".
  *
  * Peels off, in order: accounting parentheses, a leading sign (ASCII "-" or
  * U+2212), a currency prefix and a sign after it, the Indian "/-" suffix, "%",
@@ -210,6 +231,7 @@ export function parseNumber(raw: string, style: NumberStyle = "dot"): ParsedNumb
   let normalized: string;
   if (SCIENTIFIC.test(s)) normalized = s;
   else if (SPACE_GROUPED.test(s)) normalized = s.replace(/ /g, "").replace(",", ".");
+  else if (APOSTROPHE_GROUPED.test(s)) normalized = s.replace(/['’]/g, "").replace(",", ".");
   else if (style === "dot") {
     if (!DOT_STYLE.test(s)) return null;
     normalized = s.replace(/,/g, "");
@@ -221,6 +243,164 @@ export function parseNumber(raw: string, style: NumberStyle = "dot"): ParsedNumb
   if (!Number.isFinite(v)) return null;
   const signed = neg ? -v : v;
   return { value: percent ? signed / 100 : signed, currency, percent: percent || undefined };
+}
+
+/** A number written with a scale word, read at full size ("14.5 Lacs" → 1,450,000). */
+export interface ScaledNumber extends ParsedNumber {
+  /** The scale word as written ("Lacs", "Mio"). */
+  word: string;
+  scale: ScaleWord;
+}
+
+// A number, a scale word and, optionally, a currency after it: "14.5 Lacs", "$3.4M", "1,2 Mio. €", "500 k€".
+const SCALED = /^(.*\d)\s*(\p{L}{1,10})\.?\s*(€|£|\$|₹|¥|[A-Za-z]{3})?$/u;
+
+/**
+ * `v` times 10^exponent, computed on the decimal as written ("2.3e7") so
+ * 2.3 Cr is exactly 23,000,000 rather than 22,999,999.999999996.
+ */
+function atScale(v: number, exponent: number): number {
+  const text = String(v);
+  return /e/i.test(text) ? v * 10 ** exponent : Number(`${text}e${exponent}`);
+}
+
+/**
+ * Parses a number followed by a scale word ("14.5 Lacs", "2.3 Cr", "₹1.2 Cr",
+ * "12K", "3.4M", "1.1 Bn", "1,2 Mio. €", "(1.2 Cr)") at full size; null when
+ * there is no scale word, so plain numbers go to parseNumber. Whether a
+ * column's scale words are read at all is detectScaleWords' decision.
+ */
+export function parseScaledNumber(raw: string, style: NumberStyle = "dot"): ScaledNumber | null {
+  let s = raw.replace(/[   ]/g, " ").trim();
+  const wrapped = s.startsWith("(") && s.endsWith(")");
+  if (wrapped) s = s.slice(1, -1).trim();
+  const m = SCALED.exec(s);
+  const scale = m ? SCALE_WORDS.get(foldWord(m[2] as string)) : undefined;
+  if (!m || !scale) return null;
+  // The currency after the scale word goes back after the number, where parseNumber reads it.
+  const body = m[3] ? `${m[1]} ${m[3]}` : (m[1] as string);
+  const p = parseNumber(wrapped ? `(${body})` : body, style);
+  if (!p || p.percent) return null;
+  return { ...p, value: atScale(p.value, scale.exponent), word: m[2] as string, scale };
+}
+
+/**
+ * Name tokens that say a column holds money (canonical forms from
+ * names.tokenize; "money" is the token for a currency mark or code in the
+ * header). Scale words beside money are read as scales even when they are
+ * single letters ("Revenue" 3.4M).
+ */
+const MONEY_WORDS = new Set([
+  "money",
+  "amount",
+  "price",
+  "sellingprice",
+  "costprice",
+  "listprice",
+  "unitprice",
+  "mrp",
+  "cost",
+  "revenue",
+  "sale",
+  "turnover",
+  "gmv",
+  "income",
+  "earning",
+  "profit",
+  "budget",
+  "expense",
+  "expenditure",
+  "spend",
+  "fee",
+  "rent",
+  "salary",
+  "wage",
+  "stipend",
+  "ctc",
+  "package",
+  "compensation",
+  "payment",
+  "balance",
+  "deposit",
+  "loan",
+  "aum",
+  "premium",
+  "valuation",
+  "value",
+  "worth",
+  "capital",
+  "marketcap",
+  "mcap",
+  "fund",
+  "funding",
+  "investment",
+  "donation",
+  "grant",
+  "rupee",
+  "dollar",
+  "euro",
+]);
+/** Ledger words beside which "Cr" is a credit ("12,345.00 Cr"), as accounting writes it, not a crore. */
+const LEDGER_WORDS = new Set(["balance", "debit", "credit", "ledger", "closing", "opening", "dr"]);
+/** A currency symbol in a header ("Price (₹)", "Revenue R$"). */
+const CURRENCY_MARK = /[₹$€£¥₩₽₺₦฿₱₫৳]/;
+
+/**
+ * The scales a header spells out in full ("Sales in Lakhs", "Population
+ * (millions)"), as powers of ten. Abbreviations don't count: in a header they
+ * are as often something else ("TN" for Tamil Nadu, "CR" for a change
+ * request, "mn" for minutes).
+ */
+function headerScales(columnName: string): Set<number> {
+  const named = new Set<number>();
+  for (const word of foldWord(columnName).split(/[^\p{L}]+/u)) {
+    const scale = word ? SCALE_WORDS.get(word) : undefined;
+    if (scale?.full) named.add(scale.exponent);
+  }
+  return named;
+}
+
+/**
+ * True when a column's scale words are read at full size: every sampled value
+ * carries one (parseScaledNumber), and either the values carry a currency, the
+ * header names money (MONEY_WORDS, a currency code or symbol), or, for
+ * unambiguous scale words only, the header spells the same scale out
+ * ("Population (millions)" with "1.4 Mn"). Never for codes such as "5K" sizes
+ * or "2B" pencils, which have neither. Not either when the header spells out
+ * another scale than the values ("Revenue (thousands)" with 1.2M), when "M"
+ * sits beside "MM" (the accountants' M for a thousand), or for "Cr" beside
+ * ledger words, where it marks a credit.
+ */
+export function detectScaleWords(
+  samples: readonly string[],
+  columnName: string,
+  style: NumberStyle,
+): boolean {
+  if (samples.length === 0) return false;
+  const words = new Set<string>();
+  const exponents = new Set<number>();
+  let weak = false;
+  let currency = false;
+  for (const s of samples) {
+    const p = parseScaledNumber(s, style);
+    if (!p) return false;
+    words.add(foldWord(p.word));
+    exponents.add(p.scale.exponent);
+    if (p.scale.weak) weak = true;
+    if (p.currency) currency = true;
+  }
+  if (words.has("m") && words.has("mm")) return false;
+  const tokens = tokenize(columnName);
+  if ((words.has("cr") || words.has("crs")) && tokens.some((t) => LEDGER_WORDS.has(t))) return false;
+  const header = headerScales(columnName);
+  const sameScale = [...header].some((e) => exponents.has(e));
+  if (header.size > 0 && !sameScale) return false;
+  const money =
+    currency ||
+    CURRENCY_MARK.test(columnName) ||
+    tokens.some((t) => MONEY_WORDS.has(t) || ISO_CURRENCY_CODES.has(t.toUpperCase())) ||
+    (tokens.includes("market") && tokens.includes("cap"));
+  return money || (!weak && sameScale);
 }
 
 /** A column's decimal separator, with a parse-report remark when the values left room for doubt. */
@@ -364,11 +544,51 @@ export function detectNumberStyle(samples: readonly string[]): NumberStyleDecisi
 const TRUE_TOKENS = new Set(["true", "yes", "y", "t"]);
 const FALSE_TOKENS = new Set(["false", "no", "n", "f"]);
 
-/** true/false for a recognised token (case-insensitive, trimmed), else null. */
+/**
+ * true/false for a recognised English token (case-insensitive, trimmed), else
+ * null. The SQL and DAX compilers test text columns with the same English
+ * list (query/evaluate.ts relies on it), so other languages stay out of it:
+ * a column written in their words is stored as yes/no instead (yesNoPairOf).
+ */
 export function parseBooleanToken(raw: string): boolean | null {
   const t = raw.trim().toLowerCase();
   if (TRUE_TOKENS.has(t)) return true;
   if (FALSE_TOKENS.has(t)) return false;
+  return null;
+}
+
+/** true for the pair's yes word, false for its no word (accents and case aside), else null. */
+export function yesNoTruth(pair: YesNoPair, raw: string): boolean | null {
+  const w = foldWord(raw.trim());
+  if (pair.yes.includes(w)) return true;
+  if (pair.no.includes(w)) return false;
+  return null;
+}
+
+/**
+ * The one yes/no pair of another language that every value is written with
+ * ("Sim"/"Não", "Oui"/"Non", "VERDADERO"/"FALSO"), or null. Every value must
+ * be a word of that pair, both words must occur, and at most four spellings
+ * may be used (case and accents: "Sí", "Si", "SI"), so a column never mixes
+ * languages and a column of only "Han" (a name) is not read as yes. English
+ * (Yes/No, Y/N, TRUE/FALSE) is decided by parseBooleanToken before this.
+ */
+export function yesNoPairOf(values: readonly string[]): YesNoPair | null {
+  if (values.length === 0) return null;
+  for (const pair of YES_NO_PAIRS) {
+    let yes = false;
+    let no = false;
+    const spellings = new Set<string>();
+    const all = values.every((v) => {
+      const t = yesNoTruth(pair, v);
+      if (t === null) return false;
+      if (t) yes = true;
+      else no = true;
+      spellings.add(v.trim().toLowerCase());
+      return true;
+    });
+    if (all && yes && no && spellings.size <= 4) return pair;
+  }
   return null;
 }
 

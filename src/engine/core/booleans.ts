@@ -11,7 +11,10 @@
  * - When it used words or codes (Yes/No, Y/N, 1/0…), every export keeps them
  *   as text: the CSV writes the labels, the SQL table and the Power BI model
  *   declare text, and the SQL and DAX conditions compare with the labels
- *   (`"Return_Flag" = 'Yes'`), so they run on the user's own table too.
+ *   (`"Return_Flag" = 'Yes'`), so they run on the user's own table too. That
+ *   includes yes/no words in other languages (Sim/Não, Oui/Non) and the
+ *   TRUE/FALSE a localised Excel writes (VERDADERO/FALSO, VRAI/FAUX), which
+ *   parse/values.yesNoPairOf reads: they are the user's words, not TRUE/FALSE.
  *
  * Everything that writes or describes a column for export asks these two
  * helpers, so the data, the schema and the formulas always agree.

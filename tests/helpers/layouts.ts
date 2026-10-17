@@ -68,11 +68,15 @@ function numberDraw(values: readonly string[]): Draw | null {
   let suffix = "";
   let decimals = 0;
   let grouped = false;
+  // Whole numbers written with a zero fraction ("3067.0", "1.00", as pandas and Excel exports write
+  // them) stay whole: a real file never holds a postcode of 3067.4.
+  let wholeOnly = true;
   let min = Infinity;
   let max = -Infinity;
   for (const v of values) {
     const m = NUMBER_RE.exec(v);
     if (!m) return null;
+    if (!/^0*$/.test(m[4] ?? "")) wholeOnly = false;
     const int = m[3] as string;
     // A leading zero marks a code ("007"), not a quantity.
     if (int.length > 1 && int.startsWith("0")) return null;
@@ -88,7 +92,8 @@ function numberDraw(values: readonly string[]): Draw | null {
   }
   const p = prefix ?? "";
   return (r) => {
-    const x = min + r() * (max - min);
+    const drawn = min + r() * (max - min);
+    const x = wholeOnly ? Math.round(drawn) : drawn;
     let body = Math.abs(x).toFixed(decimals);
     if (grouped) {
       const [i, f] = body.split(".");
@@ -402,6 +407,45 @@ function localNumberDraw(values: readonly string[]): Draw | null {
   };
 }
 
+const PERIOD_HEADER = /date|month|year|period|\bfy\b|quarter|week|time|\bmes\b|monat|\bano\b|jahr|mois/i;
+
+/**
+ * Codes that differ on every row in a real file (FG-20045, INC0000045,
+ * 27AADCK4512M1Z8) but were not listed as keys: drawn as serials of the
+ * samples, as an ID column would be, so 240 rows hold more than five codes.
+ * Applies when the samples are distinct, carry a digit and no spaces, and the
+ * header doesn't name a period (FY2024-25 is a label, not a code).
+ */
+function codeDraw(header: string, values: readonly string[], pool: number): Draw | null {
+  if (values.length < 4 || new Set(values).size < values.length - 1 || PERIOD_HEADER.test(header))
+    return null;
+  if (!values.every((v) => /^(?=.*\d)[A-Za-z0-9][A-Za-z0-9\-_/.#:]{3,39}$/.test(v))) return null;
+  return (r) => withSerial(values[Math.floor(r() * values.length)] as string, Math.floor(r() * pool));
+}
+
+/**
+ * Free text (comments, ticket subjects, narrations): spliced from two samples
+ * at a word, so most rows differ as written text does, instead of five
+ * sentences repeated.
+ */
+function textDraw(values: readonly string[]): Draw | null {
+  const words = values.map((v) => v.split(" "));
+  const avg = values.reduce((n, v) => n + v.length, 0) / Math.max(1, values.length);
+  if (
+    values.length < 4 ||
+    avg <= 25 ||
+    words.some((w) => w.length < 4) ||
+    new Set(values).size < values.length
+  )
+    return null;
+  return (r) => {
+    const a = words[Math.floor(r() * words.length)] as string[];
+    const b = words[Math.floor(r() * words.length)] as string[];
+    const cut = 1 + Math.floor(r() * (Math.min(a.length, b.length) - 1));
+    return [...a.slice(0, cut), ...b.slice(cut)].join(" ");
+  };
+}
+
 /** Dates drawn uniformly between the sampled minimum and maximum, written in the sampled layout. */
 function dateDraw(values: readonly string[]): Draw | null {
   const first = values[0] as string;
@@ -444,7 +488,9 @@ export function expandFixture(f: LayoutSpec, rowCount: number): string {
           ((isCompactDate(filled) ? dateDraw(filled) : null) ??
             numberDraw(filled) ??
             dateDraw(filled) ??
-            localNumberDraw(filled))) ||
+            localNumberDraw(filled) ??
+            codeDraw(h, filled, pool) ??
+            textDraw(filled))) ||
         ((rr) => filled[Math.floor(rr() * filled.length)] ?? "");
     return { unique: f.unique?.includes(h) ?? false, base, samples, blankShare, draw };
   });

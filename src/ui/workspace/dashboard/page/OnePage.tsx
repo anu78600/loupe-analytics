@@ -293,6 +293,9 @@ function KpiTile({
   const v = value?.value ?? null;
   // Written as on the dashboard's cards, the slides and the report (formatKpi).
   const shown = value?.rows === 0 ? "—" : formatKpi(v, meta.format, fmt);
+  // A headline figure is never cut short: past six characters the size steps down with the length,
+  // so "R$607.07" or "CHF 1.2M" fits a sixth of the page as "₹607.07" does.
+  const fit = Math.min(1, 6.5 / Math.max(6.5, shown.length));
   return (
     <div
       className="flex min-w-0 items-stretch gap-[0.55cqw] rounded-[12px] border border-border p-[max(8px,0.75cqw)]"
@@ -314,7 +317,10 @@ function KpiTile({
           {kpiLabel(meta)}
         </p>
         {/* Fluid with the page, 24 px on the 1280 px download; Inter's optical size tightens it. */}
-        <p className="font-figures mt-auto truncate pt-[0.3cqw] text-[clamp(18px,1.88cqw,30px)] leading-none font-semibold text-fg">
+        <p
+          className="font-figures mt-auto truncate pt-[0.3cqw] text-[clamp(18px,1.88cqw,30px)] leading-none font-semibold text-fg"
+          style={fit < 1 ? { fontSize: `calc(clamp(18px, 1.88cqw, 30px) * ${fit.toFixed(3)})` } : undefined}
+        >
           {shown}
         </p>
         {value ? (

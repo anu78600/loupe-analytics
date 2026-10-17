@@ -37,6 +37,10 @@ import type { DatePart, TimeGrain } from "@/engine/core/dates";
 import type { ColumnProfile } from "@/engine/profile/types";
 import type { ContextResult } from "@/engine/session";
 
+/** The tile-map region of a place column: IN or US, the two regions with a tile map; otherwise none. */
+const tileRegion = (region: string | undefined): "IN" | "US" | undefined =>
+  region === "IN" || region === "US" ? region : undefined;
+
 export type AxisChoice =
   | { type: "time"; column: string; grain: TimeGrain | "auto" }
   | { type: "part"; column: string; part: DatePart }
@@ -487,10 +491,9 @@ export function buildSpec(
     section: d.section,
     size: { w: d.w, h: d.h },
     target: d.target.trim() && Number.isFinite(target) ? target : undefined,
-    geoRegion:
-      d.kind === "geoTile" && axisColumn
-        ? (col(axisColumn)?.geoRegion as "IN" | "US" | undefined)
-        : undefined,
+    // Only Indian and US states have a tile map; any other region (Brazil, Canada…) gets none, so
+    // isKindCompatible refuses the map and says why instead of drawing India's grid.
+    geoRegion: d.kind === "geoTile" && axisColumn ? tileRegion(col(axisColumn)?.geoRegion) : undefined,
     analysis: d.kind === "funnel" ? "funnel" : undefined,
   });
   if (isKindCompatible(d.kind, spec)) return { spec, problem: null };

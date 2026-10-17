@@ -17,6 +17,12 @@
  * Blank spellings ("NA", "N/A", "-", …) are blanks only where a value must be
  * a number, a date or a yes/no: a text column keeps them as written, since
  * there they are often real values ("NA" for North America).
+ *
+ * Values written in other languages are read with the words in words.ts: a
+ * yes/no column in one language's pair ("Sim"/"Não") keeps that pair, a
+ * month-name column narrows to the language its values are written in, and a
+ * column whose numbers carry scale words ("14.5 Lacs") is read at full size
+ * with a note saying so.
  */
 import type {
   BooleanColumn,
@@ -32,11 +38,15 @@ import type { DayMonthDecision } from "./dateOrder";
 import {
   type CellValue,
   detectNumberStyle,
+  detectScaleWords,
   isNullToken,
   type NumberStyle,
   parseBooleanToken,
   parseNumber,
+  parseScaledNumber,
   WallClockDate,
+  yesNoPairOf,
+  yesNoTruth,
 } from "./values";
 import {
   type DateKind,
@@ -45,10 +55,12 @@ import {
   detectDateKind,
   isTimeOnlyColumn,
   detectNumericDateKind,
+  monthLanguageEvidence,
   numericDateToMs,
   parseDateParts,
   partsToMs,
 } from "./dates";
+import { ANY_MONTH_LANGUAGE, foldWord, SCALE_NAMES, type YesNoPair } from "./words";
 
 // ---------------------------------------------------------------- growable arrays
 
@@ -98,13 +110,18 @@ class GrowI32 {
  * Storage decision for one column. "date" with dateKind "typed" means cells
  * arrive as WallClockDate (spreadsheets); "numeric-date" means numbers that
  * encode dates (Excel serials, Unix time). A number plan's `note` explains a
- * doubtful decimal-separator choice and goes into the column's parse note.
+ * doubtful decimal-separator choice and goes into the column's parse note;
+ * `scaled` reads scale words at full size ("14.5 Lacs"). A date plan's
+ * `months` is the month-name languages the column may be written in, and its
+ * `evidence` explains a reading the parse report should spell out ("01.2025"
+ * as a month). A boolean plan's `words` is the other language's yes/no pair
+ * its values use; English when absent.
  */
 export type ColumnPlan =
-  | { kind: "number"; style: NumberStyle; note?: string }
-  | { kind: "date"; dateKind: DateKind | "typed" }
+  | { kind: "number"; style: NumberStyle; note?: string; scaled?: boolean }
+  | { kind: "date"; dateKind: DateKind | "typed"; months?: number; evidence?: string }
   | { kind: "numeric-date"; dateKind: DateKind }
-  | { kind: "boolean" }
+  | { kind: "boolean"; words?: YesNoPair }
   | { kind: "string" };
 
 /**
@@ -114,6 +131,28 @@ export type ColumnPlan =
  */
 const ID_LIKE_NAME =
   /(^|_)(id|ids|code|pin|pincode|zip|zipcode|postal|postcode|phone|mobile|contact|sku|ean|upc|isbn|gtin|hsn|account|acct|awb|tracking|invoice|no|number|ref)(_|$)/;
+
+/**
+ * Digits a double is sure to hold exactly. A number written with more is a
+ * code (a card or account number, a 19-digit message ID, GA4's user_pseudo_id
+ * "1197596843.1673515430"): read as a number it would change, and two codes
+ * could even become one.
+ */
+const EXACT_DIGITS = 15;
+
+/**
+ * True when `s` is a plain number with more digits than a double holds
+ * exactly and should therefore stay text: a whole number (amounts that long
+ * are written with grouping, not as one run of digits), or a decimal under an
+ * ID-like name (elsewhere a long decimal is a measurement's float noise,
+ * "12.971598700000001", and stays a number).
+ */
+function tooLongForANumber(s: string, idName: boolean): boolean {
+  const m = /^[+-]?(\d+)(?:\.(\d+))?$/.exec(s);
+  if (!m) return false;
+  if (`${m[1]}${m[2] ?? ""}`.replace(/^0+/, "").length <= EXACT_DIGITS) return false;
+  return m[2] === undefined || idName;
+}
 
 /** snake_case form of a header for the name tests here: "OrderID" → "order_id", "Pin Code" → "pin_code". */
 export function normalizeHeader(name: string): string {
@@ -128,9 +167,11 @@ export function normalizeHeader(name: string): string {
  * Decides the storage plan for a column from up to a few thousand sample cells.
  * Natively typed cells (workbooks, JSON) decide first: ≥ 95% typed dates,
  * booleans or numbers. Otherwise cells are compared as text and tried as
- * booleans, then dates, then numbers. Numeric-looking codes stay text (leading
- * zeros, phone/PIN/ZIP/tracking/barcode names); date-named numbers may become
- * numeric dates. Anything else is text. All-null samples give text.
+ * booleans (English tokens, then one other language's yes/no pair), then
+ * dates, then numbers, then numbers with scale words. Numeric-looking codes
+ * stay text (leading zeros, phone/PIN/ZIP/tracking/barcode names, more digits
+ * than a double holds); date-named numbers may become numeric dates. Anything
+ * else is text. All-null samples give text.
  */
 export function inferPlan(samples: readonly CellValue[], columnName: string): ColumnPlan {
   const nonNull: CellValue[] = [];
@@ -188,9 +229,12 @@ export function inferPlan(samples: readonly CellValue[], columnName: string): Co
   }
   // At most four distinct spellings (case-insensitive), e.g. Yes/No/Y/N.
   if (boolHits / n >= 0.98 && boolTokens.size <= 4) return { kind: "boolean" };
+  // Yes/no in another language: every value one pair's words ("Sim"/"Não", "VRAI"/"FAUX").
+  const words = yesNoPairOf(all);
+  if (words) return { kind: "boolean", words };
 
   const dd = detectDateKind(all, columnName);
-  if (dd) return { kind: "date", dateKind: dd.kind };
+  if (dd) return { kind: "date", dateKind: dd.kind, months: dd.months, evidence: dd.evidence };
 
   const { style, note } = detectNumberStyle(all);
   let numHits = 0;
@@ -216,8 +260,13 @@ export function inferPlan(samples: readonly CellValue[], columnName: string): Co
     }
     const numericDate = detectNumericDateKind(parsed, columnName);
     if (numericDate) return { kind: "numeric-date", dateKind: numericDate };
+    // Mostly longer than a double holds exactly (EXACT_DIGITS): codes, kept as written.
+    const idName = ID_LIKE_NAME.test(norm);
+    if (all.filter((s) => tooLongForANumber(s, idName)).length * 2 > numHits) return { kind: "string" };
     return { kind: "number", style, note };
   }
+  // Every value with a scale word ("14.5 Lacs", "₹1.2 Cr", "3.4M") beside money or a header naming the scale.
+  if (detectScaleWords(all, columnName, style)) return { kind: "number", style, note, scaled: true };
   return { kind: "string" };
 }
 
@@ -468,7 +517,9 @@ abstract class TypedAccumulator implements Accumulator {
  * Number column builder. Native numbers pass through, booleans become 1/0,
  * text is parsed in the column's NumberStyle and typed dates are invalid.
  * Format metadata: the most frequent currency if it appears on more than 30%
- * of valid values, and percent if more than half were written with %.
+ * of valid values, and percent if more than half were written with %. A
+ * scaled column reads "14.5 Lacs" at full size and plain numbers as written,
+ * and its parse note says which scale words were read and how.
  */
 export class NumberAccumulator extends TypedAccumulator {
   private values = new GrowF64();
@@ -476,11 +527,21 @@ export class NumberAccumulator extends TypedAccumulator {
   private percentHits = 0;
   private maxDecimals = 0;
   private allInteger = true;
+  /** Scaled columns: values read with a scale word, and without one. */
+  private scaledHits = 0;
+  private plainHits = 0;
+  /** First spelling of each scale word (folded → as written, power of ten) and the first scaled value, for the note. */
+  private scaleWords = new Map<string, { written: string; exponent: number }>();
+  private scaledExample = "";
 
-  /** @param styleNote why the decimal separator is in doubt (ColumnPlan note), added to the column's parse note. */
+  /**
+   * @param styleNote why the decimal separator is in doubt (ColumnPlan note), added to the column's parse note.
+   * @param scaled read scale words at full size (values.detectScaleWords).
+   */
   constructor(
     private readonly style: NumberStyle,
     styleNote?: string,
+    private readonly scaled = false,
   ) {
     super();
     this.remark = styleNote;
@@ -528,7 +589,7 @@ export class NumberAccumulator extends TypedAccumulator {
       this.values.push(NaN);
       return true;
     }
-    const p = parseNumber(s, this.style);
+    const p = this.scaled ? this.readScaled(s) : parseNumber(s, this.style);
     if (!p) {
       this.values.push(NaN);
       return false;
@@ -541,12 +602,49 @@ export class NumberAccumulator extends TypedAccumulator {
     return true;
   }
 
+  /** A cell of a scaled column: at full size when it has a scale word, as written when it has none. */
+  private readScaled(s: string): ReturnType<typeof parseNumber> {
+    const scaled = parseScaledNumber(s, this.style);
+    if (!scaled) {
+      const plain = parseNumber(s, this.style);
+      if (plain) this.plainHits++;
+      return plain;
+    }
+    this.scaledHits++;
+    const key = foldWord(scaled.word);
+    if (!this.scaleWords.has(key))
+      this.scaleWords.set(key, { written: scaled.word, exponent: scaled.scale.exponent });
+    if (!this.scaledExample) this.scaledExample = s;
+    return scaled;
+  }
+
+  /** The parse-report sentence for a scaled column, in words so it reads the same in every number system. */
+  private scaleNote(): string | undefined {
+    if (this.scaledHits === 0) return undefined;
+    const words = [...this.scaleWords.values()]
+      .slice(0, 4)
+      .map((w) => `"${w.written}" as ${SCALE_NAMES[w.exponent] ?? `10^${w.exponent}`}`);
+    const list =
+      words.length > 1 ? `${words.slice(0, -1).join(", ")} and ${words[words.length - 1]}` : words[0];
+    const who =
+      this.plainHits === 0
+        ? "Every value carries a scale word"
+        : `${this.scaledHits.toLocaleString("en-US")} values carry a scale word`;
+    const plain =
+      this.plainHits > 0
+        ? ` ${this.plainHits.toLocaleString("en-US")} ${this.plainHits === 1 ? "value" : "values"} without one ${this.plainHits === 1 ? "was" : "were"} read as written.`
+        : "";
+    return `${who} (such as "${this.scaledExample}"), so each was read at full size: ${list}.${plain}`;
+  }
+
   protected textAt(i: number): string | null {
     const v = this.values.buf[i] as number;
     return v === v ? String(v) : null;
   }
 
   protected finishTyped(name: string): FinishedColumn {
+    const scaleNote = this.scaleNote();
+    if (scaleNote) this.remark = this.remark ? `${scaleNote} ${this.remark}` : scaleNote;
     let currency: string | undefined;
     let best = 0;
     for (const [code, count] of this.currencies) {
@@ -575,14 +673,34 @@ export class NumberAccumulator extends TypedAccumulator {
 /**
  * Boolean column builder: accepts native booleans, numeric 0/1 and boolean
  * tokens, and remembers the most common original spellings as display labels.
+ * A column written in another language's yes/no pair accepts that pair's
+ * words only (a column never mixes languages), so its labels stay the file's
+ * own ("Sim"/"Não") and every export keeps them (core/booleans.ts).
  */
 export class BooleanAccumulator extends TypedAccumulator {
   private values: number[] = [];
   /** Original spelling → count (case-sensitive; native booleans count as "TRUE"/"FALSE"). */
   private labelCounts = new Map<string, number>();
 
+  /** @param words the other language's yes/no pair the column is written in (values.yesNoPairOf); English when absent. */
+  constructor(private readonly words?: YesNoPair) {
+    super();
+  }
+
   get length(): number {
     return this.values.length;
+  }
+
+  /** true/false for a written value in the column's language, else null. */
+  private truth(s: string): boolean | null {
+    return this.words ? yesNoTruth(this.words, s) : parseBooleanToken(s);
+  }
+
+  /** The truth a remembered label stands for; native booleans are remembered as "TRUE"/"FALSE". */
+  private labelTruth(label: string): boolean | null {
+    if (label === "TRUE") return true;
+    if (label === "FALSE") return false;
+    return this.truth(label);
   }
 
   protected pushTyped(v: CellValue): boolean {
@@ -607,7 +725,7 @@ export class BooleanAccumulator extends TypedAccumulator {
       this.values.push(-1);
       return true;
     }
-    const b = parseBooleanToken(s);
+    const b = this.truth(s);
     if (b === null) {
       this.values.push(-1);
       return false;
@@ -628,9 +746,12 @@ export class BooleanAccumulator extends TypedAccumulator {
     const seen = this.spelling(truthy);
     if (seen !== null) return seen;
     // A column that only ever says "No" still gets a "Yes" of its own spelling, so its labels, the
-    // conditions written for it and the profile never show a TRUE the file does not use.
+    // conditions written for it and the profile never show a TRUE the file does not use. A column in
+    // another language gets its pair's word ("Não" → "Sim").
     const other = this.spelling(!truthy);
-    return other !== null ? partnerLabel(other) : truthy ? "TRUE" : "FALSE";
+    if (other === null) return truthy ? "TRUE" : "FALSE";
+    if (!this.words || other === "TRUE" || other === "FALSE") return partnerLabel(other);
+    return inCaseOf(truthy ? this.words.yesLabel : this.words.noLabel, other);
   }
 
   /** Most frequent spelling seen for this truth value; null when there is none. */
@@ -638,7 +759,7 @@ export class BooleanAccumulator extends TypedAccumulator {
     let best: string | null = null;
     let count = 0;
     for (const [label, c] of this.labelCounts) {
-      if (parseBooleanToken(label) === truthy && c > count) {
+      if (this.labelTruth(label) === truthy && c > count) {
         best = label;
         count = c;
       }
@@ -671,9 +792,14 @@ function partnerLabel(label: string): string {
     f: "t",
   };
   const other = pairs[label.toLowerCase()] ?? (parseBooleanToken(label) ? "false" : "true");
-  if (label === label.toUpperCase()) return other.toUpperCase();
-  if (label[0] === label[0]?.toUpperCase()) return other.charAt(0).toUpperCase() + other.slice(1);
-  return other;
+  return inCaseOf(other, label);
+}
+
+/** `word` in the case `like` is written in: all capitals (NÃO → SIM), a capital first (Não → Sim) or lower case. */
+function inCaseOf(word: string, like: string): string {
+  if (like === like.toUpperCase()) return word.toUpperCase();
+  if (like[0] === like[0]?.toUpperCase()) return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+  return word.toLowerCase();
 }
 
 /**
@@ -701,19 +827,27 @@ export class DateAccumulator extends TypedAccumulator {
   private firstExample = "";
   private secondExample = "";
   private hasTime = false;
+  /** Month-name languages the column may still be written in; each value's month word narrows it, so languages never mix. */
+  private months: number;
+  /** The plan's explanation for the parse report ("01.2025" read as a month). */
+  private readonly evidence?: string;
 
   /**
    * @param numeric values are numbers encoding `kind` (Excel serial, Unix time).
    * @param preferDayFirst fallback order when no value proves either order.
    * @param forcedOrder user override; skips the evidence entirely.
+   * @param read the plan's month-name languages and evidence (ColumnPlan "date").
    */
   constructor(
     private readonly kind: DateKind | "typed",
     private readonly numeric: boolean,
     private readonly preferDayFirst: boolean,
     private readonly forcedOrder?: "DMY" | "MDY",
+    read: { months?: number; evidence?: string } = {},
   ) {
     super();
+    this.months = read.months || ANY_MONTH_LANGUAGE;
+    this.evidence = read.evidence;
     if (kind === "nn-nn-y") {
       this.partA = new GrowI32();
       this.partB = new GrowI32();
@@ -783,7 +917,7 @@ export class DateAccumulator extends TypedAccumulator {
       this.ms.push(NaN);
       return false;
     }
-    const parts = parseDateParts(s, this.kind);
+    const parts = parseDateParts(s, this.kind, this.months);
     if (!parts) {
       this.pushNull();
       return false;
@@ -818,6 +952,8 @@ export class DateAccumulator extends TypedAccumulator {
     const t = partsToMs(parts, this.kind, false);
     this.ms.push(t);
     if (t === t) {
+      // A month word that only some of the column's languages write settles the column on them.
+      if (parts.languages) this.months = parts.languages;
       this.validCount++;
       return true;
     }
@@ -862,12 +998,13 @@ export class DateAccumulator extends TypedAccumulator {
         hasTime: this.hasTime,
         format: label,
       };
+      // Month names say their language once the whole column has narrowed it; other readings that need
+      // explaining ("01.2025" as a month) carry the plan's evidence.
+      const evidence = monthLanguageEvidence(this.months) ?? this.evidence ?? "Unambiguous pattern.";
       return {
         column,
         dateDecision:
-          this.kind === "typed"
-            ? undefined
-            : { column: name, format: label, evidence: "Unambiguous pattern.", ambiguous: false },
+          this.kind === "typed" ? undefined : { column: name, format: label, evidence, ambiguous: false },
       };
     }
     // Resolve day/month order from whole-column evidence. A manual override wins; one-sided
@@ -950,11 +1087,14 @@ export function createAccumulator(
 ): Accumulator {
   switch (plan.kind) {
     case "number":
-      return new NumberAccumulator(plan.style, plan.note);
+      return new NumberAccumulator(plan.style, plan.note, plan.scaled);
     case "boolean":
-      return new BooleanAccumulator();
+      return new BooleanAccumulator(plan.words);
     case "date":
-      return new DateAccumulator(plan.dateKind, false, opts.preferDayFirst, opts.forcedOrder);
+      return new DateAccumulator(plan.dateKind, false, opts.preferDayFirst, opts.forcedOrder, {
+        months: plan.months,
+        evidence: plan.evidence,
+      });
     case "numeric-date":
       return new DateAccumulator(plan.dateKind, true, opts.preferDayFirst);
     case "string":

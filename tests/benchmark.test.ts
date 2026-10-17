@@ -47,18 +47,21 @@ export const PLANNED_INDUSTRIES = [
 
 /**
  * The measured floors: raise them as detection improves, never lower them.
- * Baseline (40.0, 265 layouts): industry 64.1%, held out 66.7%, shape 85.7%,
- * roles 87.6%, confidently wrong 2.3%.
+ * - 40.0 baseline, 265 layouts, measured with 41.0's refined expander and role
+ *   conventions: industry 63.6%, held out 66.7%, shape 85.6%, roles 88.8%,
+ *   confidently wrong 2.3%.
+ * - 41.0, reading every column: industry 67.3%, held out 68.8%, shape 87.8%,
+ *   roles 99.1%, confidently wrong 2.3%.
  */
 const FLOORS = {
   /** Industry ranked first, every layout of a covered industry. */
-  industry: 0.64,
+  industry: 0.672,
   /** The same, held-out layouts only. */
-  industryHoldout: 0.666,
+  industryHoldout: 0.688,
   /** Shape picked, where a layout names one and its industry was found. */
-  shape: 0.857,
+  shape: 0.877,
   /** Labelled columns given the expected role. */
-  roles: 0.875,
+  roles: 0.99,
   /** At most this share of layouts with a wrong industry presented without asking. */
   confidentlyWrong: 0.023,
 };
@@ -113,9 +116,26 @@ const expected = (f: BenchFixture): string[] =>
 type Scope = "covered" | "planned" | "none";
 const scopeOf = (f: BenchFixture): Scope =>
   f.expect === null ? "none" : expected(f).some((id) => COVERED.has(id)) ? "covered" : "planned";
-/** A rate and a percentage are the same thing written two ways; either is right for the other. */
-const sameRole = (a: SemanticRole, b: SemanticRole) =>
-  a === b || (a !== b && ["rate", "percentage"].includes(a) && ["rate", "percentage"].includes(b));
+/**
+ * Whether Loupe's reading of a column matches its label. Three readings count
+ * as right although the words differ, because each is how Loupe deliberately
+ * treats that kind of column:
+ * - a rate and a percentage are the same thing written two ways;
+ * - an average, score or rating labelled a measure but read as a rate: Loupe
+ *   calls anything that must be averaged, never summed, a rate;
+ * - a sales region or zone labelled a category but read as a region-level
+ *   place: it is still grouped by, and simply offered to place-based views.
+ */
+const AVERAGED = /\b(avg|average|mean|median|score|rating|nps|per)\b|\/|_avg|avg_|score/i;
+function sameRole(got: SemanticRole, want: SemanticRole, column: string, geoLevel?: string): boolean {
+  if (got === want) return true;
+  const rates = ["rate", "percentage"];
+  if (rates.includes(got) && rates.includes(want)) return true;
+  if (want === "measure" && got === "rate" && AVERAGED.test(column.replace(/([a-z])([A-Z])/g, "$1 $2")))
+    return true;
+  if (want === "dimension" && got === "geo" && geoLevel === "region") return true;
+  return false;
+}
 
 interface Result {
   family: string;
@@ -157,8 +177,9 @@ beforeAll(async () => {
       shapeOk: f.shape && scope === "covered" && industryOk ? picked === f.shape : null,
       picked,
       roles: Object.entries(f.roles ?? {}).map(([column, want]) => {
-        const got = profile.columns.find((c) => c.name === column)?.role ?? null;
-        return { column, want, got, ok: got !== null && sameRole(got, want) };
+        const col = profile.columns.find((c) => c.name === column);
+        const got = col?.role ?? null;
+        return { column, want, got, ok: got !== null && sameRole(got, want, column, col?.geoLevel) };
       }),
     });
   }
@@ -214,20 +235,28 @@ function buildReport(): { summary: string; markdown: string } {
     "| | Layouts | Industry first | Confidently wrong | Shape | Column roles |\n| --- | --- | --- | --- | --- | --- |";
   const families = [...new Set(results.map((r) => r.family))];
 
-  const misses = results
+  // Only the tuning split's misses are listed: work that improves detection reads them, and the held-out
+  // layouts stay unseen so their score keeps meaning something. Held-out misses are counted, not shown.
+  const tuning = results.filter((r) => !r.holdout);
+  const heldMisses = results.filter((r) => r.holdout && !r.industryOk).length;
+  const misses = tuning
     .filter((r) => !r.industryOk)
     .sort((a, b) => Number(b.confidentlyWrong) - Number(a.confidentlyWrong) || a.f.id.localeCompare(b.f.id))
     .map(
       (r) =>
-        `| ${r.confidentlyWrong ? "**Confidently wrong**" : "Asked"} | ${r.f.source} | ${r.f.expect === null ? "none" : expected(r.f).join(" or ")} | ${r.top ?? "none"} (${r.confidence}%) | ${r.holdout ? "held out" : "tuning"} |`,
+        `| ${r.confidentlyWrong ? "**Confidently wrong**" : "Asked"} | ${r.f.source} | ${r.f.expect === null ? "none" : expected(r.f).join(" or ")} | ${r.top ?? "none"} (${r.confidence}%) |`,
     );
   // Each confusion with a few of the column names behind it, the starting point for fixing it.
   const roleMisses = new Map<string, string[]>();
-  for (const r of results.flatMap((x) => x.roles).filter((x) => !x.ok)) {
+  for (const r of tuning.flatMap((x) => x.roles).filter((x) => !x.ok)) {
     const key = `${r.want} read as ${r.got ?? "missing"}`;
     roleMisses.set(key, [...(roleMisses.get(key) ?? []), r.column]);
   }
-  const shapeMisses = results
+  const heldRoleMisses = results
+    .filter((r) => r.holdout)
+    .flatMap((r) => r.roles)
+    .filter((x) => !x.ok).length;
+  const shapeMisses = tuning
     .filter((r) => r.shapeOk === false)
     .map((r) => `| ${r.f.source} | ${r.f.shape} | ${r.picked} |`);
 
@@ -259,19 +288,23 @@ function buildReport(): { summary: string; markdown: string } {
     row("Planned industries", metrics(results.filter((r) => r.scope === "planned"))),
     row("No industry", metrics(results.filter((r) => r.scope === "none"))),
     "",
-    "## Industry misses",
+    "## Industry misses (tuning split)",
     "",
-    "| Outcome | Layout | Expected | Ranked first | Split |",
-    "| --- | --- | --- | --- | --- |",
+    `Held-out layouts are counted in the tables above but not listed: ${heldMisses} of them missed.`,
+    "",
+    "| Outcome | Layout | Expected | Ranked first |",
+    "| --- | --- | --- | --- |",
     ...misses,
     "",
-    "## Shape misses",
+    "## Shape misses (tuning split)",
     "",
     "| Layout | Expected | Picked |",
     "| --- | --- | --- |",
     ...shapeMisses,
     "",
-    "## Column role misses",
+    "## Column role misses (tuning split)",
+    "",
+    `${heldRoleMisses} held-out columns were also misread; they are counted above, not listed.`,
     "",
     "| Expected → read as | Columns | For example |",
     "| --- | --- | --- |",

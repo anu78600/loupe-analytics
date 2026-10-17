@@ -7,7 +7,14 @@
  * roles.ts turns these shares into semantic roles.
  */
 import type { PatternHit, PatternKind, ValueCount } from "./types";
-import { isCountry, isKnownCity, matchIndianState, matchUsState } from "./geo";
+import {
+  isCountry,
+  isCountryCode,
+  isKnownCity,
+  matchRegionState,
+  STATE_REGIONS,
+  type StateRegion,
+} from "./geo";
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i;
 const URL = /^(https?:\/\/|www\.)[^\s]+$/i;
@@ -16,6 +23,8 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const PINCODE = /^[1-9]\d{5}$/;
 /** US ZIP or ZIP+4. */
 const ZIP = /^\d{5}(-\d{4})?$/;
+/** UK postcode: outward code, a space, inward code ("BS1 4QA", "M4 5JD", "EC1A 1BB"). */
+const UK_POSTCODE = /^[A-Z]{1,2}\d[A-Z\d]? \d[A-Z]{2}$/i;
 /**
  * Code-like token: 3–40 characters of letters, digits and -_/#.:, starting
  * alphanumeric, with at least two digits.
@@ -62,37 +71,55 @@ function isPhone(v: string): boolean {
 export interface StatePatternDetail {
   /** Matching rows / all non-null rows; not extrapolated from the covered values. */
   share: number;
-  region: "IN" | "US";
+  region: StateRegion;
 }
 
 /**
- * Share of non-null rows that name a state of the more likely region, or null
- * when none match. Full names and long aliases decide the region because
- * two-letter codes overlap between India and the US (short aliases such as
- * "or", "ut" and "ct" count as codes, see geo.ts); without name evidence the
- * region with more total hits wins (ties → India), so a US code column with
- * OR, UT and CT reads as US.
+ * Share of non-null rows that name a state or province of the most likely
+ * region (India, the US, Brazil, Canada, Australia or Mexico), or null when
+ * none match.
+ *
+ * Full names and long aliases decide the region, because two-letter codes are
+ * shared between countries (PA is Pennsylvania and Pará, AP Andhra Pradesh
+ * and Amapá; short aliases such as "or", "ut" and "ct" count as codes, see
+ * geo.ts). Without name evidence the region with more matching rows wins,
+ * ties going to the earlier region in STATE_REGIONS (India first), so a US
+ * code column with OR, UT and CT reads as US and a Brazilian one with SP, RJ
+ * and MG as Brazil.
+ *
+ * A code counts when written in capitals, as state codes are. In lower or
+ * mixed case it counts only when the column holds four or more different
+ * codes of the region (a cleaned-up code column, "mh", "ka", "dl", "tn"):
+ * otherwise "ok" in a status column read as Oklahoma, and "in" or "or" in
+ * a sentence as Indiana or Oregon.
  */
 export function detectStatePattern(
   values: readonly ValueCount[],
   nonNull: number,
 ): StatePatternDetail | null {
-  let inHits = 0;
-  let usHits = 0;
-  let inNameHits = 0;
-  let usNameHits = 0;
-  for (const { value, count } of values) {
-    if (matchIndianState(value)) inHits += count;
-    if (matchUsState(value)) usHits += count;
-    if (matchIndianState(value, false)) inNameHits += count;
-    if (matchUsState(value, false)) usNameHits += count;
-  }
   if (!nonNull) return null;
-  // Full names decide the region; two-letter codes are ambiguous between IN and US.
-  const region: "IN" | "US" =
-    inNameHits > usNameHits ? "IN" : usNameHits > inNameHits ? "US" : inHits >= usHits ? "IN" : "US";
-  const share = (region === "IN" ? inHits : usHits) / nonNull;
-  return share > 0 ? { share, region } : null;
+  const tallies = STATE_REGIONS.map((region) => {
+    let names = 0;
+    let upperCodes = 0;
+    let otherCodes = 0;
+    const distinctCodes = new Set<string>();
+    for (const { value, count } of values) {
+      const v = value.trim();
+      if (matchRegionState(v, region, false)) names += count;
+      else if (matchRegionState(v, region, true)) {
+        distinctCodes.add(v.toLowerCase());
+        if (v === v.toUpperCase()) upperCodes += count;
+        else otherCodes += count;
+      }
+    }
+    const hits = names + upperCodes + (distinctCodes.size >= 4 ? otherCodes : 0);
+    return { region, names, hits };
+  });
+  let best = tallies[0] as (typeof tallies)[number];
+  for (const t of tallies.slice(1))
+    if (t.names > best.names || (t.names === best.names && t.hits > best.hits)) best = t;
+  const share = best.hits / nonNull;
+  return share > 0 ? { share, region: best.region } : null;
 }
 
 /**
@@ -113,9 +140,12 @@ export function detectStringPatterns(values: readonly ValueCount[], nonNull: num
     else if (UUID.test(v)) add("uuid", count);
     if (PINCODE.test(v)) add("pincode", count);
     else if (ZIP.test(v)) add("zip", count);
+    else if (UK_POSTCODE.test(v)) add("postcode", count);
     if (isPhone(v)) add("phone", count);
     if (ID_LIKE.test(v) && !/\s/.test(v)) add("id", count);
     if (isCountry(v)) add("country", count);
+    // Independent of the name check: "USA" is both a short name and a code.
+    if (isCountryCode(v)) add("countrycode", count);
     if (isKnownCity(v)) add("city", count);
     if (MONTH_NAMES.has(v.toLowerCase())) add("month", count);
     if (/^(19|20)\d{2}$/.test(v)) add("year", count);

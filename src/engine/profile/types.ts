@@ -64,7 +64,19 @@ export type PatternKind =
   | "latitude"
   | "longitude"
   | "year"
-  | "month";
+  | "month"
+  /** A UK postcode ("BS1 4QA", "M4 5JD"). */
+  | "postcode"
+  /** An ISO 3166 alpha-3 country code ("IND", "bra"); a place only under a country word in the header. */
+  | "countrycode";
+
+/**
+ * Where a place column's values come from: Indian, US, Brazilian, Canadian,
+ * Australian or Mexican states and provinces, or countries of the world. Only
+ * IN and US have a tile map (ui/charts/options.ts geoTiles); the others are
+ * places to group by and filter on, never drawn as a map.
+ */
+export type GeoRegion = "IN" | "US" | "BR" | "CA" | "AU" | "MX" | "WORLD";
 
 export interface PatternHit {
   kind: PatternKind;
@@ -140,7 +152,7 @@ export interface ColumnProfile {
   additivity?: Additivity;
   defaultAgg: DefaultAgg;
   geoLevel?: GeoLevel;
-  geoRegion?: "IN" | "US" | "WORLD";
+  geoRegion?: GeoRegion;
   /** ISO code from currency symbols in the values (number columns only). */
   currency?: string;
   /** For percentages: 1 when stored as fractions (0.12), 100 when stored as points (12). */

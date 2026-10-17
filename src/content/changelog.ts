@@ -41,6 +41,52 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "41.0",
+    kind: "major",
+    date: "2026-10-17T11:04:26Z",
+    title: "Reads every column, in your language and your format",
+    summary:
+      "Loupe now reads columns the way an analyst does, in whatever language, currency and format the file uses. On the real-world benchmark it reads 99.1% of labelled columns correctly, up from 88.8% (97.7% on the held-out tables nobody tuned against), and it names the right industry more often (67.3%, up from 63.6%) without presenting a wrong one any more often.",
+    changes: [
+      "Headers in Spanish, Portuguese, French, German, Italian and Hindi written in Latin letters are understood. “Receita Líquida”, “Montant”, “Betrag”, “Umsatz”, “Cidade”, “Rashi” and “Bikri” mean what they say, so those columns map to the right fields and KPIs. Accents no longer break words apart.",
+      "A currency in the header makes a column money: “ADR (€)”, “AUM (₹ Cr)”, “Receita (R$)”, “copay_usd”. The dataset's currency is taken from it too, so a file headed “Amount (USD)” shows dollars, not rupees.",
+      "Prices per unit (“Cost per item”, “Avg. CPC”, “₹/kg”, “GDP per capita”) are money that is averaged, never summed.",
+      "Columns that only looked like money are read correctly: counts (“Total Orders”, “Active Loans”, “Population, total”), physical quantities (“Budget Cement (MT)”, “Net Wt (gms)”) and plain values (“Value” in a scorecard).",
+      "0/1 columns that are really yes/no (“Machine failure”, “settled”, “cancelled”, “no_show_flg”) are treated as yes/no, not summed. Yes/no written as Sí/No, Sim/Não, Oui/Non, Ja/Nein, Haan/Nahi and in other languages is read too, and exports keep your own words.",
+      "IDs are told apart from counts: order, invoice and document numbers are IDs, while “# Customers”, “Number of Employees” and “tickets_created” are counts. Standard codes are recognised, such as GSTIN, IFSC, IBAN, UHID, NPI and MRN.",
+      "Dates written with month names in 13 languages, like “14 de março de 2024” or “3. März 2024”, are read. So are dates with the time first, month-only values (“01.2025”), ISO weeks (“2024-W12”) and more Unix timestamps.",
+      "Numbers written with a scale word are read at full size, and the parse report says so: “14.5 Lacs” is 1,450,000 and “₹1.2 Cr” is 12,000,000. This happens only where the header or the values show it's money or name the scale.",
+      "Places beyond India and the US are recognised: the states of Brazil, Canada, Australia and Mexico, country names in other languages and three-letter country codes, UK and four-digit postcodes, and many more cities. They are places to group and filter by; the state tile map stays India and US only. A status column holding “ok” is no longer read as Oklahoma.",
+      "Ratings, retention and progress figures are averaged as rates. Long free text (narrations, ticket subjects, comments) is read as text rather than a category.",
+      "On the one-page dashboard, a long headline figure (such as R$607.20) now shrinks to fit its tile instead of being cut off.",
+      "The benchmark's floors were raised to the new scores, and four new test suites cover the vocabulary, the column rules, the parser and the places.",
+    ],
+    tags: ["Feature", "Data", "Tests"],
+    files: [
+      "src/engine/profile/names.ts",
+      "src/engine/profile/roles.ts",
+      "src/engine/profile/geo.ts",
+      "src/engine/profile/patterns.ts",
+      "src/engine/profile/profile.ts",
+      "src/engine/profile/types.ts",
+      "src/engine/parse/words.ts",
+      "src/engine/parse/dates.ts",
+      "src/engine/parse/values.ts",
+      "src/engine/parse/builder.ts",
+      "src/registry/domains/real_estate.json",
+      "src/ui/workspace/customise/chartDraft.ts",
+      "src/ui/workspace/dashboard/page/OnePage.tsx",
+      "tests/names-vocabulary.test.ts",
+      "tests/column-roles.test.ts",
+      "tests/parse-world.test.ts",
+      "tests/geo-places.test.ts",
+      "tests/header-currency.test.ts",
+      "tests/benchmark.test.ts",
+      "tests/helpers/layouts.ts",
+      "CLAUDE.md",
+    ],
+  },
+  {
     version: "40.0",
     kind: "major",
     date: "2026-10-17T09:28:47Z",
@@ -2499,19 +2545,9 @@ export const RELEASES: Release[] = [
  */
 export const PLANNED: Array<{ title: string; detail: string }> = [
   {
-    title: "Read every column correctly",
-    detail:
-      "Percentages written as 0–1, 0–100 or 45%; currency and scale in headers and values (“Revenue (USD)”, “₹ Cr”, “in thousands”); durations; fiscal years, quarters, weeks and month labels; year columns that aren't measures; ratings, Likert answers, age bands and NPS; personal data flagged.",
-  },
-  {
     title: "Understand the tables analysts build",
     detail:
       "Summaries that must never be summed twice, time series and panel data, survey responses, cohort tables, event logs, budget vs actual, P&L statements, lookup tables and “Metric, Value” scorecards, each with sensible KPIs and charts.",
-  },
-  {
-    title: "The words analysts actually use",
-    detail:
-      "More abbreviations and naming styles (fact_, dim_, _cd, _flg, camelCase, units in brackets) and business vocabulary in Spanish, Portuguese, French, German and Hindi written in Latin letters.",
   },
   {
     title: "Ten more industries",

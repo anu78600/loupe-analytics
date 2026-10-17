@@ -24,6 +24,7 @@ import type {
   ColumnProfile,
   CurrencyInfo,
   DatasetProfile,
+  GeoRegion,
   NumericStats,
   PatternHit,
   TemporalStats,
@@ -31,7 +32,7 @@ import type {
 } from "./types";
 import { detectStatePattern, detectStringPatterns } from "./patterns";
 import { inferRole } from "./roles";
-import { tokenize } from "./names";
+import { nameCurrency, tokenize } from "./names";
 import {
   analyseTimeSeries,
   detectHierarchies,
@@ -51,7 +52,7 @@ interface BaseStats {
   patterns: PatternHit[];
   examples: string[];
   /** Strings only: region hint from detectStatePattern. */
-  stateRegion?: "IN" | "US";
+  stateRegion?: Exclude<GeoRegion, "WORLD">;
   /** Strings only: share of non-null rows containing a space. */
   spaceShare?: number;
 }
@@ -367,43 +368,6 @@ export function profileColumn(col: Column, index: number, rowCount: number): Col
   };
 }
 
-/** Currency words in column-name tokens ("Amount (INR)", "Price in Dollars") → ISO code. */
-const NAME_CURRENCY: Record<string, string> = {
-  inr: "INR",
-  rs: "INR",
-  rupee: "INR",
-  usd: "USD",
-  dollar: "USD",
-  eur: "EUR",
-  euro: "EUR",
-  gbp: "GBP",
-  pound: "GBP",
-  aed: "AED",
-  sgd: "SGD",
-  aud: "AUD",
-  cad: "CAD",
-  jpy: "JPY",
-};
-
-/**
- * Currency symbols in column names ("Betrag €", "Price (₹)"), longer forms
- * first so "A$" is not read as "$". Tokenising drops symbols, so the raw name
- * is searched.
- */
-const NAME_SYMBOL: Array<[string, string]> = [
-  ["US$", "USD"],
-  ["HK$", "HKD"],
-  ["NZ$", "NZD"],
-  ["A$", "AUD"],
-  ["C$", "CAD"],
-  ["S$", "SGD"],
-  ["₹", "INR"],
-  ["€", "EUR"],
-  ["£", "GBP"],
-  ["¥", "JPY"],
-  ["$", "USD"],
-];
-
 /**
  * Dataset currency, by strength of evidence: symbols or codes in the values
  * (the code found in most columns), a currency word or symbol in a money
@@ -417,14 +381,12 @@ export function detectCurrency(cols: ColumnProfile[], hint = "INR"): CurrencyInf
     const [code] = [...tally.entries()].sort((a, b) => b[1] - a[1])[0] as [string, number];
     return { code, source: "Currency symbols found in the values", confidence: 0.95 };
   }
+  // The header's own currency ("Amount (USD)", "Price (₹)", "Fare in Euros"): tokenize folds every mark
+  // into the one token "money", so names.ts reads which currency it is from the raw name.
   for (const c of cols) {
     if (c.role !== "currency" && c.role !== "measure") continue;
-    for (const t of c.tokens) {
-      const code = NAME_CURRENCY[t];
-      if (code) return { code, source: `Column name "${c.name}"`, confidence: 0.85 };
-    }
-    const symbol = NAME_SYMBOL.find(([s]) => c.name.toUpperCase().includes(s));
-    if (symbol) return { code: symbol[1], source: `Column name "${c.name}"`, confidence: 0.85 };
+    const code = nameCurrency(c.name);
+    if (code) return { code, source: `Column name "${c.name}"`, confidence: 0.85 };
   }
   const geoIN = cols.some(
     (c) => c.geoRegion === "IN" || c.patterns.some((p) => p.kind === "pincode" && p.share > 0.8),

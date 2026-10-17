@@ -140,9 +140,133 @@ export const US_STATES: StateDef[] = [
   tile: [r as number, c as number],
 }));
 
-/** Lookup key: lower-case, "&" → " and ", non-letters → space, single-spaced and trimmed. */
+/**
+ * A state or province of a country Loupe has no tile map for: recognised so
+ * the column reads as a place, named in its reason, never drawn as a map.
+ */
+export interface RegionStateDef {
+  /** The code the country's own data uses (Brazil's UF, Canada Post, Australia Post). */
+  code: string;
+  name: string;
+  /** Spellings with and without accents are both covered by norm(); these are other names. */
+  aliases: string[];
+}
+
+const regionDefs = (rows: ReadonlyArray<readonly [string, string, ...string[]]>): RegionStateDef[] =>
+  rows.map(([code, name, ...aliases]) => ({ code, name, aliases }));
+
+/** Brazil's 26 states and the Federal District, with their UF codes (SP, RJ, MG…). */
+export const BRAZIL_STATES: RegionStateDef[] = regionDefs([
+  ["AC", "Acre"],
+  ["AL", "Alagoas"],
+  ["AP", "Amapá"],
+  ["AM", "Amazonas"],
+  ["BA", "Bahia"],
+  ["CE", "Ceará"],
+  ["DF", "Distrito Federal"],
+  ["ES", "Espírito Santo"],
+  ["GO", "Goiás"],
+  ["MA", "Maranhão"],
+  ["MT", "Mato Grosso"],
+  ["MS", "Mato Grosso do Sul"],
+  ["MG", "Minas Gerais"],
+  ["PA", "Pará"],
+  ["PB", "Paraíba"],
+  ["PR", "Paraná"],
+  ["PE", "Pernambuco"],
+  ["PI", "Piauí"],
+  ["RJ", "Rio de Janeiro"],
+  ["RN", "Rio Grande do Norte"],
+  ["RS", "Rio Grande do Sul"],
+  ["RO", "Rondônia"],
+  ["RR", "Roraima"],
+  ["SC", "Santa Catarina"],
+  ["SP", "São Paulo"],
+  ["SE", "Sergipe"],
+  ["TO", "Tocantins"],
+]);
+
+/** Canada's provinces and territories with their postal abbreviations. */
+export const CANADA_PROVINCES: RegionStateDef[] = regionDefs([
+  ["AB", "Alberta"],
+  ["BC", "British Columbia", "Colombie-Britannique"],
+  ["MB", "Manitoba"],
+  ["NB", "New Brunswick", "Nouveau-Brunswick"],
+  ["NL", "Newfoundland and Labrador", "Newfoundland"],
+  ["NS", "Nova Scotia", "Nouvelle-Écosse"],
+  ["NT", "Northwest Territories"],
+  ["NU", "Nunavut"],
+  ["ON", "Ontario"],
+  ["PE", "Prince Edward Island"],
+  ["QC", "Quebec"],
+  ["SK", "Saskatchewan"],
+  ["YT", "Yukon"],
+]);
+
+/** Australia's states and territories with their usual abbreviations (NSW, VIC, QLD…). */
+export const AUSTRALIA_STATES: RegionStateDef[] = regionDefs([
+  ["NSW", "New South Wales"],
+  ["VIC", "Victoria"],
+  ["QLD", "Queensland"],
+  ["WA", "Western Australia"],
+  ["SA", "South Australia"],
+  ["TAS", "Tasmania"],
+  ["ACT", "Australian Capital Territory"],
+  ["NT", "Northern Territory"],
+]);
+
+/**
+ * Mexico's 31 states and its capital, matched by name only: their ISO codes
+ * (MEX, COL, GUA…) are also country codes and ordinary words. The State of
+ * Mexico is matched by its full name or "Edomex", never by "México", which
+ * names the country.
+ */
+export const MEXICO_STATES: RegionStateDef[] = regionDefs([
+  ["AGU", "Aguascalientes"],
+  ["BCN", "Baja California"],
+  ["BCS", "Baja California Sur"],
+  ["CAM", "Campeche"],
+  ["CHP", "Chiapas"],
+  ["CHH", "Chihuahua"],
+  ["CMX", "Ciudad de México", "CDMX"],
+  ["COA", "Coahuila"],
+  ["COL", "Colima"],
+  ["DUR", "Durango"],
+  ["GUA", "Guanajuato"],
+  ["GRO", "Guerrero"],
+  ["HID", "Hidalgo"],
+  ["JAL", "Jalisco"],
+  ["MEX", "Estado de México", "Edomex"],
+  ["MIC", "Michoacán"],
+  ["MOR", "Morelos"],
+  ["NAY", "Nayarit"],
+  ["NLE", "Nuevo León"],
+  ["OAX", "Oaxaca"],
+  ["PUE", "Puebla"],
+  ["QUE", "Querétaro"],
+  ["ROO", "Quintana Roo"],
+  ["SLP", "San Luis Potosí"],
+  ["SIN", "Sinaloa"],
+  ["SON", "Sonora"],
+  ["TAB", "Tabasco"],
+  ["TAM", "Tamaulipas"],
+  ["TLA", "Tlaxcala"],
+  ["VER", "Veracruz"],
+  ["YUC", "Yucatán"],
+  ["ZAC", "Zacatecas"],
+]);
+
+/**
+ * Lookup key: accents folded ("São Paulo" → "sao paulo", "Málaga" → "malaga",
+ * "Österreich" → "osterreich"; without this the accented letter was dropped
+ * and the name never matched), lower-case, "&" → " and ", non-letters → space,
+ * single-spaced and trimmed.
+ */
 const norm = (s: string): string =>
   s
+    .normalize("NFKD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/ß/g, "ss")
     .toLowerCase()
     .replace(/&/g, " and ")
     .replace(/[^a-z ]+/g, " ")
@@ -159,8 +283,8 @@ const hasDigit = (s: string): boolean => /\d/.test(s);
 const isCodeAlias = (normalised: string): boolean => /^[a-z]{2,3}$/.test(normalised);
 
 /** Normalised name and long aliases (and, optionally, the lower-case code and short aliases) → state. */
-function buildLookup(states: StateDef[], includeCodes: boolean): Map<string, StateDef> {
-  const m = new Map<string, StateDef>();
+function buildLookup<T extends RegionStateDef>(states: readonly T[], includeCodes: boolean): Map<string, T> {
+  const m = new Map<string, T>();
   for (const s of states) {
     m.set(norm(s.name), s);
     for (const a of s.aliases) {
@@ -187,6 +311,43 @@ export function matchIndianState(value: string, allowCodes = true): StateDef | u
 export function matchUsState(value: string, allowCodes = true): StateDef | undefined {
   if (hasDigit(value)) return undefined;
   return (allowCodes ? US_LOOKUP : US_NAME_LOOKUP).get(norm(value));
+}
+
+/** Countries whose states or provinces Loupe recognises; only IN and US also have a tile map. */
+export type StateRegion = "IN" | "US" | "BR" | "CA" | "AU" | "MX";
+
+/** Every state region, in the order ties are broken (India first, as before). */
+export const STATE_REGIONS: readonly StateRegion[] = ["IN", "US", "BR", "CA", "AU", "MX"];
+
+/** What a region's states are called in a reason: "Indian states", "Canadian provinces". */
+export const STATE_REGION_LABEL: Record<StateRegion, string> = {
+  IN: "Indian states",
+  US: "US states",
+  BR: "Brazilian states",
+  CA: "Canadian provinces",
+  AU: "Australian states",
+  MX: "Mexican states",
+};
+
+// Lookups for the regions without tile maps. Mexico's codes stay out (see MEXICO_STATES).
+const OTHER_LOOKUP = {
+  BR: { all: buildLookup(BRAZIL_STATES, true), names: buildLookup(BRAZIL_STATES, false) },
+  CA: { all: buildLookup(CANADA_PROVINCES, true), names: buildLookup(CANADA_PROVINCES, false) },
+  AU: { all: buildLookup(AUSTRALIA_STATES, true), names: buildLookup(AUSTRALIA_STATES, false) },
+  MX: { all: buildLookup(MEXICO_STATES, false), names: buildLookup(MEXICO_STATES, false) },
+};
+
+/** A state or province of `region` by name or alias, or (when allowCodes) by its code. */
+export function matchRegionState(
+  value: string,
+  region: StateRegion,
+  allowCodes = true,
+): RegionStateDef | undefined {
+  if (region === "IN") return matchIndianState(value, allowCodes);
+  if (region === "US") return matchUsState(value, allowCodes);
+  if (hasDigit(value)) return undefined;
+  const lookup = OTHER_LOOKUP[region];
+  return (allowCodes ? lookup.all : lookup.names).get(norm(value));
 }
 
 /** Lower-case country names plus common short forms (uk, usa, uae); "georgia" is also a US state. */
@@ -373,10 +534,142 @@ export const COUNTRIES = [
   "zambia",
   "zimbabwe",
 ];
-const COUNTRY_SET = new Set(COUNTRIES);
+/**
+ * Country names as files from other countries write them: the country's own
+ * name and the French, German, Spanish, Portuguese and Italian names analysts
+ * meet most (accents are folded by norm(), so "España" is "espana").
+ */
+const COUNTRY_LOCAL_NAMES = [
+  "deutschland",
+  "allemagne",
+  "alemania",
+  "alemanha",
+  "germania",
+  "belgique",
+  "belgie",
+  "belgien",
+  "belgica",
+  "espana",
+  "espagne",
+  "spanien",
+  "spagna",
+  "espanha",
+  "brasil",
+  "bresil",
+  "brasilien",
+  "italia",
+  "italie",
+  "italien",
+  "osterreich",
+  "autriche",
+  "schweiz",
+  "suisse",
+  "svizzera",
+  "suiza",
+  "nederland",
+  "niederlande",
+  "pays bas",
+  "paises bajos",
+  "polska",
+  "pologne",
+  "polen",
+  "mexique",
+  "mexiko",
+  "turkiye",
+  "turquie",
+  "turkei",
+  "turquia",
+  "sverige",
+  "suede",
+  "schweden",
+  "suecia",
+  "norge",
+  "norvege",
+  "norwegen",
+  "noruega",
+  "danmark",
+  "danemark",
+  "dinamarca",
+  "suomi",
+  "finlande",
+  "finnland",
+  "irlande",
+  "irland",
+  "royaume uni",
+  "reino unido",
+  "grossbritannien",
+  "etats unis",
+  "estados unidos",
+  "vereinigte staaten",
+  "eeuu",
+  "chine",
+  "inde",
+  "indien",
+  "japon",
+  "russie",
+  "russland",
+  "rusia",
+  "argentine",
+  "argentinien",
+  "chili",
+  "perou",
+  "colombie",
+  "kolumbien",
+  "maroc",
+  "marruecos",
+  "marokko",
+  "egypte",
+  "egipto",
+  "agypten",
+  "grece",
+  "griechenland",
+  "grecia",
+  "tchequie",
+  "tschechien",
+  "republica checa",
+  "hongrie",
+  "ungarn",
+  "hungria",
+  "roumanie",
+  "rumanien",
+  "rumania",
+  "croatie",
+  "kroatien",
+  "croacia",
+  "hrvatska",
+];
+
+const COUNTRY_SET = new Set([...COUNTRIES, ...COUNTRY_LOCAL_NAMES]);
 
 export function isCountry(value: string): boolean {
   return !hasDigit(value) && COUNTRY_SET.has(norm(value));
+}
+
+/**
+ * ISO 3166-1 alpha-3 codes, the codes statistical and warehouse tables use
+ * (World Bank, IMF, Olist exports). Many are also everyday words ("CAN",
+ * "PER", "AND"), so a column counts as countries by its codes only under a
+ * country word in the header (roles.ts).
+ */
+const ISO3_CODES = new Set(
+  (
+    "AFG ALA ALB DZA ASM AND AGO AIA ATA ATG ARG ARM ABW AUS AUT AZE BHS BHR BGD BRB BLR BEL BLZ BEN BMU BTN " +
+    "BOL BES BIH BWA BVT BRA IOT BRN BGR BFA BDI CPV KHM CMR CAN CYM CAF TCD CHL CHN CXR CCK COL COM COG COD " +
+    "COK CRI CIV HRV CUB CUW CYP CZE DNK DJI DMA DOM ECU EGY SLV GNQ ERI EST SWZ ETH FLK FRO FJI FIN FRA GUF " +
+    "PYF ATF GAB GMB GEO DEU GHA GIB GRC GRL GRD GLP GUM GTM GGY GIN GNB GUY HTI HMD VAT HND HKG HUN ISL IND " +
+    "IDN IRN IRQ IRL IMN ISR ITA JAM JPN JEY JOR KAZ KEN KIR PRK KOR KWT KGZ LAO LVA LBN LSO LBR LBY LIE LTU " +
+    "LUX MAC MDG MWI MYS MDV MLI MLT MHL MTQ MRT MUS MYT MEX FSM MDA MCO MNG MNE MSR MAR MOZ MMR NAM NRU NPL " +
+    "NLD NCL NZL NIC NER NGA NIU NFK MKD MNP NOR OMN PAK PLW PSE PAN PNG PRY PER PHL PCN POL PRT PRI QAT REU " +
+    "ROU RUS RWA BLM SHN KNA LCA MAF SPM VCT WSM SMR STP SAU SEN SRB SYC SLE SGP SXM SVK SVN SLB SOM ZAF SGS " +
+    "SSD ESP LKA SDN SUR SJM SWE CHE SYR TWN TJK TZA THA TLS TGO TKL TON TTO TUN TUR TKM TCA TUV UGA UKR ARE " +
+    "GBR USA UMI URY UZB VUT VEN VNM VGB VIR WLF ESH YEM ZMB ZWE XKX"
+  ).split(" "),
+);
+
+/** An ISO alpha-3 country code, in either case ("IND", "bra"). */
+export function isCountryCode(value: string): boolean {
+  const v = value.trim();
+  return v.length === 3 && ISO3_CODES.has(v.toUpperCase());
 }
 
 /** Major cities, lower-case, including old and alternate names (bangalore/bengaluru, gurgaon/gurugram). */
@@ -606,7 +899,198 @@ export const WORLD_CITIES = [
   "colombo",
   "kathmandu",
 ];
-const CITY_SET = new Set([...INDIAN_CITIES, ...WORLD_CITIES]);
+/**
+ * More cities analysts' files name: the large cities of Brazil, Spain, France,
+ * Germany, Italy, the UK, the US, Canada, Australia, Mexico and other markets,
+ * in English and local spellings (accents folded by norm()). Cities that are
+ * also everyday words or first names (Reading, Nice, Charlotte) stay out, so
+ * a column of words never passes for a list of places.
+ */
+const MORE_CITIES = [
+  // Brazil
+  "curitiba",
+  "belo horizonte",
+  "porto alegre",
+  "campinas",
+  "salvador",
+  "fortaleza",
+  "recife",
+  "brasilia",
+  "manaus",
+  "belem",
+  "goiania",
+  "florianopolis",
+  "sorocaba",
+  // Spain and Portugal
+  "sevilla",
+  "seville",
+  "valencia",
+  "malaga",
+  "bilbao",
+  "zaragoza",
+  "alicante",
+  "granada",
+  "palma",
+  "benidorm",
+  "porto",
+  // France and Belgium
+  "lyon",
+  "marseille",
+  "bordeaux",
+  "lille",
+  "toulouse",
+  "nantes",
+  "strasbourg",
+  "montpellier",
+  "rennes",
+  "annecy",
+  "antwerp",
+  "anvers",
+  "ghent",
+  "bruxelles",
+  // Germany, Austria, Switzerland
+  "frankfurt",
+  "cologne",
+  "koln",
+  "stuttgart",
+  "dusseldorf",
+  "dortmund",
+  "essen",
+  "leipzig",
+  "dresden",
+  "hannover",
+  "nuremberg",
+  "nurnberg",
+  "bremen",
+  "munchen",
+  "wien",
+  "salzburg",
+  "graz",
+  "basel",
+  "bern",
+  "lausanne",
+  // Italy
+  "milano",
+  "roma",
+  "turin",
+  "torino",
+  "naples",
+  "napoli",
+  "florence",
+  "firenze",
+  "bologna",
+  "genoa",
+  "genova",
+  "venice",
+  "venezia",
+  // UK and Ireland
+  "leeds",
+  "glasgow",
+  "edinburgh",
+  "liverpool",
+  "bristol",
+  "sheffield",
+  "cardiff",
+  "belfast",
+  "newcastle",
+  "nottingham",
+  "leicester",
+  "coventry",
+  "bradford",
+  "brighton",
+  "oxford",
+  "cambridge",
+  "cork",
+  // US and Canada
+  "las vegas",
+  "portland",
+  "detroit",
+  "minneapolis",
+  "nashville",
+  "orlando",
+  "tampa",
+  "baltimore",
+  "pittsburgh",
+  "cleveland",
+  "columbus",
+  "indianapolis",
+  "kansas city",
+  "st louis",
+  "sacramento",
+  "san jose",
+  "salt lake city",
+  "raleigh",
+  "new orleans",
+  "honolulu",
+  "calgary",
+  "ottawa",
+  "edmonton",
+  "winnipeg",
+  "halifax",
+  // Australia and New Zealand
+  "adelaide",
+  "canberra",
+  "gold coast",
+  "hobart",
+  "wellington",
+  "christchurch",
+  // Mexico and Latin America
+  "guadalajara",
+  "monterrey",
+  "puebla",
+  "tijuana",
+  "cancun",
+  "medellin",
+  "cali",
+  "quito",
+  "guayaquil",
+  "caracas",
+  "montevideo",
+  "asuncion",
+  "panama city",
+  // Netherlands, Nordics, Central Europe
+  "rotterdam",
+  "the hague",
+  "utrecht",
+  "eindhoven",
+  "gothenburg",
+  "malmo",
+  "bergen",
+  "aarhus",
+  "krakow",
+  "wroclaw",
+  "gdansk",
+  // Middle East, Africa and Asia
+  "sharjah",
+  "jeddah",
+  "kuwait city",
+  "muscat",
+  "manama",
+  "casablanca",
+  "accra",
+  "addis ababa",
+  "dar es salaam",
+  "kampala",
+  "kigali",
+  "durban",
+  "pretoria",
+  "taipei",
+  "guangzhou",
+  "chengdu",
+  "hangzhou",
+  "wuhan",
+  "busan",
+  "yokohama",
+  "kyoto",
+  "nagoya",
+  "chiang mai",
+  "penang",
+  "cebu",
+  "surabaya",
+  "bandung",
+];
+
+const CITY_SET = new Set([...INDIAN_CITIES, ...WORLD_CITIES, ...MORE_CITIES]);
 
 /** Membership in either city list; some entries are also states or countries (Delhi, Goa, Singapore). */
 export function isKnownCity(value: string): boolean {
