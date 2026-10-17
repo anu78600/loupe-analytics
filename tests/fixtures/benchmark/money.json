@@ -1,0 +1,552 @@
+{
+  "family": "money",
+  "description": "Finance, banking and insurance tables: accounting and ERP extracts, tax returns, expense claims, bank statements and treasury sheets, loan books and collections, payment settlements, insurance policies and claims, procurement registers and the MIS summaries analysts build from them.",
+  "fixtures": [
+    {
+      "id": "money-sap-fbl3n-gl-line-items",
+      "source": "SAP S/4HANA FBL3N: G/L account line items, German UI (spreadsheet download)",
+      "kind": "export",
+      "expect": "finance",
+      "headers": ["Buchungskreis", "Sachkonto", "Belegnummer", "Belegart", "Buchungsdatum", "Belegdatum", "Buchungsschlüssel", "Betrag in Hauswährung", "Hauswährung", "Steuerkennzeichen", "Zuordnung", "Text", "Kostenstelle", "Profitcenter"],
+      "rows": [
+        ["1010", "63100000", "5100000123", "KR", "03.03.2025", "28.02.2025", "40", "1.250,00", "EUR", "V1", "4711-2025", "Büromaterial Februar", "10101101", "YB110"],
+        ["1010", "63100000", "5100000124", "KR", "05.03.2025", "04.03.2025", "40", "389,50", "EUR", "V1", "RE-88213", "Druckerpatronen Vertrieb", "10101101", "YB110"],
+        ["1010", "61200000", "1900000045", "SA", "10.03.2025", "10.03.2025", "40", "642,80", "EUR", "V1", "REISE-0325", "Reisekosten Messe Hannover", "10101301", "YB120"],
+        ["1010", "61200000", "1900000046", "SA", "12.03.2025", "12.03.2025", "50", "-120,00", "EUR", "", "REISE-0325", "Storno Hotelkosten Messe", "10101301", "YB120"],
+        ["1010", "65500000", "5100000131", "KR", "31.03.2025", "25.03.2025", "40", "8.400,00", "EUR", "V0", "MIETE-03", "Miete Lager Köln März", "10101501", "YB130"]
+      ],
+      "unique": ["Belegnummer"],
+      "ids": ["Sachkonto", "Kostenstelle"],
+      "roles": { "Belegnummer": "identifier", "Belegart": "dimension", "Buchungsdatum": "datetime", "Belegdatum": "datetime", "Betrag in Hauswährung": "currency" }
+    },
+    {
+      "id": "money-bc-vendor-ledger-entries",
+      "source": "Microsoft Dynamics 365 Business Central: Vendor Ledger Entries, Open in Excel (UK company)",
+      "kind": "export",
+      "expect": "finance",
+      "shape": "ar_ap",
+      "headers": ["Posting Date", "Document Type", "Document No.", "External Document No.", "Vendor No.", "Vendor Name", "Description", "Currency Code", "Original Amount", "Amount", "Remaining Amount", "Due Date", "Open", "On Hold", "Entry No."],
+      "rows": [
+        ["03/02/2025", "Invoice", "108245", "INV-55120", "V00010", "Northfield Packaging Ltd", "Order 106012", "", "-2,340.00", "-2,340.00", "-2,340.00", "05/03/2025", "Yes", "", "2231"],
+        ["07/02/2025", "Invoice", "108251", "7781", "V00020", "Calder Office Supplies", "Order 106018", "", "-415.80", "-415.80", "0.00", "09/03/2025", "No", "", "2240"],
+        ["10/02/2025", "Payment", "PMT00341", "", "V00020", "Calder Office Supplies", "Payment Calder Office Supplies", "", "415.80", "415.80", "0.00", "10/02/2025", "No", "", "2246"],
+        ["14/02/2025", "Invoice", "108263", "INV/2025/0219", "V00030", "Brightwater Logistics plc", "Order 106025", "EUR", "-5,600.00", "-5,600.00", "-5,600.00", "16/03/2025", "Yes", "DSP", "2252"],
+        ["21/02/2025", "Credit Memo", "109012", "CN-3391", "V00010", "Northfield Packaging Ltd", "Return of damaged cartons", "", "180.00", "180.00", "180.00", "21/02/2025", "Yes", "", "2265"]
+      ],
+      "unique": ["Entry No."],
+      "ids": ["Vendor No."],
+      "roles": { "Posting Date": "datetime", "Document Type": "dimension", "Original Amount": "currency", "Remaining Amount": "currency", "Due Date": "datetime", "Open": "boolean", "Entry No.": "identifier" }
+    },
+    {
+      "id": "money-sage50-trial-balance",
+      "source": "Sage 50 Accounts (UK): Period Trial Balance report exported to CSV",
+      "kind": "export",
+      "expect": "finance",
+      "headers": ["N/C", "Name", "Debit", "Credit"],
+      "rows": [
+        ["0030", "Office Equipment", "12,450.00", ""],
+        ["1100", "Debtors Control Account", "38,912.60", ""],
+        ["1200", "Bank Current Account", "21,307.44", ""],
+        ["2100", "Creditors Control Account", "", "17,684.20"],
+        ["4000", "Sales Type A", "", "96,540.00"]
+      ],
+      "unique": ["N/C"],
+      "roles": { "N/C": "identifier", "Debit": "currency", "Credit": "currency" }
+    },
+    {
+      "id": "money-tally-bills-receivable",
+      "source": "TallyPrime: Bills Receivable (outstanding receivables) exported to Excel",
+      "kind": "export",
+      "expect": "finance",
+      "shape": "ar_ap",
+      "headers": ["Date", "Ref. No.", "Party's Name", "Opening Amount", "Pending Amount", "Due on", "Overdue by days"],
+      "rows": [
+        ["2-Apr-24", "SI/24-25/0012", "Shree Ganesh Traders", "1,18,000.00", "1,18,000.00", "2-May-24", "168"],
+        ["15-May-24", "SI/24-25/0087", "Patel Hardware Stores", "54,280.00", "24,280.00", "14-Jun-24", "125"],
+        ["3-Jul-24", "SI/24-25/0156", "Kaveri Agro Industries", "2,36,000.00", "2,36,000.00", "2-Aug-24", "76"],
+        ["20-Aug-24", "SI/24-25/0233", "Om Sai Enterprises", "88,500.00", "88,500.00", "19-Sep-24", "28"],
+        ["28-Sep-24", "SI/24-25/0301", "Laxmi Distributors", "1,47,500.00", "1,47,500.00", "28-Oct-24", ""]
+      ],
+      "unique": ["Ref. No."],
+      "roles": { "Date": "datetime", "Ref. No.": "identifier", "Opening Amount": "currency", "Pending Amount": "currency", "Due on": "datetime", "Overdue by days": "measure" }
+    },
+    {
+      "id": "money-concur-expense-entries",
+      "source": "SAP Concur Expense: expense entry detail report from Cognos/Intelligence (UK employees)",
+      "kind": "export",
+      "expect": "finance",
+      "headers": ["Report ID", "Report Name", "Employee ID", "Employee", "Report Submit Date", "Transaction Date", "Expense Type", "Vendor", "City/Location", "Payment Type", "Transaction Amount", "Transaction Currency", "Expense Amount (rpt)", "Approved Amount (rpt)", "Approval Status", "Payment Status"],
+      "rows": [
+        ["8A1F3C22D9E04B7A9C11", "London client visit Mar", "E10234", "Hughes, Daniel", "18/03/2025", "11/03/2025", "Taxi", "Northside Cars", "London, ENGLAND", "Corporate Card", "38.50", "GBP", "38.50", "38.50", "Approved", "Paid"],
+        ["8A1F3C22D9E04B7A9C11", "London client visit Mar", "E10234", "Hughes, Daniel", "18/03/2025", "12/03/2025", "Hotel", "Riverside Lodge", "London, ENGLAND", "Corporate Card", "112.00", "GBP", "112.00", "112.00", "Approved", "Paid"],
+        ["4D6B0E91A7F2438C8E05", "Paris trade fair", "E10871", "Okafor, Grace", "02/04/2025", "25/03/2025", "Airfare", "Skyline Airways", "Paris, FRANCE", "Corporate Card", "245.60", "EUR", "205.42", "205.42", "Approved", "Processing Payment"],
+        ["4D6B0E91A7F2438C8E05", "Paris trade fair", "E10871", "Okafor, Grace", "02/04/2025", "26/03/2025", "Business Meals (attendees)", "Le Petit Bistro", "Paris, FRANCE", "Cash", "64.00", "EUR", "53.53", "45.00", "Approved", "Processing Payment"],
+        ["C3E7A0B58F1D4E6A9B47", "Manchester site audit", "E11502", "Patel, Ritu", "", "08/04/2025", "Personal Car Mileage", "", "Manchester, ENGLAND", "Cash", "50.40", "GBP", "50.40", "0.00", "Not Submitted", "Not Paid"]
+      ],
+      "ids": ["Report ID", "Employee ID"],
+      "roles": { "Employee ID": "identifier", "Transaction Date": "datetime", "Expense Type": "dimension", "Payment Type": "dimension", "Transaction Amount": "currency", "Approved Amount (rpt)": "currency", "Approval Status": "dimension" }
+    },
+    {
+      "id": "money-hdfc-account-statement",
+      "source": "HDFC Bank NetBanking: current account statement, delimited download",
+      "kind": "export",
+      "expect": "finance",
+      "headers": ["Date", "Narration", "Chq./Ref.No.", "Value Dt", "Withdrawal Amt.", "Deposit Amt.", "Closing Balance"],
+      "rows": [
+        ["01/04/24", "NEFT CR-ICIC0000104-SHREE GANESH TRADERS-NETBANK, MUM-CITIN24412345678", "CITIN24412345678", "01/04/24", "", "118000.00", "342518.40"],
+        ["02/04/24", "UPI-RAVI KUMAR-RAVIKUMAR@OKAXIS-UTIB0000123-409312345678-PAYMENT FROM PHONE", "0000409312345678", "02/04/24", "2450.00", "", "340068.40"],
+        ["05/04/24", "ACH D- TP ACH KAVYA FINLEASE-3876520114", "0000003876520114", "05/04/24", "18640.00", "", "321428.40"],
+        ["11/04/24", "CHQ PAID-MICR CTS-MU-PATEL HARDWARE STORES", "000000000412", "11/04/24", "54280.00", "", "267148.40"],
+        ["18/04/24", "IMPS-409812765432-OM SAI ENTERPRISES-HDFC-XXXXXXX1234-INV 233", "0000409812765432", "18/04/24", "", "88500.00", "355648.40"]
+      ],
+      "unique": ["Chq./Ref.No."],
+      "roles": { "Date": "datetime", "Narration": "text", "Value Dt": "datetime", "Withdrawal Amt.": "currency", "Deposit Amt.": "currency", "Closing Balance": "currency" }
+    },
+    {
+      "id": "money-gstr2b-b2b-invoices",
+      "source": "GST portal (India): GSTR-2B Excel download, B2B invoices sheet",
+      "kind": "export",
+      "expect": ["finance", "procurement"],
+      "headers": ["GSTIN of supplier", "Trade/Legal name", "Invoice number", "Invoice type", "Invoice Date", "Invoice Value(₹)", "Place of supply", "Supply Attract Reverse Charge", "Rate(%)", "Taxable Value (₹)", "Integrated Tax(₹)", "Central Tax(₹)", "State/UT Tax(₹)", "Cess(₹)", "GSTR-1/IFF/GSTR-5 Period", "GSTR-1/IFF/GSTR-5 Filing Date", "ITC Availability", "Reason", "Applicable % of Tax Rate", "Source", "IRN", "IRN Date"],
+      "rows": [
+        ["27AADCK4512M1Z8", "KESARI PACKAGING PRIVATE LIMITED", "KP/24-25/1187", "Regular", "05-09-2024", "118000.00", "Maharashtra", "No", "18", "100000.00", "0.00", "9000.00", "9000.00", "0.00", "Sep'24", "11-10-2024", "Yes", "", "", "e-Invoice", "4f2a9c7e1b3d5f8a0c6e2b4d9f1a3c5e7b0d2f4a6c8e1b3d5f7a9c0e2b4d6f8a", "05-09-2024"],
+        ["24AAFFM7783K1ZQ", "MAHI POLYMERS", "MP-0932", "Regular", "12-09-2024", "59000.00", "Maharashtra", "No", "18", "50000.00", "9000.00", "0.00", "0.00", "0.00", "Sep'24", "10-10-2024", "Yes", "", "", "", "", ""],
+        ["27ABJPN6620Q1Z2", "NIKHIL ENGINEERING WORKS", "NEW/389", "Regular", "18-09-2024", "28000.00", "Maharashtra", "No", "12", "25000.00", "0.00", "1500.00", "1500.00", "0.00", "Sep'24", "11-10-2024", "Yes", "", "", "", "", ""],
+        ["29AACCT3398H1ZK", "TECHSERVE SOLUTIONS PRIVATE LIMITED", "TS2425-00451", "Regular", "23-09-2024", "35400.00", "Maharashtra", "No", "18", "30000.00", "5400.00", "0.00", "0.00", "0.00", "Sep'24", "09-10-2024", "Yes", "", "", "e-Invoice", "9d0e1f2a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6", "23-09-2024"],
+        ["33AAHFS9054D1Z1", "SRI VENKATESWARA RESIDENCY", "SVR/1462", "Regular", "26-09-2024", "4720.00", "Tamil Nadu", "No", "18", "4000.00", "0.00", "360.00", "360.00", "0.00", "Sep'24", "11-10-2024", "No", "POS and supplier state are same but recipient state is different", "", "", "", ""]
+      ],
+      "unique": ["Invoice number"],
+      "ids": ["GSTIN of supplier"],
+      "roles": { "GSTIN of supplier": "identifier", "Invoice Date": "datetime", "Invoice Value(₹)": "currency", "Place of supply": "geo", "Taxable Value (₹)": "currency", "Central Tax(₹)": "currency", "ITC Availability": "boolean" }
+    },
+    {
+      "id": "money-fec-journal-entries",
+      "source": "Fichier des Écritures Comptables (FEC): French statutory journal export from the accounting software",
+      "kind": "export",
+      "expect": "finance",
+      "headers": ["JournalCode", "JournalLib", "EcritureNum", "EcritureDate", "CompteNum", "CompteLib", "CompAuxNum", "CompAuxLib", "PieceRef", "PieceDate", "EcritureLib", "Debit", "Credit", "EcritureLet", "DateLet", "ValidDate", "Montantdevise", "Idevise"],
+      "rows": [
+        ["AC", "Achats", "1245", "20250114", "60100000", "Achats de matières premières", "", "", "FA-2025-0187", "20250110", "Facture Dupont Matériaux janvier", "1250,00", "0,00", "", "", "20250131", "", ""],
+        ["AC", "Achats", "1245", "20250114", "44566000", "TVA déductible sur autres biens et services", "", "", "FA-2025-0187", "20250110", "Facture Dupont Matériaux janvier", "250,00", "0,00", "", "", "20250131", "", ""],
+        ["AC", "Achats", "1245", "20250114", "40100000", "Fournisseurs", "FDUPONTMAT", "Dupont Matériaux SARL", "FA-2025-0187", "20250110", "Facture Dupont Matériaux janvier", "0,00", "1500,00", "AA", "20250128", "20250131", "", ""],
+        ["BQ", "Banque", "1302", "20250128", "51200000", "Banque", "", "", "VIR-20250128", "20250128", "Règlement Dupont Matériaux", "0,00", "1500,00", "", "", "20250131", "", ""],
+        ["VE", "Ventes", "1310", "20250129", "70600000", "Prestations de services", "", "", "FV-2025-0042", "20250129", "Facture Lefèvre et Fils", "0,00", "4800,00", "", "", "20250131", "", ""]
+      ],
+      "ids": ["EcritureNum", "CompteNum", "PieceRef"],
+      "roles": { "JournalCode": "dimension", "EcritureDate": "datetime", "CompteNum": "identifier", "PieceRef": "identifier", "Debit": "currency", "Credit": "currency" }
+    },
+    {
+      "id": "money-netsuite-budget-vs-actual",
+      "source": "Oracle NetSuite: Budget vs. Actual financial report exported to CSV (US subsidiary)",
+      "kind": "export",
+      "expect": "finance",
+      "shape": "pnl",
+      "headers": ["Financial Row", "Amount", "Budget", "Over Budget", "% of Budget"],
+      "rows": [
+        ["4000 - Product Sales", "$412,580.00", "$400,000.00", "$12,580.00", "103.15%"],
+        ["4100 - Services Revenue", "$86,240.00", "$95,000.00", "($8,760.00)", "90.78%"],
+        ["5000 - Cost of Goods Sold", "$238,910.00", "$232,000.00", "$6,910.00", "102.98%"],
+        ["6100 - Salaries & Wages", "$121,450.00", "$125,000.00", "($3,550.00)", "97.16%"],
+        ["6400 - Advertising & Marketing", "$18,725.00", "$15,000.00", "$3,725.00", "124.83%"]
+      ],
+      "roles": { "Amount": "currency", "Budget": "currency", "Over Budget": "currency", "% of Budget": "percentage" }
+    },
+    {
+      "id": "money-finacle-loan-accounts",
+      "source": "Infosys Finacle core banking: loan account extract from a custom report on the account master tables (India)",
+      "kind": "export",
+      "expect": "banking",
+      "shape": "loan_book",
+      "headers": ["SOL_ID", "FORACID", "CIF_ID", "ACCT_NAME", "SCHM_CODE", "SCHM_DESC", "ACCT_OPN_DATE", "SANCT_LIM", "DIS_AMT", "CLR_BAL_AMT", "INT_RATE", "EMI_AMT", "MATURITY_DATE", "DPD", "ASSET_CLASS", "SMA_CATEGORY"],
+      "rows": [
+        ["0104", "010460300001245", "C00458712", "RAJESH KUMAR SHARMA", "LA301", "HOUSING LOAN SALARIED", "12-04-2021", "2500000.00", "2500000.00", "-2238797.55", "8.50", "21696.00", "11-04-2041", "0", "STD", ""],
+        ["0104", "010460400002318", "C00512094", "SUNITA DEVI", "LA401", "VEHICLE LOAN", "03-08-2023", "650000.00", "650000.00", "-412890.20", "9.75", "13731.00", "03-08-2028", "34", "STD", "SMA-1"],
+        ["0217", "021760600000877", "C00377265", "M/S GANGA AGRO FOODS", "LA601", "MSME TERM LOAN", "21-11-2022", "4000000.00", "4000000.00", "-2398540.00", "11.25", "87473.00", "21-11-2027", "95", "SUB", ""],
+        ["0217", "021760300003391", "C00602458", "PRAKASH VITHAL PATIL", "LA301", "HOUSING LOAN SALARIED", "05-01-2024", "3500000.00", "3200000.00", "-3086862.75", "8.65", "28075.00", "05-01-2044", "0", "STD", ""],
+        ["0331", "033160200000519", "C00290031", "ANITA JOSEPH", "LA201", "PERSONAL LOAN", "17-06-2023", "300000.00", "300000.00", "-78420.10", "13.50", "10181.00", "17-06-2026", "12", "STD", "SMA-0"]
+      ],
+      "unique": ["FORACID"],
+      "ids": ["CIF_ID", "SOL_ID"],
+      "roles": { "FORACID": "identifier", "SCHM_DESC": "dimension", "ACCT_OPN_DATE": "datetime", "SANCT_LIM": "currency", "CLR_BAL_AMT": "currency", "INT_RATE": "rate", "DPD": "measure", "ASSET_CLASS": "dimension" }
+    },
+    {
+      "id": "money-goldloan-pledge-register",
+      "source": "Gold loan NBFC branch software: live loan register, one row per pledge (Kerala and Tamil Nadu branches)",
+      "kind": "export",
+      "expect": "banking",
+      "shape": "loan_book",
+      "headers": ["Branch", "Loan No", "Loan Date", "Customer ID", "Customer Name", "Scheme", "No. of Items", "Gross Wt (gms)", "Net Wt (gms)", "Purity (Kt)", "Gold Rate (₹/gm)", "Market Value (₹)", "Loan Amount (₹)", "LTV %", "Interest Rate (% p.a.)", "Tenure (Days)", "Due Date", "Interest Accrued (₹)", "Status"],
+      "rows": [
+        ["Thrissur Round South", "GL/TSR/24/018245", "05/06/2024", "CUS0045821", "Lakshmi Narayanan", "Swarna 9M", "3", "28.400", "26.150", "22", "6650", "173897.50", "130000", "74.76%", "12.00", "270", "02/03/2025", "5727.12", "Active"],
+        ["Kozhikode Main", "GL/KZD/24/009871", "18/07/2024", "CUS0061307", "Abdul Rasheed P", "Gold Plus 12M", "1", "11.800", "11.300", "22", "6700", "75710.00", "52000", "68.68%", "15.00", "365", "18/07/2025", "1944.66", "Active"],
+        ["Madurai Town Hall Road", "GL/MDU/24/004410", "02/02/2024", "CUS0038764", "Meenakshi Sundaram", "Swarna 9M", "5", "48.000", "44.600", "22", "5800", "258680.00", "190000", "73.45%", "12.00", "270", "29/10/2024", "16116.16", "Active"],
+        ["Thrissur Round South", "GL/TSR/23/015502", "14/11/2023", "CUS0029115", "Joseph Varghese", "Flexi 6M", "2", "19.600", "18.200", "22", "5650", "102830.00", "75000", "72.94%", "18.00", "180", "12/05/2024", "12501.37", "Auction Notice Sent"],
+        ["Kozhikode Main", "GL/KZD/24/011204", "29/08/2024", "CUS0064480", "Fathima Beevi", "Gold Plus 12M", "4", "36.900", "34.750", "22", "6900", "239775.00", "175000", "72.99%", "15.00", "365", "29/08/2025", "3523.97", "Active"]
+      ],
+      "unique": ["Loan No"],
+      "ids": ["Customer ID"],
+      "roles": { "Loan No": "identifier", "Loan Date": "datetime", "Net Wt (gms)": "measure", "Market Value (₹)": "currency", "Loan Amount (₹)": "currency", "LTV %": "percentage", "Interest Rate (% p.a.)": "rate", "Status": "dimension" }
+    },
+    {
+      "id": "money-mfi-jlg-collection-sheet",
+      "source": "Microfinance LMS: centre-wise JLG collection sheet, instalment demand vs collection (Bihar)",
+      "kind": "export",
+      "expect": "banking",
+      "shape": "collections",
+      "headers": ["Branch", "Centre Code", "Centre Name", "Group No", "Member ID", "Member Name", "Loan A/c No", "Loan Cycle", "Disb. Amt", "Inst. No", "Due Date", "Demand Amt", "Collected Amt", "Overdue Amt", "Prin. O/S", "Attendance", "Field Officer"],
+      "rows": [
+        ["Bhagalpur", "CTR-0412", "Durga Mahila Kendra", "G2", "M0451287", "Rinku Devi", "JLG24BGP003112", "2", "40000", "9", "08/10/2024", "1820", "1820", "0", "25840", "P", "Santosh Kumar"],
+        ["Bhagalpur", "CTR-0412", "Durga Mahila Kendra", "G2", "M0451290", "Pinki Kumari", "JLG24BGP003115", "1", "30000", "9", "08/10/2024", "1365", "1000", "365", "19620", "P", "Santosh Kumar"],
+        ["Bhagalpur", "CTR-0418", "Laxmi Mahila Kendra", "G1", "M0452013", "Sunita Devi", "JLG24BGP003208", "3", "50000", "4", "10/10/2024", "2275", "0", "2275", "43380", "A", "Santosh Kumar"],
+        ["Purnea", "CTR-0507", "Saraswati Kendra", "G3", "M0460771", "Kiran Kumari", "JLG24PRN001876", "1", "30000", "12", "14/10/2024", "1365", "1365", "0", "15780", "P", "Manoj Yadav"],
+        ["Purnea", "CTR-0509", "Gayatri Kendra", "G1", "M0461102", "Babita Devi", "JLG24PRN001931", "2", "40000", "15", "16/10/2024", "1820", "1820", "0", "15240", "P", "Manoj Yadav"]
+      ],
+      "unique": ["Loan A/c No"],
+      "ids": ["Member ID", "Centre Code"],
+      "roles": { "Loan A/c No": "identifier", "Disb. Amt": "currency", "Inst. No": "measure", "Due Date": "datetime", "Demand Amt": "currency", "Collected Amt": "currency", "Overdue Amt": "currency" }
+    },
+    {
+      "id": "money-razorpay-settlement-recon",
+      "source": "Razorpay Dashboard: settlement reconciliation report (merchant, India)",
+      "kind": "export",
+      "expect": ["finance", "banking"],
+      "headers": ["entity_id", "type", "debit", "credit", "amount", "currency", "fee", "tax", "on_hold", "settled", "created_at", "settled_at", "settlement_id", "description", "notes", "payment_id", "arn", "settlement_utr", "order_id", "order_receipt", "method", "card_network", "card_issuer", "card_type", "dispute_id"],
+      "rows": [
+        ["pay_PDk3x8LmN2qR1a", "payment", "0", "1464.60", "1500.00", "INR", "35.40", "5.40", "0", "1", "14/10/2024 14:22:51", "16/10/2024 09:15:00", "setl_PEa2cD3eF4gH5", "", "", "", "", "AXISCN0167832514", "order_PDk2wAbCdEf9Gh", "rcpt_10452", "upi", "", "", "", ""],
+        ["pay_PDm7tQwErTyU2b", "payment", "0", "4882.00", "5000.00", "INR", "118.00", "18.00", "0", "1", "14/10/2024 18:05:12", "16/10/2024 09:15:00", "setl_PEa2cD3eF4gH5", "", "", "", "", "AXISCN0167832514", "order_PDm6sZxCvBn4Jk", "rcpt_10453", "card", "Visa", "HDFC", "credit", ""],
+        ["rfnd_PE19mNbVcXz3c", "refund", "799.00", "0", "799.00", "INR", "0", "0", "0", "1", "15/10/2024 09:41:37", "17/10/2024 09:20:00", "setl_PEq8kL1mN2oP6", "", "", "pay_PB7xYtR4eW2qA", "74332744288012345678901", "AXISCN0167901277", "order_PB7wXsQ3dV1pZ", "rcpt_10388", "card", "MasterCard", "ICIC", "debit", ""],
+        ["pay_PE4vB6nM8kJ3c", "payment", "0", "12205.00", "12500.00", "INR", "295.00", "45.00", "0", "1", "15/10/2024 21:17:03", "17/10/2024 09:20:00", "setl_PEq8kL1mN2oP6", "", "", "", "", "AXISCN0167901277", "order_PE4uA5mL7jH2b", "rcpt_10461", "netbanking", "", "", "", ""],
+        ["pay_PEb2Ws9Xe4Rt7d", "payment", "0", "2294.54", "2350.00", "INR", "55.46", "8.46", "0", "0", "16/10/2024 11:58:44", "", "", "", "", "", "", "", "order_PEb1Vr8Wd3Qs6c", "rcpt_10466", "card", "Visa", "SBIN", "credit", ""]
+      ],
+      "unique": ["entity_id", "order_id", "order_receipt"],
+      "ids": ["settlement_id"],
+      "roles": { "entity_id": "identifier", "type": "dimension", "credit": "currency", "amount": "currency", "fee": "currency", "settled": "boolean", "created_at": "datetime", "method": "dimension" }
+    },
+    {
+      "id": "money-lifeinsurer-policy-register",
+      "source": "Life insurer policy administration system: in-force policy register, agency channel (India)",
+      "kind": "export",
+      "expect": "insurance",
+      "shape": "policies",
+      "headers": ["Policy No", "Proposal No", "Plan Name", "Plan Type", "Policyholder Name", "Life Assured DOB", "Gender", "Sum Assured (₹)", "Policy Term (Yrs)", "PPT (Yrs)", "Premium Mode", "Modal Premium (₹)", "Annualised Premium (₹)", "RCD", "Next Due Date", "Policy Status", "Agent Code", "Branch", "State"],
+      "rows": [
+        ["50318842", "PR24011587", "Smart Endowment Plus", "Traditional - Par", "Ramesh Chandra Gupta", "14/08/1982", "M", "1000000", "20", "15", "Yearly", "62480", "62480", "22/03/2024", "22/03/2025", "In Force", "AG104582", "Lucknow", "Uttar Pradesh"],
+        ["50324117", "PR24020936", "iSecure Term Shield", "Term", "Neha Agarwal", "02/11/1991", "F", "10000000", "35", "35", "Monthly", "1185", "14220", "07/05/2024", "07/11/2024", "In Force", "AG110273", "Pune", "Maharashtra"],
+        ["50297760", "PR23098412", "Wealth Builder ULIP", "ULIP", "Sanjay Mehta", "27/01/1978", "M", "600000", "10", "5", "Half-Yearly", "30000", "60000", "15/09/2023", "15/03/2025", "In Force", "AG098817", "Ahmedabad", "Gujarat"],
+        ["50310095", "PR23112847", "Smart Endowment Plus", "Traditional - Par", "Kavita Iyer", "19/06/1987", "F", "500000", "15", "10", "Quarterly", "11250", "45000", "28/12/2023", "28/06/2024", "Lapsed", "AG104582", "Chennai", "Tamil Nadu"],
+        ["50289934", "PR23075521", "Child Future Saver", "Traditional - Non Par", "Arvind Nair", "05/03/1984", "M", "1500000", "18", "12", "Yearly", "98760", "98760", "11/07/2023", "11/07/2025", "In Force", "AG102265", "Kochi", "Kerala"]
+      ],
+      "unique": ["Policy No", "Proposal No"],
+      "ids": ["Agent Code"],
+      "roles": { "Policy No": "identifier", "Sum Assured (₹)": "currency", "Policy Term (Yrs)": "measure", "Premium Mode": "dimension", "Annualised Premium (₹)": "currency", "RCD": "datetime", "Policy Status": "dimension", "State": "geo" }
+    },
+    {
+      "id": "money-tpa-group-health-claims",
+      "source": "Health insurance TPA: group mediclaim claims MIS shared with the corporate HR team (India)",
+      "kind": "export",
+      "expect": ["insurance", "healthcare"],
+      "shape": "claims",
+      "headers": ["Claim No", "Policy No", "Employee Code", "Patient Name", "Relation", "Age", "Hospital Name", "Hospital City", "Network Hospital", "Claim Type", "Date of Admission", "Date of Discharge", "Diagnosis", "Claimed Amount", "Approved Amount", "Settled Amount", "Disallowed Amount", "Claim Status", "Settlement Date", "Remarks"],
+      "rows": [
+        ["CL2425HY0018734", "4016/X/2024/00123", "EMP10458", "Priya Reddy", "Self", "34", "Sunshine Multispeciality Hospital", "Hyderabad", "Y", "Cashless", "03/06/2024", "06/06/2024", "Acute appendicitis", "128450", "112000", "112000", "16450", "Settled", "14/06/2024", "Non-payable items and proportionate room rent deduction"],
+        ["CL2425HY0019102", "4016/X/2024/00123", "EMP11207", "Lakshmi Prasad", "Father", "67", "City Care Hospital", "Vijayawada", "N", "Reimbursement", "18/06/2024", "20/06/2024", "Cataract - right eye", "54000", "40000", "40000", "14000", "Settled", "29/07/2024", "Capped at cataract sub-limit"],
+        ["CL2425HY0020455", "4016/X/2024/00123", "EMP10981", "Aarav Menon", "Son", "6", "Little Stars Children's Hospital", "Bengaluru", "Y", "Cashless", "11/07/2024", "13/07/2024", "Viral fever with dehydration", "38600", "", "", "", "Query Raised", "", "Indoor case papers awaited"],
+        ["CL2425HY0021876", "4016/X/2024/00123", "EMP12033", "Mohammed Irfan", "Self", "41", "Lifeline Heart Institute", "Chennai", "Y", "Cashless", "02/08/2024", "08/08/2024", "Coronary artery disease - PTCA", "385000", "352500", "352500", "32500", "Settled", "21/08/2024", "Consumables not payable"],
+        ["CL2425HY0022310", "4016/X/2024/00123", "EMP11594", "Shalini Verma", "Spouse", "38", "Sunrise Women's Hospital", "Pune", "N", "Reimbursement", "25/08/2024", "25/08/2024", "Diagnostic evaluation - abdominal pain", "18400", "0", "0", "18400", "Repudiated", "", "Hospitalisation less than 24 hours, not payable"]
+      ],
+      "unique": ["Claim No"],
+      "ids": ["Employee Code"],
+      "roles": { "Claim No": "identifier", "Hospital City": "geo", "Network Hospital": "boolean", "Claim Type": "dimension", "Date of Admission": "datetime", "Claimed Amount": "currency", "Settled Amount": "currency", "Claim Status": "dimension" }
+    },
+    {
+      "id": "money-lloyds-risk-bordereau",
+      "source": "Lloyd's coverholder risk bordereau in Coverholder Reporting Standards style (UK commercial property binder)",
+      "kind": "export",
+      "expect": "insurance",
+      "shape": "policies",
+      "headers": ["Unique Market Reference (UMR)", "Reporting Period (End Date)", "Class of Business", "Certificate Reference", "Insured Full Name or Company Name", "Insured Postcode / Zip Code or similar", "Insured Country", "Risk Inception Date", "Risk Expiry Date", "Transaction Type - Original Premium etc", "Sum Insured Currency", "Sum Insured Amount", "Original Currency", "Gross Written Premium for this time", "Commission %", "Commission Amount for this time", "Insurance Premium Tax", "Final Net Premium"],
+      "rows": [
+        ["B0750RT2401234", "31/08/2024", "Commercial Property", "NBP-24-0001587", "Harbour View Bakery Ltd", "BS1 4QA", "United Kingdom", "01/08/2024", "31/07/2025", "Original Premium", "GBP", "850,000.00", "GBP", "2,125.00", "27.5%", "584.38", "255.00", "1,540.62"],
+        ["B0750RT2401234", "31/08/2024", "Commercial Property", "NBP-24-0001602", "Greenway Dental Practice LLP", "LS6 2AB", "United Kingdom", "15/08/2024", "14/08/2025", "Original Premium", "GBP", "420,000.00", "GBP", "1,310.40", "27.5%", "360.36", "157.25", "950.04"],
+        ["B0750RT2401234", "31/08/2024", "Commercial Combined", "NBP-24-0001611", "Moorside Joinery Ltd", "HX1 5PN", "United Kingdom", "20/08/2024", "19/08/2025", "Original Premium", "GBP", "1,250,000.00", "GBP", "4,860.00", "25.0%", "1,215.00", "583.20", "3,645.00"],
+        ["B0750RT2401234", "30/09/2024", "Commercial Property", "NBP-24-0001655", "The Crown Inn (Taunton) Ltd", "TA1 1JR", "United Kingdom", "02/09/2024", "01/09/2025", "Original Premium", "GBP", "680,000.00", "GBP", "1,972.00", "27.5%", "542.30", "236.64", "1,429.70"],
+        ["B0750RT2401234", "30/09/2024", "Commercial Combined", "NBP-24-0001673", "Kestrel Print and Design Ltd", "CF10 3AT", "United Kingdom", "16/09/2024", "15/09/2025", "Original Premium", "GBP", "300,000.00", "GBP", "1,140.00", "27.5%", "313.50", "136.80", "826.50"]
+      ],
+      "unique": ["Certificate Reference"],
+      "roles": { "Class of Business": "dimension", "Certificate Reference": "identifier", "Insured Postcode / Zip Code or similar": "geo", "Risk Inception Date": "datetime", "Sum Insured Amount": "currency", "Gross Written Premium for this time": "currency", "Commission %": "percentage" }
+    },
+    {
+      "id": "money-busy-purchase-register",
+      "source": "BUSY Accounting Software: Purchase Register, bill-wise with GST, exported to Excel (Delhi trader)",
+      "kind": "export",
+      "expect": "procurement",
+      "headers": ["Date", "Vch/Bill No", "Party Name", "GSTIN/UIN", "Material Centre", "Purchase Type", "Taxable Amt", "IGST Amt", "CGST Amt", "SGST Amt", "Bill Amt"],
+      "rows": [
+        ["02-04-2024", "PB/0001", "Aggarwal Steel Traders", "07AAGFA2231M1ZJ", "Main Store", "L/GST-18%", "84,500.00", "0.00", "7,605.00", "7,605.00", "99,710.00"],
+        ["09-04-2024", "PB/0002", "Jaipur Fasteners", "08AABCJ4410K1Z3", "Main Store", "I/GST-18%", "36,200.00", "6,516.00", "0.00", "0.00", "42,716.00"],
+        ["16-04-2024", "PB/0003", "Shiv Shakti Paints", "07ABHPS6687Q1ZB", "Godown No. 2", "L/GST-12%", "12,800.00", "0.00", "768.00", "768.00", "14,336.00"],
+        ["23-04-2024", "PB/0004", "Ludhiana Tools Co.", "03AAKFL9932C1ZP", "Main Store", "I/GST-18%", "1,12,000.00", "20,160.00", "0.00", "0.00", "1,32,160.00"],
+        ["30-04-2024", "PB/0005", "Aggarwal Steel Traders", "07AAGFA2231M1ZJ", "Godown No. 2", "L/GST-18%", "58,750.00", "0.00", "5,287.50", "5,287.50", "69,325.00"]
+      ],
+      "unique": ["Vch/Bill No"],
+      "ids": ["GSTIN/UIN"],
+      "roles": { "Date": "datetime", "Vch/Bill No": "identifier", "Material Centre": "dimension", "Purchase Type": "dimension", "Taxable Amt": "currency", "CGST Amt": "currency", "Bill Amt": "currency" }
+    },
+    {
+      "id": "money-sap-me2n-purchase-orders",
+      "source": "SAP S/4HANA ME2N: purchase orders by PO number, ALV export (US plants)",
+      "kind": "export",
+      "expect": "procurement",
+      "headers": ["Purchasing Document", "Item", "Document Date", "Supplier/Supplying Plant", "Material", "Short Text", "Material Group", "Plant", "Order Quantity", "Order Unit", "Net Price", "Currency", "Net Order Value", "Still to be delivered (qty)", "Still to be invoiced (val.)", "Purchasing Group"],
+      "rows": [
+        ["4500018231", "10", "03/04/2025", "100245 Midwest Bearings Inc", "RM-10021", "BEARING 6205-2RS", "RAWMAT01", "1710", "500", "EA", "4.85", "USD", "2,425.00", "0", "0.00", "001"],
+        ["4500018231", "20", "03/04/2025", "100245 Midwest Bearings Inc", "RM-10034", "BEARING 6305-ZZ", "RAWMAT01", "1710", "300", "EA", "7.20", "USD", "2,160.00", "300", "2,160.00", "001"],
+        ["4500018247", "10", "03/12/2025", "100318 Great Lakes Steel Supply", "RM-20110", "STEEL SHEET CR 1.2MM", "RAWMAT02", "1710", "12,000", "LB", "0.62", "USD", "7,440.00", "4,000", "3,720.00", "002"],
+        ["4500018260", "10", "03/18/2025", "100402 Apex Industrial Supply", "", "SAFETY GLOVES NITRILE L", "MRO", "1710", "40", "BOX", "18.50", "USD", "740.00", "0", "0.00", "003"],
+        ["4500018275", "10", "03/26/2025", "100517 Precision Castings LLC", "RM-30455", "HOUSING CAST AL A380", "RAWMAT03", "1720", "1,500", "EA", "22.40", "USD", "33,600.00", "1,500", "33,600.00", "002"]
+      ],
+      "ids": ["Purchasing Document", "Material"],
+      "roles": { "Document Date": "datetime", "Material Group": "dimension", "Order Quantity": "measure", "Order Unit": "dimension", "Net Price": "currency", "Net Order Value": "currency" }
+    },
+    {
+      "id": "money-analyticsvidhya-loan-prediction",
+      "source": "Loan Prediction practice problem (Analytics Vidhya, Dream Housing Finance; mirrored on Kaggle)",
+      "kind": "dataset",
+      "expect": "banking",
+      "shape": "applications",
+      "headers": ["Loan_ID", "Gender", "Married", "Dependents", "Education", "Self_Employed", "ApplicantIncome", "CoapplicantIncome", "LoanAmount", "Loan_Amount_Term", "Credit_History", "Property_Area", "Loan_Status"],
+      "rows": [
+        ["LP001002", "Male", "No", "0", "Graduate", "No", "5849", "0", "", "360", "1", "Urban", "Y"],
+        ["LP001003", "Male", "Yes", "1", "Graduate", "No", "4583", "1508", "128", "360", "1", "Rural", "N"],
+        ["LP001005", "Female", "No", "0", "Graduate", "Yes", "3000", "0", "66", "360", "1", "Semiurban", "Y"],
+        ["LP001006", "Male", "Yes", "3+", "Not Graduate", "No", "2583", "2358", "120", "180", "0", "Urban", "N"],
+        ["LP001008", "Female", "Yes", "2", "Graduate", "No", "6000", "0", "141", "360", "", "Semiurban", "Y"]
+      ],
+      "unique": ["Loan_ID"],
+      "roles": { "Loan_ID": "identifier", "Education": "dimension", "ApplicantIncome": "currency", "LoanAmount": "currency", "Loan_Amount_Term": "measure", "Credit_History": "boolean", "Property_Area": "dimension", "Loan_Status": "boolean" }
+    },
+    {
+      "id": "money-uci-credit-card-default",
+      "source": "Default of credit card clients dataset (UCI Machine Learning Repository, Taiwan)",
+      "kind": "dataset",
+      "expect": "banking",
+      "headers": ["ID", "LIMIT_BAL", "SEX", "EDUCATION", "MARRIAGE", "AGE", "PAY_0", "PAY_2", "PAY_3", "PAY_4", "PAY_5", "PAY_6", "BILL_AMT1", "BILL_AMT2", "BILL_AMT3", "BILL_AMT4", "BILL_AMT5", "BILL_AMT6", "PAY_AMT1", "PAY_AMT2", "PAY_AMT3", "PAY_AMT4", "PAY_AMT5", "PAY_AMT6", "default payment next month"],
+      "rows": [
+        ["1", "20000", "2", "2", "1", "24", "2", "2", "-1", "-1", "-2", "-2", "3913", "3102", "689", "0", "0", "0", "0", "689", "0", "0", "0", "0", "1"],
+        ["2", "120000", "2", "2", "2", "26", "-1", "2", "0", "0", "0", "2", "2682", "1725", "2682", "3272", "3455", "3261", "0", "1000", "1000", "1000", "0", "2000", "1"],
+        ["3", "90000", "2", "2", "2", "34", "0", "0", "0", "0", "0", "0", "29239", "14027", "13559", "14331", "14948", "15549", "1518", "1500", "1000", "1000", "1000", "5000", "0"],
+        ["4", "50000", "2", "2", "1", "37", "0", "0", "0", "0", "0", "0", "46990", "48233", "49291", "28314", "28959", "29547", "2000", "2019", "1200", "1100", "1069", "1000", "0"],
+        ["5", "50000", "1", "2", "1", "57", "-1", "0", "-1", "0", "0", "0", "8617", "5670", "35835", "20940", "19146", "19131", "2000", "36681", "10000", "9000", "689", "679", "0"]
+      ],
+      "unique": ["ID"],
+      "roles": { "ID": "identifier", "LIMIT_BAL": "currency", "AGE": "measure", "BILL_AMT1": "currency", "PAY_AMT1": "currency", "default payment next month": "boolean" }
+    },
+    {
+      "id": "money-uci-bank-marketing",
+      "source": "Bank Marketing dataset (UCI Machine Learning Repository, Portuguese bank term-deposit telemarketing, bank-full.csv)",
+      "kind": "dataset",
+      "expect": ["banking", "marketing"],
+      "headers": ["age", "job", "marital", "education", "default", "balance", "housing", "loan", "contact", "day", "month", "duration", "campaign", "pdays", "previous", "poutcome", "y"],
+      "rows": [
+        ["58", "management", "married", "tertiary", "no", "2143", "yes", "no", "unknown", "5", "may", "261", "1", "-1", "0", "unknown", "no"],
+        ["44", "technician", "single", "secondary", "no", "29", "yes", "no", "unknown", "5", "may", "151", "1", "-1", "0", "unknown", "no"],
+        ["33", "entrepreneur", "married", "secondary", "no", "2", "yes", "yes", "unknown", "5", "may", "76", "1", "-1", "0", "unknown", "no"],
+        ["35", "management", "married", "tertiary", "no", "231", "yes", "no", "cellular", "19", "nov", "1042", "2", "181", "3", "success", "yes"],
+        ["28", "blue-collar", "single", "secondary", "no", "-447", "no", "yes", "cellular", "8", "jul", "325", "4", "-1", "0", "unknown", "yes"]
+      ],
+      "roles": { "age": "measure", "job": "dimension", "balance": "currency", "housing": "boolean", "duration": "measure", "campaign": "measure", "y": "boolean" }
+    },
+    {
+      "id": "money-kaggle-medical-insurance-cost",
+      "source": "Medical Cost Personal Datasets (Kaggle insurance.csv, US health insurance charges)",
+      "kind": "dataset",
+      "expect": ["insurance", "healthcare"],
+      "headers": ["age", "sex", "bmi", "children", "smoker", "region", "charges"],
+      "rows": [
+        ["19", "female", "27.9", "0", "yes", "southwest", "16884.924"],
+        ["18", "male", "33.77", "1", "no", "southeast", "1725.5523"],
+        ["28", "male", "33", "3", "no", "southeast", "4449.462"],
+        ["33", "male", "22.705", "0", "no", "northwest", "21984.47061"],
+        ["46", "female", "33.44", "1", "no", "northeast", "8240.5896"]
+      ],
+      "roles": { "age": "measure", "sex": "dimension", "bmi": "measure", "children": "measure", "smoker": "boolean", "charges": "currency" }
+    },
+    {
+      "id": "money-amfi-nav-history",
+      "source": "AMFI India: mutual fund NAV history download",
+      "kind": "dataset",
+      "expect": null,
+      "headers": ["Scheme Code", "Scheme Name", "ISIN Div Payout/ISIN Growth", "ISIN Div Reinvestment", "Net Asset Value", "Repurchase Price", "Sale Price", "Date"],
+      "rows": [
+        ["152847", "Sahyadri Flexi Cap Fund - Direct Plan - Growth", "INF7Q2K01EW2", "", "62.4581", "", "", "01-Apr-2024"],
+        ["149306", "Narmada Liquid Fund - Direct Plan - Growth", "INF7Q2K01DZ7", "", "3412.8814", "", "", "01-Apr-2024"],
+        ["152847", "Sahyadri Flexi Cap Fund - Direct Plan - Growth", "INF7Q2K01EW2", "", "63.0912", "", "", "02-Apr-2024"],
+        ["149306", "Narmada Liquid Fund - Direct Plan - Growth", "INF7Q2K01DZ7", "", "3413.4517", "", "", "02-Apr-2024"],
+        ["152847", "Sahyadri Flexi Cap Fund - Direct Plan - Growth", "INF7Q2K01EW2", "", "64.2208", "", "", "28-Jun-2024"]
+      ],
+      "ids": ["Scheme Code"],
+      "roles": { "Scheme Code": "identifier", "Net Asset Value": "currency", "Date": "datetime" }
+    },
+    {
+      "id": "money-analyst-presupuesto-vs-real",
+      "source": "Control de gestión (España): presupuesto vs real mensual por centro de coste y cuenta contable",
+      "kind": "analyst",
+      "expect": "finance",
+      "shape": "pnl",
+      "headers": ["Mes", "Centro de coste", "Cuenta contable", "Descripción cuenta", "Presupuesto (€)", "Real (€)", "Desviación (€)", "Desviación (%)"],
+      "rows": [
+        ["ene-25", "CC100 Administración", "62100000", "Arrendamientos y cánones", "12.500,00", "12.500,00", "0,00", "0,0%"],
+        ["ene-25", "CC200 Comercial", "62700000", "Publicidad, propaganda y relaciones públicas", "8.000,00", "9.340,50", "1.340,50", "16,8%"],
+        ["feb-25", "CC300 Producción", "60100000", "Compras de materias primas", "145.000,00", "138.720,35", "-6.279,65", "-4,3%"],
+        ["feb-25", "CC100 Administración", "64000000", "Sueldos y salarios", "96.000,00", "97.215,00", "1.215,00", "1,3%"],
+        ["mar-25", "CC200 Comercial", "62900000", "Otros servicios", "4.200,00", "3.874,10", "-325,90", "-7,8%"]
+      ],
+      "ids": ["Cuenta contable"],
+      "roles": { "Mes": "datetime", "Centro de coste": "dimension", "Presupuesto (€)": "currency", "Real (€)": "currency", "Desviación (€)": "currency", "Desviación (%)": "percentage" }
+    },
+    {
+      "id": "money-analyst-13-week-cash-flow",
+      "source": "Treasury team: rolling 13-week cash flow forecast, actual and forecast weeks (UK)",
+      "kind": "analyst",
+      "expect": "finance",
+      "headers": ["Week Ending", "Wk", "Opening Cash (£)", "Customer Receipts (£)", "Other Receipts (£)", "Payroll (£)", "Supplier Payments (£)", "Rent & Rates (£)", "VAT / PAYE (£)", "Capex (£)", "Net Cash Flow (£)", "Closing Cash (£)", "RCF Headroom (£)", "Actual / Forecast"],
+      "rows": [
+        ["04/04/2025", "1", "1,245,300", "412,500", "0", "0", "-286,400", "0", "0", "-12,000", "114,100", "1,359,400", "3,359,400", "Actual"],
+        ["11/04/2025", "2", "1,359,400", "385,200", "4,800", "0", "-318,750", "-62,500", "0", "0", "8,750", "1,368,150", "3,368,150", "Actual"],
+        ["18/04/2025", "3", "1,368,150", "398,000", "0", "0", "-274,300", "0", "0", "-25,000", "98,700", "1,466,850", "3,466,850", "Forecast"],
+        ["25/04/2025", "4", "1,466,850", "421,000", "0", "-486,200", "-251,900", "0", "0", "0", "-317,100", "1,149,750", "3,149,750", "Forecast"],
+        ["02/05/2025", "5", "1,149,750", "405,600", "0", "0", "-290,200", "0", "-312,400", "-8,500", "-205,500", "944,250", "2,944,250", "Forecast"]
+      ],
+      "roles": { "Week Ending": "datetime", "Opening Cash (£)": "currency", "Customer Receipts (£)": "currency", "Supplier Payments (£)": "currency", "Net Cash Flow (£)": "currency", "Closing Cash (£)": "currency" }
+    },
+    {
+      "id": "money-analyst-rokad-bahi",
+      "source": "Small trader's cash book (rokad bahi) kept in Excel with Hindi headers in Latin script",
+      "kind": "analyst",
+      "expect": "finance",
+      "headers": ["Tareekh", "Vivran", "Party Ka Naam", "Bill No.", "Jama (₹)", "Naam (₹)", "Baki (₹)", "Bhugtan Ka Tarika", "Khata"],
+      "rows": [
+        ["01/09/2024", "Dukan bikri nakad", "Counter", "", "18,450", "", "43,950", "Nakad", "Bikri"],
+        ["03/09/2024", "Maal kharida - chawal 20 bori", "Shree Balaji Traders", "BT/1182", "", "24,000", "19,950", "UPI", "Kharid"],
+        ["05/09/2024", "Dukan ka kiraya September", "Mahesh Chand", "", "", "12,000", "7,950", "Nakad", "Kiraya"],
+        ["10/09/2024", "Udhaar wasooli - Gupta ji", "Ramesh Gupta", "", "6,500", "", "14,450", "UPI", "Udhaar Wasooli"],
+        ["15/09/2024", "Bijli ka bill", "Bijli Vibhag", "EB-0924", "", "2,380", "12,070", "Cheque", "Bijli"]
+      ],
+      "roles": { "Tareekh": "datetime", "Jama (₹)": "currency", "Naam (₹)": "currency", "Baki (₹)": "currency", "Bhugtan Ka Tarika": "dimension", "Khata": "dimension" }
+    },
+    {
+      "id": "money-analyst-fact-gl-monthly",
+      "source": "Finance data warehouse: fact_gl_monthly extract, actual vs budget by entity, GL account and cost centre (India)",
+      "kind": "analyst",
+      "expect": "finance",
+      "shape": "pnl",
+      "headers": ["period_end_dt", "entity_cd", "gl_account_cd", "gl_account_desc", "fs_line", "cost_center_cd", "actual_amt_inr", "budget_amt_inr", "variance_amt_inr", "is_adjustment_flg"],
+      "rows": [
+        ["2025-04-30", "IN10", "410100", "Domestic sales - products", "Revenue", "CC-SAL-01", "48250000.00", "46000000.00", "2250000.00", "N"],
+        ["2025-04-30", "IN10", "510200", "Raw material consumed", "COGS", "CC-PRD-02", "27110500.00", "26500000.00", "610500.00", "N"],
+        ["2025-05-31", "IN20", "620100", "Salaries and wages", "Employee cost", "CC-HR-01", "9845000.00", "10000000.00", "-155000.00", "N"],
+        ["2025-05-31", "IN10", "640300", "Digital advertising", "Selling & distribution", "CC-MKT-01", "3120400.00", "2800000.00", "320400.00", "Y"],
+        ["2025-06-30", "IN20", "660500", "Travel and conveyance", "Other expenses", "CC-ADM-03", "742180.00", "800000.00", "-57820.00", "N"]
+      ],
+      "ids": ["gl_account_cd", "cost_center_cd"],
+      "roles": { "period_end_dt": "datetime", "gl_account_cd": "identifier", "fs_line": "dimension", "actual_amt_inr": "currency", "budget_amt_inr": "currency", "variance_amt_inr": "currency", "is_adjustment_flg": "boolean" }
+    },
+    {
+      "id": "money-analyst-ar-ageing-summary",
+      "source": "Credit control: AR ageing summary by customer, cleaned from the ERP ageing report (US)",
+      "kind": "analyst",
+      "expect": "finance",
+      "headers": ["CustomerID", "CustomerName", "Region", "CreditLimit_USD", "NotDue_USD", "Days_1_30_USD", "Days_31_60_USD", "Days_61_90_USD", "Days_90Plus_USD", "TotalOutstanding_USD", "Pct_Over60", "CreditHold"],
+      "rows": [
+        ["C10045", "Blue Ridge Hardware Co", "Southeast", "150000", "42310.50", "18250.00", "6400.00", "0.00", "0.00", "66960.50", "0.00", "N"],
+        ["C10112", "Prairie Farm Supply LLC", "Midwest", "75000", "12800.00", "9640.25", "11200.00", "8350.00", "14275.40", "56265.65", "0.40", "Y"],
+        ["C10178", "Harborline Marine Parts", "Northeast", "200000", "88420.00", "35110.75", "0.00", "0.00", "0.00", "123530.75", "0.00", "N"],
+        ["C10203", "Mesa Verde Builders Inc", "West", "120000", "0.00", "22480.00", "18915.60", "26400.00", "5210.00", "73005.60", "0.43", "Y"],
+        ["C10251", "Lakeshore Office Interiors", "Midwest", "50000", "9875.00", "4120.00", "2350.80", "0.00", "0.00", "16345.80", "0.00", "N"]
+      ],
+      "unique": ["CustomerID"],
+      "roles": { "CustomerID": "identifier", "CreditLimit_USD": "currency", "Days_90Plus_USD": "currency", "TotalOutstanding_USD": "currency", "Pct_Over60": "rate", "CreditHold": "boolean" }
+    },
+    {
+      "id": "money-analyst-npa-dpd-summary",
+      "source": "NBFC risk team: monthly DPD bucket and NPA summary by zone and branch (pre-aggregated MIS, ₹ crore)",
+      "kind": "analyst",
+      "expect": "banking",
+      "headers": ["Month", "Zone", "Branch", "Live Accounts", "POS (₹ Cr)", "Current (₹ Cr)", "SMA-0 (₹ Cr)", "SMA-1 (₹ Cr)", "SMA-2 (₹ Cr)", "GNPA (₹ Cr)", "GNPA %", "NNPA %", "PCR %"],
+      "rows": [
+        ["Apr-25", "West", "Nashik", "4,812", "126.45", "112.30", "6.85", "2.94", "1.42", "2.94", "2.33%", "0.90%", "62.0%"],
+        ["Apr-25", "West", "Kolhapur", "3,105", "84.20", "76.15", "3.90", "1.62", "0.88", "1.65", "1.96%", "0.83%", "58.0%"],
+        ["May-25", "South", "Hubballi", "2,640", "71.38", "62.04", "4.12", "1.97", "1.06", "2.19", "3.07%", "1.40%", "55.0%"],
+        ["May-25", "West", "Nashik", "4,896", "129.10", "114.62", "7.05", "3.12", "1.28", "3.03", "2.35%", "0.88%", "63.0%"],
+        ["Jun-25", "South", "Belagavi", "1,988", "52.66", "47.10", "2.48", "1.15", "0.71", "1.22", "2.32%", "0.94%", "60.0%"]
+      ],
+      "roles": { "Month": "datetime", "Zone": "dimension", "Live Accounts": "measure", "POS (₹ Cr)": "currency", "GNPA (₹ Cr)": "currency", "GNPA %": "percentage", "PCR %": "percentage" }
+    },
+    {
+      "id": "money-analyst-branch-scorecard",
+      "source": "Bank branch MIS: monthly branch scorecard in tall Metric / Value / Target format (India)",
+      "kind": "analyst",
+      "expect": "banking",
+      "headers": ["Branch Code", "Branch", "Month", "Metric", "Value", "Target", "Unit"],
+      "rows": [
+        ["BR0217", "Indore - Vijay Nagar", "Sep-2025", "Total Deposits", "412.6", "450.0", "₹ Cr"],
+        ["BR0217", "Indore - Vijay Nagar", "Sep-2025", "CASA Ratio", "38.4", "40.0", "%"],
+        ["BR0217", "Indore - Vijay Nagar", "Sep-2025", "Gross Advances", "286.9", "300.0", "₹ Cr"],
+        ["BR0231", "Ujjain - Freeganj", "Aug-2025", "Gross NPA", "2.7", "2.5", "%"],
+        ["BR0231", "Ujjain - Freeganj", "Aug-2025", "New SB Accounts Opened", "642", "600", "Count"]
+      ],
+      "ids": ["Branch Code"],
+      "roles": { "Branch Code": "identifier", "Month": "datetime", "Metric": "dimension", "Value": "measure", "Target": "measure" }
+    },
+    {
+      "id": "money-analyst-collection-efficiency-pivot",
+      "source": "Retail lending collections team: collection efficiency by product and state, months as columns (Excel pivot pasted as values)",
+      "kind": "analyst",
+      "expect": "banking",
+      "headers": ["Product", "State", "Apr-25 CE %", "May-25 CE %", "Jun-25 CE %", "Jul-25 CE %", "Aug-25 CE %", "Sep-25 CE %", "YTD CE %"],
+      "rows": [
+        ["Two-Wheeler Loan", "Rajasthan", "96.4%", "95.8%", "94.9%", "95.6%", "96.1%", "96.8%", "95.9%"],
+        ["Two-Wheeler Loan", "Madhya Pradesh", "94.1%", "93.5%", "92.8%", "93.9%", "94.6%", "95.0%", "94.0%"],
+        ["Personal Loan", "Rajasthan", "98.2%", "98.0%", "97.6%", "97.9%", "98.3%", "98.5%", "98.1%"],
+        ["MSME Loan", "Gujarat", "97.5%", "96.9%", "96.2%", "96.8%", "97.4%", "97.7%", "97.1%"],
+        ["Microfinance (JLG)", "Madhya Pradesh", "92.6%", "91.8%", "90.4%", "91.2%", "92.3%", "93.1%", "91.9%"]
+      ],
+      "roles": { "Product": "dimension", "State": "geo", "Apr-25 CE %": "percentage", "Sep-25 CE %": "percentage", "YTD CE %": "percentage" }
+    },
+    {
+      "id": "money-analyst-loan-book-cleaned",
+      "source": "Digital lender analytics team: cleaned loan-level table from the data warehouse, camelCase columns (India)",
+      "kind": "analyst",
+      "expect": "banking",
+      "shape": "loan_book",
+      "headers": ["loanId", "customerId", "productType", "disbursalDate", "principalAmount", "tenureMonths", "interestRatePct", "emiAmount", "outstandingPrincipal", "dpd", "dpdBucket", "isWrittenOff", "sourcingChannel", "customerState"],
+      "rows": [
+        ["LN2024000187", "CU0098321", "Personal Loan", "2024-03-14", "200000", "24", "16.5", "9841", "132555.20", "0", "Current", "false", "App", "Karnataka"],
+        ["LN2024000412", "CU0102774", "Consumer Durable", "2024-06-02", "45000", "9", "0", "5000", "15000.00", "0", "Current", "false", "Partner POS", "Maharashtra"],
+        ["LN2023009875", "CU0087710", "Personal Loan", "2023-11-21", "350000", "36", "18.0", "12653", "262179.55", "45", "31-60", "false", "DSA", "Telangana"],
+        ["LN2024001903", "CU0110459", "Business Loan", "2024-08-09", "1000000", "36", "21.0", "37676", "979824.00", "95", "90+", "false", "Connector", "Tamil Nadu"],
+        ["LN2023004421", "CU0079036", "Personal Loan", "2023-05-30", "150000", "18", "22.0", "9859", "0.00", "182", "180+", "true", "App", "Uttar Pradesh"]
+      ],
+      "unique": ["loanId"],
+      "ids": ["customerId"],
+      "roles": { "loanId": "identifier", "disbursalDate": "datetime", "principalAmount": "currency", "interestRatePct": "rate", "outstandingPrincipal": "currency", "dpd": "measure", "dpdBucket": "dimension", "isWrittenOff": "boolean", "customerState": "geo" }
+    },
+    {
+      "id": "money-analyst-sinistralidade-pt",
+      "source": "Seguradora (Brasil): planilha de sinistralidade por apólice, prêmio emitido e ganho vs sinistros ocorridos",
+      "kind": "analyst",
+      "expect": "insurance",
+      "shape": "policy_claims",
+      "headers": ["Nº Apólice", "Ramo", "Produto", "UF", "Início Vigência", "Fim Vigência", "Prêmio Emitido (R$)", "Prêmio Ganho (R$)", "Sinistros Ocorridos (R$)", "Qtd. Sinistros", "Sinistralidade (%)", "Corretor"],
+      "rows": [
+        ["1180012345", "Automóvel", "Auto Individual", "SP", "15/01/2024", "15/01/2025", "3.840,00", "3.840,00", "2.150,00", "1", "56,0%", "Alfa Corretora de Seguros Ltda"],
+        ["1180012398", "Automóvel", "Auto Frota", "MG", "01/03/2024", "01/03/2025", "28.600,00", "28.600,00", "31.420,50", "4", "109,9%", "Prime Corretagem de Seguros"],
+        ["1410004417", "Residencial", "Residencial Essencial", "RJ", "10/06/2024", "10/06/2025", "620,00", "620,00", "0,00", "0", "0,0%", "Alfa Corretora de Seguros Ltda"],
+        ["1310007752", "Empresarial", "Empresarial PME", "PR", "22/08/2024", "22/08/2025", "12.400,00", "12.400,00", "4.215,30", "2", "34,0%", "Sul Brasil Corretora"],
+        ["1180013021", "Automóvel", "Auto Individual", "BA", "01/07/2025", "01/07/2026", "5.200,00", "2.607,12", "1.180,00", "1", "45,3%", "Prime Corretagem de Seguros"]
+      ],
+      "unique": ["Nº Apólice"],
+      "roles": { "Nº Apólice": "identifier", "Ramo": "dimension", "UF": "geo", "Início Vigência": "datetime", "Prêmio Emitido (R$)": "currency", "Sinistros Ocorridos (R$)": "currency", "Qtd. Sinistros": "measure", "Sinistralidade (%)": "percentage" }
+    }
+  ]
+}

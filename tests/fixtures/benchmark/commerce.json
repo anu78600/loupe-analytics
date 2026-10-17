@@ -1,0 +1,571 @@
+{
+  "family": "commerce",
+  "description": "Online and offline selling of goods: web-store and marketplace exports (orders, products, customers, returns, stock, settlements, listing traffic), retail POS sales, analyst-made sales tables, plus restaurant POS and delivery-app tables and one macro retail-trade table.",
+  "fixtures": [
+    {
+      "id": "commerce-shopify-products",
+      "source": "Shopify admin: Products export (CSV for Excel), US home-goods store",
+      "kind": "export",
+      "expect": "ecommerce",
+      "shape": "products",
+      "headers": ["Handle", "Title", "Body (HTML)", "Vendor", "Product Category", "Type", "Tags", "Published", "Option1 Name", "Option1 Value", "Option2 Name", "Option2 Value", "Option3 Name", "Option3 Value", "Variant SKU", "Variant Grams", "Variant Inventory Tracker", "Variant Inventory Qty", "Variant Inventory Policy", "Variant Fulfillment Service", "Variant Price", "Variant Compare At Price", "Variant Requires Shipping", "Variant Taxable", "Variant Barcode", "Image Src", "Image Position", "Image Alt Text", "Gift Card", "SEO Title", "SEO Description", "Variant Image", "Variant Weight Unit", "Variant Tax Code", "Cost per item", "Status"],
+      "rows": [
+        ["linen-throw-blanket", "Linen Throw Blanket", "<p>Stonewashed European linen throw, 51 x 67 in.</p>", "Fernwood Supply Co.", "Home & Garden > Linens & Bedding > Bedding > Blankets", "Throws", "bedroom, bestseller, linen", "true", "Color", "Oat", "", "", "", "", "FW-THR-1021", "1134", "shopify", "42", "deny", "manual", "129.00", "149.00", "true", "true", "860004512301", "https://cdn.shopify.com/s/files/1/0612/3345/7891/files/linen-throw-oat.jpg?v=1709251200", "1", "Oat linen throw folded on a sofa arm", "false", "Linen Throw Blanket | Fernwood Supply Co.", "A stonewashed linen throw that softens with every wash.", "", "lb", "", "48.50", "active"],
+        ["linen-throw-blanket", "", "", "", "", "", "", "", "", "Charcoal", "", "", "", "", "FW-THR-1022", "1134", "shopify", "17", "deny", "manual", "129.00", "149.00", "true", "true", "860004512302", "https://cdn.shopify.com/s/files/1/0612/3345/7891/files/linen-throw-charcoal.jpg?v=1709251200", "2", "Charcoal linen throw on a bed", "", "", "", "https://cdn.shopify.com/s/files/1/0612/3345/7891/files/linen-throw-charcoal.jpg?v=1709251200", "lb", "", "48.50", ""],
+        ["stoneware-mug-set", "Stoneware Mug Set of 4", "<p>Four speckled stoneware mugs, 12 oz each. Dishwasher and microwave safe.</p>", "Fernwood Supply Co.", "Home & Garden > Kitchen & Dining > Tableware > Drinkware > Mugs", "Mugs", "gift, kitchen", "true", "Title", "Default Title", "", "", "", "", "FW-MUG-2040", "1814", "shopify", "88", "deny", "manual", "54.00", "", "true", "true", "860004512455", "https://cdn.shopify.com/s/files/1/0612/3345/7891/files/mug-set-speckled.jpg?v=1711929600", "1", "Four speckled stoneware mugs", "false", "", "", "", "lb", "", "19.75", "active"],
+        ["waxed-canvas-tote", "Waxed Canvas Tote", "<p>Water-resistant waxed canvas with leather handles.</p>", "Fernwood Supply Co.", "Apparel & Accessories > Handbags, Wallets & Cases > Handbags", "Bags", "accessories, new", "true", "Color", "Olive", "Size", "Large", "", "", "FW-TOT-3307", "907", "shopify", "0", "continue", "manual", "78.00", "", "true", "true", "860004512618", "https://cdn.shopify.com/s/files/1/0612/3345/7891/files/waxed-tote-olive.jpg?v=1714521600", "1", "Olive waxed canvas tote", "false", "", "", "", "lb", "", "26.40", "active"],
+        ["beeswax-pillar-candles", "Beeswax Pillar Candle Trio", "<p>Three hand-poured beeswax pillars, 3, 4 and 6 in.</p>", "Fernwood Supply Co.", "Home & Garden > Decor > Home Fragrances > Candles", "Candles", "holiday", "false", "Title", "Default Title", "", "", "", "", "FW-CDL-4112", "1361", "shopify", "23", "deny", "manual", "36.00", "42.00", "true", "true", "860004512779", "https://cdn.shopify.com/s/files/1/0612/3345/7891/files/beeswax-trio.jpg?v=1717200000", "1", "Three beeswax pillar candles", "false", "", "", "", "lb", "", "11.20", "draft"]
+      ],
+      "unique": ["Variant SKU", "Variant Barcode"],
+      "ids": [],
+      "roles": { "Variant SKU": "identifier", "Variant Price": "currency", "Cost per item": "currency", "Variant Inventory Qty": "measure", "Variant Grams": "measure", "Type": "dimension", "Status": "dimension" }
+    },
+    {
+      "id": "commerce-shopify-customers",
+      "source": "Shopify admin: Customers export, UK store",
+      "kind": "export",
+      "expect": "ecommerce",
+      "shape": "customers",
+      "headers": ["Customer ID", "First Name", "Last Name", "Email", "Accepts Email Marketing", "Default Address Company", "Default Address Address1", "Default Address Address2", "Default Address City", "Default Address Province Code", "Default Address Country Code", "Default Address Zip", "Default Address Phone", "Phone", "Accepts SMS Marketing", "Total Spent", "Total Orders", "Note", "Tax Exempt", "Tags"],
+      "rows": [
+        ["'7234561890123", "Harriet", "Coles", "harriet.coles@examplemail.co.uk", "yes", "", "14 Ashdown Road", "", "Leeds", "", "GB", "LS6 2DU", "'+447700900123", "", "no", "245.50", "3", "", "no", "VIP"],
+        ["'7234561890456", "Tomasz", "Nowak", "t.nowak@examplemail.com", "no", "Nowak Interiors Ltd", "Unit 4, Mill Lane Trading Estate", "", "Bristol", "", "GB", "BS3 4JN", "'+447700900456", "", "no", "1129.80", "9", "Trade account, invoice monthly", "yes", "trade, wholesale"],
+        ["'7234561890789", "Priya", "Raman", "priya.raman@examplemail.co.uk", "yes", "", "27 Clarence Street", "Flat 2", "Manchester", "", "GB", "M1 4DN", "", "'+447700900789", "yes", "86.00", "1", "", "no", ""],
+        ["'7234561891012", "Owen", "Pritchard", "owen.p@examplemail.com", "no", "", "3 Heol y Coed", "", "Cardiff", "", "GB", "CF14 6HF", "", "", "no", "0.00", "0", "", "no", "newsletter-signup"],
+        ["'7234561891345", "Fiona", "MacLeod", "fiona.macleod@examplemail.co.uk", "yes", "", "8 Marchmont Crescent", "", "Edinburgh", "", "GB", "EH9 1HN", "'+447700900345", "'+447700900345", "yes", "512.35", "6", "Prefers Royal Mail tracked", "no", "VIP, repeat"]
+      ],
+      "unique": ["Customer ID", "Email"],
+      "ids": [],
+      "roles": { "Customer ID": "identifier", "Total Spent": "currency", "Total Orders": "measure", "Accepts Email Marketing": "boolean", "Default Address City": "geo", "Default Address Zip": "geo", "Tax Exempt": "boolean" }
+    },
+    {
+      "id": "commerce-woocommerce-productos-es",
+      "source": "WooCommerce (sitio en español): exportación de productos (Productos > Exportar), tienda de cosmética natural",
+      "kind": "export",
+      "expect": "ecommerce",
+      "shape": "products",
+      "headers": ["ID", "Tipo", "SKU", "Nombre", "Publicado", "¿Está destacado?", "Visibilidad en el catálogo", "Descripción corta", "Descripción", "Día en que empieza el precio rebajado", "Día en que termina el precio rebajado", "Estado del impuesto", "Clase de impuesto", "¿En inventario?", "Inventario", "Cantidad de bajo inventario", "¿Permitir reservas de productos agotados?", "¿Vendido individualmente?", "Peso (kg)", "Longitud (cm)", "Anchura (cm)", "Altura (cm)", "¿Permitir valoraciones de clientes?", "Nota de compra", "Precio rebajado", "Precio normal", "Categorías", "Etiquetas", "Clase de envío", "Imágenes", "Límite de descargas", "Días de caducidad de la descarga", "Superior", "Productos agrupados", "Ventas dirigidas", "Ventas cruzadas", "URL externa", "Texto del botón", "Posición", "Nombre del atributo 1", "Valor(es) del atributo 1", "Atributo visible 1", "Atributo global 1"],
+      "rows": [
+        ["1287", "simple", "JOL-SER-030", "Sérum facial de rosa mosqueta 30 ml", "1", "1", "visible", "Sérum regenerador con aceite de rosa mosqueta ecológico.", "<p>Sérum facial con aceite de rosa mosqueta prensado en frío y vitamina E.</p>", "", "", "taxable", "", "1", "64", "5", "0", "0", "0.08", "4", "4", "11", "1", "", "", "24.95", "Cosmética > Cuidado facial", "rosa mosqueta, ecológico", "", "https://jaboneriadelolivar.example/wp-content/uploads/2024/02/serum-rosa-mosqueta.jpg", "", "", "", "", "", "", "", "", "0", "", "", "", ""],
+        ["1290", "simple", "JOL-JAB-100", "Jabón de aceite de oliva y lavanda 100 g", "1", "0", "visible", "Jabón artesanal saponificado en frío.", "<p>Elaborado con aceite de oliva virgen extra de Jaén y aceite esencial de lavanda.</p>", "2024-11-29", "2024-12-02", "taxable", "", "1", "215", "20", "0", "0", "0.11", "8", "6", "3", "1", "", "4.95", "5.95", "Jabones > Jabones sólidos", "lavanda, aceite de oliva, artesanal", "", "https://jaboneriadelolivar.example/wp-content/uploads/2024/01/jabon-lavanda.jpg", "", "", "", "", "", "", "", "", "0", "", "", "", ""],
+        ["1302", "variable", "JOL-CHA-250", "Champú sólido natural", "1", "0", "visible", "Champú sólido sin sulfatos, para todo tipo de cabello.", "<p>Pastilla de champú de 75 g, equivale a tres botellas de champú líquido.</p>", "", "", "taxable", "", "1", "", "", "0", "0", "", "", "", "", "1", "", "", "", "Cabello > Champús sólidos", "sin plástico, cabello", "", "https://jaboneriadelolivar.example/wp-content/uploads/2024/03/champu-solido.jpg", "", "", "", "", "", "", "", "", "0", "Cabello", "Graso, Seco, Normal", "1", "0"],
+        ["1303", "variation", "JOL-CHA-251", "Champú sólido natural - Graso", "1", "0", "visible", "", "<p>Con arcilla verde y romero.</p>", "", "", "taxable", "parent", "1", "48", "5", "0", "0", "0.08", "7", "7", "3", "0", "", "", "9.90", "", "", "", "https://jaboneriadelolivar.example/wp-content/uploads/2024/03/champu-solido-graso.jpg", "", "", "id:1302", "", "", "", "", "", "1", "Cabello", "Graso", "", "0"],
+        ["1311", "simple", "JOL-BAL-015", "Bálsamo labial de karité 15 ml", "1", "0", "visible", "Bálsamo labial nutritivo con manteca de karité.", "<p>Con manteca de karité, cera de abejas y aceite de almendras.</p>", "", "", "taxable", "", "0", "0", "3", "0", "0", "0.03", "3", "3", "6", "1", "", "", "6.50", "Cosmética > Labios", "karité, labios", "", "https://jaboneriadelolivar.example/wp-content/uploads/2024/04/balsamo-karite.jpg", "", "", "", "", "", "", "", "", "0", "", "", "", ""]
+      ],
+      "unique": ["ID", "SKU"],
+      "ids": [],
+      "roles": { "SKU": "identifier", "Tipo": "dimension", "¿En inventario?": "boolean", "Inventario": "measure", "Peso (kg)": "measure", "Precio normal": "currency" }
+    },
+    {
+      "id": "commerce-amazon-fba-manage-inventory",
+      "source": "Amazon Seller Central: Manage FBA Inventory report (flat file), US kitchenware seller",
+      "kind": "export",
+      "expect": "ecommerce",
+      "shape": "inventory",
+      "headers": ["sku", "fnsku", "asin", "product-name", "condition", "your-price", "mfn-listing-exists", "mfn-fulfillable-quantity", "afn-listing-exists", "afn-warehouse-quantity", "afn-fulfillable-quantity", "afn-unsellable-quantity", "afn-reserved-quantity", "afn-total-quantity", "per-unit-volume", "afn-inbound-working-quantity", "afn-inbound-shipped-quantity", "afn-inbound-receiving-quantity", "afn-researching-quantity", "afn-reserved-future-supply", "afn-future-supply-buyable"],
+      "rows": [
+        ["KTC-SPAT-SET-03", "X001K7PQ35", "B0C7K41582", "Kitchentide Silicone Spatula Set, 3 Piece, Heat Resistant to 600°F, Charcoal", "New", "18.99", "No", "", "Yes", "412", "377", "4", "31", "468", "0.06", "0", "56", "0", "0", "0", "0"],
+        ["KTC-UTEN-HLDR-11", "X001M2RT88", "B0C7K41604", "Kitchentide Ceramic Utensil Holder, 7 Inch, Matte White", "New", "24.99", "No", "", "Yes", "158", "140", "2", "16", "158", "0.19", "0", "0", "0", "0", "0", "0"],
+        ["KTC-CUTB-BAMB-L", "X001P9WD12", "B0C9H20317", "Kitchentide Bamboo Cutting Board, Large 18 x 12 Inch, with Juice Groove", "New", "32.99", "Yes", "25", "Yes", "0", "0", "0", "0", "240", "0.31", "120", "0", "120", "0", "0", "0"],
+        ["KTC-OILS-SPRY-02", "X001R4LC67", "B0CB715240", "Kitchentide Glass Oil Sprayer for Cooking, 2 Pack, 200 ml", "New", "14.49", "No", "", "Yes", "1023", "965", "11", "47", "1103", "0.04", "80", "0", "0", "0", "0", "0"],
+        ["KTC-MEAS-SPN-08", "X001T6NB40", "B0CD338291", "Kitchentide Stainless Steel Measuring Spoons, Set of 8", "New", "12.99", "No", "", "Yes", "74", "61", "9", "4", "74", "0.02", "0", "0", "0", "3", "0", "0"]
+      ],
+      "unique": ["sku", "fnsku", "asin"],
+      "ids": [],
+      "roles": { "sku": "identifier", "your-price": "currency", "mfn-listing-exists": "boolean", "afn-fulfillable-quantity": "measure", "afn-total-quantity": "measure", "afn-reserved-quantity": "measure" }
+    },
+    {
+      "id": "commerce-amazon-fba-customer-returns",
+      "source": "Amazon Seller Central: FBA customer returns report",
+      "kind": "export",
+      "expect": "ecommerce",
+      "shape": "returns",
+      "headers": ["return-date", "order-id", "sku", "asin", "fnsku", "product-name", "quantity", "fulfillment-center-id", "detailed-disposition", "reason", "status", "license-plate-number", "customer-comments"],
+      "rows": [
+        ["2024-03-14T09:22:51+00:00", "113-4829157-6638601", "KTC-SPAT-SET-03", "B0C7K41582", "X001K7PQ35", "Kitchentide Silicone Spatula Set, 3 Piece, Heat Resistant to 600°F, Charcoal", "1", "PHX7", "SELLABLE", "UNWANTED_ITEM", "Unit returned to inventory", "LPNRR938451206", "Bought by mistake"],
+        ["2024-03-15T17:48:03+00:00", "114-2093318-4471529", "KTC-CUTB-BAMB-L", "B0C9H20317", "X001P9WD12", "Kitchentide Bamboo Cutting Board, Large 18 x 12 Inch, with Juice Groove", "1", "ONT8", "CUSTOMER_DAMAGED", "QUALITY_UNACCEPTABLE", "Unit returned to inventory", "LPNRR938517742", "Board cracked along the groove after the first wash"],
+        ["2024-03-18T12:05:37+00:00", "111-7740921-2256348", "KTC-OILS-SPRY-02", "B0CB715240", "X001R4LC67", "Kitchentide Glass Oil Sprayer for Cooking, 2 Pack, 200 ml", "2", "MDW2", "DEFECTIVE", "DEFECTIVE", "Reimbursed", "LPNRR938602198", "Nozzle clogs and sprays a stream instead of a mist"],
+        ["2024-03-21T20:31:14+00:00", "113-5518402-9930417", "KTC-UTEN-HLDR-11", "B0C7K41604", "X001M2RT88", "Kitchentide Ceramic Utensil Holder, 7 Inch, Matte White", "1", "TPA2", "CARRIER_DAMAGED", "DAMAGED_BY_CARRIER", "Unit returned to inventory", "LPNRR938744501", "Arrived chipped"],
+        ["2024-03-26T08:14:49+00:00", "112-6627014-1189253", "KTC-MEAS-SPN-08", "B0CD338291", "X001T6NB40", "Kitchentide Stainless Steel Measuring Spoons, Set of 8", "1", "LGB8", "SELLABLE", "NOT_AS_DESCRIBED", "Unit returned to inventory", "LPNRR938810367", ""]
+      ],
+      "unique": ["order-id", "license-plate-number"],
+      "ids": ["sku", "asin", "fnsku"],
+      "roles": { "return-date": "datetime", "order-id": "identifier", "quantity": "measure", "detailed-disposition": "dimension", "reason": "dimension", "customer-comments": "text" }
+    },
+    {
+      "id": "commerce-amazon-business-report-child-asin",
+      "source": "Amazon Seller Central: Business Reports, Detail Page Sales and Traffic by Child Item",
+      "kind": "export",
+      "expect": "ecommerce",
+      "shape": "web",
+      "headers": ["(Parent) ASIN", "(Child) ASIN", "Title", "SKU", "Sessions - Total", "Sessions - Total - B2B", "Session Percentage - Total", "Session Percentage - Total - B2B", "Page Views - Total", "Page Views - Total - B2B", "Page Views Percentage - Total", "Page Views Percentage - Total - B2B", "Featured Offer (Buy Box) Percentage", "Featured Offer (Buy Box) Percentage - B2B", "Units Ordered", "Units Ordered - B2B", "Unit Session Percentage", "Unit Session Percentage - B2B", "Ordered Product Sales", "Ordered Product Sales - B2B", "Total Order Items", "Total Order Items - B2B"],
+      "rows": [
+        ["B0C7K41500", "B0C7K41582", "Kitchentide Silicone Spatula Set, 3 Piece, Heat Resistant to 600°F, Charcoal", "KTC-SPAT-SET-03", "1,248", "12", "2.31%", "1.85%", "1,612", "15", "2.20%", "1.71%", "98.75%", "100.00%", "94", "1", "7.53%", "8.33%", "$1,785.06", "$18.99", "91", "1"],
+        ["B0C7K41500", "B0C7K41604", "Kitchentide Ceramic Utensil Holder, 7 Inch, Matte White", "KTC-UTEN-HLDR-11", "687", "4", "1.27%", "0.62%", "893", "4", "1.22%", "0.46%", "96.12%", "100.00%", "38", "0", "5.53%", "0.00%", "$949.62", "$0.00", "38", "0"],
+        ["B0C9H20300", "B0C9H20317", "Kitchentide Bamboo Cutting Board, Large 18 x 12 Inch, with Juice Groove", "KTC-CUTB-BAMB-L", "2,904", "41", "5.37%", "6.31%", "3,766", "52", "5.15%", "5.93%", "99.20%", "100.00%", "231", "4", "7.95%", "9.76%", "$7,620.69", "$131.96", "224", "4"],
+        ["B0CB715200", "B0CB715240", "Kitchentide Glass Oil Sprayer for Cooking, 2 Pack, 200 ml", "KTC-OILS-SPRY-02", "4,517", "23", "8.36%", "3.54%", "5,870", "27", "8.03%", "3.08%", "97.48%", "95.65%", "402", "2", "8.90%", "8.70%", "$5,824.98", "$28.98", "389", "2"],
+        ["B0CD338200", "B0CD338291", "Kitchentide Stainless Steel Measuring Spoons, Set of 8", "KTC-MEAS-SPN-08", "932", "6", "1.72%", "0.92%", "1,175", "6", "1.61%", "0.68%", "100.00%", "100.00%", "57", "0", "6.12%", "0.00%", "$740.43", "$0.00", "55", "0"]
+      ],
+      "unique": ["(Child) ASIN", "SKU"],
+      "ids": ["(Parent) ASIN"],
+      "roles": { "(Child) ASIN": "identifier", "Sessions - Total": "measure", "Featured Offer (Buy Box) Percentage": "percentage", "Units Ordered": "measure", "Unit Session Percentage": "percentage", "Ordered Product Sales": "currency" }
+    },
+    {
+      "id": "commerce-amazon-settlement-v2",
+      "source": "Amazon Seller Central: Settlement report V2 (flat file), amazon.co.uk",
+      "kind": "export",
+      "expect": "ecommerce",
+      "headers": ["settlement-id", "settlement-start-date", "settlement-end-date", "deposit-date", "total-amount", "currency", "transaction-type", "order-id", "merchant-order-id", "adjustment-id", "shipment-id", "marketplace-name", "amount-type", "amount-description", "amount", "fulfillment-id", "posted-date", "posted-date-time", "order-item-code", "merchant-order-item-id", "merchant-adjustment-item-id", "sku", "quantity-purchased", "promotion-id"],
+      "rows": [
+        ["13587429061", "2024-03-01 07:12:44 UTC", "2024-03-15 07:12:44 UTC", "2024-03-17 07:12:44 UTC", "4218.73", "GBP", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""],
+        ["13587429061", "", "", "", "", "", "Order", "202-4859371-2265914", "202-4859371-2265914", "", "DkXw8bJpR", "Amazon.co.uk", "ItemPrice", "Principal", "24.99", "AFN", "2024-03-05", "2024-03-05 18:22:41 UTC", "62103874519230", "", "", "TB-LNCH-BOX-02", "1", ""],
+        ["13587429061", "", "", "", "", "", "Order", "202-4859371-2265914", "202-4859371-2265914", "", "DkXw8bJpR", "Amazon.co.uk", "ItemFees", "Commission", "-3.75", "AFN", "2024-03-05", "2024-03-05 18:22:41 UTC", "62103874519230", "", "", "TB-LNCH-BOX-02", "", ""],
+        ["13587429061", "", "", "", "", "", "Order", "202-4859371-2265914", "202-4859371-2265914", "", "DkXw8bJpR", "Amazon.co.uk", "ItemFees", "FBAPerUnitFulfilmentFee", "-2.89", "AFN", "2024-03-05", "2024-03-05 18:22:41 UTC", "62103874519230", "", "", "TB-LNCH-BOX-02", "", ""],
+        ["13587429061", "", "", "", "", "", "Refund", "206-1173058-4409932", "206-1173058-4409932", "amzn1:crow:Q2mX8kfnS0yZ4vLc3pRtHw", "", "Amazon.co.uk", "ItemPrice", "Principal", "-17.49", "AFN", "2024-03-11", "2024-03-11 09:47:15 UTC", "48217096635518", "", "", "TB-SNCK-POT-04", "", ""]
+      ],
+      "unique": [],
+      "ids": ["settlement-id", "order-id"],
+      "roles": { "order-id": "identifier", "transaction-type": "dimension", "amount-type": "dimension", "amount": "currency", "posted-date": "datetime" }
+    },
+    {
+      "id": "commerce-flipkart-seller-hub-orders",
+      "source": "Flipkart Seller Hub: Orders report download (apparel and footwear seller)",
+      "kind": "export",
+      "expect": "ecommerce",
+      "shape": "orders",
+      "headers": ["Ordered On", "Shipment ID", "ORDER ITEM ID", "Order Id", "HSN CODE", "Order State", "Order Type", "FSN", "SKU", "Product", "Invoice No.", "CGST", "IGST", "SGST", "Invoice Date (mm/dd/yy)", "Invoice Amount", "Selling Price Per Item", "Shipping Charge per item", "Quantity", "Price inc. FKMP Contribution & Subsidy", "Buyer name", "Ship to name", "Address Line 1", "Address Line 2", "City", "State", "PIN Code", "Dispatch After date", "Dispatch by date", "Form requirement", "Tracking ID", "Package Length (cm)", "Package Breadth (cm)", "Package Height (cm)", "Package Weight (kg)"],
+      "rows": [
+        ["2024-03-14 10:22:41", "S04W2K8M5Q71", "430982745103927100", "OD430982745103927100", "6109", "DELIVERED", "PREPAID", "TSHGZ7YHKQ3BZRWT", "UBTS0142-NAVY-M", "Urbanbay Men Solid Round Neck Cotton Blend Navy Blue T-Shirt", "FAAEDF2400012345", "0.00", "23.76", "0.00", "03/15/24", "499.00", "499.00", "0.00", "1", "499.00", "Aniket Deshmukh", "Aniket Deshmukh", "Flat 302, Shree Residency", "Baner Road", "Pune", "Maharashtra", "411045", "2024-03-14 10:22:41", "2024-03-16 23:59:00", "FALSE", "FMPC2741095832", "28", "22", "3", "0.25"],
+        ["2024-03-14 16:05:12", "S04W2K8M6R03", "430982918736455200", "OD430982918736455200", "6109", "SHIPPED", "COD", "TSHGZ7YHQPRXEN2C", "UBTS0142-BLK-L", "Urbanbay Men Solid Round Neck Cotton Blend Black T-Shirt", "FAAEDF2400012346", "22.33", "0.00", "22.33", "03/15/24", "938.00", "469.00", "0.00", "2", "938.00", "Kavya Reddy", "Kavya Reddy", "No. 14, 3rd Cross", "HSR Layout Sector 2", "Bengaluru", "Karnataka", "560102", "2024-03-14 16:05:12", "2024-03-16 23:59:00", "FALSE", "FMPC2741203377", "28", "22", "6", "0.48"],
+        ["2024-03-15 09:41:27", "S04W2K8M7T19", "431015632874190300", "OD431015632874190300", "6204", "CANCELLED", "PREPAID", "KTAGHF6ZBN3QYTXM", "UBKT0377-MRN-XL", "Urbanbay Women Printed Viscose Rayon Straight Kurta (Maroon)", "", "0.00", "0.00", "0.00", "", "", "799.00", "0.00", "1", "799.00", "Shreya Iyer", "Shreya Iyer", "B-12, Lotus Apartments", "Velachery Main Road", "Chennai", "Tamil Nadu", "600042", "2024-03-15 09:41:27", "2024-03-17 23:59:00", "FALSE", "", "32", "26", "3", "0.3"],
+        ["2024-03-16 21:13:58", "S04W2K8M8B46", "431027719305846400", "OD431027719305846400", "6404", "RETURNED", "COD", "SHOGHR5ZXKUYPF8W", "UBSN0219-WHT-9", "Urbanbay Men Casual Sneakers White (UK 9)", "FAAEDF2400012391", "0.00", "198.15", "0.00", "03/17/24", "1299.00", "1299.00", "0.00", "1", "1299.00", "Vikram Malhotra", "Vikram Malhotra", "H. No. 221, Pocket B", "Mayur Vihar Phase 2", "Delhi", "Delhi", "110091", "2024-03-16 21:13:58", "2024-03-18 23:59:00", "FALSE", "FMPC2741388109", "34", "22", "13", "0.9"],
+        ["2024-03-17 11:30:04", "S04W2K8M9D58", "431040286613057500", "OD431040286613057500", "6109", "READY_TO_DISPATCH", "PREPAID", "TSHGZ7YHKQ3BZRWT", "UBTS0142-NAVY-M", "Urbanbay Men Solid Round Neck Cotton Blend Navy Blue T-Shirt", "FAAEDF2400012402", "0.00", "23.76", "0.00", "03/17/24", "499.00", "499.00", "0.00", "1", "499.00", "Farhan Siddiqui", "Farhan Siddiqui", "12/7, Aliganj", "Near Kapoorthala Crossing", "Lucknow", "Uttar Pradesh", "226024", "2024-03-17 11:30:04", "2024-03-19 23:59:00", "FALSE", "FMPC2741421650", "28", "22", "3", "0.25"]
+      ],
+      "unique": ["Shipment ID", "ORDER ITEM ID", "Order Id"],
+      "ids": ["SKU"],
+      "roles": { "Ordered On": "datetime", "Order State": "dimension", "Order Type": "dimension", "Quantity": "measure", "Invoice Amount": "currency", "City": "geo", "PIN Code": "geo", "Package Weight (kg)": "measure" }
+    },
+    {
+      "id": "commerce-meesho-supplier-orders",
+      "source": "Meesho Supplier Panel: Orders export (CSV)",
+      "kind": "export",
+      "expect": "ecommerce",
+      "shape": "orders",
+      "headers": ["Reason for Credit Entry", "Sub Order No", "Order Date", "Customer State", "Product Name", "SKU", "Size", "Quantity", "Supplier Listed Price (Incl. GST + Commission)", "Supplier Discounted Price (Incl GST and Commision)", "Packet Id"],
+      "rows": [
+        ["DELIVERED", "176543219876543210_1", "2024-03-14", "Uttar Pradesh", "Trendy Women Rayon Printed Kurti", "KRT-RYN-114-BLU", "XL", "1", "389", "349", "PKT8274619"],
+        ["SHIPPED", "176543288014325671_1", "2024-03-14", "Bihar", "Stylish Men Cotton Blend Checked Shirt", "SHT-CHK-207-RED", "L", "1", "449", "399", "PKT8274633"],
+        ["RTO_COMPLETE", "176543301772654902_1", "2024-03-15", "Rajasthan", "Trendy Women Rayon Printed Kurti", "KRT-RYN-114-GRN", "M", "2", "389", "349", "PKT8274702"],
+        ["CANCELLED", "176543356690231178_1", "2024-03-16", "West Bengal", "Kids Cotton Printed T-shirt Pack of 3", "KDS-TSH-031-MLT", "5-6 Years", "1", "329", "299", "PKT8274751"],
+        ["DOOR_STEP_EXCHANGED", "176543410258874436_1", "2024-03-17", "Maharashtra", "Stylish Men Cotton Blend Checked Shirt", "SHT-CHK-207-BLU", "XXL", "1", "449", "399", "PKT8274788"]
+      ],
+      "unique": ["Sub Order No"],
+      "ids": ["SKU"],
+      "roles": { "Reason for Credit Entry": "dimension", "Order Date": "datetime", "Customer State": "geo", "Size": "dimension", "Quantity": "measure", "Supplier Discounted Price (Incl GST and Commision)": "currency" }
+    },
+    {
+      "id": "commerce-etsy-sold-orders",
+      "source": "Etsy Shop Manager: Sold Orders CSV (Settings > Options > Download Data), US ceramics shop",
+      "kind": "export",
+      "expect": "ecommerce",
+      "shape": "orders",
+      "headers": ["Sale Date", "Order ID", "Buyer User ID", "Full Name", "First Name", "Last Name", "Number of Items", "Payment Method", "Date Shipped", "Street 1", "Street 2", "Ship City", "Ship State", "Ship Zipcode", "Ship Country", "Currency", "Order Value", "Coupon Code", "Coupon Details", "Discount Amount", "Shipping Discount", "Shipping", "Sales Tax", "Order Total", "Status", "Card Processing Fees", "Order Net", "Adjusted Order Total", "Adjusted Card Processing Fees", "Adjusted Net Order Amount", "Buyer", "Order Type", "Payment Type", "InPerson Discount", "InPerson Location", "SKU"],
+      "rows": [
+        ["03/14/24", "3218459762", "684512937", "Megan Holloway", "Megan", "Holloway", "2", "Visa", "03/16/24", "1427 Larkspur Ln", "", "Boise", "ID", "83702", "United States", "USD", "56.00", "SPRING15", "15% off", "8.40", "0.00", "5.95", "3.21", "56.76", "Completed", "1.95", "54.81", "", "", "", "meganholloway", "online", "online_cc", "", "", "WK-MUG-SPK-12"],
+        ["03/14/24", "3218473015", "701238846", "Daniel Ortiz", "Daniel", "Ortiz", "1", "Mastercard", "03/15/24", "88 Orchard Hill Rd", "Apt 4B", "Burlington", "VT", "05401", "United States", "USD", "38.00", "", "", "0.00", "0.00", "6.50", "2.67", "47.17", "Completed", "1.67", "45.50", "", "", "", "danortizvt", "online", "online_cc", "", "", "WK-BWL-RAM-06"],
+        ["03/15/24", "3219002847", "655901273", "Aisha Rahman", "Aisha", "Rahman", "3", "PayPal", "03/19/24", "2210 W Augusta Blvd", "", "Chicago", "IL", "60622", "United States", "USD", "112.00", "SPRING15", "15% off", "16.80", "0.00", "0.00", "9.76", "104.96", "Completed", "3.40", "101.56", "", "", "", "aisharahmanstudio", "online", "paypal", "", "", "WK-PLT-STN-10,WK-MUG-SPK-12"],
+        ["03/16/24", "3219518460", "712004519", "Grace Whitfield", "Grace", "Whitfield", "1", "Visa", "", "5 Beacon Ct", "", "Asheville", "NC", "28801", "United States", "USD", "64.00", "", "", "0.00", "0.00", "7.25", "4.99", "76.24", "Open", "2.54", "73.70", "", "", "", "gracewhitfield", "online", "online_cc", "", "", "WK-VAS-BUD-04"],
+        ["03/18/24", "3220147731", "690331458", "Lucas Brennan", "Lucas", "Brennan", "1", "Visa", "03/20/24", "430 Pine St", "Unit 12", "Portland", "OR", "97204", "United States", "USD", "42.00", "", "", "0.00", "0.00", "6.50", "0.00", "48.50", "Completed", "1.71", "46.79", "6.50", "0.45", "6.05", "lucasbrennan", "online", "online_cc", "", "", "WK-MUG-SPK-12"]
+      ],
+      "unique": ["Order ID"],
+      "ids": ["Buyer User ID"],
+      "roles": { "Sale Date": "datetime", "Order ID": "identifier", "Number of Items": "measure", "Payment Method": "dimension", "Ship State": "geo", "Ship Zipcode": "geo", "Order Total": "currency", "Order Net": "currency" }
+    },
+    {
+      "id": "commerce-mercadolivre-vendas-br",
+      "source": "Mercado Livre (Brasil): relatório de vendas (Vendas > Baixar relatório Excel)",
+      "kind": "export",
+      "expect": "ecommerce",
+      "shape": "orders",
+      "headers": ["N.º de venda", "Data da venda", "Estado", "Descrição do status", "Pacote de diversos produtos", "Unidades", "Receita por produtos (BRL)", "Tarifa de venda e impostos", "Tarifas de envio", "Cancelamentos e reembolsos (BRL)", "Total (BRL)", "Venda por publicidade", "SKU", "# de anúncio", "Título do anúncio", "Variação", "Preço unitário de venda do anúncio (BRL)", "Tipo de anúncio", "Comprador", "Cidade", "CEP", "Forma de entrega"],
+      "rows": [
+        ["2000007812345678", "14 de março de 2024 10:22 hs.", "Entregue", "Você entregou o produto no dia 18 de março.", "Não", "1", "129,90", "-15,58", "-21,45", "", "92,87", "Não", "GAR-INOX-750", "MLB3456789012", "Garrafa Térmica Inox 750ml Parede Dupla", "Cor : Preto", "129,90", "Premium", "Juliana Ferreira", "Campinas", "13015-000", "Mercado Envios Full"],
+        ["2000007812349012", "15 de março de 2024 18:47 hs.", "Entregue", "Você entregou o produto no dia 20 de março.", "Não", "2", "259,80", "-31,17", "-24,90", "", "203,73", "Sim", "GAR-INOX-750", "MLB3456789012", "Garrafa Térmica Inox 750ml Parede Dupla", "Cor : Inox", "129,90", "Premium", "Rafael Monteiro", "Belo Horizonte", "30140-071", "Mercado Envios Full"],
+        ["2000007812361145", "16 de março de 2024 09:05 hs.", "Cancelada pelo comprador", "O comprador cancelou a compra antes do envio.", "Não", "1", "89,90", "-10,79", "0,00", "-79,11", "0,00", "Não", "POT-HERM-1L", "MLB3467712345", "Pote Hermético de Vidro 1 Litro com Tampa de Bambu", "", "89,90", "Clássico", "Camila Souza", "Curitiba", "80010-010", "Mercado Envios Flex"],
+        ["2000007812377720", "17 de março de 2024 21:31 hs.", "A caminho", "O pacote está a caminho.", "Sim", "3", "209,70", "-25,16", "-18,95", "", "165,59", "Não", "CAN-SIL-KIT3", "MLB3471098765", "Kit 3 Canecas de Silicone Dobráveis", "Cor : Sortido", "69,90", "Premium", "Thiago Almeida", "Salvador", "40015-970", "Mercado Envios"],
+        ["2000007812390388", "18 de março de 2024 13:14 hs.", "Devolução em andamento", "O comprador iniciou uma devolução.", "Não", "1", "149,90", "-17,99", "-22,40", "", "109,51", "Não", "LAN-TERM-500", "MLB3480011223", "Lancheira Térmica 500ml Aço Inox com Talheres", "Cor : Azul", "149,90", "Clássico", "Beatriz Lima", "Recife", "50030-230", "Mercado Envios"]
+      ],
+      "unique": ["N.º de venda"],
+      "ids": ["# de anúncio"],
+      "roles": { "Data da venda": "datetime", "Estado": "dimension", "Unidades": "measure", "Receita por produtos (BRL)": "currency", "Total (BRL)": "currency", "Venda por publicidade": "boolean", "Tipo de anúncio": "dimension", "Cidade": "geo" }
+    },
+    {
+      "id": "commerce-prestashop-commandes-fr",
+      "source": "PrestaShop 1.7 back-office : Commandes > Exporter (boutique en français)",
+      "kind": "export",
+      "expect": "ecommerce",
+      "shape": "orders",
+      "headers": ["ID", "Référence", "Nouveau client", "Livraison", "Client", "Total", "Paiement", "État", "Date"],
+      "rows": [
+        ["1043", "QZPLMRTEA", "Oui", "France", "C. Lefèvre", "89,90 €", "Carte bancaire", "Livré", "14/03/2024 10:22:41"],
+        ["1044", "BHWNXKDUO", "Non", "Belgique", "M. Dubois", "142,50 €", "PayPal", "Expédié", "14/03/2024 16:05:12"],
+        ["1045", "TRMVGSLYC", "Oui", "France", "A. Garnier", "34,90 €", "Virement bancaire", "En attente de paiement par virement bancaire", "15/03/2024 09:41:27"],
+        ["1046", "NJEQAZPWF", "Non", "France", "S. Moreau", "219,00 €", "Carte bancaire", "Paiement accepté", "16/03/2024 21:13:58"],
+        ["1047", "WDKUHRBXI", "Non", "Suisse", "L. Rochat", "64,80 €", "Carte bancaire", "Annulé", "17/03/2024 11:30:04"]
+      ],
+      "unique": ["ID", "Référence"],
+      "ids": [],
+      "roles": { "ID": "identifier", "Nouveau client": "boolean", "Livraison": "geo", "Total": "currency", "Paiement": "dimension", "État": "dimension", "Date": "datetime" }
+    },
+    {
+      "id": "commerce-square-item-sales-retail",
+      "source": "Square Dashboard: Item Sales export (items CSV), US stationery shop with two locations",
+      "kind": "export",
+      "expect": "sales",
+      "shape": "transactions",
+      "headers": ["Date", "Time", "Time Zone", "Category", "Item", "Qty", "Price Point Name", "SKU", "Modifiers Applied", "Gross Sales", "Discounts", "Net Sales", "Tax", "Transaction ID", "Payment ID", "Device Name", "Notes", "Details", "Event Type", "Location", "Dining Option", "Customer ID", "Customer Name", "Customer Reference ID", "Unit", "Count", "Itemization Type", "Fulfillment Note", "Channel", "Token", "Card Brand", "PAN Suffix"],
+      "rows": [
+        ["2024-03-14", "10:22:41", "Pacific Time (US & Canada)", "Stationery", "Kraft Notebook A5", "2", "Regular", "BRP-NB-A5-01", "", "$24.00", "$0.00", "$24.00", "$2.48", "pGk7RwX2mL9sTq4vZb8nJc3yHdF", "rT5kW2xQ9mBv7nL4cZ8sGy1pHjD", "Front Counter iPad", "", "https://squareup.com/dashboard/sales/transactions/pGk7RwX2mL9sTq4vZb8nJc3yHdF", "Payment", "Bramble Paper Co. - Capitol Hill", "", "", "", "", "", "", "Physical Item", "", "Point of Sale", "", "Visa", "0187"],
+        ["2024-03-14", "10:22:41", "Pacific Time (US & Canada)", "Cards & Wrap", "Letterpress Birthday Card", "3", "Regular", "BRP-CD-BDAY-07", "", "$19.50", "-$1.95", "$17.55", "$1.82", "pGk7RwX2mL9sTq4vZb8nJc3yHdF", "rT5kW2xQ9mBv7nL4cZ8sGy1pHjD", "Front Counter iPad", "", "https://squareup.com/dashboard/sales/transactions/pGk7RwX2mL9sTq4vZb8nJc3yHdF", "Payment", "Bramble Paper Co. - Capitol Hill", "", "", "", "", "", "", "Physical Item", "", "Point of Sale", "", "Visa", "0187"],
+        ["2024-03-15", "13:47:05", "Pacific Time (US & Canada)", "Pens", "Brass Fountain Pen", "1", "Fine Nib", "BRP-PEN-BRS-02", "Ink Converter", "$68.00", "$0.00", "$68.00", "$7.04", "vM3nB8cX1zL6kJ4hG9fD2sA7qWe", "yU8iO3pL6kJ1hG4fD9sA2zX5cVb", "Back Office Terminal", "Gift wrap requested", "https://squareup.com/dashboard/sales/transactions/vM3nB8cX1zL6kJ4hG9fD2sA7qWe", "Payment", "Bramble Paper Co. - Capitol Hill", "", "QW2B8N4M6C1X3Z5V7K9J", "Hannah Lindqvist", "", "", "", "Physical Item", "", "Point of Sale", "", "Mastercard", "5521"],
+        ["2024-03-16", "11:05:59", "Pacific Time (US & Canada)", "Stationery", "Dot Grid Journal", "1", "Regular", "BRP-NB-DOT-04", "", "$28.00", "$0.00", "$28.00", "$2.90", "bN6mV1cX8zL3kJ5hG2fD7sA4qWr", "tY4uI9oP2lK7jH3gF8dS1aZ6xCv", "Ballard Register", "", "https://squareup.com/dashboard/sales/transactions/bN6mV1cX8zL3kJ5hG2fD7sA4qWr", "Payment", "Bramble Paper Co. - Ballard", "", "", "", "", "", "", "Physical Item", "", "Point of Sale", "", "", ""],
+        ["2024-03-18", "15:32:20", "Pacific Time (US & Canada)", "Stationery", "Kraft Notebook A5", "-1", "Regular", "BRP-NB-A5-01", "", "-$12.00", "$0.00", "-$12.00", "-$1.24", "pGk7RwX2mL9sTq4vZb8nJc3yHdF", "rT5kW2xQ9mBv7nL4cZ8sGy1pHjD", "Front Counter iPad", "Customer changed mind", "https://squareup.com/dashboard/sales/transactions/pGk7RwX2mL9sTq4vZb8nJc3yHdF", "Refund", "Bramble Paper Co. - Capitol Hill", "", "", "", "", "", "", "Physical Item", "", "Point of Sale", "", "Visa", "0187"]
+      ],
+      "unique": [],
+      "ids": ["Transaction ID", "Payment ID"],
+      "roles": { "Date": "datetime", "Time": "time", "Category": "dimension", "Qty": "measure", "Gross Sales": "currency", "Net Sales": "currency", "Tax": "currency", "Event Type": "dimension" }
+    },
+    {
+      "id": "commerce-lightspeed-x-series-sales",
+      "source": "Lightspeed Retail X-Series (formerly Vend): Sales history export, New Zealand outdoor-clothing store",
+      "kind": "export",
+      "expect": "sales",
+      "shape": "transactions",
+      "headers": ["Date", "Receipt Number", "Line Type", "Customer Code", "Customer Name", "Note", "Quantity", "Subtotal", "Sales Tax", "Discount", "Loyalty", "Total", "Paid", "Details", "Register", "User", "Status", "Sku", "AccountCodeSale", "AccountCodePurchase"],
+      "rows": [
+        ["2024-03-14 10:22:41", "1043", "Sale", "WALKIN", "", "", "2", "69.57", "10.43", "0.00", "0.00", "80.00", "80.00", "", "Main Register", "Aroha Tane", "CLOSED", "", "", ""],
+        ["2024-03-14 10:22:41", "1043", "Sale Line", "", "", "", "1", "30.43", "4.57", "0.00", "0.00", "35.00", "", "Merino Beanie / Charcoal", "Main Register", "Aroha Tane", "CLOSED", "10045", "200", "300"],
+        ["2024-03-14 10:22:41", "1043", "Sale Line", "", "", "", "1", "39.14", "5.86", "0.00", "0.00", "45.00", "", "Possum Merino Gloves / Black / M", "Main Register", "Aroha Tane", "CLOSED", "10112", "200", "300"],
+        ["2024-03-14 10:22:41", "1043", "Payment", "", "", "", "", "", "", "", "", "", "80.00", "EFTPOS", "Main Register", "Aroha Tane", "CLOSED", "", "", ""],
+        ["2024-03-15 14:05:12", "1044", "Sale", "C-00218", "Mere Wiremu", "Layby collected", "1", "173.91", "26.09", "0.00", "0.00", "200.00", "200.00", "", "Main Register", "Liam Fraser", "LAYBY_CLOSED", "", "", ""]
+      ],
+      "unique": [],
+      "ids": ["Receipt Number"],
+      "roles": { "Date": "datetime", "Line Type": "dimension", "Quantity": "measure", "Subtotal": "currency", "Sales Tax": "currency", "Total": "currency", "Status": "dimension" }
+    },
+    {
+      "id": "commerce-toast-item-selection-details",
+      "source": "Toast POS: nightly data export, ItemSelectionDetails.csv (US restaurant)",
+      "kind": "export",
+      "expect": "food_service",
+      "headers": ["Location", "Order Id", "Order #", "Sent Date", "Order Date", "Check Id", "Server", "Table", "Dining Area", "Service", "Dining Option", "Item Selection Id", "Item Id", "Master Id", "SKU", "PLU", "Menu Item", "Menu Subgroup(s)", "Menu Group", "Menu", "Sales Category", "Gross Price", "Discount", "Net Price", "Qty", "Tax", "Void?", "Deferred", "Tax Exempt", "Tax Inclusion Option", "Dining Option Tax", "Tab Name"],
+      "rows": [
+        ["Juniper Street Kitchen", "400000041726638105", "142", "3/14/24 6:42 PM", "3/14/24 6:38 PM", "400000041726638211", "Dana K", "12", "Patio", "Dinner", "Dine In", "400000041726640318", "400000002218845102", "400000002218845100", "", "", "Smash Burger", "", "Burgers", "Dinner", "Food", "16.00", "0.00", "16.00", "1", "1.42", "false", "false", "false", "NOT_INCLUDED", "", ""],
+        ["Juniper Street Kitchen", "400000041726638105", "142", "3/14/24 6:42 PM", "3/14/24 6:38 PM", "400000041726638211", "Dana K", "12", "Patio", "Dinner", "Dine In", "400000041726640322", "400000002218846407", "400000002218846400", "", "", "Truffle Fries", "", "Sides", "Dinner", "Food", "9.00", "0.00", "9.00", "1", "0.80", "false", "false", "false", "NOT_INCLUDED", "", ""],
+        ["Juniper Street Kitchen", "400000041726638105", "142", "3/14/24 6:51 PM", "3/14/24 6:38 PM", "400000041726638211", "Dana K", "12", "Patio", "Dinner", "Dine In", "400000041726641107", "400000002219012504", "400000002219012500", "", "", "Spicy Margarita", "", "Cocktails", "Bar", "Liquor", "14.00", "2.80", "11.20", "1", "0.99", "false", "false", "false", "NOT_INCLUDED", "", ""],
+        ["Juniper Street Kitchen", "400000041726652290", "143", "3/14/24 7:05 PM", "3/14/24 7:03 PM", "400000041726652376", "Marcus T", "", "Bar", "Dinner", "Take Out", "400000041726652481", "400000002218849903", "400000002218849900", "", "", "Chicken Caesar Salad", "", "Salads", "Dinner", "Food", "17.50", "0.00", "17.50", "1", "1.55", "false", "false", "false", "NOT_INCLUDED", "", "Marcus to-go"],
+        ["Juniper Street Kitchen", "400000041726660713", "144", "3/14/24 7:22 PM", "3/14/24 7:19 PM", "400000041726660804", "Dana K", "7", "Main Dining", "Dinner", "Dine In", "400000041726661012", "400000002219015608", "400000002219015600", "", "", "IPA Draft", "", "Beer", "Bar", "Beer", "16.00", "0.00", "16.00", "2", "1.42", "true", "false", "false", "NOT_INCLUDED", "", ""]
+      ],
+      "unique": ["Item Selection Id"],
+      "ids": ["Order Id", "Check Id", "Item Id"],
+      "roles": { "Dining Option": "dimension", "Menu Group": "dimension", "Sales Category": "dimension", "Gross Price": "currency", "Discount": "currency", "Net Price": "currency", "Qty": "measure", "Void?": "boolean" }
+    },
+    {
+      "id": "commerce-zomato-partner-order-history",
+      "source": "Zomato restaurant partner dashboard: Order history download (one outlet, Delhi NCR)",
+      "kind": "export",
+      "expect": "food_service",
+      "headers": ["Restaurant ID", "Restaurant name", "Subzone", "City", "Order ID", "Order Placed At", "Order Status", "Delivery", "Distance", "Items in order", "Instructions", "Discount construct", "Bill subtotal", "Packaging charges", "Restaurant discount (Promo)", "Restaurant discount (Flat offs, Freebies & others)", "Gold discount", "Brand pack discount", "Total", "Rating", "Review", "Cancellation / Rejection reason", "Restaurant compensation (Cancellation)", "Restaurant penalty (Rejection)", "KPT duration (minutes)", "Rider wait time (minutes)", "Order Ready Marked", "Customer complaint tag", "Customer ID"],
+      "rows": [
+        ["20951263", "Tandoor Junction", "Sector 18", "Delhi NCR", "6168428718", "11:38 PM, September 10 2024", "Delivered", "Zomato Delivery", "3km", "1 x Butter Chicken (Half), 2 x Butter Naan", "", "40% off upto Rs.80", "520.0", "25.0", "80.0", "0.0", "0.0", "0.0", "465.0", "4", "", "", "", "", "14.35", "2.1", "Correctly", "", "5f8a2c91e4b0d7a36c1e9f42"],
+        ["20951263", "Tandoor Junction", "Sector 18", "Delhi NCR", "6168512094", "12:15 PM, September 11 2024", "Delivered", "Zomato Delivery", "5km", "1 x Dal Makhani, 1 x Jeera Rice, 1 x Gulab Jamun (2 pcs)", "Less spicy please", "Flat Rs.75 off", "455.0", "20.0", "0.0", "75.0", "0.0", "0.0", "400.0", "5", "Food was hot and fresh", "", "", "", "11.8", "0.0", "Correctly", "", "6a1d3f78b2c94e05d8f1a6b3"],
+        ["20951263", "Tandoor Junction", "Sector 18", "Delhi NCR", "6168577301", "8:47 PM, September 11 2024", "Delivered", "Zomato Delivery", "<1km", "2 x Paneer Tikka Roll", "", "", "300.0", "10.0", "0.0", "0.0", "30.0", "0.0", "280.0", "3", "", "", "", "", "19.6", "6.4", "Incorrectly", "Delayed delivery", "7c2e9a05f1b84d63a0e7c5d1"],
+        ["20951263", "Tandoor Junction", "Sector 18", "Delhi NCR", "6168634452", "9:05 PM, September 12 2024", "Rejected", "Zomato Delivery", "4km", "1 x Chicken Biryani (Full)", "", "40% off upto Rs.80", "380.0", "20.0", "80.0", "0.0", "0.0", "0.0", "320.0", "", "", "Items out of stock", "", "64.0", "", "", "", "", "8b4f1c63d7a25e90f2c8b6e4"],
+        ["20951263", "Tandoor Junction", "Sector 18", "Delhi NCR", "6168702815", "1:32 PM, September 13 2024", "Delivered", "Zomato Delivery", "2km", "1 x Amritsari Kulcha Thali", "", "", "260.0", "15.0", "0.0", "0.0", "0.0", "26.0", "249.0", "4", "", "", "", "", "9.25", "1.3", "Correctly", "", "9d3a7e12c6f04b58e1d9a2c7"]
+      ],
+      "unique": ["Order ID"],
+      "ids": ["Customer ID"],
+      "roles": { "Order ID": "identifier", "Order Placed At": "datetime", "Order Status": "dimension", "Bill subtotal": "currency", "Packaging charges": "currency", "Total": "currency", "Rating": "measure", "KPT duration (minutes)": "measure" }
+    },
+    {
+      "id": "commerce-uci-online-retail-ii",
+      "source": "UCI Online Retail II dataset (UK online giftware retailer selling to wholesalers, 2009-2011)",
+      "kind": "dataset",
+      "expect": ["ecommerce", "sales"],
+      "headers": ["Invoice", "StockCode", "Description", "Quantity", "InvoiceDate", "Price", "Customer ID", "Country"],
+      "rows": [
+        ["491725", "21212", "PACK OF 72 RETRO SPOT CAKE CASES", "24", "2009-12-14 10:12:00", "0.55", "14911", "EIRE"],
+        ["491725", "22423", "REGENCY CAKESTAND 3 TIER", "2", "2009-12-14 10:12:00", "12.75", "14911", "EIRE"],
+        ["491871", "84879", "ASSORTED COLOUR BIRD ORNAMENT", "32", "2009-12-15 13:47:00", "1.69", "17850", "United Kingdom"],
+        ["C492003", "20725", "LUNCH BAG RED SPOTTY", "-10", "2009-12-16 09:21:00", "1.65", "12682", "France"],
+        ["492148", "85123A", "WHITE HANGING HEART T-LIGHT HOLDER", "6", "2009-12-17 15:02:00", "2.95", "", "United Kingdom"]
+      ],
+      "unique": [],
+      "ids": ["Invoice", "StockCode", "Customer ID"],
+      "roles": { "Invoice": "identifier", "StockCode": "identifier", "Quantity": "measure", "InvoiceDate": "datetime", "Price": "currency", "Country": "geo" }
+    },
+    {
+      "id": "commerce-olist-order-items",
+      "source": "Olist Brazilian E-Commerce Public Dataset (Kaggle): olist_order_items_dataset.csv",
+      "kind": "dataset",
+      "expect": "ecommerce",
+      "shape": "orders",
+      "headers": ["order_id", "order_item_id", "product_id", "seller_id", "shipping_limit_date", "price", "freight_value"],
+      "rows": [
+        ["8c2f61d0a7e94b3c95d1e07a4b6f3c21", "1", "b7e4a2c9d1f05e3a86c4d2b0e9f1a7c3", "3e9d1c4a7b2f6e0d58a1c3b9e7f4d2a6", "2017-11-24 14:31:22", "89.90", "15.42"],
+        ["8c2f61d0a7e94b3c95d1e07a4b6f3c21", "2", "b7e4a2c9d1f05e3a86c4d2b0e9f1a7c3", "3e9d1c4a7b2f6e0d58a1c3b9e7f4d2a6", "2017-11-24 14:31:22", "89.90", "15.42"],
+        ["1f4a9e7c2b6d3058e1c7a9d4f2b8e6c0", "1", "4d1c8b3e6a9f2d07c5e1b8a4f3d9c2e7", "9a2e7d1c4b8f3e6a05d9c2b7e1f4a8d3", "2018-01-09 10:05:47", "249.00", "28.76"],
+        ["d06b3e8a1c5f4927b2e8d1c6a3f9b4e5", "1", "e8a3d6c1f4b9e2a75d0c3b8f1e6a4d9c", "5f1b8e4a2d7c9e3b16a4d8c2f5e9b1a7", "2018-03-15 21:48:09", "34.99", "11.85"],
+        ["7a5e2c9f1d4b8e3063c9a1f7d2e5b8c4", "1", "2c7f4a9e1b6d3c85e0a7f2d9b4c1e6a3", "3e9d1c4a7b2f6e0d58a1c3b9e7f4d2a6", "2018-05-02 08:12:30", "119.90", "18.23"]
+      ],
+      "unique": [],
+      "ids": ["order_id", "product_id", "seller_id"],
+      "roles": { "order_id": "identifier", "seller_id": "identifier", "shipping_limit_date": "datetime", "price": "currency", "freight_value": "currency" }
+    },
+    {
+      "id": "commerce-kaggle-amazon-sale-report",
+      "source": "E-Commerce Sales Dataset (Kaggle): Amazon Sale Report.csv, Indian ethnic-wear seller on Amazon.in",
+      "kind": "dataset",
+      "expect": "ecommerce",
+      "shape": "orders",
+      "headers": ["index", "Order ID", "Date", "Status", "Fulfilment", "Sales Channel ", "ship-service-level", "Style", "SKU", "Category", "Size", "ASIN", "Courier Status", "Qty", "currency", "Amount", "ship-city", "ship-state", "ship-postal-code", "ship-country", "promotion-ids", "B2B", "fulfilled-by", "Unnamed: 22"],
+      "rows": [
+        ["0", "406-2917384-5512930", "04-30-22", "Cancelled", "Merchant", "Amazon.in", "Standard", "SET412", "SET412-KR-NP-S", "Set", "S", "B09K3QWT51", "", "0", "INR", "634.00", "MUMBAI", "MAHARASHTRA", "400081.0", "IN", "", "False", "Easy Ship", ""],
+        ["1", "171-5530298-6631742", "04-30-22", "Shipped - Delivered to Buyer", "Merchant", "Amazon.in", "Standard", "JNE3905", "JNE3905-KR-XXXL", "kurta", "XXXL", "B09K3RDP74", "Shipped", "1", "INR", "406.00", "BENGALURU", "KARNATAKA", "560085.0", "IN", "Amazon PLCC Free-Financing Universal Merchant AAT-7HXQ2MWD5RLTA", "False", "Easy Ship", ""],
+        ["2", "404-8812736-0927154", "04-29-22", "Shipped", "Amazon", "Amazon.in", "Expedited", "JNE3712", "JNE3712-TU-L", "Top", "L", "B0981KQZ63", "Shipped", "1", "INR", "329.00", "NAVI MUMBAI", "MAHARASHTRA", "410210.0", "IN", "IN Core Free Shipping 2015/04/08 23-48-5-108", "False", "", ""],
+        ["3", "408-3329065-1184352", "05-14-22", "Shipped", "Amazon", "Amazon.in", "Expedited", "J0287", "J0287-DR-M", "Western Dress", "M", "B08XQTJ5N9", "Shipped", "2", "INR", "1598.00", "HYDERABAD", "TELANGANA", "500032.0", "IN", "", "True", "", "False"],
+        ["4", "402-7718250-6650338", "06-02-22", "Shipped - Returned to Seller", "Merchant", "Amazon.in", "Standard", "SET329", "SET329-KR-DH-XL", "Set", "XL", "B09RKZ4W18", "Shipped", "1", "INR", "899.00", "CHENNAI", "TAMIL NADU", "600040.0", "IN", "", "False", "Easy Ship", ""]
+      ],
+      "unique": ["index"],
+      "ids": ["Order ID", "ASIN"],
+      "roles": { "Date": "datetime", "Status": "dimension", "Fulfilment": "dimension", "Category": "dimension", "Qty": "measure", "Amount": "currency", "ship-state": "geo", "B2B": "boolean" }
+    },
+    {
+      "id": "commerce-kaggle-supermarket-sales",
+      "source": "Supermarket sales dataset (Kaggle): three-branch supermarket chain in Myanmar, January to March 2019",
+      "kind": "dataset",
+      "expect": "sales",
+      "shape": "transactions",
+      "headers": ["Invoice ID", "Branch", "City", "Customer type", "Gender", "Product line", "Unit price", "Quantity", "Tax 5%", "Total", "Date", "Time", "Payment", "cogs", "gross margin percentage", "gross income", "Rating"],
+      "rows": [
+        ["512-34-7781", "A", "Yangon", "Member", "Female", "Health and beauty", "63.22", "4", "12.644", "265.524", "1/15/2019", "13:08", "Ewallet", "252.88", "4.761904762", "12.644", "9.1"],
+        ["348-61-2095", "B", "Mandalay", "Normal", "Male", "Electronic accessories", "18.93", "9", "8.5185", "178.8885", "3/2/2019", "10:41", "Cash", "170.37", "4.761904762", "8.5185", "6.4"],
+        ["729-05-4418", "C", "Naypyitaw", "Member", "Male", "Food and beverages", "92.15", "3", "13.8225", "290.2725", "2/24/2019", "19:27", "Credit card", "276.45", "4.761904762", "13.8225", "7.8"],
+        ["165-92-3370", "A", "Yangon", "Normal", "Female", "Home and lifestyle", "45.6", "10", "22.8", "478.8", "1/9/2019", "15:55", "Ewallet", "456", "4.761904762", "22.8", "5.2"],
+        ["804-17-6652", "B", "Mandalay", "Member", "Female", "Fashion accessories", "31.75", "6", "9.525", "200.025", "3/28/2019", "12:16", "Cash", "190.5", "4.761904762", "9.525", "8.9"]
+      ],
+      "unique": ["Invoice ID"],
+      "ids": [],
+      "roles": { "City": "geo", "Product line": "dimension", "Unit price": "currency", "Quantity": "measure", "Total": "currency", "Date": "datetime", "Time": "time", "Payment": "dimension" }
+    },
+    {
+      "id": "commerce-kaggle-pizza-sales",
+      "source": "Pizza Sales dataset (Kaggle, from the Maven Analytics pizza place challenge): pizza_sales.csv, one row per pizza ordered",
+      "kind": "dataset",
+      "expect": "food_service",
+      "headers": ["pizza_id", "order_id", "pizza_name_id", "quantity", "order_date", "order_time", "unit_price", "total_price", "pizza_size", "pizza_category", "pizza_ingredients", "pizza_name"],
+      "rows": [
+        ["2101", "893", "thai_ckn_l", "1", "1/14/2015", "12:05:41", "20.75", "20.75", "L", "Chicken", "Chicken, Pineapple, Tomatoes, Red Peppers, Thai Sweet Chilli Sauce", "The Thai Chicken Pizza"],
+        ["2102", "893", "pepperoni_s", "2", "1/14/2015", "12:05:41", "9.75", "19.50", "S", "Classic", "Mozzarella Cheese, Pepperoni", "The Pepperoni Pizza"],
+        ["2103", "894", "spin_pesto_m", "1", "1/14/2015", "12:21:09", "16.50", "16.50", "M", "Veggie", "Spinach, Artichokes, Tomatoes, Sun-dried Tomatoes, Garlic, Pesto Sauce", "The Spinach Pesto Pizza"],
+        ["2104", "895", "big_meat_s", "1", "1/14/2015", "12:40:55", "12.00", "12.00", "S", "Classic", "Bacon, Pepperoni, Italian Sausage, Chorizo Sausage", "The Big Meat Pizza"],
+        ["2105", "896", "five_cheese_l", "1", "2/3/2015", "18:02:17", "18.50", "18.50", "L", "Veggie", "Mozzarella Cheese, Provolone Cheese, Smoked Gouda Cheese, Romano Cheese, Blue Cheese, Garlic", "The Five Cheese Pizza"]
+      ],
+      "unique": ["pizza_id"],
+      "ids": ["order_id"],
+      "roles": { "quantity": "measure", "order_date": "datetime", "order_time": "time", "unit_price": "currency", "total_price": "currency", "pizza_size": "dimension", "pizza_category": "dimension" }
+    },
+    {
+      "id": "commerce-census-monthly-retail-trade",
+      "source": "US Census Bureau: Monthly Retail Trade, estimated sales by kind of business in millions of dollars (mrtssales92-present.xlsx, 2023 sheet, not adjusted)",
+      "kind": "dataset",
+      "expect": null,
+      "headers": ["NAICS Code", "Kind of Business", "Jan. 2023", "Feb. 2023", "Mar. 2023", "Apr. 2023", "May 2023", "Jun. 2023", "Jul. 2023", "Aug. 2023", "Sep. 2023", "Oct. 2023", "Nov. 2023", "Dec. 2023", "TOTAL"],
+      "rows": [
+        ["", "Retail and food services sales, total", "571,374", "568,155", "659,012", "637,810", "672,345", "652,890", "649,120", "668,455", "629,870", "651,230", "672,905", "734,560", "7,767,726"],
+        ["441", "Motor vehicle and parts dealers", "118,540", "125,310", "146,820", "136,905", "145,230", "139,870", "135,640", "143,215", "131,980", "133,460", "128,745", "132,890", "1,618,605"],
+        ["445", "Food and beverage stores", "73,215", "68,940", "76,530", "75,120", "78,410", "76,085", "78,930", "78,245", "74,610", "77,390", "79,865", "84,720", "922,060"],
+        ["4541", "Electronic shopping and mail-order houses", "98,320", "92,745", "103,580", "99,815", "104,230", "101,670", "109,905", "104,120", "101,340", "107,215", "125,480", "138,960", "1,287,380"],
+        ["722", "Food services and drinking places", "82,415", "81,960", "93,270", "91,340", "95,875", "94,210", "96,035", "96,480", "91,205", "93,410", "89,870", "94,315", "1,100,385"]
+      ],
+      "unique": [],
+      "ids": [],
+      "roles": { "Kind of Business": "dimension" }
+    },
+    {
+      "id": "commerce-analyst-d2c-order-lines-clean",
+      "source": "Indian D2C skincare brand: order lines cleaned in Python from Shopify and Shiprocket exports (snake_case, INR)",
+      "kind": "analyst",
+      "expect": "ecommerce",
+      "shape": "orders",
+      "headers": ["order_id", "order_date", "customer_id", "sku", "product_category", "qty", "mrp_inr", "gross_sales_inr", "discount_inr", "net_sales_inr", "gst_inr", "payment_mode", "sales_channel", "ship_city", "ship_state", "pin_code", "courier", "delivery_status", "is_rto", "is_first_order"],
+      "rows": [
+        ["SKN-104521", "2025-04-03", "CUST-008812", "VC-SER-030", "Serum", "2", "699", "1398.00", "209.70", "1188.30", "181.27", "Prepaid", "Website", "Bengaluru", "Karnataka", "560038", "Delhivery", "Delivered", "0", "1"],
+        ["SKN-104522", "2025-04-03", "CUST-002417", "SUN-GEL-050", "Sunscreen", "1", "549", "549.00", "0.00", "549.00", "83.75", "COD", "Website", "Lucknow", "Uttar Pradesh", "226010", "Xpressbees", "RTO Delivered", "1", "1"],
+        ["SKN-104523", "2025-04-04", "CUST-011093", "MST-GEL-100", "Moisturiser", "3", "449", "1347.00", "404.10", "942.90", "143.83", "Prepaid", "Instagram Shop", "Mumbai", "Maharashtra", "400053", "Blue Dart", "Delivered", "0", "0"],
+        ["SKN-104524", "2025-04-05", "CUST-008812", "CLN-FW-150", "Cleanser", "1", "349", "349.00", "34.90", "314.10", "47.91", "Prepaid", "Website", "Bengaluru", "Karnataka", "560038", "Delhivery", "In Transit", "0", "0"],
+        ["SKN-104525", "2025-04-06", "CUST-013377", "VC-SER-030", "Serum", "1", "699", "699.00", "0.00", "699.00", "106.63", "COD", "Website", "Jaipur", "Rajasthan", "302017", "Shadowfax", "Cancelled", "0", "1"]
+      ],
+      "unique": ["order_id"],
+      "ids": ["customer_id", "sku"],
+      "roles": { "order_date": "datetime", "qty": "measure", "discount_inr": "currency", "net_sales_inr": "currency", "payment_mode": "dimension", "ship_state": "geo", "pin_code": "geo", "is_rto": "boolean" }
+    },
+    {
+      "id": "commerce-analyst-monthly-region-summary",
+      "source": "US online store: monthly performance by region, analyst summary built from Shopify (one row per month and region)",
+      "kind": "analyst",
+      "expect": "ecommerce",
+      "headers": ["Month", "Region", "Sessions", "Orders", "Conversion Rate", "Units Sold", "Gross Revenue ($)", "Refunds ($)", "Net Revenue ($)", "AOV ($)", "New Customers", "Returning Customers"],
+      "rows": [
+        ["2025-01", "Northeast", "48,210", "1,163", "2.41%", "2,054", "98,412.50", "4,120.00", "94,292.50", "81.08", "702", "461"],
+        ["2025-01", "South", "61,875", "1,402", "2.27%", "2,388", "112,630.40", "6,915.20", "105,715.20", "75.40", "911", "491"],
+        ["2025-01", "West", "55,340", "1,388", "2.51%", "2,497", "121,845.00", "5,210.75", "116,634.25", "84.03", "820", "568"],
+        ["2025-02", "Northeast", "44,905", "1,071", "2.39%", "1,866", "90,155.00", "3,480.50", "86,674.50", "80.93", "598", "473"],
+        ["2025-02", "Midwest", "39,620", "917", "2.31%", "1,602", "71,980.30", "2,744.10", "69,236.20", "75.50", "554", "363"]
+      ],
+      "unique": [],
+      "ids": [],
+      "roles": { "Month": "datetime", "Sessions": "measure", "Orders": "measure", "Conversion Rate": "percentage", "Refunds ($)": "currency", "Net Revenue ($)": "currency", "AOV ($)": "currency" }
+    },
+    {
+      "id": "commerce-analyst-category-month-pivot",
+      "source": "Indian fashion retailer: net sales by category and month, Excel pivot pasted as values (FY 2024-25, ₹)",
+      "kind": "analyst",
+      "expect": ["sales", "ecommerce"],
+      "headers": ["Row Labels", "Apr-24", "May-24", "Jun-24", "Jul-24", "Aug-24", "Sep-24", "Oct-24", "Nov-24", "Dec-24", "Jan-25", "Feb-25", "Mar-25", "Grand Total"],
+      "rows": [
+        ["Ethnic Wear", "₹12,45,600", "₹11,88,400", "₹10,32,500", "₹9,87,300", "₹14,25,800", "₹18,76,200", "₹29,54,100", "₹24,12,700", "₹15,98,300", "₹13,12,900", "₹12,04,500", "₹16,89,400", "₹1,89,27,700"],
+        ["Western Wear", "₹9,86,200", "₹10,54,300", "₹11,12,800", "₹10,23,400", "₹9,68,700", "₹10,87,500", "₹13,98,600", "₹12,76,400", "₹14,52,900", "₹10,98,100", "₹10,03,200", "₹11,21,700", "₹1,35,83,800"],
+        ["Footwear", "₹5,12,300", "₹5,48,900", "₹4,97,600", "₹4,63,200", "₹5,21,800", "₹6,04,500", "₹9,12,300", "₹7,88,600", "₹7,02,400", "₹5,66,100", "₹4,98,700", "₹5,73,200", "₹71,89,600"],
+        ["Accessories", "₹2,14,800", "₹1,98,600", "₹1,87,400", "₹1,76,900", "₹2,29,300", "₹2,68,100", "₹4,21,700", "₹3,76,500", "₹3,18,200", "₹2,41,600", "₹2,06,300", "₹2,33,900", "₹30,73,300"],
+        ["Kidswear", "₹3,02,500", "₹3,56,800", "₹2,89,400", "₹2,54,100", "₹2,76,300", "₹3,31,900", "₹5,18,600", "₹4,62,300", "₹4,01,800", "₹2,97,400", "₹2,68,900", "₹3,12,600", "₹40,72,600"]
+      ],
+      "unique": [],
+      "ids": [],
+      "roles": { "Row Labels": "dimension", "Apr-24": "currency", "Oct-24": "currency", "Grand Total": "currency" }
+    },
+    {
+      "id": "commerce-analyst-filiale-plan-ist-de",
+      "source": "Modehaus mit Filialen (Deutschland): Umsatz Plan/Ist je Filiale und Monat, Controlling-Tabelle in Excel",
+      "kind": "analyst",
+      "expect": "sales",
+      "headers": ["Filiale", "Monat", "Umsatz Ist (€)", "Umsatz Plan (€)", "Abweichung (€)", "Abweichung %", "Kundenfrequenz", "Bons", "Ø Bon (€)", "Rohertrag (€)", "Rohertragsquote"],
+      "rows": [
+        ["Hamburg Mönckebergstraße", "01.2025", "184.250,40", "190.000,00", "-5.749,60", "-3,0 %", "21.430", "6.842", "26,93", "86.597,69", "47,0 %"],
+        ["München Kaufingerstraße", "01.2025", "221.904,10", "210.000,00", "11.904,10", "5,7 %", "25.118", "7.903", "28,08", "108.733,01", "49,0 %"],
+        ["Köln Schildergasse", "01.2025", "158.377,25", "165.000,00", "-6.622,75", "-4,0 %", "19.874", "5.917", "26,77", "72.853,54", "46,0 %"],
+        ["Hamburg Mönckebergstraße", "02.2025", "171.020,00", "175.000,00", "-3.980,00", "-2,3 %", "19.902", "6.311", "27,10", "82.089,60", "48,0 %"],
+        ["Frankfurt Zeil", "02.2025", "143.615,80", "140.000,00", "3.615,80", "2,6 %", "17.506", "5.488", "26,17", "66.063,27", "46,0 %"]
+      ],
+      "unique": [],
+      "ids": [],
+      "roles": { "Monat": "datetime", "Umsatz Ist (€)": "currency", "Umsatz Plan (€)": "currency", "Abweichung %": "percentage", "Kundenfrequenz": "measure", "Bons": "measure", "Rohertragsquote": "percentage" }
+    },
+    {
+      "id": "commerce-analyst-d2c-kpi-scorecard",
+      "source": "Indian D2C brand monthly business review: KPI scorecard (one row per metric, this month vs last month vs target)",
+      "kind": "analyst",
+      "expect": "ecommerce",
+      "headers": ["Metric", "Oct-25", "Sep-25", "MoM Change", "Target", "Status"],
+      "rows": [
+        ["GMV (₹)", "₹4,52,30,000", "₹4,18,75,500", "+8.0%", "₹4,50,00,000", "On track"],
+        ["Orders", "38,412", "36,120", "+6.3%", "40,000", "Behind"],
+        ["AOV (₹)", "₹1,178", "₹1,159", "+1.6%", "₹1,150", "On track"],
+        ["RTO Rate", "11.4%", "12.9%", "-1.5 pp", "10.0%", "Behind"],
+        ["Repeat Customer Rate", "31.2%", "29.8%", "+1.4 pp", "33.0%", "Behind"]
+      ],
+      "unique": [],
+      "ids": [],
+      "roles": { "Metric": "dimension", "Status": "dimension" }
+    },
+    {
+      "id": "commerce-analyst-rfm-customer-table",
+      "source": "UK online gift retailer: customer RFM table built in SQL from order history (snapshot 2011-12-10)",
+      "kind": "analyst",
+      "expect": "ecommerce",
+      "shape": "customers",
+      "headers": ["CustomerID", "Country", "FirstPurchase", "LastPurchase", "Recency_Days", "Frequency", "Monetary_GBP", "AvgOrderValue_GBP", "R_Score", "F_Score", "M_Score", "RFM_Score", "Segment"],
+      "rows": [
+        ["12347", "United Kingdom", "2010-12-07", "2011-12-07", "3", "7", "4310.00", "615.71", "5", "5", "5", "555", "Champions"],
+        ["13092", "United Kingdom", "2011-01-18", "2011-10-24", "47", "4", "1268.45", "317.11", "3", "4", "4", "344", "Loyal Customers"],
+        ["14531", "Germany", "2011-03-02", "2011-03-02", "283", "1", "212.70", "212.70", "1", "1", "2", "112", "Lost"],
+        ["15620", "France", "2010-12-14", "2011-11-29", "11", "12", "6902.35", "575.20", "5", "5", "5", "555", "Champions"],
+        ["17208", "United Kingdom", "2011-06-21", "2011-08-15", "117", "2", "389.90", "194.95", "2", "2", "2", "222", "Hibernating"]
+      ],
+      "unique": ["CustomerID"],
+      "ids": [],
+      "roles": { "CustomerID": "identifier", "Country": "geo", "FirstPurchase": "datetime", "LastPurchase": "datetime", "Recency_Days": "measure", "Frequency": "measure", "Monetary_GBP": "currency", "Segment": "dimension" }
+    },
+    {
+      "id": "commerce-analyst-fc-stock-snapshot",
+      "source": "Indian D2C home-goods brand: daily fulfilment-centre stock snapshot queried from the Snowflake warehouse (FACT_INVENTORY_SNAPSHOT)",
+      "kind": "analyst",
+      "expect": "ecommerce",
+      "shape": "inventory",
+      "headers": ["SNAPSHOT_DT", "FC_CD", "SKU_CD", "PRODUCT_NM", "CATEGORY_NM", "ON_HAND_QTY", "RESERVED_QTY", "AVAILABLE_QTY", "REORDER_PT_QTY", "UNIT_COST_AMT", "STOCK_VALUE_AMT", "AVG_DAILY_SALES_QTY", "DAYS_OF_COVER", "STOCKOUT_FLG"],
+      "rows": [
+        ["2025-09-30", "BLR-FC01", "HG-CSH-1045", "Cotton Cushion Cover 16x16 Indigo", "Cushion Covers", "1240", "86", "1154", "400", "142.50", "176700.00", "38.5", "30.0", "N"],
+        ["2025-09-30", "BLR-FC01", "HG-BDS-2210", "Percale Bedsheet King Ivory", "Bedsheets", "312", "41", "271", "250", "615.00", "191880.00", "22.1", "12.3", "N"],
+        ["2025-09-30", "DEL-FC02", "HG-CSH-1045", "Cotton Cushion Cover 16x16 Indigo", "Cushion Covers", "0", "0", "0", "300", "142.50", "0.00", "17.4", "0.0", "Y"],
+        ["2025-09-30", "DEL-FC02", "HG-TWL-3302", "Bath Towel 600 GSM Sage", "Towels", "865", "120", "745", "350", "268.00", "231820.00", "29.6", "25.2", "N"],
+        ["2025-10-01", "BOM-FC03", "HG-RUG-4120", "Handwoven Jute Rug 4x6", "Rugs", "58", "9", "49", "60", "1890.00", "109620.00", "4.2", "11.7", "N"]
+      ],
+      "unique": [],
+      "ids": ["SKU_CD"],
+      "roles": { "SNAPSHOT_DT": "datetime", "CATEGORY_NM": "dimension", "ON_HAND_QTY": "measure", "AVAILABLE_QTY": "measure", "UNIT_COST_AMT": "currency", "STOCK_VALUE_AMT": "currency", "DAYS_OF_COVER": "measure", "STOCKOUT_FLG": "boolean" }
+    },
+    {
+      "id": "commerce-analyst-bikri-register-hinglish",
+      "source": "Kapde ki dukaan, Indore (garment shop): daily bikri register kept in Excel with Hinglish headers",
+      "kind": "analyst",
+      "expect": "sales",
+      "shape": "transactions",
+      "headers": ["Tarikh", "Bill No", "Grahak ka Naam", "Saman ka Naam", "Matra", "Dar (₹)", "Kul Rashi (₹)", "Chhoot (₹)", "Shuddh Rashi (₹)", "Bhugtan ka Tarika", "Udhaar Baaki (₹)"],
+      "rows": [
+        ["14/03/2025", "BL-2451", "Ramesh Patidar", "Cotton Shirt", "2", "650", "1300", "100", "1200", "UPI", "0"],
+        ["14/03/2025", "BL-2452", "Sunita Verma", "Saree (Chanderi)", "1", "2450", "2450", "150", "2300", "Nakad", "0"],
+        ["15/03/2025", "BL-2453", "Mahesh Jain", "Kurta Pajama Set", "1", "1150", "1150", "0", "1150", "Udhaar", "1150"],
+        ["16/03/2025", "BL-2454", "Pooja Rathore", "Leggings", "3", "220", "660", "60", "600", "UPI", "0"],
+        ["17/03/2025", "BL-2455", "Ramesh Patidar", "Jeans", "1", "999", "999", "49", "950", "Card", "0"]
+      ],
+      "unique": ["Bill No"],
+      "ids": [],
+      "roles": { "Tarikh": "datetime", "Bill No": "identifier", "Matra": "measure", "Kul Rashi (₹)": "currency", "Shuddh Rashi (₹)": "currency", "Bhugtan ka Tarika": "dimension", "Udhaar Baaki (₹)": "currency" }
+    },
+    {
+      "id": "commerce-analyst-store-mis-india",
+      "source": "Indian apparel retail chain: store-wise MTD and YTD sales MIS (Excel, ₹ lakh and crore)",
+      "kind": "analyst",
+      "expect": "sales",
+      "headers": ["Store Code", "Store Name", "City", "Zone", "Carpet Area (Sq Ft)", "MTD Sales (₹ L)", "MTD Target (₹ L)", "Ach %", "LYMTD Sales (₹ L)", "Gr %", "Bills", "ABV (₹)", "UPT", "SPSF (₹)", "YTD Sales (₹ Cr)"],
+      "rows": [
+        ["ST-0112", "Phoenix Palladium", "Mumbai", "West", "4,200", "86.40", "90.00", "96.0%", "78.10", "10.6%", "3,412", "2,532", "2.4", "2,057", "4.92"],
+        ["ST-0127", "Orion Mall", "Bengaluru", "South", "3,600", "71.25", "68.00", "104.8%", "63.90", "11.5%", "2,980", "2,391", "2.2", "1,979", "4.10"],
+        ["ST-0135", "Select Citywalk", "New Delhi", "North", "5,100", "102.80", "110.00", "93.5%", "108.40", "-5.2%", "3,955", "2,599", "2.6", "2,016", "6.38"],
+        ["ST-0141", "Quest Mall", "Kolkata", "East", "2,800", "38.75", "42.00", "92.3%", "36.20", "7.0%", "1,702", "2,277", "2.1", "1,384", "2.27"],
+        ["ST-0158", "Phoenix Marketcity", "Pune", "West", "3,900", "64.10", "60.00", "106.8%", "52.80", "21.4%", "2,644", "2,424", "2.3", "1,644", "3.71"]
+      ],
+      "unique": ["Store Code"],
+      "ids": [],
+      "roles": { "Store Code": "identifier", "City": "geo", "Zone": "dimension", "MTD Sales (₹ L)": "currency", "Ach %": "percentage", "Gr %": "percentage", "Bills": "measure", "ABV (₹)": "currency" }
+    },
+    {
+      "id": "commerce-analyst-returns-log-camel",
+      "source": "US apparel D2C brand: returns log pulled from the in-house returns portal (MongoDB, camelCase fields) and cleaned by an analyst",
+      "kind": "analyst",
+      "expect": "ecommerce",
+      "shape": "returns",
+      "headers": ["returnId", "orderId", "orderDate", "returnRequestedAt", "sku", "productCategory", "size", "qtyReturned", "returnReason", "refundAmountUsd", "refundMethod", "restockingFeeUsd", "isRestocked", "returnStatus", "shipState"],
+      "rows": [
+        ["RMA-30418", "SO-118204", "2025-06-02", "2025-06-11T14:22:08Z", "DNM-SLM-3201-32", "Denim", "32", "1", "Too small", "68.00", "Original payment", "0.00", "true", "Refunded", "TX"],
+        ["RMA-30419", "SO-118377", "2025-06-04", "2025-06-12T09:05:44Z", "TEE-CRW-1104-M", "Tees", "M", "2", "Changed mind", "44.00", "Store credit", "0.00", "true", "Refunded", "CA"],
+        ["RMA-30420", "SO-118391", "2025-06-04", "2025-06-15T18:40:19Z", "JKT-UTL-5502-L", "Outerwear", "L", "1", "Defective", "129.00", "Original payment", "0.00", "false", "Refunded", "NY"],
+        ["RMA-30421", "SO-118512", "2025-06-07", "2025-06-16T11:12:57Z", "DRS-MDI-4410-S", "Dresses", "S", "1", "Not as described", "73.00", "Original payment", "6.00", "true", "Refunded", "IL"],
+        ["RMA-30422", "SO-118640", "2025-06-09", "2025-06-18T16:31:02Z", "DNM-SLM-3201-30", "Denim", "30", "1", "Too large", "0.00", "Exchange", "0.00", "false", "In transit", "FL"]
+      ],
+      "unique": ["returnId", "orderId"],
+      "ids": ["sku"],
+      "roles": { "orderDate": "datetime", "returnRequestedAt": "datetime", "qtyReturned": "measure", "returnReason": "dimension", "refundAmountUsd": "currency", "isRestocked": "boolean", "returnStatus": "dimension", "shipState": "geo" }
+    }
+  ]
+}

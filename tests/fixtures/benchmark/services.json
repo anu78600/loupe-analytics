@@ -1,0 +1,836 @@
+{
+  "family": "services",
+  "description": "Service industries: hospital, clinic, lab and claims systems; LMS, online-course, exam and fee registers; hotel PMS, OTA, F&B and revenue reports; developer, broker, assessor, rent-roll and housing-price tables; plus the travel, pharma and no-industry tables that sit next to them.",
+  "fixtures": [
+    {
+      "id": "services-epic-clarity-hospital-encounters",
+      "source": "Epic Clarity: hospital encounter extract (PAT_ENC_HSP joined to ADT class, disposition and account charges)",
+      "kind": "export",
+      "expect": "healthcare",
+      "shape": "encounters",
+      "headers": ["PAT_ENC_CSN_ID", "PAT_MRN_ID", "HOSP_ADMSN_TIME", "HOSP_DISCH_TIME", "ADT_PAT_CLASS", "ADMIT_SOURCE", "DEPARTMENT_NAME", "DISCH_DISPOSITION", "PRIMARY_DX_CODE", "PRIMARY_DX_NAME", "LOS_DAYS", "FIN_CLASS", "TOT_CHGS", "READMIT_30D_YN"],
+      "rows": [
+        ["1023847561", "E1048837", "2026-03-02 14:22:00", "2026-03-06 11:05:00", "Inpatient", "Emergency Room", "4 WEST MED SURG", "Home or Self Care", "I50.9", "Heart failure, unspecified", "4", "Medicare", "48215.60", "N"],
+        ["1023851207", "E2210935", "2026-03-03 08:10:00", "2026-03-04 16:40:00", "Observation", "Physician or Clinic Referral", "5 EAST CARDIO", "Home or Self Care", "R07.9", "Chest pain, unspecified", "1", "Commercial", "12870.00", "N"],
+        ["1023855914", "E0937712", "2026-03-04 22:47:00", "2026-03-12 10:30:00", "Inpatient", "Emergency Room", "MICU", "Skilled Nursing Facility", "A41.9", "Sepsis, unspecified organism", "8", "Medicare", "131402.75", "Y"],
+        ["1023860338", "E3301458", "2026-03-06 06:55:00", "2026-03-08 13:15:00", "Inpatient", "Transfer from a Hospital", "6 NORTH ORTHO", "Home-Health Care Svc", "M16.11", "Unilateral primary osteoarthritis, right hip", "2", "Medicaid", "39650.20", "N"],
+        ["1023864790", "E1189024", "2026-03-07 19:30:00", "2026-03-09 09:00:00", "Inpatient", "Emergency Room", "4 WEST MED SURG", "Left Against Medical Advice", "J18.9", "Pneumonia, unspecified organism", "2", "Self-Pay", "21345.00", "Y"]
+      ],
+      "unique": ["PAT_ENC_CSN_ID"],
+      "ids": ["PAT_MRN_ID"],
+      "roles": {
+        "PAT_ENC_CSN_ID": "identifier",
+        "HOSP_ADMSN_TIME": "datetime",
+        "HOSP_DISCH_TIME": "datetime",
+        "ADT_PAT_CLASS": "dimension",
+        "FIN_CLASS": "dimension",
+        "LOS_DAYS": "measure",
+        "TOT_CHGS": "currency",
+        "READMIT_30D_YN": "boolean"
+      }
+    },
+    {
+      "id": "services-cerner-millennium-lab-results",
+      "source": "Oracle Health (Cerner) Millennium: lab results extract, one row per resulted assay",
+      "kind": "export",
+      "expect": "healthcare",
+      "headers": ["FIN NBR", "MRN", "Accession Nbr", "Order Catalog", "Discrete Task Assay", "Result Val", "Result Units", "Normal Low", "Normal High", "Normalcy", "Collected Dt/Tm", "Verified Dt/Tm", "Encntr Type", "Nurse Unit", "Result Status"],
+      "rows": [
+        ["40028811947", "10293847", "26-074-00512", "Basic Metabolic Panel", "Potassium Lvl", "5.8", "mmol/L", "3.5", "5.1", "H", "03/14/2026 06:42", "03/14/2026 07:31", "Inpatient", "4W", "Auth (Verified)"],
+        ["40028812233", "10311592", "26-074-00631", "CBC w/ Diff", "WBC", "7.2", "x10e3/uL", "4.5", "11.0", "N", "03/14/2026 07:05", "03/14/2026 07:48", "Emergency", "ED", "Auth (Verified)"],
+        ["40028813109", "10287405", "26-074-00718", "Basic Metabolic Panel", "Glucose Lvl", "212", "mg/dL", "70", "99", "H", "03/14/2026 08:15", "03/14/2026 09:02", "Outpatient", "OPLAB", "Auth (Verified)"],
+        ["40028813562", "10325118", "26-075-00044", "Hemoglobin A1c", "Hgb A1c", "6.9", "%", "4.0", "5.6", "H", "03/15/2026 09:20", "03/15/2026 13:47", "Outpatient", "OPLAB", "Modified"],
+        ["40028814071", "10293847", "26-075-00102", "CBC w/ Diff", "Hgb", "9.1", "g/dL", "13.5", "17.5", "L", "03/15/2026 05:55", "03/15/2026 06:40", "Inpatient", "4W", "Auth (Verified)"]
+      ],
+      "ids": ["FIN NBR", "MRN", "Accession Nbr"],
+      "roles": {
+        "Accession Nbr": "identifier",
+        "Order Catalog": "dimension",
+        "Result Val": "measure",
+        "Normalcy": "dimension",
+        "Collected Dt/Tm": "datetime",
+        "Verified Dt/Tm": "datetime",
+        "Encntr Type": "dimension"
+      }
+    },
+    {
+      "id": "services-his-opd-visit-register",
+      "source": "Hospital information system (India): OPD visit register with token, check-in and consultation times",
+      "kind": "export",
+      "expect": "healthcare",
+      "shape": "outpatient",
+      "headers": ["Sr No", "UHID", "Visit No", "Visit Date", "Patient Name", "Age/Sex", "Mobile No", "Department", "Consultant", "Visit Type", "Token No", "Check-In Time", "Consult Start Time", "Waiting Time (Mins)", "Payer Type", "Consultation Fee", "Bill No"],
+      "rows": [
+        ["1", "MH01.0024518", "OP/26/118204", "14/10/2026", "Ramesh Kulkarni", "54/M", "98xxxxxx41", "Cardiology", "Dr. A. Deshmukh", "Follow-up", "C-12", "09:42", "10:31", "49", "Cash", "800.00", "OPB/26/55120"],
+        ["2", "MH01.0031177", "OP/26/118205", "14/10/2026", "Sunita Pawar", "31/F", "90xxxxxx07", "Obstetrics & Gynaecology", "Dr. M. Iyer", "New", "G-04", "09:48", "10:05", "17", "TPA", "1000.00", "OPB/26/55121"],
+        ["3", "MH01.0008832", "OP/26/118206", "14/10/2026", "Mohd. Irfan Shaikh", "67/M", "99xxxxxx63", "Orthopaedics", "Dr. R. Bhatt", "New", "O-09", "10:15", "11:20", "65", "CGHS", "0.00", "OPB/26/55122"],
+        ["4", "MH01.0040265", "OP/26/118231", "15/10/2026", "Kavya Nair", "8/F", "97xxxxxx90", "Paediatrics", "Dr. S. Menon", "Follow-up", "P-02", "09:05", "09:18", "13", "Cash", "600.00", "OPB/26/55188"],
+        ["5", "MH01.0012904", "OP/26/118232", "15/10/2026", "Harish Gupta", "45/M", "88xxxxxx26", "General Medicine", "Dr. P. Joshi", "New", "M-17", "11:32", "12:40", "68", "Corporate", "700.00", "OPB/26/55189"]
+      ],
+      "unique": ["Sr No", "Visit No", "Bill No"],
+      "ids": ["UHID"],
+      "roles": {
+        "UHID": "identifier",
+        "Visit Date": "datetime",
+        "Department": "dimension",
+        "Visit Type": "dimension",
+        "Check-In Time": "time",
+        "Waiting Time (Mins)": "measure",
+        "Payer Type": "dimension",
+        "Consultation Fee": "currency"
+      }
+    },
+    {
+      "id": "services-lis-diagnostic-bill-register",
+      "source": "Diagnostic centre lab information system (India): test-wise bill register across collection centres",
+      "kind": "export",
+      "expect": "healthcare",
+      "headers": ["Bill No", "Bill Dt", "Patient ID", "Patient Name", "Age", "Gender", "Ref. Doctor", "Centre", "Test Name", "Dept", "Gross Amt", "Disc Amt", "Net Amt", "Paid Amt", "Due Amt", "Pay Mode", "Sample Status"],
+      "rows": [
+        ["DC/2627/014523", "12-10-2026", "PID-208731", "Anjali Verma", "34", "Female", "Dr. N. Rao", "Koramangala", "Thyroid Profile (T3, T4, TSH)", "Biochemistry", "₹650", "₹65", "₹585", "₹585", "₹0", "UPI", "Reported"],
+        ["DC/2627/014523", "12-10-2026", "PID-208731", "Anjali Verma", "34", "Female", "Dr. N. Rao", "Koramangala", "Complete Blood Count", "Haematology", "₹350", "₹35", "₹315", "₹315", "₹0", "UPI", "Reported"],
+        ["DC/2627/014531", "12-10-2026", "PID-209114", "Suresh Babu", "61", "Male", "Self", "Jayanagar", "HbA1c", "Biochemistry", "₹550", "₹0", "₹550", "₹300", "₹250", "Cash", "Sample Collected"],
+        ["DC/2627/014540", "13-10-2026", "PID-187520", "Meera Krishnan", "45", "Female", "Dr. K. Hegde", "Whitefield", "USG Whole Abdomen", "Radiology", "₹1,800", "₹180", "₹1,620", "₹1,620", "₹0", "Card", "Reported"],
+        ["DC/2627/014552", "13-10-2026", "PID-209306", "Arvind Shetty", "29", "Male", "Dr. N. Rao", "Koramangala", "Vitamin D (25-OH)", "Biochemistry", "₹1,200", "₹240", "₹960", "₹960", "₹0", "Card", "In Process"]
+      ],
+      "ids": ["Bill No", "Patient ID"],
+      "roles": {
+        "Bill Dt": "datetime",
+        "Age": "measure",
+        "Gender": "dimension",
+        "Dept": "dimension",
+        "Disc Amt": "currency",
+        "Net Amt": "currency",
+        "Pay Mode": "dimension"
+      }
+    },
+    {
+      "id": "services-pmjay-tms-hospital-claims",
+      "source": "PM-JAY Transaction Management System: hospital claims status report (pre-auth to payment)",
+      "kind": "export",
+      "expect": "healthcare",
+      "shape": "claims",
+      "headers": ["Case No", "Claim No", "PMJAY ID", "Patient Name", "Gender", "Age", "District", "Speciality", "Procedure Code", "Procedure Name", "Admission Date", "Discharge Date", "Preauth Amount", "Preauth Approved Date", "Claim Submitted Date", "Claim Amount", "Approved Amount", "Claim Status", "Paid Date"],
+      "rows": [
+        ["CASE/PS4/HOSP09P004512/CB8812306", "CL8812306", "PDT4K9X2M", "Rajesh Yadav", "Male", "52", "Lucknow", "General Surgery", "SG039C", "Laparoscopic Cholecystectomy", "02/09/2026", "05/09/2026", "22800", "02/09/2026", "08/09/2026", "22800", "22800", "Claim Paid", "29/09/2026"],
+        ["CASE/PS4/HOSP09P004512/CB8814470", "CL8814470", "P7HQ21LZ8", "Shanti Devi", "Female", "64", "Lucknow", "Ophthalmology", "SE020A", "Cataract surgery with foldable IOL", "04/09/2026", "04/09/2026", "10000", "04/09/2026", "07/09/2026", "10000", "9000", "Claim Paid", "01/10/2026"],
+        ["CASE/PS4/HOSP09P004512/CB8817915", "CL8817915", "PX2M8C4NQ", "Mohd. Salim", "Male", "47", "Barabanki", "Cardiology", "MC011A", "PTCA - single stent", "11/09/2026", "14/09/2026", "110000", "11/09/2026", "17/09/2026", "110000", "", "Claim Query Raised", ""],
+        ["CASE/PS4/HOSP09P004512/CB8820346", "CL8820346", "PB6R3T7VW", "Kamla Kumari", "Female", "38", "Lucknow", "Obstetrics & Gynaecology", "SO014A", "Caesarean delivery", "19/09/2026", "22/09/2026", "9000", "19/09/2026", "24/09/2026", "9000", "9000", "Approved by Insurer", ""],
+        ["CASE/PS4/HOSP09P004512/CB8823881", "CL8823881", "PN9D5F1YC", "Ram Prakash", "Male", "71", "Sitapur", "Urology", "SU007B", "TURP", "26/09/2026", "29/09/2026", "25000", "26/09/2026", "01/10/2026", "25000", "0", "Rejected by Insurer", ""]
+      ],
+      "unique": ["Case No", "Claim No"],
+      "roles": {
+        "Admission Date": "datetime",
+        "Claim Submitted Date": "datetime",
+        "Claim Amount": "currency",
+        "Approved Amount": "currency",
+        "Claim Status": "dimension",
+        "Speciality": "dimension",
+        "District": "geo",
+        "Age": "measure"
+      }
+    },
+    {
+      "id": "services-nhs-ae-attendances-monthly",
+      "source": "NHS England: A&E Attendances and Emergency Admissions monthly CSV (provider level)",
+      "kind": "dataset",
+      "expect": "healthcare",
+      "headers": ["Period", "Org Code", "Parent Org", "Org name", "A&E attendances Type 1", "A&E attendances Type 2", "A&E attendances Other A&E Department", "Attendances over 4hrs Type 1", "Attendances over 4hrs Type 2", "Attendances over 4hrs Other Department", "Patients who have waited 4-12 hs from DTA to admission", "Patients who have waited 12+ hrs from DTA to admission", "Emergency admissions via A&E - Type 1", "Other emergency admissions"],
+      "rows": [
+        ["MSitAE-AUGUST-2026", "R0X", "NHS ENGLAND NORTH WEST", "NORTHVALE TEACHING HOSPITALS NHS FOUNDATION TRUST", "14215", "0", "3120", "4870", "0", "412", "1288", "214", "3905", "1450"],
+        ["MSitAE-AUGUST-2026", "R1Q", "NHS ENGLAND MIDLANDS", "ASHBRIDGE AND WREKIN HOSPITALS NHS TRUST", "9876", "0", "5402", "3318", "0", "96", "902", "133", "2741", "1102"],
+        ["MSitAE-AUGUST-2026", "RY3", "NHS ENGLAND LONDON", "CROSSFIELD UNIVERSITY HOSPITALS NHS TRUST", "18340", "212", "0", "5911", "18", "0", "1630", "401", "5218", "2034"],
+        ["MSitAE-AUGUST-2026", "R7V", "NHS ENGLAND SOUTH WEST", "TAMARSIDE HEALTHCARE NHS TRUST", "7120", "0", "1980", "2205", "0", "40", "610", "58", "2104", "880"],
+        ["MSitAE-AUGUST-2026", "RK8", "NHS ENGLAND EAST OF ENGLAND", "FENLAND COMMUNITY HEALTH NHS TRUST", "0", "0", "4380", "0", "0", "35", "0", "0", "0", "96"]
+      ],
+      "unique": ["Org Code"],
+      "roles": {
+        "Org Code": "identifier",
+        "Parent Org": "dimension",
+        "A&E attendances Type 1": "measure",
+        "Attendances over 4hrs Type 1": "measure",
+        "Patients who have waited 12+ hrs from DTA to admission": "measure",
+        "Emergency admissions via A&E - Type 1": "measure"
+      }
+    },
+    {
+      "id": "services-ward-occupancy-pivot",
+      "source": "Hospital MIS (Excel): ward-wise bed occupancy % by month, pivoted with months as columns (India)",
+      "kind": "analyst",
+      "expect": "healthcare",
+      "headers": ["Ward", "Floor", "Sanctioned Beds", "Apr-26", "May-26", "Jun-26", "Jul-26", "Aug-26", "Sep-26", "YTD Avg Occ %", "ALOS (days)"],
+      "rows": [
+        ["Medical ICU", "3rd", "24", "92%", "95%", "88%", "91%", "97%", "94%", "93%", "5.8"],
+        ["Surgical Ward A", "2nd", "40", "78%", "81%", "74%", "69%", "72%", "80%", "76%", "3.4"],
+        ["Paediatric Ward", "4th", "30", "55%", "48%", "62%", "71%", "74%", "66%", "63%", "2.9"],
+        ["Maternity", "4th", "36", "84%", "86%", "90%", "87%", "85%", "88%", "87%", "2.6"],
+        ["Private Rooms", "5th", "50", "61%", "58%", "66%", "70%", "68%", "73%", "66%", "3.1"]
+      ],
+      "roles": {
+        "Ward": "dimension",
+        "Sanctioned Beds": "measure",
+        "Apr-26": "percentage",
+        "Sep-26": "percentage",
+        "YTD Avg Occ %": "percentage",
+        "ALOS (days)": "measure"
+      }
+    },
+    {
+      "id": "services-clinic-visits-clean",
+      "source": "Analyst-cleaned outpatient visits table from a US multi-site clinic network (warehouse extract, snake_case with _cd/_flg suffixes)",
+      "kind": "analyst",
+      "expect": "healthcare",
+      "shape": "outpatient",
+      "headers": ["visit_id", "appt_dt", "appt_time", "site_cd", "dept_cd", "provider_id", "patient_key", "visit_type", "booked_lead_days", "checkin_to_room_mins", "no_show_flg", "copay_usd", "payer_grp"],
+      "rows": [
+        ["V000918273", "2026-09-01", "08:30", "SITE03", "FM", "PRV1042", "PK558120", "New Patient", "21", "14", "0", "25.00", "Commercial"],
+        ["V000918274", "2026-09-01", "09:15", "SITE01", "PEDS", "PRV1107", "PK601934", "Well Child", "35", "9", "0", "0.00", "Medicaid"],
+        ["V000918275", "2026-09-02", "10:45", "SITE03", "CARD", "PRV1210", "PK377251", "Follow Up", "7", "", "1", "", "Medicare"],
+        ["V000918276", "2026-09-02", "13:00", "SITE02", "FM", "PRV1042", "PK498002", "Follow Up", "3", "22", "0", "25.00", "Commercial"],
+        ["V000918277", "2026-09-03", "15:30", "SITE01", "DERM", "PRV1333", "PK612087", "New Patient", "48", "31", "0", "50.00", "Self Pay"]
+      ],
+      "unique": ["visit_id"],
+      "ids": ["provider_id", "patient_key"],
+      "roles": {
+        "visit_id": "identifier",
+        "appt_dt": "datetime",
+        "appt_time": "time",
+        "visit_type": "dimension",
+        "booked_lead_days": "measure",
+        "checkin_to_room_mins": "measure",
+        "no_show_flg": "boolean",
+        "copay_usd": "currency"
+      }
+    },
+    {
+      "id": "services-moodle-grader-report",
+      "source": "Moodle: Grader report export (CSV, one row per student, one column per graded activity)",
+      "kind": "export",
+      "expect": "education",
+      "shape": "assessments",
+      "headers": ["First name", "Last name", "ID number", "Institution", "Department", "Email address", "Quiz: Unit 1 quiz (Real)", "Assignment: Lab report 1 (Real)", "Quiz: Midterm test (Real)", "Assignment: Group project (Real)", "Course total (Real)", "Course total (Percentage)", "Last downloaded from this course"],
+      "rows": [
+        ["Olivia", "Tran", "s4410293", "Eastbrook University", "School of Engineering", "s4410293@student.eastbrook.edu.au", "8.00", "16.50", "24.00", "33.00", "81.50", "81.50 %", "1792143000"],
+        ["Liam", "Okafor", "s4410517", "Eastbrook University", "School of Engineering", "s4410517@student.eastbrook.edu.au", "6.00", "14.00", "19.50", "30.00", "69.50", "69.50 %", "1792143000"],
+        ["Mei", "Zhang", "s4411026", "Eastbrook University", "School of Engineering", "s4411026@student.eastbrook.edu.au", "10.00", "18.00", "27.00", "36.00", "91.00", "91.00 %", "1792143000"],
+        ["Noah", "Patel", "s4411388", "Eastbrook University", "School of Engineering", "s4411388@student.eastbrook.edu.au", "-", "11.00", "15.00", "28.00", "54.00", "54.00 %", "1792143000"],
+        ["Ava", "Robinson", "s4412040", "Eastbrook University", "School of Engineering", "s4412040@student.eastbrook.edu.au", "7.00", "-", "21.00", "-", "28.00", "28.00 %", "1792143000"]
+      ],
+      "unique": ["ID number", "Email address"],
+      "roles": {
+        "ID number": "identifier",
+        "Department": "dimension",
+        "Quiz: Midterm test (Real)": "measure",
+        "Course total (Real)": "measure",
+        "Course total (Percentage)": "percentage"
+      }
+    },
+    {
+      "id": "services-coursera-learner-usage-report",
+      "source": "Coursera for Business: learner course usage report (one row per learner per course)",
+      "kind": "export",
+      "expect": "education",
+      "shape": "enrolments",
+      "headers": ["Name", "Email", "External Id", "Course", "Course ID", "Course Slug", "University", "Enrollment Time", "Class Start Time", "Class End Time", "Last Course Activity Time", "Overall Progress", "Estimated Learning Hours", "Completed", "Removed From Program", "Program Name", "Enrollment Source", "Completion Time", "Course Grade", "Course Type", "Location Country"],
+      "rows": [
+        ["Priya Raman", "priya.raman@lumenfin.in", "EMP10482", "Foundations of Data Analysis", "Xq3Lr7TbEe2kZQ8vYc1Pw", "foundations-data-analysis", "Northbridge University", "2026-02-11 09:12:44", "2026-02-11 00:00:00", "2026-04-07 23:59:59", "2026-03-28 18:40:02", "100.0", "22.5", "Yes", "No", "Analytics Upskilling FY27", "Program Invitation", "2026-03-28 18:40:02", "92.4", "Specialization Course", "India"],
+        ["Karan Mehta", "karan.mehta@lumenfin.in", "EMP10517", "Python for Everyday Automation", "Bd8Ns2KuEe3pWl5mRt0Hx", "python-everyday-automation", "Westmoor Institute of Technology", "2026-02-14 11:05:10", "2026-02-16 00:00:00", "2026-04-13 23:59:59", "2026-05-02 21:15:37", "64.3", "14.0", "No", "No", "Analytics Upskilling FY27", "Program Invitation", "", "", "Course", "India"],
+        ["Fatima Sheikh", "fatima.sheikh@lumenfin.in", "EMP10933", "Foundations of Data Analysis", "Xq3Lr7TbEe2kZQ8vYc1Pw", "foundations-data-analysis", "Northbridge University", "2026-03-02 15:47:28", "2026-03-02 00:00:00", "2026-04-27 23:59:59", "2026-04-19 08:02:11", "100.0", "26.0", "Yes", "No", "Analytics Upskilling FY27", "Self Enrolled", "2026-04-19 08:02:11", "88.0", "Specialization Course", "India"],
+        ["Arun Pillai", "arun.pillai@lumenfin.in", "EMP11204", "Leading Hybrid Teams", "Hm1Zw9QcEe1rTy4uJk6Gs", "leading-hybrid-teams", "Calder Business School", "2026-03-09 10:20:55", "2026-03-09 00:00:00", "2026-04-20 23:59:59", "2026-03-15 12:33:40", "12.5", "2.0", "No", "No", "Manager Essentials", "Program Invitation", "", "", "Course", "India"],
+        ["Sneha Kulkarni", "sneha.kulkarni@lumenfin.in", "EMP11318", "Python for Everyday Automation", "Bd8Ns2KuEe3pWl5mRt0Hx", "python-everyday-automation", "Westmoor Institute of Technology", "2026-03-21 19:02:03", "2026-03-23 00:00:00", "2026-05-18 23:59:59", "", "0.0", "0.0", "No", "Yes", "Analytics Upskilling FY27", "Program Invitation", "", "", "Course", "India"]
+      ],
+      "ids": ["External Id"],
+      "roles": {
+        "Enrollment Time": "datetime",
+        "Overall Progress": "percentage",
+        "Estimated Learning Hours": "measure",
+        "Completed": "boolean",
+        "Course Grade": "measure",
+        "Course Type": "dimension",
+        "Location Country": "geo"
+      }
+    },
+    {
+      "id": "services-university-semester-results",
+      "source": "University examination portal (India): semester results download, one row per student per subject (CIE + SEE)",
+      "kind": "export",
+      "expect": "education",
+      "shape": "assessments",
+      "headers": ["USN", "Student Name", "Branch", "Sem", "Subject Code", "Subject Name", "CIE (50)", "SEE (50)", "Total (100)", "Grade", "Grade Points", "Credits", "Result", "Announced On"],
+      "rows": [
+        ["1BV22CS045", "Aditya Rao", "CSE", "5", "21CS51", "Automata Theory and Computability", "42", "38", "80", "A+", "9", "3", "P", "12-Feb-2026"],
+        ["1BV22CS045", "Aditya Rao", "CSE", "5", "21CS52", "Computer Networks", "39", "35", "74", "A", "8", "4", "P", "12-Feb-2026"],
+        ["1BV22CS061", "Divya Hegde", "CSE", "5", "21CS51", "Automata Theory and Computability", "47", "46", "93", "O", "10", "3", "P", "12-Feb-2026"],
+        ["1BV22EC019", "Rohit Naik", "ECE", "5", "21EC53", "Computer Communication Networks", "28", "9", "37", "F", "0", "4", "F", "12-Feb-2026"],
+        ["1BV22ME007", "Pooja Shetty", "MECH", "5", "21ME54", "Turbo Machines", "35", "27", "62", "B+", "7", "3", "P", "12-Feb-2026"]
+      ],
+      "ids": ["USN"],
+      "roles": {
+        "USN": "identifier",
+        "Branch": "dimension",
+        "Total (100)": "measure",
+        "SEE (50)": "measure",
+        "Grade": "dimension",
+        "Credits": "measure",
+        "Announced On": "datetime"
+      }
+    },
+    {
+      "id": "services-harvardx-mitx-person-course",
+      "source": "HarvardX-MITx Person-Course de-identified dataset (edX, first-year courses)",
+      "kind": "dataset",
+      "expect": "education",
+      "shape": "enrolments",
+      "headers": ["course_id", "userid_DI", "registered", "viewed", "explored", "certified", "final_cc_cname_DI", "LoE_DI", "YoB", "gender", "grade", "start_time_DI", "last_event_DI", "nevents", "ndays_act", "nplay_video", "nchapters", "nforum_posts", "roles", "incomplete_flag"],
+      "rows": [
+        ["HarvardX/CS50x/2012", "MHxPC130442623", "1", "0", "0", "0", "United States", "", "", "", "0", "2012-12-19", "2013-11-17", "", "9", "", "", "0", "", ""],
+        ["MITx/6.002x/2012_Fall", "MHxPC130275857", "1", "1", "1", "1", "India", "Bachelor's", "1990", "m", "0.87", "2012-09-05", "2012-12-21", "4823", "61", "312", "14", "7", "", ""],
+        ["HarvardX/ER22x/2013_Spring", "MHxPC130539455", "1", "1", "0", "0", "Other Europe", "Master's", "1984", "f", "0.06", "2013-02-28", "2013-06-02", "356", "8", "21", "4", "0", "", ""],
+        ["MITx/6.00x/2013_Spring", "MHxPC130088379", "1", "1", "1", "0", "Brazil", "Secondary", "1995", "m", "0.42", "2013-02-04", "2013-05-30", "2390", "37", "148", "11", "2", "", ""],
+        ["HarvardX/PH207x/2012_Fall", "MHxPC130198045", "1", "0", "0", "0", "Unknown/Other", "Less than Secondary", "2001", "f", "0", "2012-08-17", "2012-08-17", "1", "1", "", "", "0", "", "1"]
+      ],
+      "unique": ["userid_DI"],
+      "roles": {
+        "userid_DI": "identifier",
+        "viewed": "boolean",
+        "certified": "boolean",
+        "LoE_DI": "dimension",
+        "start_time_DI": "datetime",
+        "last_event_DI": "datetime",
+        "nevents": "measure",
+        "ndays_act": "measure"
+      }
+    },
+    {
+      "id": "services-coaching-fee-register-hinglish",
+      "source": "Coaching institute fee register (Excel, Hindi headers in Latin script, NEET/JEE batches)",
+      "kind": "analyst",
+      "expect": "education",
+      "shape": "fees",
+      "headers": ["Kr. Sn.", "Roll No.", "Chhatra Naam", "Pita ka Naam", "Batch", "Course", "Pravesh Dinank", "Kul Fees", "Chhoot", "Dey Rashi", "Jama Rashi", "Baaki Rashi", "Rasid No.", "Jama Dinank", "Bhugtan Ka Tarika", "Agli Kisht Dinank"],
+      "rows": [
+        ["1", "NEET26-0412", "Ankit Kumar", "Ramesh Prasad", "NEET Morning A", "NEET Dropper", "05/04/2026", "85,000", "10,000", "75,000", "50,000", "25,000", "R-1187", "05/04/2026", "UPI", "05/10/2026"],
+        ["2", "NEET26-0413", "Priyanka Kumari", "Suresh Singh", "NEET Morning A", "NEET Dropper", "07/04/2026", "85,000", "0", "85,000", "85,000", "0", "R-1192", "07/04/2026", "Cash", ""],
+        ["3", "JEE26-0208", "Vivek Raj", "Manoj Kumar", "JEE Evening B", "JEE Main + Advanced", "12/04/2026", "1,10,000", "15,000", "95,000", "40,000", "55,000", "R-1215", "12/04/2026", "Cheque", "12/07/2026"],
+        ["4", "FND26-0057", "Neha Bharti", "Anil Bharti", "Foundation IX", "Foundation (Class 9)", "20/04/2026", "60,000", "5,000", "55,000", "30,000", "25,000", "R-1240", "20/04/2026", "UPI", "20/08/2026"],
+        ["5", "JEE26-0211", "Rahul Ranjan", "Dinesh Choudhary", "JEE Evening B", "JEE Main + Advanced", "22/04/2026", "1,10,000", "20,000", "90,000", "90,000", "0", "R-1251", "22/04/2026", "Bank Transfer", ""]
+      ],
+      "unique": ["Kr. Sn.", "Roll No.", "Rasid No."],
+      "roles": {
+        "Roll No.": "identifier",
+        "Batch": "dimension",
+        "Pravesh Dinank": "datetime",
+        "Kul Fees": "currency",
+        "Jama Rashi": "currency",
+        "Baaki Rashi": "currency",
+        "Bhugtan Ka Tarika": "dimension"
+      }
+    },
+    {
+      "id": "services-admissions-funnel-summary",
+      "source": "UK university admissions office: application funnel by programme and intake year (warehouse summary view, snake_case)",
+      "kind": "analyst",
+      "expect": "education",
+      "headers": ["intake_year", "programme_cd", "programme_name", "faculty", "applications", "offers_made", "firm_acceptances", "enrolled", "offer_rate", "conversion_rate", "intl_share", "avg_tariff_points"],
+      "rows": [
+        ["2026", "CS-BSC", "BSc Computer Science", "Science & Engineering", "2480", "1612", "538", "471", "0.65", "0.29", "0.18", "136"],
+        ["2026", "PSY-BSC", "BSc Psychology", "Health & Life Sciences", "1935", "1006", "362", "330", "0.52", "0.33", "0.07", "128"],
+        ["2026", "BM-BA", "BA Business Management", "Business School", "3120", "2215", "702", "610", "0.71", "0.28", "0.31", "118"],
+        ["2025", "CS-BSC", "BSc Computer Science", "Science & Engineering", "2265", "1495", "510", "452", "0.66", "0.30", "0.16", "134"],
+        ["2025", "NUR-BSC", "BSc Adult Nursing", "Health & Life Sciences", "1410", "658", "401", "377", "0.47", "0.57", "0.02", "112"]
+      ],
+      "roles": {
+        "faculty": "dimension",
+        "applications": "measure",
+        "enrolled": "measure",
+        "offer_rate": "rate",
+        "conversion_rate": "rate",
+        "avg_tariff_points": "measure"
+      }
+    },
+    {
+      "id": "services-opera-pms-reservations",
+      "source": "Oracle OPERA PMS: reservation list export (city hotel, AED)",
+      "kind": "export",
+      "expect": "hospitality",
+      "shape": "bookings",
+      "headers": ["Confirmation No", "Guest Name", "Arrival", "Departure", "Nights", "Room Type", "Room No", "Rate Code", "Daily Rate", "Market Code", "Source Code", "Res Status", "Adults", "Children", "Company/Agent", "Created On", "Room Revenue", "Currency"],
+      "rows": [
+        ["508812734", "Hartmann, Lukas", "02-NOV-26", "06-NOV-26", "4", "DLXK", "1214", "BAR", "1,150.00", "LEIS", "OTA", "RESERVED", "2", "0", "Globetrek Holidays LLC", "14-SEP-26", "4,600.00", "AED"],
+        ["508813019", "Al Mansoori, Rashid", "15-OCT-26", "18-OCT-26", "3", "EXEC", "2305", "CORPN", "980.00", "CORP", "DIR", "CHECKED IN", "1", "0", "Falconridge Energy", "02-OCT-26", "2,940.00", "AED"],
+        ["508813522", "Ivanova, Daria", "10-OCT-26", "15-OCT-26", "5", "STE1", "3101", "PKGHM", "2,450.00", "LEIS", "WEB", "CHECKED OUT", "2", "1", "", "20-AUG-26", "12,250.00", "AED"],
+        ["508814187", "Sharma, Vikram", "24-DEC-26", "29-DEC-26", "5", "DLXK", "", "BAR", "1,690.00", "LEIS", "GDS", "RESERVED", "2", "2", "Sunline Travel & Tours", "11-OCT-26", "8,450.00", "AED"],
+        ["508814560", "Moreau, Claire", "12-OCT-26", "14-OCT-26", "2", "DLXT", "", "BAR", "1,050.00", "LEIS", "OTA", "CANCELLED", "2", "0", "Globetrek Holidays LLC", "01-OCT-26", "0.00", "AED"]
+      ],
+      "unique": ["Confirmation No"],
+      "roles": {
+        "Confirmation No": "identifier",
+        "Arrival": "datetime",
+        "Departure": "datetime",
+        "Nights": "measure",
+        "Daily Rate": "currency",
+        "Market Code": "dimension",
+        "Res Status": "dimension",
+        "Room Revenue": "currency"
+      }
+    },
+    {
+      "id": "services-booking-extranet-reservations",
+      "source": "Booking.com extranet: Reservations download (Excel), boutique hotel in Porto",
+      "kind": "export",
+      "expect": "hospitality",
+      "shape": "bookings",
+      "headers": ["Book number", "Booked by", "Guest name(s)", "Check-in", "Check-out", "Booked on", "Status", "Rooms", "Persons", "Price", "Commission %", "Commission amount", "Payment status", "Booker country", "Travel purpose", "Device", "Unit type", "Duration (nights)", "Cancellation date"],
+      "rows": [
+        ["4418203917", "Weber, Jonas", "Jonas Weber", "2026-10-18", "2026-10-21", "2026-09-30 14:22:11", "ok", "1", "2", "412.50 EUR", "15", "61.88 EUR", "Paid online", "de", "Leisure", "Mobile", "Double Room with River View", "3", ""],
+        ["4418219554", "Silva, Marta", "Marta Silva", "2026-10-19", "2026-10-20", "2026-10-12 09:05:47", "ok", "1", "1", "118.00 EUR", "15", "17.70 EUR", "Pay at property", "pt", "Business", "Desktop", "Standard Single Room", "1", ""],
+        ["4418231068", "Johnson, Emily", "Emily Johnson, Mark Johnson", "2026-10-24", "2026-10-28", "2026-08-17 21:40:03", "cancelled_by_guest", "1", "2", "0.00 EUR", "15", "0.00 EUR", "", "us", "Leisure", "Mobile", "Double Room with River View", "4", "2026-10-02"],
+        ["4418240772", "Rossi, Luca", "Luca Rossi", "2026-10-16", "2026-10-18", "2026-10-05 17:18:29", "ok", "2", "4", "356.40 EUR", "15", "53.46 EUR", "Paid online", "it", "Leisure", "Mobile", "Family Room", "2", ""],
+        ["4418252209", "Dubois, Camille", "Camille Dubois", "2026-10-14", "2026-10-15", "2026-10-13 23:51:56", "no_show", "1", "2", "96.00 EUR", "15", "14.40 EUR", "Pay at property", "fr", "Leisure", "Mobile", "Standard Double Room", "1", ""]
+      ],
+      "unique": ["Book number"],
+      "roles": {
+        "Book number": "identifier",
+        "Check-in": "datetime",
+        "Check-out": "datetime",
+        "Booked on": "datetime",
+        "Status": "dimension",
+        "Commission %": "percentage",
+        "Device": "dimension",
+        "Duration (nights)": "measure"
+      }
+    },
+    {
+      "id": "services-pms-listado-reservas-es",
+      "source": "PMS hotelero (España): listado de reservas exportado a Excel",
+      "kind": "export",
+      "expect": "hospitality",
+      "shape": "bookings",
+      "headers": ["Localizador", "Fecha de reserva", "Fecha de entrada", "Fecha de salida", "Noches", "Tipo de habitación", "Régimen", "Canal de venta", "Estado", "Adultos", "Niños", "Nacionalidad", "Importe total", "Pagado", "Pendiente", "Tarifa"],
+      "rows": [
+        ["RES-2026-018734", "02/09/2026", "14/10/2026", "18/10/2026", "4", "Doble Superior", "AD", "Booking.com", "En casa", "2", "0", "Alemania", "1.245,60 €", "0,00 €", "1.245,60 €", "Flexible"],
+        ["RES-2026-018802", "15/09/2026", "10/10/2026", "12/10/2026", "2", "Doble Estándar", "SA", "Web propia", "Facturada", "2", "0", "España", "286,00 €", "286,00 €", "0,00 €", "No reembolsable"],
+        ["RES-2026-018951", "28/09/2026", "20/10/2026", "27/10/2026", "7", "Junior Suite", "MP", "Expedia", "Confirmada", "2", "1", "Reino Unido", "2.940,00 €", "882,00 €", "2.058,00 €", "Flexible"],
+        ["RES-2026-019044", "03/10/2026", "16/10/2026", "19/10/2026", "3", "Doble Superior", "AD", "Agencia mayorista", "En casa", "2", "0", "Francia", "528,30 €", "528,30 €", "0,00 €", "Paquete"],
+        ["RES-2026-019120", "08/10/2026", "13/10/2026", "15/10/2026", "2", "Individual", "AD", "Teléfono", "Cancelada", "1", "0", "España", "0,00 €", "0,00 €", "0,00 €", "Flexible"]
+      ],
+      "unique": ["Localizador"],
+      "roles": {
+        "Localizador": "identifier",
+        "Fecha de reserva": "datetime",
+        "Fecha de entrada": "datetime",
+        "Fecha de salida": "datetime",
+        "Noches": "measure",
+        "Canal de venta": "dimension",
+        "Estado": "dimension",
+        "Importe total": "currency"
+      }
+    },
+    {
+      "id": "services-simphony-outlet-daily-sales",
+      "source": "Oracle Simphony POS at a resort hotel: daily revenue centre sales summary (food and beverage outlets, India)",
+      "kind": "export",
+      "expect": ["hospitality", "food_service"],
+      "headers": ["Business Date", "Location", "Revenue Center", "Guests", "Checks", "Food", "Beverage", "Other", "Gross Sales", "Discounts", "Net Sales", "Service Charges", "Tax Total", "Avg Check", "Avg Guest"],
+      "rows": [
+        ["14/10/2026", "Seabreeze Resort Goa", "All Day Dining", "186", "74", "158,240.00", "42,600.00", "3,500.00", "204,340.00", "12,260.00", "192,080.00", "19,208.00", "10,564.40", "2,595.68", "1,032.69"],
+        ["14/10/2026", "Seabreeze Resort Goa", "Pool Bar", "64", "41", "38,450.00", "96,300.00", "0.00", "134,750.00", "4,050.00", "130,700.00", "13,070.00", "7,188.50", "3,187.80", "2,042.19"],
+        ["14/10/2026", "Seabreeze Resort Goa", "In-Room Dining", "52", "38", "61,880.00", "9,750.00", "1,200.00", "72,830.00", "0.00", "72,830.00", "7,283.00", "4,005.65", "1,916.58", "1,400.58"],
+        ["15/10/2026", "Seabreeze Resort Goa", "All Day Dining", "201", "80", "171,560.00", "47,920.00", "2,800.00", "222,280.00", "15,400.00", "206,880.00", "20,688.00", "11,378.40", "2,586.00", "1,029.25"],
+        ["15/10/2026", "Seabreeze Resort Goa", "Spice Route", "72", "29", "118,900.00", "36,450.00", "0.00", "155,350.00", "7,770.00", "147,580.00", "14,758.00", "8,116.90", "5,088.97", "2,049.72"]
+      ],
+      "roles": {
+        "Business Date": "datetime",
+        "Revenue Center": "dimension",
+        "Guests": "measure",
+        "Checks": "measure",
+        "Discounts": "currency",
+        "Net Sales": "currency",
+        "Avg Check": "currency"
+      }
+    },
+    {
+      "id": "services-str-daily-comp-set",
+      "source": "Hotel revenue manager's sheet: daily performance vs competitive set (occupancy, ADR, RevPAR and indices from STR data, London)",
+      "kind": "analyst",
+      "expect": "hospitality",
+      "headers": ["Date", "Day", "Occ %", "Comp Set Occ %", "MPI", "ADR (£)", "Comp Set ADR (£)", "ARI", "RevPAR (£)", "Comp Set RevPAR (£)", "RGI", "Occ Rank"],
+      "rows": [
+        ["05/10/2026", "Mon", "86.4%", "82.1%", "105.2", "212.40", "198.75", "106.9", "183.51", "163.17", "112.5", "2 of 6"],
+        ["06/10/2026", "Tue", "91.2%", "88.7%", "102.8", "228.90", "221.30", "103.4", "208.76", "196.29", "106.4", "3 of 6"],
+        ["07/10/2026", "Wed", "94.8%", "90.5%", "104.8", "241.10", "236.80", "101.8", "228.56", "214.30", "106.7", "2 of 6"],
+        ["10/10/2026", "Sat", "78.5%", "84.0%", "93.5", "189.00", "203.60", "92.8", "148.37", "171.02", "86.8", "5 of 6"],
+        ["11/10/2026", "Sun", "64.2%", "69.8%", "92.0", "172.50", "176.40", "97.8", "110.75", "123.13", "89.9", "4 of 6"]
+      ],
+      "roles": {
+        "Date": "datetime",
+        "Day": "dimension",
+        "Occ %": "percentage",
+        "Comp Set Occ %": "percentage",
+        "ADR (£)": "currency",
+        "RevPAR (£)": "currency"
+      }
+    },
+    {
+      "id": "services-hotel-gm-monthly-scorecard",
+      "source": "Hotel GM's monthly flash report: KPI rows with actual vs budget vs last year and YTD (tall scorecard, India)",
+      "kind": "analyst",
+      "expect": "hospitality",
+      "headers": ["KPI", "Unit", "Sep-26 Actual", "Sep-26 Budget", "Var vs Budget", "Sep-25 Actual", "YTD Actual", "YTD Budget"],
+      "rows": [
+        ["Occupancy", "%", "71.8%", "75.0%", "-3.2 pp", "68.4%", "69.5%", "72.0%"],
+        ["ADR", "₹", "₹7,450", "₹7,200", "3.5%", "₹6,980", "₹7,610", "₹7,400"],
+        ["RevPAR", "₹", "₹5,349", "₹5,400", "-0.9%", "₹4,774", "₹5,289", "₹5,328"],
+        ["Rooms Revenue", "₹ Lakh", "192.6", "194.4", "-0.9%", "171.9", "1,161.5", "1,170.0"],
+        ["GOP %", "%", "38.2%", "40.0%", "-1.8 pp", "36.9%", "37.4%", "39.5%"]
+      ],
+      "roles": {
+        "KPI": "dimension",
+        "Unit": "dimension"
+      }
+    },
+    {
+      "id": "services-hotel-bookings-camelcase",
+      "source": "Analyst-cleaned hotel bookings table for cancellation modelling (camelCase, built from two US properties' PMS exports)",
+      "kind": "analyst",
+      "expect": "hospitality",
+      "shape": "demand",
+      "headers": ["bookingId", "hotelCode", "bookingDate", "arrivalDate", "leadTimeDays", "weekendNights", "weekNights", "adults", "children", "mealPlan", "marketSegment", "distributionChannel", "roomTypeReserved", "adrUsd", "isRepeatGuest", "specialRequests", "isCanceled"],
+      "rows": [
+        ["BK2026-004812", "NYC01", "2026-06-02", "2026-07-18", "46", "2", "1", "2", "0", "BB", "Online TA", "TA/TO", "A", "214.50", "0", "1", "0"],
+        ["BK2026-004813", "NYC01", "2026-07-10", "2026-07-13", "3", "0", "4", "1", "0", "RO", "Corporate", "Corporate", "A", "189.00", "1", "0", "0"],
+        ["BK2026-004814", "MIA02", "2026-03-21", "2026-08-07", "139", "2", "3", "2", "2", "HB", "Online TA", "TA/TO", "D", "342.75", "0", "2", "1"],
+        ["BK2026-004815", "MIA02", "2026-07-29", "2026-08-01", "3", "2", "0", "2", "0", "BB", "Direct", "Direct", "B", "268.00", "0", "0", "0"],
+        ["BK2026-004816", "NYC01", "2026-05-14", "2026-07-24", "71", "2", "1", "2", "0", "BB", "Groups", "TA/TO", "A", "176.40", "0", "0", "1"]
+      ],
+      "unique": ["bookingId"],
+      "roles": {
+        "bookingId": "identifier",
+        "bookingDate": "datetime",
+        "arrivalDate": "datetime",
+        "leadTimeDays": "measure",
+        "weekendNights": "measure",
+        "marketSegment": "dimension",
+        "adrUsd": "currency",
+        "isCanceled": "boolean"
+      }
+    },
+    {
+      "id": "services-hotel-pickup-by-stay-date",
+      "source": "Hotel revenue manager's pickup report by stay date, built from channel-manager on-the-books data (Bengaluru)",
+      "kind": "analyst",
+      "expect": "hospitality",
+      "headers": ["Stay Date", "DOW", "Capacity", "OTB Rooms", "OTB 7 Days Ago", "Pickup (7d)", "OTB Occ %", "OTB Revenue (₹)", "OTB ADR (₹)", "STLY Rooms", "Forecast Rooms", "Recommended BAR (₹)"],
+      "rows": [
+        ["19-Oct-2026", "Mon", "180", "132", "118", "14", "73.3%", "8,84,400", "6,700", "121", "158", "7,200"],
+        ["20-Oct-2026", "Tue", "180", "149", "131", "18", "82.8%", "10,35,550", "6,950", "138", "171", "7,500"],
+        ["21-Oct-2026", "Wed", "180", "156", "147", "9", "86.7%", "11,07,600", "7,100", "144", "174", "7,800"],
+        ["24-Oct-2026", "Sat", "180", "88", "79", "9", "48.9%", "4,79,600", "5,450", "95", "120", "5,900"],
+        ["25-Oct-2026", "Sun", "180", "64", "60", "4", "35.6%", "3,23,200", "5,050", "70", "96", "5,500"]
+      ],
+      "roles": {
+        "Stay Date": "datetime",
+        "DOW": "dimension",
+        "OTB Rooms": "measure",
+        "Pickup (7d)": "measure",
+        "OTB Occ %": "percentage",
+        "OTB ADR (₹)": "currency"
+      }
+    },
+    {
+      "id": "services-inside-airbnb-listings",
+      "source": "Inside Airbnb: listings.csv summary file for Sydney (one row per listing)",
+      "kind": "dataset",
+      "expect": ["hospitality", "real_estate"],
+      "headers": ["id", "name", "host_id", "host_name", "neighbourhood_group", "neighbourhood", "latitude", "longitude", "room_type", "price", "minimum_nights", "number_of_reviews", "last_review", "reviews_per_month", "calculated_host_listings_count", "availability_365", "number_of_reviews_ltm", "license"],
+      "rows": [
+        ["1104882736541927340", "Sunny 1BR near Bondi Beach", "448120937", "Chloe", "", "Waverley", "-33.89112", "151.27408", "Entire home/apt", "245", "2", "38", "2026-09-14", "2.41", "2", "212", "19", "PID-STRA-41827"],
+        ["39281574", "Cosy room in Newtown terrace", "168204771", "Marcus", "", "Marrickville", "-33.89850", "151.17932", "Private room", "89", "3", "142", "2026-10-02", "1.65", "2", "301", "22", "PID-STRA-10394"],
+        ["52731090", "Harbour view apartment, Kirribilli", "392016655", "Harbourline Stays", "", "North Sydney", "-33.84761", "151.21345", "Entire home/apt", "410", "3", "67", "2026-08-29", "1.98", "14", "118", "25", "PID-STRA-33018"],
+        ["947120365718204611", "Studio in Surry Hills", "448120937", "Chloe", "", "Sydney", "-33.88623", "151.21189", "Entire home/apt", "165", "1", "5", "2026-07-11", "0.83", "2", "64", "5", "Exempt"],
+        ["21874033", "Shared room in backpacker style flat", "90311284", "Ana", "", "Randwick", "-33.91730", "151.24105", "Shared room", "42", "7", "0", "", "", "1", "0", "0", ""]
+      ],
+      "unique": ["id"],
+      "ids": ["host_id"],
+      "roles": {
+        "latitude": "geo",
+        "longitude": "geo",
+        "room_type": "dimension",
+        "price": "currency",
+        "minimum_nights": "measure",
+        "number_of_reviews": "measure",
+        "last_review": "datetime",
+        "availability_365": "measure"
+      }
+    },
+    {
+      "id": "services-developer-booking-register",
+      "source": "Real-estate developer sales CRM (India): unit booking register with agreement value and collections",
+      "kind": "export",
+      "expect": "real_estate",
+      "shape": "listings",
+      "headers": ["Booking ID", "Booking Date", "Project", "Tower", "Unit No", "Configuration", "Carpet Area (Sq.Ft.)", "Saleable Area (Sq.Ft.)", "Rate per Sq.Ft. (₹)", "Agreement Value (₹)", "Customer Name", "Sourcing", "Channel Partner", "Amount Received (₹)", "Balance (₹)", "Agreement Date", "Registration Status", "Booking Status"],
+      "rows": [
+        ["BK-HV-00341", "04/08/2026", "Hillview Residency", "T2", "T2-1104", "2 BHK", "742", "1039", "12450", "9237900", "Nikhil Joshi", "Channel Partner", "Skyline Realty Advisors", "1847580", "7390320", "18/08/2026", "Registered", "Agreement Done"],
+        ["BK-HV-00342", "06/08/2026", "Hillview Residency", "T1", "T1-0602", "3 BHK", "1018", "1425", "12100", "12317800", "Rashmi Patil", "Walk-in", "", "1231780", "11086020", "", "Pending", "Booked"],
+        ["BK-RG-00118", "11/08/2026", "Riverglen Phase 2", "B", "B-304", "1 BHK", "455", "637", "10800", "4914000", "Sameer Kulkarni", "Digital", "", "491400", "4422600", "", "Pending", "Booked"],
+        ["BK-HV-00347", "19/08/2026", "Hillview Residency", "T2", "T2-1502", "2 BHK", "742", "1039", "12650", "9386300", "Ayesha Khan", "Channel Partner", "Urbanest Property Consultants", "0", "0", "", "Not Applicable", "Cancelled"],
+        ["BK-RG-00124", "02/09/2026", "Riverglen Phase 2", "A", "A-1201", "2 BHK", "689", "965", "11200", "7716800", "Gaurav Mehta", "Referral", "", "2315040", "5401760", "16/09/2026", "Registered", "Agreement Done"]
+      ],
+      "unique": ["Booking ID"],
+      "roles": {
+        "Booking ID": "identifier",
+        "Booking Date": "datetime",
+        "Configuration": "dimension",
+        "Carpet Area (Sq.Ft.)": "measure",
+        "Rate per Sq.Ft. (₹)": "currency",
+        "Agreement Value (₹)": "currency",
+        "Amount Received (₹)": "currency",
+        "Booking Status": "dimension"
+      }
+    },
+    {
+      "id": "services-broker-crm-enquiries",
+      "source": "Real-estate broker CRM (India): enquiry export with portal sources and site-visit stages",
+      "kind": "export",
+      "expect": ["real_estate", "marketing"],
+      "headers": ["Lead ID", "Created On", "Lead Source", "Sub Source", "Project Interested", "Configuration", "Budget", "Preferred Locality", "Lead Stage", "Assigned To", "Site Visit Date", "Last Activity On", "Lost Reason", "Lead Score"],
+      "rows": [
+        ["LD-2026-118204", "2026-09-02 11:24", "99acres", "Featured Listing", "Hillview Residency", "2 BHK", "75L - 1Cr", "Baner", "Site Visit Done", "Pooja S", "2026-09-07", "2026-09-15 18:02", "", "72"],
+        ["LD-2026-118215", "2026-09-02 14:51", "Facebook Ads", "Lead Form", "Riverglen Phase 2", "1 BHK", "40L - 60L", "Wakad", "New", "Rahul D", "", "2026-09-02 14:51", "", "35"],
+        ["LD-2026-118239", "2026-09-03 09:10", "Website", "Enquire Now", "Hillview Residency", "3 BHK", "1Cr - 1.5Cr", "Balewadi", "Negotiation", "Pooja S", "2026-09-06", "2026-09-21 12:40", "", "88"],
+        ["LD-2026-118266", "2026-09-04 16:33", "Channel Partner", "Skyline Realty Advisors", "Riverglen Phase 2", "2 BHK", "60L - 75L", "Hinjewadi", "Lost", "Imran K", "2026-09-10", "2026-09-18 10:15", "Budget mismatch", "41"],
+        ["LD-2026-118290", "2026-09-05 20:05", "MagicBricks", "Project Page", "Hillview Residency", "2 BHK", "75L - 1Cr", "Baner", "Booked", "Rahul D", "2026-09-09", "2026-09-28 17:45", "", "95"]
+      ],
+      "unique": ["Lead ID"],
+      "roles": {
+        "Lead ID": "identifier",
+        "Created On": "datetime",
+        "Lead Source": "dimension",
+        "Configuration": "dimension",
+        "Lead Stage": "dimension",
+        "Site Visit Date": "datetime",
+        "Lead Score": "measure"
+      }
+    },
+    {
+      "id": "services-county-assessor-tax-roll",
+      "source": "US county assessor: secured property tax roll (open-data download, California)",
+      "kind": "dataset",
+      "expect": "real_estate",
+      "headers": ["APN", "Roll Year", "Situs Address", "Situs City", "Situs Zip", "Use Code", "Use Description", "Land Value", "Improvement Value", "Total Assessed Value", "Homeowners Exemption", "Net Taxable Value", "Tax Rate Area", "Year Built", "Building Sq Ft", "Lot Size (Acres)", "Bedrooms", "Bathrooms", "Total Tax"],
+      "rows": [
+        ["274-0131-007-0000", "2026", "4127 Cedar Hollow Way", "Elk Grove", "95758", "0100", "Single Family Residence", "$142,380", "$398,115", "$540,495", "$7,000", "$533,495", "03-024", "1998", "2,146", "0.17", "4", "2.5", "$5,975.14"],
+        ["117-0280-012-0000", "2026", "918 Larkspur Ln", "Sacramento", "95822", "0100", "Single Family Residence", "$61,940", "$187,220", "$249,160", "$7,000", "$242,160", "03-001", "1956", "1,208", "0.14", "3", "1", "$2,712.19"],
+        ["006-0094-021-0000", "2026", "1520 Juniper Pl Unit 804", "Sacramento", "95814", "0700", "Condominium", "$85,000", "$412,600", "$497,600", "$0", "$497,600", "03-001", "2008", "1,102", "0.00", "2", "2", "$5,573.12"],
+        ["225-0410-033-0000", "2026", "7702 Granite Bay Ct", "Folsom", "95630", "0100", "Single Family Residence", "$268,500", "$711,840", "$980,340", "$7,000", "$973,340", "07-012", "2015", "3,384", "0.24", "5", "3.5", "$10,901.41"],
+        ["072-0350-044-0000", "2026", "5310 Ashwood Blvd", "Citrus Heights", "95621", "1100", "Retail Commercial", "$410,000", "$655,250", "$1,065,250", "$0", "$1,065,250", "05-009", "1979", "8,420", "0.81", "", "", "$11,930.80"]
+      ],
+      "unique": ["APN"],
+      "roles": {
+        "APN": "identifier",
+        "Situs City": "geo",
+        "Situs Zip": "geo",
+        "Use Description": "dimension",
+        "Land Value": "currency",
+        "Total Assessed Value": "currency",
+        "Building Sq Ft": "measure",
+        "Total Tax": "currency"
+      }
+    },
+    {
+      "id": "services-zillow-zhvi-city-wide",
+      "source": "Zillow Research: ZHVI all homes (smoothed, seasonally adjusted), city level, one column per month",
+      "kind": "dataset",
+      "expect": "real_estate",
+      "headers": ["RegionID", "SizeRank", "RegionName", "RegionType", "StateName", "State", "Metro", "CountyName", "2026-03-31", "2026-04-30", "2026-05-31", "2026-06-30", "2026-07-31", "2026-08-31"],
+      "rows": [
+        ["6181", "0", "New York", "city", "NY", "NY", "New York-Newark-Jersey City, NY-NJ-PA", "Queens County", "741823.4412", "744106.2093", "746390.8831", "747912.5504", "748655.0127", "749201.3385"],
+        ["12447", "1", "Los Angeles", "city", "CA", "CA", "Los Angeles-Long Beach-Anaheim, CA", "Los Angeles County", "978455.1206", "983201.7745", "987914.0330", "990127.6618", "991004.2289", "990318.5472"],
+        ["39051", "2", "Houston", "city", "TX", "TX", "Houston-Pasadena-The Woodlands, TX", "Harris County", "268114.9037", "268902.1145", "269340.7768", "269118.3302", "268477.0915", "267801.6624"],
+        ["17426", "3", "Chicago", "city", "IL", "IL", "Chicago-Naperville-Elgin, IL-IN", "Cook County", "331207.5528", "333480.2071", "335618.9944", "336902.4410", "337411.8306", "337655.1293"],
+        ["13271", "4", "Philadelphia", "city", "PA", "PA", "Philadelphia-Camden-Wilmington, PA-NJ-DE-MD", "Philadelphia County", "231874.6619", "232905.3307", "233811.0462", "234170.5521", "234098.8873", "233702.4106"]
+      ],
+      "unique": ["RegionID"],
+      "roles": {
+        "RegionID": "identifier",
+        "RegionName": "geo",
+        "State": "geo",
+        "CountyName": "geo",
+        "RegionType": "dimension",
+        "2026-08-31": "currency"
+      }
+    },
+    {
+      "id": "services-commercial-lease-abstract",
+      "source": "Commercial office lease abstract summary kept by an asset manager (Excel, US)",
+      "kind": "analyst",
+      "expect": "real_estate",
+      "shape": "rentals",
+      "headers": ["Property", "Suite", "Tenant", "Lease Type", "Commencement", "Expiration", "Term (Mos)", "RSF", "Base Rent $/RSF/Yr", "Annual Base Rent", "Monthly Base Rent", "Escalation", "Security Deposit", "Renewal Option", "Status"],
+      "rows": [
+        ["Parkside Commons", "Suite 210", "Brightwell Dental Group", "Full Service Gross", "03/15/2022", "03/14/2029", "84", "3,250", "$38.50", "$125,125.00", "$10,427.08", "3.0% annual", "$20,854.16", "1 x 5 yrs", "Occupied"],
+        ["Parkside Commons", "Suite 300", "Ironleaf Software LLC", "Full Service Gross", "07/01/2024", "06/30/2031", "84", "11,480", "$36.00", "$413,280.00", "$34,440.00", "3.0% annual", "$68,880.00", "2 x 5 yrs", "Occupied"],
+        ["Parkside Commons", "Suite 120", "Meridian Title & Escrow", "Modified Gross", "10/01/2019", "09/30/2026", "84", "2,105", "$33.75", "$71,043.75", "$5,920.31", "$0.75/RSF annual", "$11,840.62", "None", "Holdover"],
+        ["Lakeview Tech Center", "Bldg B", "Northgate Robotics Inc.", "NNN", "01/01/2025", "12/31/2034", "120", "24,600", "$18.25", "$448,950.00", "$37,412.50", "2.5% annual", "$74,825.00", "2 x 5 yrs", "Occupied"],
+        ["Lakeview Tech Center", "Bldg A, Ste 140", "", "", "", "", "", "4,820", "$19.00", "", "", "", "", "", "Vacant"]
+      ],
+      "roles": {
+        "Lease Type": "dimension",
+        "Commencement": "datetime",
+        "Expiration": "datetime",
+        "Term (Mos)": "measure",
+        "RSF": "measure",
+        "Annual Base Rent": "currency",
+        "Monthly Base Rent": "currency",
+        "Status": "dimension"
+      }
+    },
+    {
+      "id": "services-imobiliaria-vendidos-br",
+      "source": "Imobiliária (Brasil): relatório de imóveis captados e vendidos exportado do CRM",
+      "kind": "export",
+      "expect": "real_estate",
+      "shape": "listings",
+      "headers": ["Código", "Tipo", "Finalidade", "Bairro", "Cidade", "UF", "Área útil (m²)", "Dormitórios", "Suítes", "Vagas", "Valor anunciado", "Valor de venda", "Condomínio", "IPTU anual", "Data de captação", "Data da venda", "Dias no mercado", "Corretor", "Situação"],
+      "rows": [
+        ["AP3482", "Apartamento", "Venda", "Pinheiros", "São Paulo", "SP", "78", "2", "1", "1", "R$ 1.150.000,00", "R$ 1.085.000,00", "R$ 1.240,00", "R$ 4.380,00", "12/03/2026", "28/07/2026", "138", "Fernanda Rocha", "Vendido"],
+        ["CA0917", "Casa", "Venda", "Jardim Botânico", "Curitiba", "PR", "210", "4", "2", "3", "R$ 1.690.000,00", "R$ 1.600.000,00", "R$ 0,00", "R$ 6.920,00", "05/01/2026", "14/08/2026", "221", "Ricardo Alves", "Vendido"],
+        ["AP3519", "Apartamento", "Venda", "Savassi", "Belo Horizonte", "MG", "64", "2", "1", "1", "R$ 620.000,00", "", "R$ 690,00", "R$ 2.110,00", "20/06/2026", "", "119", "Juliana Costa", "Disponível"],
+        ["CO0204", "Cobertura", "Venda", "Barra da Tijuca", "Rio de Janeiro", "RJ", "185", "3", "3", "2", "R$ 2.400.000,00", "R$ 2.250.000,00", "R$ 2.850,00", "R$ 9.600,00", "18/02/2026", "03/09/2026", "197", "Fernanda Rocha", "Vendido"],
+        ["AP3527", "Apartamento", "Venda", "Moinhos de Vento", "Porto Alegre", "RS", "95", "3", "1", "2", "R$ 890.000,00", "", "R$ 980,00", "R$ 3.240,00", "02/08/2026", "", "76", "Ricardo Alves", "Em negociação"]
+      ],
+      "unique": ["Código"],
+      "roles": {
+        "Tipo": "dimension",
+        "Cidade": "geo",
+        "UF": "geo",
+        "Área útil (m²)": "measure",
+        "Valor anunciado": "currency",
+        "Valor de venda": "currency",
+        "Data de captação": "datetime",
+        "Dias no mercado": "measure"
+      }
+    },
+    {
+      "id": "services-hausverwaltung-mieterliste-de",
+      "source": "Hausverwaltung (Deutschland): Mieterliste eines Mehrfamilienhauses mit Soll-Miete und Rückständen (Excel)",
+      "kind": "analyst",
+      "expect": "real_estate",
+      "shape": "rentals",
+      "headers": ["Objekt", "Whg.-Nr.", "Lage", "Mieter", "Mietbeginn", "Wohnfläche (m²)", "Zimmer", "Kaltmiete (€)", "NK-Vorauszahlung (€)", "Heizkosten (€)", "Warmmiete (€)", "Kaution (€)", "Zahlungsstatus", "Offener Betrag (€)", "Kündigung zum"],
+      "rows": [
+        ["Lindenstraße 14", "01", "EG links", "Fischer, Anna", "01.04.2021", "62,40", "2", "748,80", "145,00", "85,00", "978,80", "2.246,40", "bezahlt", "0,00", ""],
+        ["Lindenstraße 14", "02", "EG rechts", "Yilmaz, Mehmet", "15.08.2018", "74,10", "3", "815,10", "170,00", "95,00", "1.080,10", "2.445,30", "bezahlt", "0,00", ""],
+        ["Lindenstraße 14", "03", "1. OG links", "Schneider, Thomas", "01.10.2023", "58,75", "2", "763,75", "140,00", "80,00", "983,75", "2.291,25", "Rückstand", "983,75", "31.12.2026"],
+        ["Lindenstraße 14", "04", "1. OG rechts", "", "", "74,10", "3", "", "", "", "", "", "Leerstand", "0,00", ""],
+        ["Lindenstraße 14", "05", "2. OG links", "Nowak, Katarzyna", "01.02.2025", "62,40", "2", "811,20", "145,00", "85,00", "1.041,20", "2.433,60", "teilweise bezahlt", "300,00", ""]
+      ],
+      "unique": ["Whg.-Nr."],
+      "roles": {
+        "Mietbeginn": "datetime",
+        "Wohnfläche (m²)": "measure",
+        "Zimmer": "measure",
+        "Kaltmiete (€)": "currency",
+        "Warmmiete (€)": "currency",
+        "Zahlungsstatus": "dimension",
+        "Offener Betrag (€)": "currency"
+      }
+    },
+    {
+      "id": "services-travel-agency-air-sales-register",
+      "source": "Travel agency back office (India): air ticket sales register with fare break-up and GST",
+      "kind": "export",
+      "expect": "travel",
+      "headers": ["Inv No", "Inv Date", "PNR", "Ticket No", "Airline", "Sector", "Travel Date", "Pax Name", "Pax Type", "Class", "Basic Fare", "YQ", "K3 (GST)", "Other Taxes", "Total Fare", "Service Fee", "Client", "Booking Status", "Supplier"],
+      "rows": [
+        ["TA/26-27/04128", "02/10/2026", "QX7LMB", "0984101234567", "SkyVale Air", "BOM-DEL", "14/10/2026", "Mr Rohan Desai", "ADT", "Y", "4,850", "1,100", "298", "712", "6,960", "350", "Kestrel Pharma Pvt Ltd", "Ticketed", "GDS"],
+        ["TA/26-27/04129", "02/10/2026", "QX7LMB", "0984101234568", "SkyVale Air", "DEL-BOM", "18/10/2026", "Mr Rohan Desai", "ADT", "Y", "5,200", "1,100", "315", "712", "7,327", "350", "Kestrel Pharma Pvt Ltd", "Ticketed", "GDS"],
+        ["TA/26-27/04135", "04/10/2026", "R2KD9T", "6219876543210", "Meridian Airways", "BLR-DXB", "22/10/2026", "Ms Lakshmi Iyer", "ADT", "J", "38,400", "6,500", "5,388", "3,860", "54,148", "1,500", "Walk-in", "Ticketed", "Airline Portal"],
+        ["TA/26-27/04141", "06/10/2026", "M8PZ4W", "0984101239912", "SkyVale Air", "HYD-GOI", "30/10/2026", "Mstr Aarav Shah", "CHD", "Y", "3,600", "900", "225", "612", "5,337", "250", "Shah Family", "Ticketed", "LCC Portal"],
+        ["TA/26-27/04147", "08/10/2026", "QX9CRE", "0984101240457", "SkyVale Air", "BOM-BLR", "12/10/2026", "Mr Vikas Bansal", "ADT", "Y", "4,100", "1,100", "260", "712", "6,172", "350", "Kestrel Pharma Pvt Ltd", "Cancelled", "GDS"]
+      ],
+      "unique": ["Inv No", "Ticket No"],
+      "roles": {
+        "Inv Date": "datetime",
+        "Ticket No": "identifier",
+        "Travel Date": "datetime",
+        "Pax Type": "dimension",
+        "Class": "dimension",
+        "Basic Fare": "currency",
+        "Total Fare": "currency",
+        "Booking Status": "dimension"
+      }
+    },
+    {
+      "id": "services-pharmacy-item-sales-register",
+      "source": "Retail pharmacy billing software (India): item-wise sales register with batch, expiry and GST",
+      "kind": "export",
+      "expect": "pharma",
+      "headers": ["Bill No", "Bill Date", "Patient Name", "Doctor Name", "Item Name", "Pack", "Batch No", "Exp", "Qty", "MRP", "Disc%", "Amount", "HSN", "GST%", "Mode"],
+      "rows": [
+        ["CS-012874", "14-10-2026", "Walk-in", "Dr. S. Agarwal", "Telmisartan 40mg Tab", "10'S", "TLM24318", "09/27", "2", "112.50", "10", "202.50", "30049099", "12", "Cash"],
+        ["CS-012875", "14-10-2026", "Rekha Malhotra", "Dr. P. Bansal", "Amoxicillin + Clavulanic Acid 625mg Tab", "6'S", "AMC25102", "03/27", "2", "204.00", "15", "346.80", "30042019", "12", "UPI"],
+        ["CS-012876", "14-10-2026", "Walk-in", "", "Paracetamol 650mg Tab", "15'S", "PCM25877", "11/28", "1", "33.80", "0", "33.80", "30049099", "12", "Cash"],
+        ["CS-012881", "15-10-2026", "Gurpreet Singh", "Dr. S. Agarwal", "Metformin 500mg SR Tab", "15'S", "MTF25040", "06/27", "4", "58.20", "20", "186.24", "30049099", "12", "Card"],
+        ["CS-012884", "15-10-2026", "Anita Sharma", "Dr. R. Kapoor", "Insulin Glargine 100IU/ml Cartridge", "3ml", "ING25009", "02/27", "1", "1,180.00", "10", "1,062.00", "30043110", "5", "UPI"]
+      ],
+      "ids": ["Bill No"],
+      "roles": {
+        "Bill Date": "datetime",
+        "Qty": "measure",
+        "MRP": "currency",
+        "Disc%": "percentage",
+        "Amount": "currency",
+        "GST%": "percentage",
+        "Mode": "dimension"
+      }
+    },
+    {
+      "id": "services-sdtm-ae-adverse-events",
+      "source": "Clinical trial CDISC SDTM AE domain (adverse events) exported to CSV",
+      "kind": "export",
+      "expect": "pharma",
+      "headers": ["STUDYID", "DOMAIN", "USUBJID", "AESEQ", "AESPID", "AETERM", "AEDECOD", "AEBODSYS", "AESEV", "AESER", "AEACN", "AEREL", "AEOUT", "AESTDTC", "AEENDTC", "AESTDY", "AEENDY"],
+      "rows": [
+        ["KTX-204-301", "AE", "KTX-204-301-1012-0007", "1", "AE001", "HEADACHE", "Headache", "Nervous system disorders", "MILD", "N", "DOSE NOT CHANGED", "POSSIBLE", "RECOVERED/RESOLVED", "2026-02-14", "2026-02-16", "15", "17"],
+        ["KTX-204-301", "AE", "KTX-204-301-1012-0007", "2", "AE002", "NAUSEA", "Nausea", "Gastrointestinal disorders", "MODERATE", "N", "DOSE REDUCED", "PROBABLE", "RECOVERED/RESOLVED", "2026-03-02", "2026-03-09", "31", "38"],
+        ["KTX-204-301", "AE", "KTX-204-301-1015-0003", "1", "AE001", "ELEVATED ALT", "Alanine aminotransferase increased", "Investigations", "SEVERE", "N", "DRUG INTERRUPTED", "PROBABLE", "RECOVERING/RESOLVING", "2026-04-20", "", "62", ""],
+        ["KTX-204-301", "AE", "KTX-204-301-1021-0011", "1", "AE001", "FALL WITH HIP FRACTURE", "Femur fracture", "Injury, poisoning and procedural complications", "SEVERE", "Y", "DOSE NOT CHANGED", "NOT RELATED", "RECOVERED/RESOLVED WITH SEQUELAE", "2026-05-07", "2026-06-19", "40", "83"],
+        ["KTX-204-301", "AE", "KTX-204-301-1021-0014", "1", "AE001", "RASH ON ARMS", "Rash", "Skin and subcutaneous tissue disorders", "MILD", "N", "NOT APPLICABLE", "UNLIKELY", "NOT RECOVERED/NOT RESOLVED", "2026-06-03", "", "12", ""]
+      ],
+      "ids": ["USUBJID"],
+      "roles": {
+        "USUBJID": "identifier",
+        "AEBODSYS": "dimension",
+        "AESEV": "dimension",
+        "AESER": "boolean",
+        "AEREL": "dimension",
+        "AESTDTC": "datetime",
+        "AEENDTC": "datetime",
+        "AESTDY": "measure"
+      }
+    },
+    {
+      "id": "services-who-life-expectancy",
+      "source": "Life Expectancy (WHO) dataset (Kaggle): country-year health and economic indicators",
+      "kind": "dataset",
+      "expect": null,
+      "headers": ["Country", "Year", "Status", "Life expectancy ", "Adult Mortality", "infant deaths", "Alcohol", "percentage expenditure", "Hepatitis B", "Measles ", " BMI ", "under-five deaths ", "Polio", "Total expenditure", "Diphtheria ", " HIV/AIDS", "GDP", "Population", " thinness  1-19 years", " thinness 5-9 years", "Income composition of resources", "Schooling"],
+      "rows": [
+        ["India", "2015", "Developing", "68.3", "181", "910", "", "0", "87", "90387", "19.1", "1100", "86", "", "87", "0.2", "1613.19", "1311050527", "26.7", "27.4", "0.609", "11.7"],
+        ["Germany", "2014", "Developed", "81.0", "68", "2", "11.03", "7016.44", "87", "443", "59.7", "3", "95", "11.30", "95", "0.1", "47902.80", "8889592", "1.1", "1.0", "0.924", "17.0"],
+        ["Brazil", "2013", "Developing", "74.8", "143", "40", "8.68", "1002.71", "96", "0", "55.4", "46", "99", "9.70", "99", "0.1", "12216.90", "2024793", "2.7", "2.6", "0.752", "15.2"],
+        ["Nigeria", "2012", "Developing", "53.8", "349", "479", "", "0", "41", "5691", "21.8", "784", "53", "3.89", "51", "4.4", "2794.36", "1695863", "11.4", "11.2", "0.507", "9.5"],
+        ["Japan", "2015", "Developed", "83.7", "55", "2", "", "0", "", "35", "29.4", "2", "99", "", "99", "0.1", "34474.14", "127141", "1.8", "1.8", "0.902", "15.3"]
+      ],
+      "roles": {
+        "Country": "geo",
+        "Status": "dimension",
+        "Adult Mortality": "measure",
+        "Population": "measure",
+        "Schooling": "measure"
+      }
+    }
+  ]
+}

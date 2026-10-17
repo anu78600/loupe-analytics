@@ -12,6 +12,7 @@ npm run build        # production build; must pass before a step is called done
 npm run typecheck    # tsc --noEmit (strict)
 npm run lint         # eslint . (React Compiler rules are on, see Gotchas)
 npm test             # vitest; tests/registry.test.ts runs every KPI against DuckDB
+npm run benchmark    # real-world detection benchmark; writes docs/DETECTION-BENCHMARK.md
 npm run changelog    # regenerate CHANGELOG.md from src/content/changelog.ts
 ```
 
@@ -49,7 +50,7 @@ npm run changelog    # regenerate CHANGELOG.md from src/content/changelog.ts
 
 ## Adding or changing an industry
 
-Edit or add `src/registry/domains/<id>.json`, import it in `src/registry/index.ts`, then run `npx vitest run tests/registry.test.ts -t "<id>.json"`. Hero KPIs are 4–6 per sub-domain. A KPI that refs another may be scoped to other sub-domains; the referenced KPI is then kept as a hidden helper (`dependencyOnly` in `kpi/resolve.ts`). Mark sub-domains whose rows are standing entities (employees, customers, products) with `"timeModel": "roster"`. Detection changes must keep `tests/detect.test.ts` (75 real-world layouts) green.
+Edit or add `src/registry/domains/<id>.json`, import it in `src/registry/index.ts`, then run `npx vitest run tests/registry.test.ts -t "<id>.json"`. Hero KPIs are 4–6 per sub-domain. A KPI that refs another may be scoped to other sub-domains; the referenced KPI is then kept as a hidden helper (`dependencyOnly` in `kpi/resolve.ts`). Mark sub-domains whose rows are standing entities (employees, customers, products) with `"timeModel": "roster"`. Detection changes must keep `tests/detect.test.ts` (75 real-world layouts) green and must not lower the floors in `tests/benchmark.test.ts`. That benchmark (265 layouts in `tests/fixtures/benchmark`, one file per family) measures industry, shape and column-role accuracy and the confidently-wrong rate. About 40% of it is held out by a hash of each id: tune against the misses of the rest (`npm run benchmark`, then read `docs/DETECTION-BENCHMARK.md`), and raise a floor when a change lifts it.
 
 ## Analyst standards
 

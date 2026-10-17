@@ -1,0 +1,868 @@
+{
+  "family": "industrial",
+  "description": "Physical operations: manufacturing (production orders, downtime, OEE, scrap, maintenance, batches, SPC), logistics and supply chain (freight bills, carriers, warehouses, cold chain, containers, last mile, e-way bills, courier MIS) and telecom (CDRs, recharges, broadband, towers, porting), plus energy, utility and agriculture tables.",
+  "fixtures": [
+    {
+      "id": "industrial-sap-pp-coois-production-orders",
+      "source": "SAP S/4HANA PP: production order information system (COOIS) export",
+      "kind": "export",
+      "expect": "manufacturing",
+      "headers": ["Order", "Material", "Material description", "Order Type", "Plant", "MRP controller", "Production Scheduler", "Basic start date", "Basic finish date", "Actual start date", "Actual finish date", "Order quantity (GMEIN)", "Delivered quantity (GMEIN)", "Confirmed scrap (GMEIN)", "Unit of measure (=GMEIN)", "System Status"],
+      "rows": [
+        ["1000412", "FG-31045", "BRAKE DRUM 310MM", "PP01", "1100", "101", "A01", "04.03.2024", "06.03.2024", "04.03.2024", "06.03.2024", "1,200", "1,184", "16", "PC", "TECO CNF  DLV  GMPS SETC"],
+        ["1000413", "FG-31052", "HUB ASSY REAR LH", "PP01", "1100", "102", "A02", "05.03.2024", "07.03.2024", "05.03.2024", "", "800", "640", "9", "PC", "REL  PCNF PDLV GMPS SETC"],
+        ["1000414", "SF-20118", "CASTING HUB RAW", "PP02", "1100", "103", "B01", "05.03.2024", "05.03.2024", "05.03.2024", "05.03.2024", "2,500", "2,452", "48", "PC", "CNF  DLV  GMPS SETC"],
+        ["1000415", "FG-31045", "BRAKE DRUM 310MM", "PP01", "1100", "101", "A01", "08.03.2024", "11.03.2024", "", "", "1,500", "0", "0", "PC", "REL  MACM SETC"],
+        ["1000416", "FG-31077", "ROTOR DISC 280MM", "PP01", "1100", "101", "A03", "11.03.2024", "12.03.2024", "11.03.2024", "12.03.2024", "600", "588", "12", "PC", "TECO CNF  DLV  GMPS SETC"]
+      ],
+      "unique": ["Order"],
+      "ids": ["Material"],
+      "roles": {
+        "Order": "identifier",
+        "Order Type": "dimension",
+        "Basic start date": "datetime",
+        "Basic finish date": "datetime",
+        "Order quantity (GMEIN)": "measure",
+        "Delivered quantity (GMEIN)": "measure",
+        "Confirmed scrap (GMEIN)": "measure"
+      }
+    },
+    {
+      "id": "industrial-mes-downtime-events",
+      "source": "MES downtime tracking: downtime events export with reason codes (US bottling plant)",
+      "kind": "export",
+      "expect": "manufacturing",
+      "shape": "production",
+      "headers": ["Event ID", "Line", "Equipment", "Shift", "Work Order", "Product Code", "Start Time", "End Time", "Duration (min)", "Reason Code", "Reason", "Reason Category", "Planned", "Operator Comment"],
+      "rows": [
+        ["48211", "Line 3", "Filler F3", "1st", "WO-77120", "SKU-1204", "2024-04-08 06:12:00", "2024-04-08 06:41:00", "29", "M-104", "Bottle jam at infeed", "Mechanical", "No", "Cleared jam, adjusted guide rail"],
+        ["48212", "Line 3", "Capper C3", "1st", "WO-77120", "SKU-1204", "2024-04-08 09:05:00", "2024-04-08 09:20:00", "15", "Q-210", "Torque out of spec", "Quality", "No", ""],
+        ["48213", "Line 1", "Labeler L1", "2nd", "WO-77124", "SKU-1188", "2024-04-08 15:30:00", "2024-04-08 16:15:00", "45", "C-001", "Changeover", "Changeover", "Yes", "Changeover to 500 ml"],
+        ["48214", "Line 2", "Palletizer P2", "2nd", "WO-77126", "SKU-1302", "2024-04-08 18:47:00", "2024-04-08 19:55:00", "68", "E-312", "Servo drive fault", "Electrical", "No", "Maintenance replaced drive fuse"],
+        ["48215", "Line 1", "Filler F1", "3rd", "WO-77124", "SKU-1188", "2024-04-09 01:10:00", "2024-04-09 01:40:00", "30", "P-020", "Planned sanitation", "Planned Maintenance", "Yes", ""]
+      ],
+      "unique": ["Event ID"],
+      "ids": ["Work Order", "Product Code"],
+      "roles": {
+        "Event ID": "identifier",
+        "Start Time": "datetime",
+        "End Time": "datetime",
+        "Duration (min)": "measure",
+        "Reason Category": "dimension",
+        "Planned": "boolean",
+        "Operator Comment": "text"
+      }
+    },
+    {
+      "id": "industrial-mes-oee-schichtbericht-de",
+      "source": "MES (German plant): OEE shift report export (Schichtbericht OEE), German headers",
+      "kind": "export",
+      "expect": "manufacturing",
+      "shape": "oee",
+      "headers": ["Datum", "Schicht", "Werk", "Linie", "Maschine", "Artikelnummer", "Planbelegungszeit (min)", "Laufzeit (min)", "Stillstandszeit (min)", "Ideale Taktzeit (s)", "Gesamtmenge (Stk)", "Gutmenge (Stk)", "Ausschuss (Stk)", "Verfügbarkeit (%)", "Leistung (%)", "Qualität (%)", "OEE (%)"],
+      "rows": [
+        ["08.04.2024", "Früh", "Werk Augsburg", "L2", "Spritzguss SG-04", "4711-200", "450", "405", "45", "30", "780", "765", "15", "90,0", "96,3", "98,1", "85,0"],
+        ["08.04.2024", "Spät", "Werk Augsburg", "L2", "Spritzguss SG-04", "4711-200", "450", "372", "78", "30", "690", "662", "28", "82,7", "92,7", "95,9", "73,6"],
+        ["08.04.2024", "Nacht", "Werk Augsburg", "L3", "Spritzguss SG-07", "4711-350", "420", "398", "22", "45", "512", "509", "3", "94,8", "96,5", "99,4", "90,9"],
+        ["09.04.2024", "Früh", "Werk Augsburg", "L3", "Spritzguss SG-07", "4711-350", "450", "300", "150", "45", "372", "351", "21", "66,7", "93,0", "94,4", "58,5"],
+        ["09.04.2024", "Spät", "Werk Augsburg", "L2", "Spritzguss SG-04", "4711-210", "450", "428", "22", "32", "790", "781", "9", "95,1", "98,4", "98,9", "92,6"]
+      ],
+      "ids": ["Artikelnummer"],
+      "roles": {
+        "Datum": "datetime",
+        "Schicht": "dimension",
+        "Laufzeit (min)": "measure",
+        "Gutmenge (Stk)": "measure",
+        "Ausschuss (Stk)": "measure",
+        "Verfügbarkeit (%)": "percentage",
+        "OEE (%)": "percentage"
+      }
+    },
+    {
+      "id": "industrial-maximo-work-orders",
+      "source": "IBM Maximo: work order extract (WORKORDER attributes, plant maintenance)",
+      "kind": "export",
+      "expect": "manufacturing",
+      "headers": ["WONUM", "DESCRIPTION", "SITEID", "LOCATION", "ASSETNUM", "WORKTYPE", "STATUS", "WOPRIORITY", "REPORTDATE", "TARGSTARTDATE", "ACTSTART", "ACTFINISH", "ESTDUR", "ACTLABHRS", "ACTMATCOST", "ACTTOTALCOST", "FAILURECODE", "SUPERVISOR"],
+      "rows": [
+        ["1004581", "Replace mechanical seal on cooling water pump P-201", "BEDFORD", "UTIL-CW", "P-201", "CM", "COMP", "2", "2024-02-12 07:30:00", "2024-02-12 13:00:00", "2024-02-12 13:20:00", "2024-02-12 18:05:00", "4.00", "4.75", "386.40", "742.65", "PUMPS", "RTORRES"],
+        ["1004582", "Monthly PM - Line 2 case packer lubrication", "BEDFORD", "PKG-L2", "CP-2207", "PM", "CLOSE", "3", "2024-02-13 06:00:00", "2024-02-14 06:00:00", "2024-02-14 06:15:00", "2024-02-14 07:45:00", "1.50", "1.50", "42.80", "155.30", "", "KWALSH"],
+        ["1004583", "Conveyor CV-1014 belt tracking off, belt rubbing frame", "BEDFORD", "PKG-L1", "CV-1014", "CM", "INPRG", "2", "2024-02-14 22:41:00", "2024-02-15 06:00:00", "2024-02-15 06:30:00", "", "2.00", "3.00", "0.00", "225.00", "CONVEYOR", "RTORRES"],
+        ["1004584", "Compressor AC-3 annual overhaul", "BEDFORD", "UTIL-AIR", "AC-3", "PM", "WMATL", "3", "2024-02-15 09:10:00", "2024-02-26 06:00:00", "", "", "16.00", "0.00", "0.00", "0.00", "", "KWALSH"],
+        ["1004585", "Emergency - hydraulic leak on press PR-05", "BEDFORD", "FAB-PRS", "PR-05", "EM", "COMP", "1", "2024-02-16 03:12:00", "2024-02-16 03:30:00", "2024-02-16 03:25:00", "2024-02-16 08:40:00", "3.00", "5.25", "612.90", "1006.65", "HYDRAULIC", "RTORRES"]
+      ],
+      "unique": ["WONUM"],
+      "ids": ["ASSETNUM"],
+      "roles": {
+        "WONUM": "identifier",
+        "DESCRIPTION": "text",
+        "WORKTYPE": "dimension",
+        "STATUS": "dimension",
+        "REPORTDATE": "datetime",
+        "ACTSTART": "datetime",
+        "ACTLABHRS": "measure",
+        "ACTTOTALCOST": "currency"
+      }
+    },
+    {
+      "id": "industrial-spc-subgroup-measurements",
+      "source": "SPC software (InfinityQS / Minitab style): X-bar R subgroup measurements export",
+      "kind": "export",
+      "expect": "manufacturing",
+      "headers": ["Date/Time", "Part", "Process", "Characteristic", "Subgroup", "Sample 1", "Sample 2", "Sample 3", "Sample 4", "Sample 5", "Mean", "Range", "LSL", "Target", "USL", "Operator", "Out of Control"],
+      "rows": [
+        ["2024-05-14 08:00", "HSG-4410", "CNC Boring OP30", "Bore Dia (mm)", "1", "25.004", "24.998", "25.006", "25.001", "25.003", "25.0024", "0.008", "24.980", "25.000", "25.020", "Op 112", "No"],
+        ["2024-05-14 09:00", "HSG-4410", "CNC Boring OP30", "Bore Dia (mm)", "2", "25.007", "25.002", "25.009", "25.005", "25.006", "25.0058", "0.007", "24.980", "25.000", "25.020", "Op 112", "No"],
+        ["2024-05-14 10:00", "HSG-4410", "CNC Boring OP30", "Bore Dia (mm)", "3", "25.012", "25.015", "25.010", "25.016", "25.013", "25.0132", "0.006", "24.980", "25.000", "25.020", "Op 118", "Yes"],
+        ["2024-05-14 11:00", "HSG-4410", "CNC Boring OP30", "Bore Dia (mm)", "4", "24.999", "25.003", "25.000", "24.996", "25.002", "25.0000", "0.007", "24.980", "25.000", "25.020", "Op 118", "No"],
+        ["2024-05-14 12:00", "HSG-4410", "CNC Boring OP30", "Bore Dia (mm)", "5", "25.002", "24.997", "25.004", "25.000", "24.998", "25.0002", "0.007", "24.980", "25.000", "25.020", "Op 112", "No"]
+      ],
+      "unique": ["Subgroup"],
+      "roles": {
+        "Date/Time": "datetime",
+        "Sample 1": "measure",
+        "Mean": "measure",
+        "Range": "measure",
+        "Out of Control": "boolean"
+      }
+    },
+    {
+      "id": "industrial-dcs-batch-summary",
+      "source": "Specialty chemicals plant: batch summary report from the DCS batch historian",
+      "kind": "export",
+      "expect": "manufacturing",
+      "headers": ["Batch ID", "Recipe", "Product", "Reactor", "Batch Start", "Batch End", "Cycle Time (h)", "Std Cycle Time (h)", "Charge Qty (kg)", "Output Qty (kg)", "Yield (%)", "Theoretical Yield (%)", "Max Temp (°C)", "Steam (kg)", "QC Result", "Released"],
+      "rows": [
+        ["B24-07-0181", "RCP-PA-12 v3", "Polyamide Resin PA-12", "R-101", "2024-07-02 06:30", "2024-07-02 18:45", "12.25", "12.0", "4,800", "4,512", "94.0", "95.5", "182.4", "6,200", "Pass", "Yes"],
+        ["B24-07-0182", "RCP-AC-07 v5", "Acrylic Emulsion AE-70", "R-203", "2024-07-02 08:00", "2024-07-02 17:30", "9.5", "9.0", "6,200", "6,014", "97.0", "98.0", "86.1", "3,900", "Pass", "Yes"],
+        ["B24-07-0183", "RCP-PA-12 v3", "Polyamide Resin PA-12", "R-102", "2024-07-02 19:15", "2024-07-03 09:45", "14.5", "12.0", "4,800", "4,368", "91.0", "95.5", "191.7", "7,450", "Fail - Viscosity high", "No"],
+        ["B24-07-0184", "RCP-AC-07 v5", "Acrylic Emulsion AE-70", "R-203", "2024-07-03 07:10", "2024-07-03 16:40", "9.5", "9.0", "6,200", "6,045", "97.5", "98.0", "85.6", "3,820", "Pass", "Yes"],
+        ["B24-07-0185", "RCP-PU-03 v2", "PU Binder PB-30", "R-101", "2024-07-03 08:20", "2024-07-03 15:50", "7.5", "8.0", "3,500", "3,423", "97.8", "98.5", "74.3", "2,150", "Pending", "No"]
+      ],
+      "unique": ["Batch ID"],
+      "roles": {
+        "Batch ID": "identifier",
+        "Batch Start": "datetime",
+        "Cycle Time (h)": "measure",
+        "Output Qty (kg)": "measure",
+        "Yield (%)": "percentage",
+        "QC Result": "dimension",
+        "Released": "boolean"
+      }
+    },
+    {
+      "id": "industrial-oee-weekly-by-line",
+      "source": "Plant OEE review: weekly OEE by line (Excel summary, UK plant)",
+      "kind": "analyst",
+      "expect": "manufacturing",
+      "shape": "oee",
+      "headers": ["Week", "Week Start", "Plant", "Line", "Planned Production Time (min)", "Run Time (min)", "Ideal Cycle Time (sec)", "Total Count", "Good Count", "Availability %", "Performance %", "Quality %", "OEE %"],
+      "rows": [
+        ["W14", "01/04/2024", "Telford", "Line A", "7,200", "6,566", "2.4", "152,400", "149,350", "91.2%", "92.8%", "98.0%", "83.0%"],
+        ["W14", "01/04/2024", "Telford", "Line B", "7,200", "6,120", "3.0", "110,200", "106,450", "85.0%", "90.0%", "96.6%", "73.9%"],
+        ["W15", "08/04/2024", "Telford", "Line A", "7,200", "6,804", "2.4", "162,900", "160,210", "94.5%", "95.8%", "98.3%", "89.0%"],
+        ["W15", "08/04/2024", "Telford", "Line B", "5,760", "4,950", "3.0", "92,800", "90,020", "85.9%", "93.7%", "97.0%", "78.1%"],
+        ["W15", "08/04/2024", "Telford", "Line C", "7,200", "6,300", "1.8", "196,000", "192,080", "87.5%", "93.3%", "98.0%", "80.0%"]
+      ],
+      "roles": {
+        "Week Start": "datetime",
+        "Line": "dimension",
+        "Run Time (min)": "measure",
+        "Good Count": "measure",
+        "Availability %": "percentage",
+        "OEE %": "percentage"
+      }
+    },
+    {
+      "id": "industrial-scrap-rework-register",
+      "source": "Auto-components plant: scrap and rework register (quality department Excel)",
+      "kind": "analyst",
+      "expect": "manufacturing",
+      "shape": "quality",
+      "headers": ["Sr No", "Date", "Shift", "Part No", "Part Name", "Operation", "Machine", "Defect", "Produced Qty", "Scrap Qty", "Rework Qty", "Scrap %", "Scrap Value (₹)", "Root Cause", "Action Taken", "Responsibility"],
+      "rows": [
+        ["1", "12-06-2024", "A", "7104-2210", "Steering Knuckle LH", "OP20 Turning", "CNC-07", "Undersize bore", "640", "6", "14", "0.94%", "₹2,940", "Tool wear beyond limit", "Tool life reduced to 400 pcs", "Production"],
+        ["2", "12-06-2024", "B", "7104-2210", "Steering Knuckle LH", "OP30 Drilling", "VMC-03", "Burr on hole", "610", "2", "38", "0.33%", "₹980", "Deburring skipped", "Operator retrained on deburring", "Production"],
+        ["3", "13-06-2024", "A", "7104-3105", "Brake Caliper Bracket", "OP10 Casting", "Foundry", "Blow holes", "1,200", "31", "0", "2.58%", "₹8,060", "Moisture in sand", "Sand moisture check every 2 hrs", "Foundry"],
+        ["4", "13-06-2024", "C", "7104-4420", "Hub Flange", "OP40 Grinding", "GR-02", "Chatter marks", "450", "4", "9", "0.89%", "₹2,720", "Wheel not dressed", "Dressing frequency revised", "Maintenance"],
+        ["5", "14-06-2024", "B", "7104-3105", "Brake Caliper Bracket", "OP20 Machining", "HMC-01", "PCD out of tolerance", "980", "12", "5", "1.22%", "₹3,120", "Fixture locator worn", "Locator replaced, first-off check added", "Tool Room"]
+      ],
+      "unique": ["Sr No"],
+      "ids": ["Part No"],
+      "roles": {
+        "Date": "datetime",
+        "Defect": "dimension",
+        "Produced Qty": "measure",
+        "Scrap Qty": "measure",
+        "Scrap %": "percentage",
+        "Scrap Value (₹)": "currency",
+        "Action Taken": "text"
+      }
+    },
+    {
+      "id": "industrial-cement-plant-mis-budget-actual",
+      "source": "Cement company: monthly plant MIS, production budget vs actual (Excel)",
+      "kind": "analyst",
+      "expect": "manufacturing",
+      "shape": "plant_mis",
+      "headers": ["Month", "Plant", "Clinker Production (MT)", "Cement Production (MT)", "Budget Cement (MT)", "Variance (MT)", "Achievement %", "Capacity Utilisation (%)", "Power (kWh/t cement)", "Heat (kcal/kg clinker)", "Clinker Factor", "Cost per Tonne (₹)"],
+      "rows": [
+        ["Apr-24", "Satna", "168,400", "231,500", "225,000", "6,500", "102.9%", "92.6", "78.4", "712", "0.73", "₹4,215"],
+        ["Apr-24", "Wadi", "132,200", "176,800", "185,000", "-8,200", "95.6%", "88.4", "81.2", "728", "0.75", "₹4,390"],
+        ["May-24", "Satna", "174,900", "240,100", "235,000", "5,100", "102.2%", "96.0", "77.6", "709", "0.73", "₹4,180"],
+        ["May-24", "Wadi", "141,000", "188,300", "190,000", "-1,700", "99.1%", "94.2", "80.5", "721", "0.75", "₹4,325"],
+        ["Jun-24", "Satna", "150,600", "205,400", "215,000", "-9,600", "95.5%", "82.2", "80.9", "718", "0.73", "₹4,298"]
+      ],
+      "roles": {
+        "Plant": "dimension",
+        "Cement Production (MT)": "measure",
+        "Budget Cement (MT)": "measure",
+        "Variance (MT)": "measure",
+        "Achievement %": "percentage",
+        "Capacity Utilisation (%)": "percentage",
+        "Cost per Tonne (₹)": "currency"
+      }
+    },
+    {
+      "id": "industrial-production-pivot-months",
+      "source": "Beverage plant: monthly production pivot by line and product (months as columns)",
+      "kind": "analyst",
+      "expect": "manufacturing",
+      "headers": ["Line", "Product", "UoM", "Apr-24", "May-24", "Jun-24", "Jul-24", "Aug-24", "Sep-24", "H1 Total"],
+      "rows": [
+        ["Line 1", "Mango Drink 200ml Tetra", "Packs", "412,500", "468,300", "455,100", "301,200", "288,400", "310,700", "2,236,200"],
+        ["Line 1", "Mango Drink 1L PET", "Packs", "98,200", "120,400", "117,800", "76,300", "70,100", "81,900", "564,700"],
+        ["Line 2", "Lemon Soda 250ml Can", "Packs", "220,000", "265,700", "248,900", "190,300", "172,600", "180,200", "1,277,700"],
+        ["Line 3", "Packaged Water 1L", "Packs", "640,800", "712,300", "690,500", "455,000", "410,200", "498,600", "3,407,400"],
+        ["Line 3", "Packaged Water 500ml", "Packs", "380,100", "402,600", "395,300", "288,700", "260,900", "301,400", "2,029,000"]
+      ],
+      "roles": {
+        "Line": "dimension",
+        "Apr-24": "measure",
+        "Sep-24": "measure",
+        "H1 Total": "measure"
+      }
+    },
+    {
+      "id": "industrial-freight-audit-bill-detail",
+      "source": "Freight audit and payment provider: carrier freight bill detail export (US LTL and TL)",
+      "kind": "export",
+      "expect": "logistics",
+      "shape": "shipments",
+      "headers": ["Bill Number", "Carrier Name", "SCAC", "Pro Number", "BOL Number", "Ship Date", "Delivery Date", "Invoice Date", "Paid Date", "Origin City", "Origin State", "Origin Zip", "Dest City", "Dest State", "Dest Zip", "Mode", "Billed Weight", "Line Haul", "Discount", "Fuel Surcharge", "Accessorial", "Total Billed", "Total Paid", "Audit Savings"],
+      "rows": [
+        ["FB-2024031101", "Great Plains Freight", "GPFX", "512843370", "BOL-884201", "03/11/2024", "03/14/2024", "03/15/2024", "03/29/2024", "Dayton", "OH", "45414", "Nashville", "TN", "37211", "LTL", "2,840", "$1,215.60", "$850.92", "$97.26", "$65.00", "$526.94", "$526.94", "$0.00"],
+        ["FB-2024031102", "Keystone Express", "KYEX", "7740021187", "BOL-884209", "03/12/2024", "03/13/2024", "03/14/2024", "03/28/2024", "Columbus", "OH", "43219", "Indianapolis", "IN", "46241", "LTL", "1,120", "$684.30", "$478.01", "$55.90", "$0.00", "$262.19", "$247.19", "$15.00"],
+        ["FB-2024031103", "Blue Ridge Carriers", "BRCL", "3310985521", "BOL-884215", "03/12/2024", "03/15/2024", "03/18/2024", "04/01/2024", "Dayton", "OH", "45414", "Charlotte", "NC", "28208", "TL", "38,500", "$2,950.00", "$0.00", "$472.00", "$150.00", "$3,572.00", "$3,422.00", "$150.00"],
+        ["FB-2024031104", "Great Plains Freight", "GPFX", "512843391", "BOL-884230", "03/13/2024", "03/18/2024", "03/19/2024", "04/02/2024", "Cincinnati", "OH", "45246", "Dallas", "TX", "75261", "LTL", "5,460", "$3,108.75", "$2,176.13", "$248.68", "$95.00", "$1,276.30", "$1,276.30", "$0.00"],
+        ["FB-2024031105", "Keystone Express", "KYEX", "7740021240", "BOL-884236", "03/14/2024", "03/15/2024", "03/18/2024", "04/01/2024", "Columbus", "OH", "43219", "Pittsburgh", "PA", "15275", "LTL", "760", "$512.40", "$358.68", "$41.00", "$0.00", "$194.72", "$194.72", "$0.00"]
+      ],
+      "unique": ["Bill Number", "Pro Number", "BOL Number"],
+      "roles": {
+        "Pro Number": "identifier",
+        "Ship Date": "datetime",
+        "Mode": "dimension",
+        "Origin State": "geo",
+        "Dest Zip": "geo",
+        "Billed Weight": "measure",
+        "Total Billed": "currency",
+        "Total Paid": "currency"
+      }
+    },
+    {
+      "id": "industrial-ups-quantum-view-outbound",
+      "source": "UPS Quantum View Manage: outbound shipments export",
+      "kind": "export",
+      "expect": "logistics",
+      "shape": "shipments",
+      "headers": ["Tracking Number", "Reference Number 1", "Manifest Date", "Pickup Date", "Service", "Package Weight", "Weight Unit", "Ship To Company or Name", "Ship To City", "Ship To State/Province", "Ship To Postal Code", "Ship To Country/Territory", "Scheduled Delivery Date", "Delivery Date", "Status", "Exception Description"],
+      "rows": [
+        ["1Z4V8E930312845671", "PO-55120", "05/13/2024", "05/13/2024", "UPS Ground", "12.4", "LBS", "Harbor Home Goods", "Tacoma", "WA", "98402", "US", "05/17/2024", "05/16/2024", "Delivered", ""],
+        ["1Z4V8E930312845682", "PO-55121", "05/13/2024", "05/14/2024", "UPS 2nd Day Air", "3.1", "LBS", "Lakeview Dental Supply", "Boise", "ID", "83702", "US", "05/16/2024", "05/16/2024", "Delivered", ""],
+        ["1Z4V8E930312845693", "PO-55124", "05/14/2024", "05/14/2024", "UPS Ground", "28.0", "LBS", "Pinecrest Outfitters", "Missoula", "MT", "59801", "US", "05/20/2024", "", "Exception", "THE ADDRESS HAS BEEN CORRECTED. DELIVERY HAS BEEN RESCHEDULED."],
+        ["1Z4V8E930312845704", "PO-55126", "05/15/2024", "05/15/2024", "UPS Next Day Air", "1.6", "LBS", "Summit Clinic Group", "Reno", "NV", "89502", "US", "05/16/2024", "05/16/2024", "Delivered", ""],
+        ["1Z4V8E930312845715", "PO-55130", "05/15/2024", "05/16/2024", "UPS Ground", "45.8", "LBS", "Coastal Craft Brewing", "Eugene", "OR", "97402", "US", "05/21/2024", "", "In Transit", ""]
+      ],
+      "unique": ["Tracking Number", "Reference Number 1"],
+      "roles": {
+        "Tracking Number": "identifier",
+        "Pickup Date": "datetime",
+        "Scheduled Delivery Date": "datetime",
+        "Service": "dimension",
+        "Package Weight": "measure",
+        "Ship To State/Province": "geo",
+        "Ship To Postal Code": "geo",
+        "Status": "dimension"
+      }
+    },
+    {
+      "id": "industrial-forwarder-container-tracking-es",
+      "source": "Freight forwarder (Spain): ocean container tracking report, Spanish headers",
+      "kind": "export",
+      "expect": "logistics",
+      "shape": "shipments",
+      "headers": ["Nº Contenedor", "Nº BL", "Naviera", "Tipo", "Puerto de Carga", "Puerto de Descarga", "Buque", "Viaje", "ETD", "Fecha Embarque", "ETA", "Fecha Llegada", "Estado", "Días Libres", "Días de Demora", "Demora (€)", "Peso Bruto (kg)", "Cliente"],
+      "rows": [
+        ["CXRU4821736", "NAA240311578", "Naviera Atlántica", "40HC", "Shanghai (CNSHA)", "Valencia (ESVLC)", "Atlántico Express", "412W", "02/03/2024", "03/03/2024", "05/04/2024", "06/04/2024", "Entregado", "7", "0", "€0", "18.420", "Comercial Levante S.L."],
+        ["LOGU7730215", "MAZ240300981", "Mar Azul Lines", "20DV", "Ningbo (CNNGB)", "Barcelona (ESBCN)", "Ming Star", "024W", "05/03/2024", "06/03/2024", "09/04/2024", "12/04/2024", "Entregado", "7", "2", "€150", "9.860", "Distribuciones Mediterráneo S.A."],
+        ["CXRU4829910", "NAA240311602", "Naviera Atlántica", "40HC", "Shanghai (CNSHA)", "Valencia (ESVLC)", "Atlántico Express", "412W", "02/03/2024", "03/03/2024", "05/04/2024", "06/04/2024", "En aduana", "7", "4", "€300", "21.300", "Comercial Levante S.L."],
+        ["OSHU5512048", "ORS240327714", "Oriente Shipping", "40DV", "Santos (BRSSZ)", "Algeciras (ESALG)", "Costa Verde", "118N", "11/03/2024", "12/03/2024", "29/03/2024", "", "En tránsito", "10", "0", "€0", "24.750", "Importaciones del Sur S.L."],
+        ["LOGU7741877", "MAZ240300995", "Mar Azul Lines", "40RF", "Ningbo (CNNGB)", "Valencia (ESVLC)", "Ming Star", "024W", "05/03/2024", "06/03/2024", "10/04/2024", "13/04/2024", "Devuelto vacío", "5", "1", "€75", "12.940", "Frutas Ribera S.L."]
+      ],
+      "unique": ["Nº Contenedor"],
+      "ids": ["Nº BL"],
+      "roles": {
+        "Nº Contenedor": "identifier",
+        "Tipo": "dimension",
+        "ETD": "datetime",
+        "Fecha Llegada": "datetime",
+        "Estado": "dimension",
+        "Días de Demora": "measure",
+        "Demora (€)": "currency"
+      }
+    },
+    {
+      "id": "industrial-onfleet-tasks",
+      "source": "Onfleet: delivery tasks pulled from the API and flattened to CSV (US last mile)",
+      "kind": "export",
+      "expect": "logistics",
+      "shape": "shipments",
+      "headers": ["taskId", "shortId", "workerName", "teamName", "state", "pickupTask", "timeCreated", "completeAfter", "completeBefore", "completedAt", "success", "failureReason", "destinationCity", "destinationState", "destinationPostalCode", "distanceMiles", "serviceTimeMins", "rating"],
+      "rows": [
+        ["Gf3SXr9bW2kLq0Hn1Tz5ac4P", "8f983639", "Marcus Lee", "Brooklyn", "3", "false", "2024-07-08T13:02:11Z", "2024-07-08T15:00:00Z", "2024-07-08T17:00:00Z", "2024-07-08T15:41:27Z", "true", "NONE", "Brooklyn", "NY", "11215", "3.8", "4.2", "5"],
+        ["Hq7TYs0cX3mMr1Io2Ua6bd5Q", "8f98364a", "Dana Ortiz", "Queens", "3", "false", "2024-07-08T13:15:40Z", "2024-07-08T15:00:00Z", "2024-07-08T17:00:00Z", "2024-07-08T16:58:03Z", "true", "NONE", "Astoria", "NY", "11103", "6.1", "3.5", "4"],
+        ["Jr8UZt1dY4nNs2Jp3Vb7ce6R", "8f98365b", "Marcus Lee", "Brooklyn", "3", "false", "2024-07-08T13:20:05Z", "2024-07-08T17:00:00Z", "2024-07-08T19:00:00Z", "2024-07-08T17:22:49Z", "false", "RECIPIENT_UNAVAILABLE", "Brooklyn", "NY", "11217", "2.4", "6.0", ""],
+        ["Ks9VAu2eZ5oOt3Kq4Wc8df7S", "8f98366c", "Priya Raman", "Queens", "2", "false", "2024-07-08T14:05:18Z", "2024-07-08T17:00:00Z", "2024-07-08T19:00:00Z", "", "", "", "Flushing", "NY", "11354", "9.7", "", ""],
+        ["Lt0WBv3fA6pPu4Lr5Xd9eg8T", "8f98367d", "Dana Ortiz", "Queens", "3", "true", "2024-07-08T12:48:30Z", "2024-07-08T14:00:00Z", "2024-07-08T15:00:00Z", "2024-07-08T14:12:10Z", "true", "NONE", "Long Island City", "NY", "11101", "1.2", "8.5", ""]
+      ],
+      "unique": ["taskId", "shortId"],
+      "roles": {
+        "teamName": "dimension",
+        "pickupTask": "boolean",
+        "timeCreated": "datetime",
+        "completedAt": "datetime",
+        "success": "boolean",
+        "failureReason": "dimension",
+        "destinationPostalCode": "geo",
+        "distanceMiles": "measure"
+      }
+    },
+    {
+      "id": "industrial-gst-eway-bill-report",
+      "source": "GST e-way bill portal: e-way bills generated report (consignor, Maharashtra)",
+      "kind": "export",
+      "expect": ["logistics", "sales"],
+      "headers": ["EWB No", "EWB Date", "Supply Type", "Doc No", "Doc Date", "Other Party GSTIN", "Transporter Name", "From Place", "To Place", "Vehicle No", "Approx Distance (Km)", "No of Items", "Main HSN Code", "Assessable Value", "CGST Value", "SGST Value", "IGST Value", "Total Invoice Value", "Valid Upto", "Status"],
+      "rows": [
+        ["271008456712", "15/03/2024 11:24 AM", "Outward", "INV/23-24/4812", "15/03/2024", "27AADCK4417M1ZQ", "Sai Shraddha Roadlines", "Pune", "Nashik", "MH12QW4471", "212", "3", "87083000", "248500.00", "22365.00", "22365.00", "0.00", "293230.00", "17/03/2024 11:59 PM", "Active"],
+        ["271008456713", "15/03/2024 04:52 PM", "Outward", "INV/23-24/4813", "15/03/2024", "29AAFCM2208R1Z9", "Deccan Cargo Movers", "Pune", "Bengaluru", "MH14HG9020", "842", "5", "87089900", "512000.00", "0.00", "0.00", "92160.00", "604160.00", "20/03/2024 11:59 PM", "Active"],
+        ["271008456714", "16/03/2024 10:05 AM", "Outward", "INV/23-24/4817", "16/03/2024", "24AAGCR7781B1ZK", "Gujarat Express Logistics", "Pune", "Ahmedabad", "MH12RT6633", "664", "2", "73181500", "86400.00", "0.00", "0.00", "15552.00", "101952.00", "20/03/2024 11:59 PM", "Active"],
+        ["271008456715", "18/03/2024 12:40 PM", "Outward", "INV/23-24/4822", "18/03/2024", "27AAJCS5530D1Z2", "Sai Shraddha Roadlines", "Pune", "Aurangabad", "MH12QW4471", "236", "4", "87083000", "174200.00", "15678.00", "15678.00", "0.00", "205556.00", "20/03/2024 11:59 PM", "Cancelled"],
+        ["271008456716", "18/03/2024 06:15 PM", "Outward", "INV/23-24/4825", "18/03/2024", "33AACCT9014H1ZM", "Southern Roadways Cargo", "Pune", "Chennai", "MH14HG9020", "1182", "6", "87089900", "398750.00", "0.00", "0.00", "71775.00", "470525.00", "24/03/2024 11:59 PM", "Active"]
+      ],
+      "unique": ["EWB No", "Doc No"],
+      "ids": ["Other Party GSTIN", "Vehicle No", "Main HSN Code"],
+      "roles": {
+        "EWB No": "identifier",
+        "Doc Date": "datetime",
+        "To Place": "geo",
+        "Approx Distance (Km)": "measure",
+        "Assessable Value": "currency",
+        "Total Invoice Value": "currency",
+        "Status": "dimension"
+      }
+    },
+    {
+      "id": "industrial-delhivery-client-mis",
+      "source": "Delhivery client MIS: forward shipment status report (D2C seller)",
+      "kind": "export",
+      "expect": "logistics",
+      "shape": "shipments",
+      "headers": ["Waybill", "Order ID", "Manifested On", "Picked Up On", "Promised Delivery Date", "Delivered On", "Status", "Status Type", "Payment Mode", "COD Amount", "Consignee City", "Consignee State", "Pincode", "Dead Weight (gm)", "Charged Weight (gm)", "Zone", "Attempts", "Last NDR Reason"],
+      "rows": [
+        ["1490810245632", "ORD-88412", "2024-06-03 11:42:10", "2024-06-03 18:05:44", "2024-06-07", "2024-06-06 15:20:31", "Delivered", "DL", "Pre-paid", "0", "Lucknow", "Uttar Pradesh", "226010", "450", "500", "D", "1", ""],
+        ["1490810245643", "ORD-88415", "2024-06-03 12:10:02", "2024-06-03 18:05:44", "2024-06-08", "", "Returned", "RT", "COD", "1,349", "Patna", "Bihar", "800001", "900", "1000", "E", "3", "Customer refused to accept"],
+        ["1490810245654", "ORD-88420", "2024-06-04 09:31:47", "2024-06-04 17:48:20", "2024-06-06", "2024-06-06 13:02:15", "Delivered", "DL", "COD", "799", "Pune", "Maharashtra", "411014", "300", "500", "B", "1", ""],
+        ["1490810245665", "ORD-88427", "2024-06-04 10:55:09", "2024-06-04 17:48:20", "2024-06-09", "", "In Transit", "UD", "COD", "2,199", "Guwahati", "Assam", "781006", "1200", "1500", "E", "0", ""],
+        ["1490810245676", "ORD-88431", "2024-06-05 14:20:33", "2024-06-05 19:12:06", "2024-06-08", "2024-06-09 12:44:58", "Delivered", "DL", "Pre-paid", "0", "Jaipur", "Rajasthan", "302017", "250", "500", "D", "2", "Consignee unavailable"]
+      ],
+      "unique": ["Waybill", "Order ID"],
+      "roles": {
+        "Waybill": "identifier",
+        "Manifested On": "datetime",
+        "Delivered On": "datetime",
+        "Status": "dimension",
+        "Payment Mode": "dimension",
+        "COD Amount": "currency",
+        "Consignee State": "geo",
+        "Pincode": "geo"
+      }
+    },
+    {
+      "id": "industrial-coldchain-trip-summary-uk",
+      "source": "Cold-chain monitoring platform (reefer telematics): trip temperature summary export, UK",
+      "kind": "export",
+      "expect": "logistics",
+      "shape": "shipments",
+      "headers": ["Trip Ref", "Vehicle Reg", "Trailer", "Customer", "Origin Depot", "Destination", "Departure", "Arrival", "Setpoint (°C)", "Min Temp (°C)", "Max Temp (°C)", "Avg Temp (°C)", "MKT (°C)", "Mins Out of Range", "Excursion", "Door Openings", "Distance (miles)", "Load Value (£)", "Load Status"],
+      "rows": [
+        ["TR-2405-10431", "KX21 FHD", "TRL-208", "Greenfield Foods Ltd", "Daventry DC", "Leeds", "14/05/2024 05:40", "14/05/2024 09:15", "3.0", "2.1", "4.8", "3.2", "3.3", "0", "No", "4", "118", "£18,450", "Accepted"],
+        ["TR-2405-10432", "KX21 FHD", "TRL-208", "Greenfield Foods Ltd", "Daventry DC", "Sheffield", "14/05/2024 10:30", "14/05/2024 13:05", "3.0", "2.4", "9.6", "4.1", "4.6", "38", "Yes", "7", "92", "£12,300", "QA Hold"],
+        ["TR-2405-10433", "LN70 RZT", "TRL-114", "Northbank Pharma Distribution", "Avonmouth", "Cardiff", "14/05/2024 06:10", "14/05/2024 07:35", "5.0", "3.6", "6.9", "4.9", "5.0", "0", "No", "2", "44", "£64,800", "Accepted"],
+        ["TR-2405-10434", "YH19 MWE", "TRL-301", "Polar Bay Seafood", "Grimsby", "Birmingham", "15/05/2024 04:20", "15/05/2024 07:55", "-18.0", "-21.4", "-12.2", "-18.6", "-18.1", "22", "Yes", "3", "146", "£22,950", "Rejected"],
+        ["TR-2405-10435", "LN70 RZT", "TRL-114", "Northbank Pharma Distribution", "Avonmouth", "Exeter", "15/05/2024 08:00", "15/05/2024 09:50", "5.0", "3.9", "7.4", "5.2", "5.3", "0", "No", "1", "81", "£41,200", "Accepted"]
+      ],
+      "unique": ["Trip Ref"],
+      "ids": ["Vehicle Reg", "Trailer"],
+      "roles": {
+        "Trip Ref": "identifier",
+        "Departure": "datetime",
+        "Arrival": "datetime",
+        "Min Temp (°C)": "measure",
+        "Mins Out of Range": "measure",
+        "Excursion": "boolean",
+        "Load Value (£)": "currency",
+        "Load Status": "dimension"
+      }
+    },
+    {
+      "id": "industrial-3pl-wms-inbound-grn",
+      "source": "3PL warehouse management system: inbound receiving (GRN) register, India",
+      "kind": "export",
+      "expect": "logistics",
+      "headers": ["Client", "Warehouse", "ASN No", "Gate Entry No", "Vehicle No", "Gate In Time", "Unloading Start", "Unloading End", "GRN No", "GRN Date", "Invoice No", "Expected Qty", "Received Qty", "Damaged Qty", "Short Qty", "Excess Qty", "Putaway Status", "Dock TAT (mins)"],
+      "rows": [
+        ["Brightlane Personal Care", "BHW-01", "ASN-240812-0041", "GE-11873", "MH04KL2291", "2024-08-12 09:14", "2024-08-12 10:02", "2024-08-12 11:30", "GRN-24-008811", "2024-08-12", "BPC/24/77812", "4,800", "4,776", "12", "24", "0", "Completed", "136"],
+        ["Brightlane Personal Care", "BHW-01", "ASN-240812-0042", "GE-11880", "MH43BP7710", "2024-08-12 11:48", "2024-08-12 12:40", "2024-08-12 14:05", "GRN-24-008814", "2024-08-12", "BPC/24/77815", "2,400", "2,400", "0", "0", "0", "Completed", "137"],
+        ["Kitekraft Appliances", "BHW-02", "ASN-240812-0107", "GE-11884", "GJ05BX3318", "2024-08-12 13:20", "2024-08-12 15:55", "2024-08-12 18:10", "GRN-24-008819", "2024-08-12", "KKA-INV-55120", "620", "612", "5", "8", "0", "Partial", "290"],
+        ["Urban Thread Apparel", "BHW-02", "ASN-240813-0009", "GE-11902", "MH04HY6025", "2024-08-13 08:05", "2024-08-13 08:30", "2024-08-13 10:45", "GRN-24-008826", "2024-08-13", "UTA/2425/1190", "9,600", "9,630", "0", "0", "30", "Pending", "160"],
+        ["Kitekraft Appliances", "BHW-02", "ASN-240813-0115", "GE-11910", "KA01AF8840", "2024-08-13 10:40", "2024-08-13 12:15", "2024-08-13 13:05", "GRN-24-008830", "2024-08-13", "KKA-INV-55148", "340", "338", "0", "2", "0", "Completed", "145"]
+      ],
+      "unique": ["ASN No", "Gate Entry No", "GRN No", "Invoice No"],
+      "ids": ["Vehicle No"],
+      "roles": {
+        "GRN No": "identifier",
+        "Gate In Time": "datetime",
+        "GRN Date": "datetime",
+        "Expected Qty": "measure",
+        "Received Qty": "measure",
+        "Damaged Qty": "measure",
+        "Putaway Status": "dimension",
+        "Dock TAT (mins)": "measure"
+      }
+    },
+    {
+      "id": "industrial-carrier-scorecard-monthly",
+      "source": "Shipper's monthly carrier scorecard (Excel summary, US truckload)",
+      "kind": "analyst",
+      "expect": "logistics",
+      "headers": ["Carrier", "Month", "Mode", "Loads Tendered", "Loads Accepted", "Tender Acceptance %", "On-Time Pickup %", "On-Time Delivery %", "Claims", "Claim $", "Avg Transit Days", "Cost per Mile", "Total Spend", "Score"],
+      "rows": [
+        ["Blue Ridge Carriers", "Jan 2024", "TL", "214", "201", "0.939", "0.955", "0.920", "1", "$850", "2.4", "$2.84", "$412,560", "88"],
+        ["Prairie Line Transport", "Jan 2024", "TL", "168", "141", "0.839", "0.894", "0.865", "2", "$2,310", "2.9", "$2.71", "$298,940", "74"],
+        ["Redwood Intermodal", "Jan 2024", "Intermodal", "96", "94", "0.979", "0.926", "0.840", "0", "$0", "5.6", "$2.05", "$221,300", "79"],
+        ["Blue Ridge Carriers", "Feb 2024", "TL", "198", "190", "0.960", "0.968", "0.942", "0", "$0", "2.3", "$2.79", "$386,410", "92"],
+        ["Prairie Line Transport", "Feb 2024", "TL", "175", "152", "0.869", "0.901", "0.888", "4", "$5,120", "3.0", "$2.76", "$331,780", "77"]
+      ],
+      "roles": {
+        "Month": "datetime",
+        "Mode": "dimension",
+        "Loads Tendered": "measure",
+        "Tender Acceptance %": "percentage",
+        "On-Time Delivery %": "percentage",
+        "Avg Transit Days": "measure",
+        "Total Spend": "currency"
+      }
+    },
+    {
+      "id": "industrial-truck-trip-register-hinglish",
+      "source": "Fleet owner's truck trip register (Excel, Hinglish headers, Rajasthan)",
+      "kind": "analyst",
+      "expect": "logistics",
+      "shape": "trips",
+      "headers": ["S.No", "Tarikh", "Gaadi No", "Driver Ka Naam", "Party", "Kahan Se", "Kahan Tak", "Maal", "Vajan (Ton)", "Km", "Bhada (₹)", "Diesel (Ltr)", "Diesel Kharcha (₹)", "Toll (₹)", "Driver Kharcha (₹)", "Bachat (₹)", "Bilty No", "Bhugtan"],
+      "rows": [
+        ["1", "05-08-2024", "RJ14GK5521", "Suresh Yadav", "Shree Balaji Traders", "Jaipur", "Ahmedabad", "Marble", "28", "660", "₹46,000", "190", "₹17,100", "₹4,850", "₹3,500", "₹20,550", "LR-4412", "Paid"],
+        ["2", "06-08-2024", "RJ14GK5521", "Suresh Yadav", "Gujarat Ceramics", "Ahmedabad", "Jaipur", "Tiles", "25", "660", "₹38,000", "185", "₹16,650", "₹4,850", "₹3,000", "₹13,500", "LR-4419", "Baaki"],
+        ["3", "07-08-2024", "RJ14GL0873", "Ramesh Gurjar", "Shree Balaji Traders", "Kishangarh", "Delhi", "Marble Slab", "30", "410", "₹31,500", "125", "₹11,250", "₹2,940", "₹2,500", "₹14,810", "LR-4421", "Paid"],
+        ["4", "09-08-2024", "RJ14GL0873", "Ramesh Gurjar", "Delhi Cement Agency", "Delhi", "Jaipur", "Cement", "27", "280", "₹19,800", "88", "₹7,920", "₹1,640", "₹1,800", "₹8,440", "LR-4430", "Baaki"],
+        ["5", "10-08-2024", "RJ14GK5521", "Suresh Yadav", "Rajasthan Minerals", "Jaipur", "Mumbai", "Soapstone Powder", "26", "1150", "₹78,000", "330", "₹29,700", "₹8,600", "₹6,000", "₹33,700", "LR-4436", "Paid"]
+      ],
+      "unique": ["S.No", "Bilty No"],
+      "ids": ["Gaadi No"],
+      "roles": {
+        "Tarikh": "datetime",
+        "Kahan Tak": "geo",
+        "Vajan (Ton)": "measure",
+        "Km": "measure",
+        "Bhada (₹)": "currency",
+        "Diesel (Ltr)": "measure",
+        "Bachat (₹)": "currency"
+      }
+    },
+    {
+      "id": "industrial-dw-fact-shipment",
+      "source": "Shipping aggregator analytics warehouse: fact_shipment extract (cleaned snake_case)",
+      "kind": "analyst",
+      "expect": "logistics",
+      "shape": "shipments",
+      "headers": ["shipment_sk", "awb_no", "order_ref", "carrier_cd", "service_cd", "origin_hub_cd", "dest_pincode", "dest_state_cd", "pickup_dt", "promised_dt", "delivered_dt", "first_attempt_dt", "attempt_cnt", "is_cod_flg", "is_ndr_flg", "is_rto_flg", "charged_wt_kg", "freight_amt_inr", "cod_amt_inr", "tat_days"],
+      "rows": [
+        ["900001", "77231840015", "SO-1182044", "C07", "SFC", "BOM_BHW", "560034", "KA", "2024-09-02", "2024-09-07", "2024-09-06", "2024-09-06", "1", "1", "0", "0", "0.50", "62.00", "1299.00", "4"],
+        ["900002", "77231840016", "SO-1182051", "C12", "AIR", "DEL_GGN", "700091", "WB", "2024-09-02", "2024-09-04", "2024-09-05", "2024-09-04", "2", "0", "1", "0", "1.00", "118.00", "0.00", "3"],
+        ["900003", "77231840017", "SO-1182063", "C03", "SFC", "BLR_HSK", "600042", "TN", "2024-09-03", "2024-09-06", "", "2024-09-06", "3", "1", "1", "1", "2.00", "96.00", "2450.00", ""],
+        ["900004", "77231840018", "SO-1182070", "C07", "SFC", "BOM_BHW", "411057", "MH", "2024-09-03", "2024-09-05", "2024-09-05", "2024-09-05", "1", "0", "0", "0", "0.50", "48.00", "0.00", "2"],
+        ["900005", "77231840019", "SO-1182088", "C12", "EXP", "DEL_GGN", "226016", "UP", "2024-09-04", "2024-09-07", "2024-09-08", "2024-09-07", "2", "1", "1", "0", "1.50", "104.00", "899.00", "4"]
+      ],
+      "unique": ["shipment_sk", "awb_no", "order_ref"],
+      "roles": {
+        "awb_no": "identifier",
+        "dest_pincode": "geo",
+        "pickup_dt": "datetime",
+        "delivered_dt": "datetime",
+        "is_cod_flg": "boolean",
+        "is_rto_flg": "boolean",
+        "charged_wt_kg": "measure",
+        "freight_amt_inr": "currency"
+      }
+    },
+    {
+      "id": "industrial-kaggle-amazon-delivery",
+      "source": "Amazon delivery dataset (Kaggle): last-mile delivery times by agent",
+      "kind": "dataset",
+      "expect": "logistics",
+      "shape": "shipments",
+      "headers": ["Order_ID", "Agent_Age", "Agent_Rating", "Store_Latitude", "Store_Longitude", "Drop_Latitude", "Drop_Longitude", "Order_Date", "Order_Time", "Pickup_Time", "Weather", "Traffic", "Vehicle", "Area", "Delivery_Time", "Category"],
+      "rows": [
+        ["ialx566343618", "37", "4.9", "22.745049", "75.892471", "22.765049", "75.912471", "2022-03-19", "11:30:00", "11:45:00", "Sunny", "High ", "motorcycle ", "Urban ", "120", "Clothing"],
+        ["akqg208421122", "34", "4.5", "12.913041", "77.683237", "13.043041", "77.813237", "2022-03-25", "19:45:00", "19:50:00", "Stormy", "Jam ", "scooter ", "Metropolitian ", "165", "Electronics"],
+        ["njpu434582536", "23", "4.4", "12.914264", "77.678400", "12.924264", "77.688400", "2022-03-19", "08:30:00", "08:45:00", "Sandstorms", "Low ", "motorcycle ", "Urban ", "130", "Sports"],
+        ["rjto796129700", "38", "4.7", "11.003669", "76.976494", "11.053669", "77.026494", "2022-04-05", "18:00:00", "18:10:00", "Sunny", "Medium ", "motorcycle ", "Metropolitian ", "105", "Cosmetics"],
+        ["zguw716275638", "32", "4.6", "12.972793", "80.249982", "13.012793", "80.289982", "2022-03-26", "13:30:00", "13:45:00", "Cloudy", "High ", "scooter ", "Metropolitian ", "150", "Toys"]
+      ],
+      "unique": ["Order_ID"],
+      "roles": {
+        "Order_ID": "identifier",
+        "Store_Latitude": "geo",
+        "Drop_Longitude": "geo",
+        "Order_Date": "datetime",
+        "Order_Time": "time",
+        "Pickup_Time": "time",
+        "Weather": "dimension",
+        "Delivery_Time": "measure"
+      }
+    },
+    {
+      "id": "industrial-mediation-cdr-extract",
+      "source": "Mobile operator mediation system: voice and SMS CDR extract (flattened, India)",
+      "kind": "export",
+      "expect": "telecom",
+      "headers": ["CDR_ID", "RECORD_TYPE", "CALLING_MSISDN", "CALLED_MSISDN", "IMSI", "CALL_START_TS", "CALL_END_TS", "DURATION_SEC", "SERVICE_TYPE", "CELL_ID", "LAC", "CIRCLE_CD", "ROAMING_FLG", "RATED_AMT", "TARIFF_PLAN_CD", "TERMINATION_CAUSE"],
+      "rows": [
+        ["5501882001", "MOC", "9198XXXXX231", "9187XXXXX604", "4044512XXXX7182", "2024-10-01 08:14:22", "2024-10-01 08:17:05", "163", "VOLTE", "21734", "1102", "KA", "N", "0.00", "UL299", "NORMAL_CLEARING"],
+        ["5501882002", "MTC", "9176XXXXX118", "9198XXXXX231", "4044512XXXX7182", "2024-10-01 09:02:10", "2024-10-01 09:02:41", "31", "VOLTE", "21740", "1102", "KA", "N", "0.00", "UL299", "NORMAL_CLEARING"],
+        ["5501882003", "MOC", "9198XXXXX455", "9122XXXXX870", "4044512XXXX9034", "2024-10-01 09:15:47", "2024-10-01 09:15:47", "0", "VOICE", "30512", "2207", "MH", "Y", "0.00", "PP149", "NO_ANSWER"],
+        ["5501882004", "SMS-MO", "9198XXXXX455", "9180XXXXX311", "4044512XXXX9034", "2024-10-01 10:03:05", "2024-10-01 10:03:05", "0", "SMS", "30512", "2207", "MH", "Y", "1.50", "PP149", "NORMAL_CLEARING"],
+        ["5501882005", "MOC", "9198XXXXX902", "9133XXXXX547", "4044512XXXX2210", "2024-10-01 11:21:30", "2024-10-01 11:33:12", "702", "VOICE", "21734", "1102", "KA", "N", "7.02", "PS1P", "RADIO_LINK_FAILURE"]
+      ],
+      "unique": ["CDR_ID"],
+      "ids": ["CALLING_MSISDN", "IMSI", "CELL_ID", "LAC"],
+      "roles": {
+        "CDR_ID": "identifier",
+        "RECORD_TYPE": "dimension",
+        "CALL_START_TS": "datetime",
+        "DURATION_SEC": "measure",
+        "ROAMING_FLG": "boolean",
+        "RATED_AMT": "currency",
+        "TERMINATION_CAUSE": "dimension"
+      }
+    },
+    {
+      "id": "industrial-prepaid-recharge-transactions",
+      "source": "Telecom operator: prepaid recharge transactions across retailer (LAPU) and digital channels",
+      "kind": "export",
+      "expect": "telecom",
+      "headers": ["Txn ID", "Txn Dt", "Txn Time", "MSISDN", "Circle", "Channel", "Retailer Cd", "Recharge Amt (₹)", "Pack Name", "Pack Type", "Validity (Days)", "Data Benefit (GB/day)", "Commission Amt (₹)", "Txn Status", "First Recharge Flg"],
+      "rows": [
+        ["TXN2410010000451", "01/10/2024", "08:42:17", "9198XXXX0231", "Karnataka", "LAPU (Retailer)", "RTL-KA-004512", "₹299", "UL 299", "Unlimited Combo", "28", "1.5", "₹8.97", "Success", "N"],
+        ["TXN2410010000452", "01/10/2024", "09:15:03", "9176XXXX8810", "Karnataka", "Mobile App", "", "₹719", "UL 719", "Unlimited Combo", "84", "1.5", "₹0.00", "Success", "N"],
+        ["TXN2410010000453", "01/10/2024", "11:02:56", "9188XXXX4471", "Maharashtra", "UPI Wallet", "", "₹19", "Data 19", "Data Add-on", "1", "1.0", "₹0.00", "Failed", "N"],
+        ["TXN2410010000454", "02/10/2024", "18:47:30", "9122XXXX9035", "Maharashtra", "LAPU (Retailer)", "RTL-MH-011208", "₹349", "UL 349", "Unlimited Combo", "28", "2.0", "₹10.47", "Success", "Y"],
+        ["TXN2410010000455", "03/10/2024", "20:05:12", "9198XXXX6620", "Kerala", "LAPU (Retailer)", "RTL-KL-002277", "₹100", "Talktime 100", "Talktime Top-up", "", "0.0", "₹3.00", "Success", "N"]
+      ],
+      "unique": ["Txn ID"],
+      "ids": ["MSISDN", "Retailer Cd"],
+      "roles": {
+        "Txn ID": "identifier",
+        "Txn Dt": "datetime",
+        "Txn Time": "time",
+        "Channel": "dimension",
+        "Recharge Amt (₹)": "currency",
+        "Validity (Days)": "measure",
+        "Txn Status": "dimension",
+        "First Recharge Flg": "boolean"
+      }
+    },
+    {
+      "id": "industrial-isp-ftth-subscriber-snapshot",
+      "source": "Broadband ISP billing system: monthly FTTH subscriber snapshot (India)",
+      "kind": "export",
+      "expect": "telecom",
+      "shape": "subscribers",
+      "headers": ["Snapshot Month", "Subscriber ID", "Username", "Plan Name", "Speed (Mbps)", "Billing Cycle", "Activation Date", "Status", "Zone", "City", "PIN Code", "Monthly Rental (₹)", "GST (₹)", "Outstanding (₹)", "Data Used (GB)", "Avg Session Hrs/Day", "Tickets (30d)", "Disconnected This Month"],
+      "rows": [
+        ["2024-09-30", "FTH100231", "rkumar_ftth", "Fiber 100 Mbps", "100", "Monthly", "15/03/2022", "Active", "Whitefield", "Bengaluru", "560066", "₹699", "₹125.82", "₹0", "412.6", "6.2", "0", "No"],
+        ["2024-09-30", "FTH100232", "anita.s", "Fiber 300 Mbps", "300", "Quarterly", "02/11/2023", "Active", "HSR Layout", "Bengaluru", "560102", "₹999", "₹179.82", "₹0", "865.1", "9.8", "1", "No"],
+        ["2024-09-30", "FTH100233", "vprasad01", "Fiber 50 Mbps", "50", "Monthly", "21/06/2021", "Suspended", "Kondapur", "Hyderabad", "500084", "₹499", "₹89.82", "₹1,177.64", "18.4", "0.9", "3", "No"],
+        ["2024-09-30", "FTH100234", "deepak_m", "Fiber 100 Mbps", "100", "Annual", "08/09/2020", "Disconnected", "Gachibowli", "Hyderabad", "500032", "₹699", "₹125.82", "₹0", "0.0", "0.0", "2", "Yes"],
+        ["2024-09-30", "FTH100235", "sneha.r22", "Fiber 200 Mbps", "200", "Monthly", "30/01/2024", "Active", "Kothrud", "Pune", "411038", "₹849", "₹152.82", "₹0", "640.3", "7.4", "0", "No"]
+      ],
+      "unique": ["Subscriber ID", "Username"],
+      "roles": {
+        "Snapshot Month": "datetime",
+        "Subscriber ID": "identifier",
+        "Activation Date": "datetime",
+        "Status": "dimension",
+        "PIN Code": "geo",
+        "Monthly Rental (₹)": "currency",
+        "Data Used (GB)": "measure",
+        "Disconnected This Month": "boolean"
+      }
+    },
+    {
+      "id": "industrial-tower-uptime-sla-mis",
+      "source": "Tower company: monthly site uptime and SLA penalty MIS (Excel, by circle and cluster)",
+      "kind": "analyst",
+      "expect": "telecom",
+      "shape": "network",
+      "headers": ["Circle", "Cluster", "Site ID", "Site Type", "Tenancy", "Month", "Total Hrs", "Outage Hrs", "Uptime %", "SLA Target %", "SLA Met", "EB Availability (Hrs)", "DG Run Hrs", "Battery Backup Hrs", "Diesel Consumed (L)", "Penalty (₹)"],
+      "rows": [
+        ["UP East", "Varanasi", "UPE-VNS-1042", "GBT", "3", "Aug-24", "744", "1.8", "99.76%", "99.50%", "Yes", "598.0", "132.4", "11.8", "331", "₹0"],
+        ["UP East", "Gorakhpur", "UPE-GKP-0388", "GBT", "2", "Aug-24", "744", "6.4", "99.14%", "99.50%", "No", "512.5", "210.6", "14.5", "527", "₹18,400"],
+        ["Bihar", "Patna", "BIH-PAT-0715", "RTT", "2", "Aug-24", "744", "0.5", "99.93%", "99.50%", "Yes", "690.2", "45.1", "8.2", "113", "₹0"],
+        ["Bihar", "Muzaffarpur", "BIH-MZP-0221", "GBT", "1", "Aug-24", "744", "11.2", "98.49%", "99.50%", "No", "455.8", "260.3", "16.7", "651", "₹32,750"],
+        ["UP East", "Varanasi", "UPE-VNS-1107", "RTT", "3", "Aug-24", "744", "0.0", "100.00%", "99.50%", "Yes", "640.4", "96.3", "7.3", "241", "₹0"]
+      ],
+      "unique": ["Site ID"],
+      "roles": {
+        "Site ID": "identifier",
+        "Site Type": "dimension",
+        "Outage Hrs": "measure",
+        "Uptime %": "percentage",
+        "SLA Met": "boolean",
+        "DG Run Hrs": "measure",
+        "Penalty (₹)": "currency"
+      }
+    },
+    {
+      "id": "industrial-mnp-portout-log",
+      "source": "Mobile operator: MNP port-out request log (UPC based, India)",
+      "kind": "export",
+      "expect": "telecom",
+      "headers": ["UPC Code", "MSISDN", "UPC Generated On", "Port Request Date", "Circle", "Customer Type", "Donor Operator", "Recipient Operator", "Tenure (Months)", "Last 3M ARPU (₹)", "Outstanding (₹)", "Port Status", "Rejection Reason", "Ported On", "Retention Offer Made", "Retained"],
+      "rows": [
+        ["KA392014", "9198XXXX4410", "2024-07-02", "2024-07-03", "Karnataka", "Prepaid", "Nimbus Mobile", "Vega Telecom", "26", "₹212", "₹0", "Ported", "", "2024-07-06", "Yes", "No"],
+        ["KA392588", "9176XXXX0912", "2024-07-02", "2024-07-04", "Karnataka", "Postpaid", "Nimbus Mobile", "Orbit Cellular", "54", "₹689", "₹1,240", "Rejected", "Outstanding dues", "", "Yes", "No"],
+        ["MH771203", "9122XXXX5530", "2024-07-03", "2024-07-03", "Maharashtra", "Prepaid", "Nimbus Mobile", "Vega Telecom", "7", "₹155", "₹0", "Ported", "", "2024-07-06", "No", "No"],
+        ["MH771940", "9188XXXX2276", "2024-07-04", "2024-07-05", "Maharashtra", "Prepaid", "Nimbus Mobile", "Orbit Cellular", "3", "₹99", "₹0", "Rejected", "UPC mismatch", "", "No", "No"],
+        ["KL108847", "9188XXXX7701", "2024-07-05", "2024-07-06", "Kerala", "Postpaid", "Nimbus Mobile", "Vega Telecom", "88", "₹1,099", "₹0", "Withdrawn", "", "", "Yes", "Yes"]
+      ],
+      "unique": ["UPC Code", "MSISDN"],
+      "roles": {
+        "UPC Code": "identifier",
+        "Port Request Date": "datetime",
+        "Customer Type": "dimension",
+        "Tenure (Months)": "measure",
+        "Last 3M ARPU (₹)": "currency",
+        "Port Status": "dimension",
+        "Retained": "boolean"
+      }
+    },
+    {
+      "id": "industrial-telecom-circle-scorecard-tall",
+      "source": "Telecom operator: monthly circle performance scorecard (tall Metric / Value sheet)",
+      "kind": "analyst",
+      "expect": "telecom",
+      "headers": ["Circle", "Month", "Metric", "Value", "Unit", "Target", "RAG"],
+      "rows": [
+        ["Karnataka", "Sep-24", "Subscriber Base", "18.42", "Mn", "18.50", "Amber"],
+        ["Karnataka", "Sep-24", "ARPU", "196", "₹", "200", "Amber"],
+        ["Karnataka", "Sep-24", "Monthly Churn", "2.1", "%", "2.0", "Red"],
+        ["Maharashtra", "Sep-24", "4G Data Subscribers", "14.86", "Mn", "14.00", "Green"],
+        ["Maharashtra", "Sep-24", "Call Drop Rate", "0.62", "%", "1.00", "Green"]
+      ],
+      "roles": {
+        "Metric": "dimension",
+        "Value": "measure",
+        "Unit": "dimension",
+        "RAG": "dimension"
+      }
+    },
+    {
+      "id": "industrial-kaggle-orange-telecom-churn",
+      "source": "Orange Telecom customer churn dataset (Kaggle, churn-bigml-80)",
+      "kind": "dataset",
+      "expect": "telecom",
+      "shape": "churn",
+      "headers": ["State", "Account length", "Area code", "International plan", "Voice mail plan", "Number vmail messages", "Total day minutes", "Total day calls", "Total day charge", "Total eve minutes", "Total eve calls", "Total eve charge", "Total night minutes", "Total night calls", "Total night charge", "Total intl minutes", "Total intl calls", "Total intl charge", "Customer service calls", "Churn"],
+      "rows": [
+        ["KS", "128", "415", "No", "Yes", "25", "265.1", "110", "45.07", "197.4", "99", "16.78", "244.7", "91", "11.01", "10.0", "3", "2.7", "1", "False"],
+        ["OH", "107", "415", "No", "Yes", "26", "161.6", "123", "27.47", "195.5", "103", "16.62", "254.4", "103", "11.45", "13.7", "3", "3.7", "1", "False"],
+        ["NJ", "137", "510", "No", "No", "0", "243.4", "114", "41.38", "121.2", "110", "10.3", "162.6", "104", "7.32", "12.2", "5", "3.29", "0", "False"],
+        ["OH", "84", "408", "Yes", "No", "0", "299.4", "71", "50.9", "61.9", "88", "5.26", "196.9", "89", "8.86", "6.6", "7", "1.78", "2", "False"],
+        ["IN", "65", "415", "No", "No", "0", "129.1", "137", "21.95", "228.5", "83", "19.42", "208.8", "111", "9.4", "12.7", "6", "3.43", "4", "True"]
+      ],
+      "roles": {
+        "State": "geo",
+        "Account length": "measure",
+        "International plan": "boolean",
+        "Voice mail plan": "boolean",
+        "Total day minutes": "measure",
+        "Total day charge": "currency",
+        "Customer service calls": "measure",
+        "Churn": "boolean"
+      }
+    },
+    {
+      "id": "industrial-anatel-banda-larga-fixa-pt",
+      "source": "Anatel open data (Brazil): fixed broadband accesses by municipality, Portuguese headers",
+      "kind": "dataset",
+      "expect": "telecom",
+      "headers": ["Ano", "Mês", "Grupo Econômico", "Empresa", "CNPJ", "Porte da Prestadora", "UF", "Município", "Código IBGE Município", "Faixa de Velocidade", "Tecnologia", "Meio de Acesso", "Tipo de Pessoa", "Tipo de Produto", "Acessos"],
+      "rows": [
+        ["2024", "3", "CONECTA FIBRA", "Conecta Fibra Ltda", "12.345.678/0001-90", "Pequeno Porte", "SP", "Campinas", "3509502", "> 34Mbps", "FTTH", "Fibra", "Pessoa Física", "Internet", "18452"],
+        ["2024", "3", "CONECTA FIBRA", "Conecta Fibra Ltda", "12.345.678/0001-90", "Pequeno Porte", "SP", "Sumaré", "3552403", "> 34Mbps", "FTTH", "Fibra", "Pessoa Jurídica", "Internet", "1204"],
+        ["2024", "3", "REDE SUL", "Rede Sul Telecom S.A.", "23.456.789/0001-01", "Grande Porte", "RS", "Porto Alegre", "4314902", "12Mbps a 34Mbps", "Cable Modem", "Cabo Coaxial", "Pessoa Física", "Internet", "7310"],
+        ["2024", "4", "REDE SUL", "Rede Sul Telecom S.A.", "23.456.789/0001-01", "Grande Porte", "RS", "Canoas", "4304606", "2Mbps a 12Mbps", "xDSL", "Cabo Metálico", "Pessoa Física", "Internet", "286"],
+        ["2024", "4", "VALE NET", "Vale Net Provedor Ltda ME", "34.567.890/0001-12", "Pequeno Porte", "MG", "Ipatinga", "3131307", "> 34Mbps", "FTTH", "Fibra", "Pessoa Física", "Internet", "9875"]
+      ],
+      "ids": ["CNPJ", "Código IBGE Município"],
+      "roles": {
+        "UF": "geo",
+        "Município": "geo",
+        "Faixa de Velocidade": "dimension",
+        "Tecnologia": "dimension",
+        "Tipo de Pessoa": "dimension",
+        "Acessos": "measure"
+      }
+    },
+    {
+      "id": "industrial-regie-eaux-releves-fr",
+      "source": "Water utility billing system (France): meter readings export (relevés de compteurs), French headers",
+      "kind": "export",
+      "expect": "energy_utilities",
+      "headers": ["N° Abonné", "N° Compteur", "Commune", "Code Postal", "Type d'usage", "Calibre (mm)", "Date relève précédente", "Index précédent (m³)", "Date relève", "Index relevé (m³)", "Consommation (m³)", "Type de relève", "Anomalie", "Montant HT (€)"],
+      "rows": [
+        ["AB-0048211", "21TA112045", "Annecy", "74000", "Domestique", "15", "12/09/2023", "1245", "14/03/2024", "1302", "57", "Télérelève", "Aucune", "219,45"],
+        ["AB-0048212", "19TA088102", "Annecy", "74000", "Domestique", "15", "11/09/2023", "834", "14/03/2024", "869", "35", "Réelle", "Aucune", "134,75"],
+        ["AB-0048213", "17TB045530", "Seynod", "74600", "Professionnel", "20", "13/09/2023", "6120", "15/03/2024", "6488", "368", "Télérelève", "Aucune", "1416,80"],
+        ["AB-0048214", "22TA130771", "Cran-Gevrier", "74960", "Domestique", "15", "12/09/2023", "402", "15/03/2024", "602", "200", "Télérelève", "Fuite suspectée", "770,00"],
+        ["AB-0048215", "15TA020994", "Meythet", "74960", "Domestique", "15", "14/09/2023", "2210", "18/03/2024", "2241", "31", "Estimée", "Compteur inaccessible", "119,35"]
+      ],
+      "unique": ["N° Abonné", "N° Compteur"],
+      "roles": {
+        "N° Abonné": "identifier",
+        "Commune": "geo",
+        "Code Postal": "geo",
+        "Date relève": "datetime",
+        "Index relevé (m³)": "measure",
+        "Consommation (m³)": "measure",
+        "Type de relève": "dimension",
+        "Montant HT (€)": "currency"
+      }
+    },
+    {
+      "id": "industrial-solar-plant-daily-generation",
+      "source": "Solar plant daily generation report (DGR) from the O&M contractor (Excel, Rajasthan)",
+      "kind": "analyst",
+      "expect": "energy_utilities",
+      "headers": ["Date", "Plant", "Capacity (MWp)", "Irradiation (kWh/m²)", "Inverter Generation (kWh)", "Export at Meter (kWh)", "Import (kWh)", "Net Export (kWh)", "PR (%)", "CUF (%)", "Plant Availability (%)", "Grid Availability (%)", "Grid Outage (hrs)", "Module Cleaning", "Remarks"],
+      "rows": [
+        ["01-04-2024", "SP-RJ-50 Bhadla", "50.0", "6.42", "262,850", "259,720", "410", "259,310", "80.9%", "21.61%", "99.8%", "100.0%", "0.0", "Yes", ""],
+        ["02-04-2024", "SP-RJ-50 Bhadla", "50.0", "6.18", "252,400", "249,380", "395", "248,985", "80.7%", "20.75%", "99.6%", "100.0%", "0.0", "No", ""],
+        ["03-04-2024", "SP-RJ-50 Bhadla", "50.0", "5.21", "196,300", "193,950", "420", "193,530", "74.5%", "16.13%", "99.7%", "96.7%", "0.8", "No", "Grid tripping 13:05-13:53, 220 kV line fault"],
+        ["04-04-2024", "SP-RJ-50 Bhadla", "50.0", "4.86", "190,120", "187,880", "405", "187,475", "77.3%", "15.62%", "99.9%", "100.0%", "0.0", "No", "Dust storm in afternoon, soiling loss"],
+        ["05-04-2024", "SP-RJ-50 Bhadla", "50.0", "6.35", "258,960", "255,840", "400", "255,440", "80.6%", "21.29%", "97.8%", "100.0%", "0.0", "Yes", "INV-07 tripped on DC earth fault for 2.5 hrs"]
+      ],
+      "roles": {
+        "Date": "datetime",
+        "Irradiation (kWh/m²)": "measure",
+        "Export at Meter (kWh)": "measure",
+        "PR (%)": "percentage",
+        "CUF (%)": "percentage",
+        "Grid Outage (hrs)": "measure",
+        "Module Cleaning": "boolean",
+        "Remarks": "text"
+      }
+    },
+    {
+      "id": "industrial-agmarknet-mandi-prices",
+      "source": "Agmarknet via data.gov.in: current daily prices of commodities in mandis",
+      "kind": "dataset",
+      "expect": "agriculture",
+      "headers": ["State", "District", "Market", "Commodity", "Variety", "Grade", "Arrival_Date", "Min_x0020_Price", "Max_x0020_Price", "Modal_x0020_Price"],
+      "rows": [
+        ["Maharashtra", "Nashik", "Lasalgaon", "Onion", "Red", "FAQ", "15/03/2024", "1100", "1781", "1550"],
+        ["Uttar Pradesh", "Agra", "Achnera", "Potato", "Desi", "FAQ", "15/03/2024", "900", "1050", "980"],
+        ["Madhya Pradesh", "Indore", "Indore", "Soyabean", "Yellow", "FAQ", "16/03/2024", "4250", "4610", "4480"],
+        ["Rajasthan", "Kota", "Kota", "Wheat", "Other", "FAQ", "18/03/2024", "2275", "2550", "2410"],
+        ["Gujarat", "Rajkot", "Gondal", "Groundnut", "Bold", "FAQ", "19/03/2024", "5600", "6650", "6200"]
+      ],
+      "roles": {
+        "State": "geo",
+        "District": "geo",
+        "Commodity": "dimension",
+        "Arrival_Date": "datetime",
+        "Min_x0020_Price": "currency",
+        "Modal_x0020_Price": "currency"
+      }
+    },
+    {
+      "id": "industrial-dairy-milk-collection-hinglish",
+      "source": "Village dairy cooperative: milk collection register (Excel, Hinglish headers)",
+      "kind": "analyst",
+      "expect": "agriculture",
+      "headers": ["Tarikh", "Paali", "Sadasya Code", "Sadasya Ka Naam", "Pashu", "Doodh (Ltr)", "Fat %", "SNF %", "Dar (₹/Ltr)", "Rakam (₹)", "Bhugtan Sthiti"],
+      "rows": [
+        ["01/06/2024", "Subah", "M-0142", "Ramvir Singh", "Bhains", "6.5", "7.2", "9.1", "52.40", "340.60", "Bhugtan Hua"],
+        ["01/06/2024", "Subah", "M-0157", "Kamla Devi", "Gaay", "8.0", "4.1", "8.5", "36.20", "289.60", "Bhugtan Hua"],
+        ["01/06/2024", "Shaam", "M-0142", "Ramvir Singh", "Bhains", "5.0", "7.5", "9.2", "54.10", "270.50", "Bhugtan Hua"],
+        ["02/06/2024", "Subah", "M-0163", "Suresh Kumar", "Gaay", "12.5", "3.8", "8.4", "34.80", "435.00", "Baaki"],
+        ["02/06/2024", "Shaam", "M-0171", "Geeta Yadav", "Bhains", "4.0", "6.8", "9.0", "50.30", "201.20", "Baaki"]
+      ],
+      "ids": ["Sadasya Code"],
+      "roles": {
+        "Tarikh": "datetime",
+        "Paali": "dimension",
+        "Pashu": "dimension",
+        "Doodh (Ltr)": "measure",
+        "Fat %": "percentage",
+        "Dar (₹/Ltr)": "currency",
+        "Rakam (₹)": "currency"
+      }
+    },
+    {
+      "id": "industrial-uci-ai4i-predictive-maintenance",
+      "source": "AI4I 2020 predictive maintenance dataset (UCI / Kaggle machine-learning practice table)",
+      "kind": "dataset",
+      "expect": null,
+      "headers": ["UDI", "Product ID", "Type", "Air temperature [K]", "Process temperature [K]", "Rotational speed [rpm]", "Torque [Nm]", "Tool wear [min]", "Machine failure", "TWF", "HDF", "PWF", "OSF", "RNF"],
+      "rows": [
+        ["1", "M14860", "M", "298.1", "308.6", "1551", "42.8", "0", "0", "0", "0", "0", "0", "0"],
+        ["2", "L47181", "L", "298.2", "308.7", "1408", "46.3", "3", "0", "0", "0", "0", "0", "0"],
+        ["3", "L47182", "L", "302.4", "310.9", "1325", "61.7", "189", "1", "0", "1", "0", "0", "0"],
+        ["4", "H29424", "H", "300.6", "310.0", "1612", "35.1", "87", "0", "0", "0", "0", "0", "0"],
+        ["5", "L47184", "L", "299.0", "309.4", "1282", "68.9", "216", "1", "0", "0", "0", "1", "0"]
+      ],
+      "unique": ["UDI", "Product ID"],
+      "roles": {
+        "Type": "dimension",
+        "Air temperature [K]": "measure",
+        "Rotational speed [rpm]": "measure",
+        "Torque [Nm]": "measure",
+        "Tool wear [min]": "measure",
+        "Machine failure": "boolean"
+      }
+    }
+  ]
+}

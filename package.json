@@ -10,6 +10,7 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "benchmark": "node scripts/benchmark.mjs",
     "test:watch": "vitest",
     "format": "prettier --write .",
     "bench": "vitest run tests/perf.bench.test.ts",

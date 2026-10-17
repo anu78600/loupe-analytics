@@ -1,0 +1,862 @@
+{
+  "family": "people_ops",
+  "description": "People and internal operations: HRIS, payroll, leave, attendance, performance, engagement and recruiting tables, helpdesk, IT service desk and contact-centre exports, plus project tracking, timesheets and purchasing tables.",
+  "fixtures": [
+    {
+      "id": "people_ops-workday-worker-report",
+      "source": "Workday: custom report of all active and terminated workers (Excel export)",
+      "kind": "export",
+      "expect": "hr",
+      "shape": "employees",
+      "headers": ["Employee ID", "Worker", "Business Title", "Job Profile", "Management Level", "Supervisory Organization", "Cost Center", "Location", "Hire Date", "Original Hire Date", "Termination Date", "Primary Termination Reason", "Worker Type", "Time Type", "FTE", "Total Base Pay Annualized - Amount", "Currency", "Active Status"],
+      "rows": [
+        ["21045", "Jordan Ellis", "Senior Data Analyst", "Data Analyst III", "6 Individual Contributor", "Finance Analytics (Priya Raman)", "CC1040 Finance", "USA - Austin", "03/14/2022", "03/14/2022", "", "", "Employee", "Full time", "100%", "98,500.00", "USD", "Yes"],
+        ["21046", "Maria Okafor", "Payroll Specialist", "Payroll Specialist II", "6 Individual Contributor", "Payroll Operations (Dana Whitfield)", "CC2010 People Operations", "USA - Chicago", "08/01/2019", "08/01/2019", "06/30/2025", "Resignation > Career Advancement", "Employee", "Full time", "100%", "71,200.00", "USD", "No"],
+        ["21047", "Kevin Tran", "Engineering Manager", "Software Engineering Manager", "5 Manager", "Platform Engineering (Alicia Gomez)", "CC3100 Engineering", "USA - Seattle", "11/07/2016", "05/02/2014", "", "", "Employee", "Full time", "100%", "185,000.00", "USD", "Yes"],
+        ["21048", "Hannah Brooks", "Recruiting Coordinator", "Recruiting Coordinator", "6 Individual Contributor", "Talent Acquisition (Marcus Lee)", "CC2020 Talent", "USA - Remote", "01/09/2024", "01/09/2024", "", "", "Employee", "Part time", "50%", "29,000.00", "USD", "Yes"],
+        ["21049", "Samuel Ortiz", "Customer Support Lead", "Support Team Lead", "5 Manager", "Customer Support (Erin Walsh)", "CC4050 Customer Success", "USA - Austin", "04/18/2018", "04/18/2018", "02/14/2026", "Involuntary > Performance", "Employee", "Full time", "100%", "64,750.00", "USD", "No"]
+      ],
+      "unique": ["Employee ID"],
+      "ids": [],
+      "roles": {
+        "Employee ID": "identifier",
+        "Hire Date": "datetime",
+        "Termination Date": "datetime",
+        "Time Type": "dimension",
+        "Total Base Pay Annualized - Amount": "currency",
+        "Active Status": "boolean"
+      }
+    },
+    {
+      "id": "people_ops-successfactors-mitarbeiterliste-de",
+      "source": "SAP SuccessFactors Employee Central: Mitarbeiterliste ad-hoc report (German locale)",
+      "kind": "export",
+      "expect": "hr",
+      "shape": "employees",
+      "headers": ["Benutzer-ID", "Vorname", "Nachname", "Unternehmen", "Geschäftsbereich", "Abteilung", "Kostenstelle", "Standort", "Position", "Mitarbeiterklasse", "Beschäftigungsstatus", "Einstellungsdatum", "Austrittsdatum", "Wochenarbeitsstunden", "Beschäftigungsgrad (%)", "Jahresgehalt", "Währung"],
+      "rows": [
+        ["100231", "Lukas", "Becker", "Nordhafen Logistik GmbH", "Corporate Functions", "Finanzen", "4100", "Hamburg", "Controller", "Angestellter", "Aktiv", "01.04.2019", "", "40", "100", "68400,00", "EUR"],
+        ["100232", "Sophie", "Wagner", "Nordhafen Logistik GmbH", "Operations", "Lager & Transport", "5200", "Bremen", "Schichtleiterin", "Angestellter", "Ausgetreten", "15.08.2017", "31.03.2026", "40", "100", "52800,00", "EUR"],
+        ["100233", "Jonas", "Schmitt", "Nordhafen Logistik GmbH", "Corporate Functions", "IT", "4300", "München", "Werkstudent IT-Support", "Werkstudent", "Aktiv", "01.10.2025", "", "20", "50", "15600,00", "EUR"],
+        ["100234", "Mia", "Hoffmann", "Nordhafen Digital GmbH", "Commercial", "Vertrieb", "6100", "Berlin", "Key Account Managerin", "Angestellter", "Beurlaubt", "01.02.2021", "", "30", "75", "61500,00", "EUR"],
+        ["100235", "Felix", "Krüger", "Nordhafen Logistik GmbH", "Corporate Functions", "Personal", "4200", "Hamburg", "Leiter Personal", "Leitender Angestellter", "Aktiv", "01.07.2012", "", "40", "100", "112000,00", "EUR"]
+      ],
+      "unique": ["Benutzer-ID"],
+      "ids": [],
+      "roles": {
+        "Benutzer-ID": "identifier",
+        "Abteilung": "dimension",
+        "Beschäftigungsstatus": "dimension",
+        "Einstellungsdatum": "datetime",
+        "Austrittsdatum": "datetime",
+        "Wochenarbeitsstunden": "measure",
+        "Beschäftigungsgrad (%)": "percentage",
+        "Jahresgehalt": "currency"
+      }
+    },
+    {
+      "id": "people_ops-hibob-leavers-report",
+      "source": "HiBob: leavers report (UK)",
+      "kind": "export",
+      "expect": "hr",
+      "headers": ["Employee ID", "Display name", "Department", "Site", "Job title", "Line manager", "Start date", "Termination date", "Termination type", "Termination reason", "Regretted", "Notice period (weeks)", "Length of service (years)", "Salary (GBP)"],
+      "rows": [
+        ["EMP-0412", "Olivia Hart", "Marketing", "London", "Content Marketing Manager", "Rachel Stone", "06/09/2021", "28/02/2026", "Resignation", "Better opportunity", "Yes", "4", "4.5", "£52,000"],
+        ["EMP-0413", "Callum Reid", "Engineering", "Edinburgh", "Backend Engineer", "Tom Fraser", "10/01/2023", "15/05/2026", "Resignation", "Relocation", "Yes", "4", "3.3", "£61,500"],
+        ["EMP-0414", "Priya Nair", "Customer Success", "Manchester", "Customer Success Associate", "Holly Grant", "03/04/2024", "31/03/2026", "Dismissal", "Performance", "No", "1", "2.0", "£27,500"],
+        ["EMP-0415", "George Whitaker", "Finance", "London", "Financial Controller", "Anne Patel", "14/11/2016", "30/06/2026", "Retirement", "Retirement", "No", "12", "9.6", "£78,000"],
+        ["EMP-0416", "Amelia Shaw", "Operations", "Manchester", "Operations Coordinator", "Holly Grant", "21/06/2022", "31/07/2026", "Redundancy", "Restructure", "No", "4", "4.1", "£31,200"]
+      ],
+      "unique": ["Employee ID"],
+      "ids": [],
+      "roles": {
+        "Employee ID": "identifier",
+        "Department": "dimension",
+        "Start date": "datetime",
+        "Termination date": "datetime",
+        "Termination type": "dimension",
+        "Regretted": "boolean",
+        "Notice period (weeks)": "measure",
+        "Salary (GBP)": "currency"
+      }
+    },
+    {
+      "id": "people_ops-greythr-salary-register",
+      "source": "greytHR: monthly salary register (India)",
+      "kind": "export",
+      "expect": "hr",
+      "headers": ["EMPLOYEE NO", "EMPLOYEE NAME", "DEPARTMENT", "DESIGNATION", "LOCATION", "DOJ", "PAN", "UAN", "PAID DAYS", "LOP DAYS", "BASIC", "HRA", "CONVEYANCE", "SPECIAL ALLOWANCE", "GROSS", "PF", "ESI", "PROF TAX", "INCOME TAX", "TOTAL DEDUCTIONS", "NET PAY"],
+      "rows": [
+        ["GT0101", "Rohan Kulkarni", "Finance", "Senior Accountant", "Pune", "12 Jun 2019", "AKXPK4821L", "100987654321", "30", "0", "25000", "12500", "1600", "10900", "50000", "1800", "0", "200", "2150", "4150", "45850"],
+        ["GT0102", "Sneha Patil", "Operations", "Executive - Operations", "Pune", "01 Mar 2024", "BQLPP7710H", "101234567890", "28", "2", "8400", "4200", "1493", "3640", "17733", "1008", "133", "200", "0", "1341", "16392"],
+        ["GT0103", "Arjun Menon", "Sales", "Area Sales Manager", "Bengaluru", "18 Jul 2016", "CDMPM3392K", "100456789012", "30", "0", "40000", "20000", "1600", "18400", "80000", "1800", "0", "200", "7800", "9800", "70200"],
+        ["GT0104", "Fatima Shaikh", "HR", "HR Executive", "Mumbai", "05 Jan 2023", "DEFPS5521M", "101098765432", "30", "0", "14000", "7000", "1600", "5400", "28000", "1680", "0", "200", "0", "1880", "26120"],
+        ["GT0105", "Vikram Joshi", "Operations", "Warehouse Associate", "Bhiwandi", "20 Aug 2025", "EFGPJ9083Q", "101345678901", "29", "1", "7733", "3867", "1547", "2320", "15467", "928", "116", "200", "0", "1244", "14223"]
+      ],
+      "unique": ["EMPLOYEE NO", "PAN", "UAN"],
+      "ids": [],
+      "roles": {
+        "EMPLOYEE NO": "identifier",
+        "DEPARTMENT": "dimension",
+        "DOJ": "datetime",
+        "LOP DAYS": "measure",
+        "GROSS": "currency",
+        "PF": "currency",
+        "NET PAY": "currency"
+      }
+    },
+    {
+      "id": "people_ops-zoho-people-leave-requests",
+      "source": "Zoho People: Leave Tracker, leave requests export",
+      "kind": "export",
+      "expect": "hr",
+      "headers": ["Employee ID", "Employee Name", "Department", "Leave Type", "From", "To", "Days Taken", "Reason for leave", "Approval Status", "Applied On"],
+      "rows": [
+        ["ZP1021", "Ananya Rao", "Engineering", "Casual Leave", "06-Oct-2026", "07-Oct-2026", "2", "Family function", "Approved", "29-Sep-2026"],
+        ["ZP1022", "Karthik Iyer", "Sales", "Sick Leave", "13-Oct-2026", "13-Oct-2026", "1", "Fever", "Approved", "13-Oct-2026"],
+        ["ZP1023", "Meera Pillai", "Finance", "Earned Leave", "26-Oct-2026", "30-Oct-2026", "5", "Vacation with family", "Pending", "10-Oct-2026"],
+        ["ZP1024", "Rahul Verma", "Engineering", "Leave Without Pay", "02-Nov-2026", "04-Nov-2026", "3", "Personal work", "Rejected", "08-Oct-2026"],
+        ["ZP1025", "Divya Nair", "Customer Support", "Sick Leave", "08-Oct-2026", "09-Oct-2026", "1.5", "Migraine", "Approved", "10-Oct-2026"]
+      ],
+      "unique": [],
+      "ids": ["Employee ID"],
+      "roles": {
+        "Employee ID": "identifier",
+        "Leave Type": "dimension",
+        "From": "datetime",
+        "To": "datetime",
+        "Days Taken": "measure",
+        "Approval Status": "dimension",
+        "Applied On": "datetime"
+      }
+    },
+    {
+      "id": "people_ops-darwinbox-daily-attendance",
+      "source": "Darwinbox: daily attendance report (biometric punches)",
+      "kind": "export",
+      "expect": "hr",
+      "headers": ["Employee Id", "Employee Name", "Department", "Office Location", "Date", "Shift Name", "Shift Start Time", "Shift End Time", "In Time", "Out Time", "Total Work Duration", "Late Mark", "Attendance Status"],
+      "rows": [
+        ["DBX2041", "Sanjay Gupta", "Operations", "Gurugram", "14-10-2026", "General Shift", "09:30", "18:30", "09:24", "18:41", "09:17", "No", "Present"],
+        ["DBX2042", "Pooja Sharma", "Customer Support", "Noida", "14-10-2026", "Morning Shift", "07:00", "16:00", "07:18", "16:05", "08:47", "Yes", "Present"],
+        ["DBX2043", "Imran Khan", "Finance", "Gurugram", "15-10-2026", "General Shift", "09:30", "18:30", "", "", "00:00", "No", "Absent"],
+        ["DBX2044", "Neha Bansal", "Customer Support", "Noida", "15-10-2026", "Evening Shift", "14:00", "23:00", "14:52", "19:05", "04:13", "Yes", "Half Day"],
+        ["DBX2045", "Aditya Rawat", "Operations", "Gurugram", "16-10-2026", "General Shift", "09:30", "18:30", "09:29", "19:02", "09:33", "No", "Present"]
+      ],
+      "unique": [],
+      "ids": ["Employee Id"],
+      "roles": {
+        "Employee Id": "identifier",
+        "Department": "dimension",
+        "Date": "datetime",
+        "In Time": "time",
+        "Out Time": "time",
+        "Late Mark": "boolean",
+        "Attendance Status": "dimension"
+      }
+    },
+    {
+      "id": "people_ops-greenhouse-applications",
+      "source": "Greenhouse Recruiting: candidate applications report (export)",
+      "kind": "export",
+      "expect": "hr",
+      "headers": ["Application ID", "Candidate ID", "First Name", "Last Name", "Job", "Requisition ID", "Department", "Office", "Source", "Recruiter", "Applied On", "Current Stage", "Status", "Rejection Reason", "Last Activity"],
+      "rows": [
+        ["81234567", "59112345", "Tessa", "Morgan", "Senior Product Designer", "REQ-0142", "Design", "New York", "LinkedIn (Prospecting)", "Chris Patel", "2026-08-03", "Face to Face", "Active", "", "2026-10-12"],
+        ["81234568", "59112346", "Daniel", "Kim", "Data Engineer", "REQ-0151", "Engineering", "Remote - US", "Company Website", "Lauren Diaz", "2026-08-19", "Application Review", "Rejected", "Lacking skill(s)/qualification(s)", "2026-08-22"],
+        ["81234569", "59112347", "Aisha", "Bello", "Account Executive", "REQ-0138", "Sales", "London", "Referral", "Chris Patel", "2026-07-11", "Offer", "Hired", "", "2026-09-30"],
+        ["81234570", "59112348", "Marco", "Rossi", "Data Engineer", "REQ-0151", "Engineering", "Remote - US", "Indeed", "Lauren Diaz", "2026-09-02", "Preliminary Phone Screen", "Active", "", "2026-10-09"],
+        ["81234571", "59112349", "Grace", "Liu", "Senior Product Designer", "REQ-0142", "Design", "New York", "Agency", "Chris Patel", "2026-08-27", "Take Home Test", "Rejected", "Hired another candidate", "2026-10-01"]
+      ],
+      "unique": ["Application ID", "Candidate ID"],
+      "ids": ["Requisition ID"],
+      "roles": {
+        "Application ID": "identifier",
+        "Department": "dimension",
+        "Source": "dimension",
+        "Applied On": "datetime",
+        "Current Stage": "dimension",
+        "Status": "dimension",
+        "Last Activity": "datetime"
+      }
+    },
+    {
+      "id": "people_ops-naukri-rms-candidates",
+      "source": "Naukri RMS: candidate pipeline export for open requirements (India)",
+      "kind": "export",
+      "expect": "hr",
+      "headers": ["Candidate Name", "Email ID", "Mobile No.", "Current Designation", "Current Organization", "Total Experience", "Current CTC", "Expected CTC", "Notice Period", "Current Location", "Preferred Location", "Requirement", "Stage", "Status", "Source", "Applied On"],
+      "rows": [
+        ["Ritika Sharma", "ritika.sharma@example.com", "9876501234", "Senior Software Engineer", "Brightline Tech Pvt Ltd", "5 Years 3 Months", "14.5 Lacs", "20 Lacs", "30 Days", "Bengaluru", "Bengaluru", "SSE - Java Backend (REQ-2611)", "Technical Round 1", "In Progress", "Naukri Job Posting", "12 Oct 2026"],
+        ["Mohit Agarwal", "mohit.agarwal@example.com", "9810023456", "Software Engineer", "Pinewood Infosystems", "3 Years 0 Months", "8 Lacs", "12 Lacs", "Serving Notice Period", "Pune", "Bengaluru", "SSE - Java Backend (REQ-2611)", "Screening", "Shortlisted", "Resdex", "09 Oct 2026"],
+        ["Kavya Reddy", "kavya.reddy@example.com", "9908812345", "Product Analyst", "Orbit Retail Ltd", "2 Years 6 Months", "7.2 Lacs", "10 Lacs", "15 Days or less", "Hyderabad", "Hyderabad", "Product Analyst (REQ-2604)", "HR Round", "Offered", "Employee Referral", "28 Sep 2026"],
+        ["Siddharth Bose", "siddharth.bose@example.com", "9831056789", "Lead Engineer", "Cobalt Fintech", "8 Years 1 Months", "28 Lacs", "36 Lacs", "3 Months", "Kolkata", "Bengaluru", "Engineering Manager (REQ-2598)", "Screening", "Rejected", "Naukri Job Posting", "03 Oct 2026"],
+        ["Nikita Desai", "nikita.desai@example.com", "9821098765", "Data Analyst", "Saffron Analytics", "1 Years 10 Months", "5.5 Lacs", "8 Lacs", "1 Month", "Mumbai", "Pune", "Product Analyst (REQ-2604)", "Technical Round 1", "On Hold", "Careers Page", "14 Oct 2026"]
+      ],
+      "unique": ["Email ID", "Mobile No."],
+      "ids": [],
+      "roles": {
+        "Current CTC": "currency",
+        "Expected CTC": "currency",
+        "Current Location": "geo",
+        "Stage": "dimension",
+        "Status": "dimension",
+        "Source": "dimension",
+        "Applied On": "datetime"
+      }
+    },
+    {
+      "id": "people_ops-cultureamp-engagement-responses",
+      "source": "Culture Amp: engagement survey raw response export (anonymised, Australia and New Zealand)",
+      "kind": "export",
+      "expect": "hr",
+      "headers": ["Response ID", "Submitted At", "Department", "Location", "Tenure", "Gender", "Age Bracket", "I am proud to work for Kestrel", "I would recommend Kestrel as a great place to work", "I rarely think about looking for a job at another company", "I see myself still working at Kestrel in two years' time", "Kestrel motivates me to go beyond what I would in a similar role elsewhere", "My manager genuinely cares about my wellbeing", "What is one thing we could do to improve?"],
+      "rows": [
+        ["RSP-48201", "2026-09-21T00:42:13Z", "Engineering", "Sydney", "2 - 5 years", "Female", "25-34", "4", "4", "3", "4", "3", "5", "More clarity on career paths for senior ICs."],
+        ["RSP-48202", "2026-09-21T03:15:52Z", "Sales", "Melbourne", "Less than 1 year", "Male", "18-24", "5", "5", "4", "4", "4", "4", "Onboarding was great, keep it up."],
+        ["RSP-48203", "2026-09-22T22:08:40Z", "Customer Support", "Auckland", "1 - 2 years", "Female", "25-34", "2", "2", "1", "2", "2", "3", "Workload on the support team is not sustainable."],
+        ["RSP-48204", "2026-09-23T05:31:07Z", "Engineering", "Sydney", "5+ years", "Prefer not to say", "35-44", "4", "3", "3", "4", "3", "4", ""],
+        ["RSP-48205", "2026-09-24T01:19:26Z", "Finance", "Melbourne", "2 - 5 years", "Male", "45-54", "3", "4", "2", "3", "3", "2", "Fewer meetings and more focus time."]
+      ],
+      "unique": ["Response ID"],
+      "ids": [],
+      "roles": {
+        "Response ID": "identifier",
+        "Submitted At": "datetime",
+        "Department": "dimension",
+        "Tenure": "dimension",
+        "I am proud to work for Kestrel": "measure",
+        "What is one thing we could do to improve?": "text"
+      }
+    },
+    {
+      "id": "people_ops-lattice-review-cycle-results",
+      "source": "Lattice: performance review cycle results export",
+      "kind": "export",
+      "expect": "hr",
+      "headers": ["Reviewee", "Reviewee email", "Manager", "Department", "Job title", "Start date", "Review cycle", "Self review submitted", "Manager review submitted", "Overall performance rating", "Rating (numeric)", "Calibrated rating", "Promotion nominated", "Manager comments"],
+      "rows": [
+        ["Jordan Blake", "jordan.blake@example.com", "Rita Gomez", "Engineering", "Software Engineer II", "2023-02-13", "H1 2026 Performance Review", "Yes", "Yes", "Exceeds expectations", "4", "Exceeds expectations", "Yes", "Led the billing migration ahead of schedule."],
+        ["Casey Nguyen", "casey.nguyen@example.com", "Rita Gomez", "Engineering", "Senior Software Engineer", "2020-07-06", "H1 2026 Performance Review", "Yes", "Yes", "Meets expectations", "3", "Meets expectations", "No", "Solid delivery; needs to grow cross-team influence."],
+        ["Morgan Patel", "morgan.patel@example.com", "Leah Thompson", "Marketing", "Growth Marketing Manager", "2024-04-01", "H1 2026 Performance Review", "No", "Yes", "Partially meets expectations", "2", "Meets expectations", "No", "Missed the Q1 pipeline target, strong recovery in Q2."],
+        ["Riley Chen", "riley.chen@example.com", "Leah Thompson", "Marketing", "Marketing Coordinator", "2025-01-21", "H1 2026 Performance Review", "Yes", "Yes", "Exceptional", "5", "Exceeds expectations", "Yes", "Ran three launches end to end."],
+        ["Avery Johnson", "avery.johnson@example.com", "Sam Ortega", "Customer Success", "Customer Success Manager", "2022-09-12", "H1 2026 Performance Review", "Yes", "No", "", "", "", "No", ""]
+      ],
+      "unique": ["Reviewee email"],
+      "ids": [],
+      "roles": {
+        "Department": "dimension",
+        "Start date": "datetime",
+        "Self review submitted": "boolean",
+        "Overall performance rating": "dimension",
+        "Rating (numeric)": "measure",
+        "Promotion nominated": "boolean",
+        "Manager comments": "text"
+      }
+    },
+    {
+      "id": "people_ops-kaggle-hr-comma-sep",
+      "source": "Kaggle Human Resources Analytics dataset (HR_comma_sep.csv)",
+      "kind": "dataset",
+      "expect": "hr",
+      "shape": "attrition_snapshot",
+      "headers": ["satisfaction_level", "last_evaluation", "number_project", "average_montly_hours", "time_spend_company", "Work_accident", "left", "promotion_last_5years", "sales", "salary"],
+      "rows": [
+        ["0.41", "0.52", "2", "154", "3", "0", "1", "0", "sales", "low"],
+        ["0.84", "0.91", "5", "258", "5", "0", "1", "0", "accounting", "medium"],
+        ["0.1", "0.79", "6", "281", "4", "0", "1", "0", "technical", "medium"],
+        ["0.72", "0.87", "4", "223", "3", "0", "0", "0", "IT", "low"],
+        ["0.92", "0.65", "3", "191", "2", "1", "0", "1", "support", "high"]
+      ],
+      "unique": [],
+      "ids": [],
+      "roles": {
+        "number_project": "measure",
+        "average_montly_hours": "measure",
+        "Work_accident": "boolean",
+        "left": "boolean",
+        "promotion_last_5years": "boolean",
+        "sales": "dimension",
+        "salary": "dimension"
+      }
+    },
+    {
+      "id": "people_ops-kaggle-hrdataset-v14",
+      "source": "Kaggle Human Resources Data Set by Huebner and Patalano (HRDataset_v14.csv)",
+      "kind": "dataset",
+      "expect": "hr",
+      "shape": "employees",
+      "headers": ["Employee_Name", "EmpID", "MarriedID", "MaritalStatusID", "GenderID", "EmpStatusID", "DeptID", "PerfScoreID", "FromDiversityJobFairID", "Salary", "Termd", "PositionID", "Position", "State", "Zip", "DOB", "Sex", "MaritalDesc", "CitizenDesc", "HispanicLatino", "RaceDesc", "DateofHire", "DateofTermination", "TermReason", "EmploymentStatus", "Department", "ManagerName", "ManagerID", "RecruitmentSource", "PerformanceScore", "EngagementSurvey", "EmpSatisfaction", "SpecialProjectsCount", "LastPerformanceReview_Date", "DaysLateLast30", "Absences"],
+      "rows": [
+        ["Abbott, Dana  K", "10026", "0", "0", "1", "1", "5", "4", "0", "52506", "0", "19", "Production Technician I", "MA", "01960", "07/10/83", "M ", "Single", "US Citizen", "No", "White", "7/5/2011", "", "N/A-StillEmployed", "Active", "Production       ", "Ronald Fenwick", "22", "LinkedIn", "Exceeds", "4.6", "5", "0", "1/17/2019", "0", "1"],
+        ["Barlow, Grace", "10084", "1", "1", "0", "5", "6", "3", "0", "104437", "1", "3", "Area Sales Manager", "CT", "06033", "09/21/80", "F", "Married", "US Citizen", "No", "Black or African American", "3/30/2015", "6/16/2016", "career change", "Voluntarily Terminated", "Sales", "Celia Marsh", "14", "Indeed", "Fully Meets", "4.96", "3", "0", "4/15/2016", "0", "17"],
+        ["Chen, Samuel", "10196", "0", "2", "1", "1", "3", "3", "0", "89883", "0", "9", "Data Analyst", "MA", "02451", "05/04/88", "M ", "Divorced", "US Citizen", "No", "Asian", "1/7/2013", "", "N/A-StillEmployed", "Active", "IT/IS", "Peter Halvorsen", "4", "Employee Referral", "Fully Meets", "3.8", "4", "5", "2/14/2019", "0", "9"],
+        ["Duarte, Mariana", "10305", "1", "1", "0", "4", "5", "1", "1", "56120", "1", "20", "Production Technician II", "MA", "01810", "11/23/90", "F", "Married", "Eligible NonCitizen", "Yes", "Hispanic", "9/29/2014", "9/4/2017", "attendance", "Terminated for Cause", "Production       ", "Ronald Fenwick", "22", "Diversity Job Fair", "PIP", "2.1", "2", "0", "5/13/2017", "6", "19"],
+        ["Ellison, Jordan", "10241", "0", "0", "1", "1", "4", "3", "0", "101199", "0", "24", "Software Engineer", "MA", "02134", "02/17/86", "M ", "Single", "US Citizen", "No", "Two or more races", "11/10/2014", "", "N/A-StillEmployed", "Active", "Software Engineering", "Nadia Brennan", "10", "Google Search", "Fully Meets", "4.1", "4", "4", "1/30/2019", "0", "12"]
+      ],
+      "unique": ["EmpID"],
+      "ids": [],
+      "roles": {
+        "EmpID": "identifier",
+        "Salary": "currency",
+        "Termd": "boolean",
+        "State": "geo",
+        "Zip": "geo",
+        "DateofHire": "datetime",
+        "DateofTermination": "datetime",
+        "Absences": "measure"
+      }
+    },
+    {
+      "id": "people_ops-kaggle-employee-promotion",
+      "source": "Kaggle HR Analytics: employee promotion prediction (Analytics Vidhya WNS hackathon, train.csv)",
+      "kind": "dataset",
+      "expect": "hr",
+      "headers": ["employee_id", "department", "region", "education", "gender", "recruitment_channel", "no_of_trainings", "age", "previous_year_rating", "length_of_service", "KPIs_met >80%", "awards_won?", "avg_training_score", "is_promoted"],
+      "rows": [
+        ["61942", "Sales & Marketing", "region_7", "Master's & above", "f", "sourcing", "1", "35", "5.0", "8", "1", "0", "49", "0"],
+        ["40219", "Operations", "region_22", "Bachelor's", "m", "other", "1", "30", "5.0", "4", "0", "0", "60", "0"],
+        ["17406", "Procurement", "region_26", "Bachelor's", "m", "sourcing", "2", "34", "3.0", "7", "0", "0", "68", "0"],
+        ["2542", "Technology", "region_2", "", "m", "referred", "1", "28", "", "1", "0", "0", "82", "1"],
+        ["48945", "Analytics", "region_31", "Bachelor's", "f", "other", "1", "39", "4.0", "10", "1", "1", "85", "1"]
+      ],
+      "unique": ["employee_id"],
+      "ids": [],
+      "roles": {
+        "employee_id": "identifier",
+        "department": "dimension",
+        "recruitment_channel": "dimension",
+        "age": "measure",
+        "length_of_service": "measure",
+        "avg_training_score": "measure",
+        "is_promoted": "boolean"
+      }
+    },
+    {
+      "id": "people_ops-mis-headcount-attrition-monthly",
+      "source": "HR MIS (Excel): monthly headcount and attrition by department",
+      "kind": "analyst",
+      "expect": "hr",
+      "headers": ["Month", "Department", "Opening HC", "Joiners", "Leavers", "Vol. Leavers", "Closing HC", "Avg HC", "Monthly Attrition %", "Annualised Attrition %"],
+      "rows": [
+        ["Apr-26", "Sales", "412", "28", "19", "15", "421", "416.5", "4.6%", "54.7%"],
+        ["Apr-26", "Technology", "268", "14", "6", "6", "276", "272.0", "2.2%", "26.5%"],
+        ["Apr-26", "Operations", "905", "61", "47", "39", "919", "912.0", "5.2%", "61.8%"],
+        ["May-26", "Sales", "421", "22", "25", "21", "418", "419.5", "6.0%", "71.5%"],
+        ["May-26", "Corporate", "96", "3", "1", "1", "98", "97.0", "1.0%", "12.4%"]
+      ],
+      "unique": [],
+      "ids": [],
+      "roles": {
+        "Month": "datetime",
+        "Department": "dimension",
+        "Joiners": "measure",
+        "Leavers": "measure",
+        "Closing HC": "measure",
+        "Monthly Attrition %": "percentage"
+      }
+    },
+    {
+      "id": "people_ops-pivot-headcount-by-location",
+      "source": "Workforce planning sheet: month-end headcount pivot by location and function, months as columns",
+      "kind": "analyst",
+      "expect": "hr",
+      "headers": ["Location", "Function", "Jan 2026", "Feb 2026", "Mar 2026", "Apr 2026", "May 2026", "Jun 2026", "Change since Jan", "Change since Jan %"],
+      "rows": [
+        ["London", "Commercial", "182", "185", "188", "186", "191", "194", "12", "6.6%"],
+        ["Dublin", "Customer Operations", "240", "238", "251", "263", "270", "268", "28", "11.7%"],
+        ["Kraków", "Engineering", "315", "322", "330", "329", "341", "352", "37", "11.7%"],
+        ["Austin", "Engineering", "128", "126", "124", "121", "119", "117", "-11", "-8.6%"],
+        ["Singapore", "Commercial", "64", "66", "66", "70", "73", "75", "11", "17.2%"]
+      ],
+      "unique": [],
+      "ids": [],
+      "roles": {
+        "Location": "geo",
+        "Function": "dimension",
+        "Jun 2026": "measure",
+        "Change since Jan %": "percentage"
+      }
+    },
+    {
+      "id": "people_ops-people-cost-budget-vs-actual",
+      "source": "HR business partner sheet: people cost budget vs actual by cost centre (India)",
+      "kind": "analyst",
+      "expect": ["hr", "finance"],
+      "headers": ["Cost Centre", "Cost Centre Name", "Month", "Budget HC", "Actual HC", "Budget Payroll (₹ Lakh)", "Actual Payroll (₹ Lakh)", "Variance (₹ Lakh)", "Variance %", "Comments"],
+      "rows": [
+        ["CC101", "Sales North", "Aug-26", "120", "114", "96.00", "92.40", "3.60", "3.8%", "Six open roles not yet filled"],
+        ["CC102", "Sales South", "Aug-26", "95", "98", "76.00", "80.15", "-4.15", "-5.5%", "Three early joiners from the Q3 hiring plan"],
+        ["CC201", "Technology", "Sep-26", "210", "204", "315.00", "309.80", "5.20", "1.7%", ""],
+        ["CC301", "Operations", "Sep-26", "640", "655", "224.00", "236.30", "-12.30", "-5.5%", "Overtime during the festive peak"],
+        ["CC401", "Corporate Functions", "Sep-26", "85", "83", "110.50", "108.95", "1.55", "1.4%", ""]
+      ],
+      "unique": [],
+      "ids": [],
+      "roles": {
+        "Month": "datetime",
+        "Actual HC": "measure",
+        "Budget Payroll (₹ Lakh)": "currency",
+        "Actual Payroll (₹ Lakh)": "currency",
+        "Variance (₹ Lakh)": "currency",
+        "Variance %": "percentage",
+        "Comments": "text"
+      }
+    },
+    {
+      "id": "people_ops-hr-scorecard-metric-value",
+      "source": "Quarterly HR scorecard for the leadership pack (Metric, Value, Target)",
+      "kind": "analyst",
+      "expect": "hr",
+      "headers": ["Metric", "Value", "Target", "Prior Qtr", "RAG Status"],
+      "rows": [
+        ["Headcount (end of quarter)", "1,248", "1,300", "1,212", "Amber"],
+        ["Annualised attrition", "18.4%", "15.0%", "21.1%", "Amber"],
+        ["Regretted attrition", "6.2%", "5.0%", "7.0%", "Red"],
+        ["Offer acceptance rate", "82%", "85%", "79%", "Amber"],
+        ["Average time to hire (days)", "41", "35", "46", "Red"]
+      ],
+      "unique": [],
+      "ids": [],
+      "roles": {
+        "Metric": "dimension",
+        "RAG Status": "dimension"
+      }
+    },
+    {
+      "id": "people_ops-dwh-dim-employee",
+      "source": "People analytics warehouse: dim_employee table (SCD type 2) extracted to CSV",
+      "kind": "analyst",
+      "expect": "hr",
+      "shape": "employees",
+      "headers": ["employee_sk", "emp_id", "emp_full_nm", "gender_cd", "dept_cd", "dept_nm", "grade_cd", "loc_cd", "doj_dt", "dol_dt", "emp_status_cd", "active_flg", "annual_ctc_inr", "mgr_emp_id", "eff_from_dt", "eff_to_dt", "is_current_flg"],
+      "rows": [
+        ["100231", "E10458", "Ravi Shankar", "M", "D110", "Finance", "G7", "BLR01", "2018-06-04", "", "A", "Y", "1850000", "E10012", "2025-04-01", "9999-12-31", "Y"],
+        ["100232", "E10459", "Anjali Mehra", "F", "D210", "Sales", "G5", "DEL02", "2021-01-18", "2026-07-31", "T", "N", "920000", "E10377", "2026-08-01", "9999-12-31", "Y"],
+        ["100233", "E10459", "Anjali Mehra", "F", "D210", "Sales", "G5", "DEL02", "2021-01-18", "", "A", "Y", "920000", "E10377", "2024-04-01", "2026-07-31", "N"],
+        ["100234", "E10512", "Thomas D'Souza", "M", "D310", "Technology", "G6", "BLR01", "2022-09-12", "", "A", "Y", "2400000", "E10088", "2025-04-01", "9999-12-31", "Y"],
+        ["100235", "E10533", "Sana Qureshi", "F", "D410", "Operations", "G3", "PNQ01", "2024-02-26", "", "A", "Y", "540000", "E10421", "2024-02-26", "9999-12-31", "Y"]
+      ],
+      "unique": ["employee_sk"],
+      "ids": ["emp_id"],
+      "roles": {
+        "employee_sk": "identifier",
+        "emp_id": "identifier",
+        "dept_nm": "dimension",
+        "doj_dt": "datetime",
+        "dol_dt": "datetime",
+        "active_flg": "boolean",
+        "annual_ctc_inr": "currency",
+        "is_current_flg": "boolean"
+      }
+    },
+    {
+      "id": "people_ops-folha-de-pagamento-br",
+      "source": "Planilha de folha de pagamento mensal consolidada pelo RH (Brasil)",
+      "kind": "analyst",
+      "expect": "hr",
+      "headers": ["Matrícula", "Nome", "Cargo", "Departamento", "Data de Admissão", "Competência", "Salário Base (R$)", "Horas Extras (R$)", "Adicional Noturno (R$)", "Total de Proventos (R$)", "INSS (R$)", "IRRF (R$)", "Vale-Transporte (R$)", "Total de Descontos (R$)", "Salário Líquido (R$)", "FGTS (R$)"],
+      "rows": [
+        ["000123", "Ana Paula Souza", "Analista de RH", "Recursos Humanos", "03/02/2020", "09/2026", "4.800,00", "0,00", "0,00", "4.800,00", "481,59", "0,00", "288,00", "769,59", "4.030,41", "384,00"],
+        ["000124", "Carlos Eduardo Lima", "Operador de Empilhadeira", "Logística", "15/07/2022", "09/2026", "2.650,00", "361,36", "212,00", "3.223,36", "280,22", "0,00", "159,00", "439,22", "2.784,14", "257,87"],
+        ["000125", "Juliana Ferreira", "Gerente Comercial", "Comercial", "10/01/2017", "09/2026", "12.500,00", "0,00", "0,00", "12.500,00", "951,63", "2.267,07", "0,00", "3.218,70", "9.281,30", "1.000,00"],
+        ["000126", "Marcos Vinícius Rocha", "Auxiliar de Produção", "Produção", "02/05/2024", "09/2026", "1.950,00", "177,27", "390,00", "2.517,27", "203,78", "0,00", "117,00", "320,78", "2.196,49", "201,38"],
+        ["000127", "Beatriz Almeida", "Desenvolvedora Pleno", "Tecnologia", "21/03/2023", "08/2026", "7.900,00", "0,00", "0,00", "7.900,00", "915,59", "1.011,98", "0,00", "1.927,57", "5.972,43", "632,00"]
+      ],
+      "unique": ["Matrícula"],
+      "ids": [],
+      "roles": {
+        "Matrícula": "identifier",
+        "Departamento": "dimension",
+        "Data de Admissão": "datetime",
+        "Salário Base (R$)": "currency",
+        "Total de Proventos (R$)": "currency",
+        "INSS (R$)": "currency",
+        "Salário Líquido (R$)": "currency"
+      }
+    },
+    {
+      "id": "people_ops-jira-service-management-requests",
+      "source": "Jira Service Management: issue search CSV export (internal IT service desk)",
+      "kind": "export",
+      "expect": "support",
+      "shape": "tickets",
+      "headers": ["Summary", "Issue key", "Issue id", "Issue Type", "Status", "Priority", "Resolution", "Assignee", "Reporter", "Created", "Updated", "Resolved", "Custom field (Request Type)", "Custom field (Satisfaction rating)", "Components"],
+      "rows": [
+        ["Cannot connect to VPN from home", "ITSD-4821", "61204", "Incident", "Resolved", "High", "Done", "Ethan Cole", "Mia Turner", "14/Oct/26 9:42 AM", "14/Oct/26 2:10 PM", "14/Oct/26 2:08 PM", "Report a system problem", "4", "Network"],
+        ["New laptop for joiner starting 2 Nov", "ITSD-4822", "61205", "Service Request", "In Progress", "Medium", "", "Priya Shah", "Liam Harris", "14/Oct/26 11:05 AM", "16/Oct/26 4:30 PM", "", "Request new hardware", "", "Laptops"],
+        ["Reset MFA for Okta account", "ITSD-4823", "61206", "Service Request", "Closed", "High", "Done", "Ethan Cole", "Zoe Clarke", "15/Oct/26 8:17 AM", "15/Oct/26 8:45 AM", "15/Oct/26 8:39 AM", "Reset password", "5", "Identity & Access"],
+        ["Access to Salesforce reports folder", "ITSD-4824", "61207", "Service Request", "Waiting for customer", "Low", "", "Priya Shah", "Noah Wilson", "15/Oct/26 1:52 PM", "16/Oct/26 10:03 AM", "", "Request access", "", "SaaS Apps"],
+        ["Printer on level 3 keeps jamming", "ITSD-4825", "61208", "Incident", "Resolved", "Low", "Won't Do", "Jack Nguyen", "Ava Robinson", "16/Oct/26 3:26 PM", "17/Oct/26 9:12 AM", "17/Oct/26 9:10 AM", "Get IT help", "2", ""]
+      ],
+      "unique": ["Issue key", "Issue id"],
+      "ids": [],
+      "roles": {
+        "Summary": "text",
+        "Issue key": "identifier",
+        "Status": "dimension",
+        "Priority": "dimension",
+        "Created": "datetime",
+        "Resolved": "datetime",
+        "Custom field (Satisfaction rating)": "measure"
+      }
+    },
+    {
+      "id": "people_ops-intercom-conversations",
+      "source": "Intercom: conversations export from Reports (EU workspace)",
+      "kind": "export",
+      "expect": "support",
+      "shape": "ticket_metrics",
+      "headers": ["Conversation ID", "Conversation started at (UTC)", "Channel", "Started by", "Team currently assigned", "Teammate currently assigned", "State", "Tags", "Time to first response (seconds)", "Time to first close (seconds)", "Teammate replies", "Conversation rating", "Conversation rating remark", "Fin AI Agent involved"],
+      "rows": [
+        ["215467843210987", "2026-10-12 08:14:22", "Messenger", "User", "Tier 1 Support", "Lena Fischer", "closed", "billing, refund", "142", "3480", "3", "5", "Quick and friendly", "false"],
+        ["215467843210988", "2026-10-12 09:02:51", "Email", "User", "Billing", "Tomás García", "closed", "invoice", "5820", "91230", "4", "4", "", "false"],
+        ["215467843210989", "2026-10-12 11:37:05", "Messenger", "Lead", "Sales", "Chloé Martin", "open", "pricing", "64", "", "1", "", "", "true"],
+        ["215467843210990", "2026-10-13 14:20:48", "WhatsApp", "User", "Tier 2 Support", "Jan de Vries", "closed", "bug, mobile-app", "980", "412560", "6", "2", "Took days to fix", "false"],
+        ["215467843210991", "2026-10-14 16:45:19", "Messenger", "User", "Tier 1 Support", "", "closed", "password-reset", "12", "95", "0", "", "", "true"]
+      ],
+      "unique": ["Conversation ID"],
+      "ids": [],
+      "roles": {
+        "Conversation ID": "identifier",
+        "Conversation started at (UTC)": "datetime",
+        "Channel": "dimension",
+        "State": "dimension",
+        "Time to first response (seconds)": "measure",
+        "Time to first close (seconds)": "measure",
+        "Conversation rating": "measure",
+        "Fin AI Agent involved": "boolean"
+      }
+    },
+    {
+      "id": "people_ops-hubspot-tickets",
+      "source": "HubSpot Service Hub: tickets export",
+      "kind": "export",
+      "expect": "support",
+      "shape": "tickets",
+      "headers": ["Ticket ID", "Ticket name", "Pipeline", "Ticket status", "Priority", "Source", "Category", "Ticket owner", "Create date", "Close date", "Time to first agent reply (HH:mm:ss)", "Time to close (HH:mm:ss)", "Associated Company"],
+      "rows": [
+        ["2104857391", "Unable to export invoices to CSV", "Support Pipeline", "Closed", "High", "Email", "Product issue", "Ashley Moore", "2026-10-05 09:14", "2026-10-06 16:40", "00:42:10", "31:26:00", "Ridgeview Dental Group"],
+        ["2104857392", "Question about annual plan pricing", "Support Pipeline", "Closed", "Low", "Chat", "General inquiry", "Brian Cooper", "2026-10-05 13:02", "2026-10-05 13:25", "00:03:12", "00:23:00", "Summit Outdoor Co."],
+        ["2104857393", "Sync with accounting app failing", "Support Pipeline", "Waiting on us", "High", "Form", "Product issue", "Ashley Moore", "2026-10-07 10:48", "", "01:55:30", "", "Lakeshore Accounting LLC"],
+        ["2104857394", "Request to add SSO", "Support Pipeline", "Waiting on contact", "Medium", "Email", "Feature request", "Jasmine Price", "2026-10-08 15:20", "", "04:10:05", "", "Bluebird Freight Inc."],
+        ["2104857395", "Charged twice this month", "Support Pipeline", "Closed", "High", "Phone", "Billing issue", "Brian Cooper", "2026-10-09 08:31", "2026-10-09 11:05", "00:01:40", "02:34:00", "Maple Street Bakery"]
+      ],
+      "unique": ["Ticket ID"],
+      "ids": [],
+      "roles": {
+        "Ticket ID": "identifier",
+        "Ticket name": "text",
+        "Ticket status": "dimension",
+        "Priority": "dimension",
+        "Source": "dimension",
+        "Category": "dimension",
+        "Create date": "datetime",
+        "Close date": "datetime"
+      }
+    },
+    {
+      "id": "people_ops-five9-call-log",
+      "source": "Five9: Call Log report export (inbound contact centre, US)",
+      "kind": "export",
+      "expect": "support",
+      "headers": ["CALL ID", "DATE", "TIME", "CAMPAIGN", "CALL TYPE", "SKILL", "AGENT NAME", "DISPOSITION", "ANI", "DNIS", "QUEUE WAIT TIME", "TALK TIME", "HOLD TIME", "AFTER CALL WORK TIME", "HANDLE TIME", "ABANDONED", "TRANSFERS"],
+      "rows": [
+        ["300212784501", "10/12/2026", "09:14:22", "Inbound_Billing", "Inbound", "Billing_English", "Tanya Rhodes", "Resolved", "5125550143", "8005550100", "00:00:48", "00:06:12", "00:00:35", "00:01:20", "00:08:07", "0", "0"],
+        ["300212784502", "10/12/2026", "09:16:05", "Inbound_Support", "Inbound", "Tech_Support_Tier1", "Marcus Bell", "Transferred to Tier 2", "7135550187", "8005550101", "00:02:31", "00:09:44", "00:02:10", "00:00:45", "00:12:39", "0", "1"],
+        ["300212784503", "10/12/2026", "09:21:47", "Inbound_Support", "Inbound", "Tech_Support_Tier1", "", "Abandon", "2145550122", "8005550101", "00:03:58", "00:00:00", "00:00:00", "00:00:00", "00:00:00", "1", "0"],
+        ["300212784504", "10/13/2026", "14:02:19", "Inbound_Billing", "Inbound", "Billing_Spanish", "Lucia Ramirez", "Payment Taken", "9565550164", "8005550102", "00:00:21", "00:04:50", "00:00:00", "00:01:05", "00:05:55", "0", "0"],
+        ["300212784505", "10/13/2026", "16:40:33", "Outbound_Callbacks", "Outbound", "Billing_English", "Tanya Rhodes", "No Answer", "8005550100", "3035550119", "00:00:00", "00:00:00", "00:00:00", "00:00:15", "00:00:15", "0", "0"]
+      ],
+      "unique": ["CALL ID"],
+      "ids": [],
+      "roles": {
+        "CALL ID": "identifier",
+        "DATE": "datetime",
+        "TIME": "time",
+        "SKILL": "dimension",
+        "DISPOSITION": "dimension",
+        "ABANDONED": "boolean",
+        "TRANSFERS": "measure"
+      }
+    },
+    {
+      "id": "people_ops-freshdesk-satisfaction-survey",
+      "source": "Freshdesk: Satisfaction Survey report export (UK retailer)",
+      "kind": "export",
+      "expect": "support",
+      "shape": "csat",
+      "headers": ["Ticket ID", "Subject", "Agent", "Group", "Requester", "Survey", "Rating", "Feedback", "Ticket created at", "Responded at"],
+      "rows": [
+        ["58213", "Order arrived damaged", "Harriet Cole", "Returns", "Sarah Mills", "Default Satisfaction Survey", "Awesome", "Replacement sent the same day, thank you!", "2026-10-12 09:14:33", "2026-10-13 18:02:11"],
+        ["58214", "Where is my refund?", "Dev Mistry", "Billing", "Tom Barker", "Default Satisfaction Survey", "Not Good", "Had to chase three times.", "2026-10-12 15:40:02", "2026-10-15 08:21:47"],
+        ["58215", "Change delivery address", "Harriet Cole", "Orders", "Emma Lewis", "Default Satisfaction Survey", "Just Okay", "", "2026-10-13 10:05:19", "2026-10-13 12:47:30"],
+        ["58216", "Discount code not applying", "Megan Price", "Orders", "Oliver Brown", "Default Satisfaction Survey", "Awesome", "Sorted in minutes.", "2026-10-14 13:28:55", "2026-10-14 16:03:12"],
+        ["58217", "Wrong size received", "Dev Mistry", "Returns", "Grace Hall", "Default Satisfaction Survey", "Just Okay", "Exchange took a week.", "2026-10-15 08:47:10", "2026-10-21 10:15:44"]
+      ],
+      "unique": ["Ticket ID"],
+      "ids": [],
+      "roles": {
+        "Ticket ID": "identifier",
+        "Group": "dimension",
+        "Rating": "dimension",
+        "Feedback": "text",
+        "Responded at": "datetime"
+      }
+    },
+    {
+      "id": "people_ops-zoho-desk-tickets-fr",
+      "source": "Zoho Desk : export des tickets (interface en français)",
+      "kind": "export",
+      "expect": "support",
+      "shape": "tickets",
+      "headers": ["ID du ticket", "Objet", "Statut", "Priorité", "Canal", "Département", "Classification", "Propriétaire du ticket", "Nom du contact", "Heure de création", "Heure de fermeture", "Date d'échéance"],
+      "rows": [
+        ["104589", "Impossible de télécharger ma facture", "Fermé", "Haute", "E-mail", "Facturation", "Problème", "Camille Laurent", "Julien Moreau", "12/10/2026 09:42", "12/10/2026 15:18", "13/10/2026 09:42"],
+        ["104590", "Changer l'adresse de livraison", "Fermé", "Basse", "Téléphone", "Support Client", "Question", "Nicolas Petit", "Claire Dubois", "12/10/2026 10:05", "12/10/2026 10:21", "14/10/2026 10:05"],
+        ["104591", "L'application plante à l'ouverture", "Escaladé", "Urgente", "Web", "Support Client", "Problème", "Camille Laurent", "Hugo Lefèvre", "13/10/2026 14:37", "", "13/10/2026 18:37"],
+        ["104592", "Ajouter l'export Excel des commandes", "Ouvert", "Moyenne", "Chat", "Support Client", "Demande de fonctionnalité", "", "Léa Garnier", "14/10/2026 11:12", "", "21/10/2026 11:12"],
+        ["104593", "Remboursement non reçu", "En attente", "Haute", "E-mail", "Facturation", "Problème", "Sophie Roux", "Antoine Bernard", "15/10/2026 08:55", "", "16/10/2026 08:55"]
+      ],
+      "unique": ["ID du ticket"],
+      "ids": [],
+      "roles": {
+        "ID du ticket": "identifier",
+        "Objet": "text",
+        "Statut": "dimension",
+        "Priorité": "dimension",
+        "Canal": "dimension",
+        "Heure de création": "datetime",
+        "Heure de fermeture": "datetime"
+      }
+    },
+    {
+      "id": "people_ops-pwc-call-centre-dataset",
+      "source": "PwC Switzerland Power BI job simulation: call centre dataset (Kaggle)",
+      "kind": "dataset",
+      "expect": "support",
+      "headers": ["Call Id", "Agent", "Date", "Time", "Topic", "Answered (Y/N)", "Resolved", "Speed of answer in seconds", "AvgTalkDuration", "Satisfaction rating"],
+      "rows": [
+        ["ID0001", "Diane", "2021-01-01", "9:12:58", "Contract related", "Y", "Y", "98", "00:02:23", "3"],
+        ["ID0002", "Becky", "2021-01-01", "9:12:58", "Technical Support", "Y", "N", "75", "00:04:02", "3"],
+        ["ID0003", "Stewart", "2021-01-01", "9:47:31", "Contract related", "Y", "Y", "10", "00:02:11", "4"],
+        ["ID0004", "Greg", "2021-01-02", "10:13:12", "Payment related", "Y", "Y", "53", "00:00:37", "2"],
+        ["ID0005", "Becky", "2021-03-30", "16:59:46", "Streaming", "N", "N", "", "", ""]
+      ],
+      "unique": ["Call Id"],
+      "ids": [],
+      "roles": {
+        "Call Id": "identifier",
+        "Date": "datetime",
+        "Time": "time",
+        "Topic": "dimension",
+        "Answered (Y/N)": "boolean",
+        "Resolved": "boolean",
+        "Speed of answer in seconds": "measure",
+        "Satisfaction rating": "measure"
+      }
+    },
+    {
+      "id": "people_ops-uci-incident-event-log",
+      "source": "UCI Machine Learning Repository: Incident management process enriched event log (ServiceNow)",
+      "kind": "dataset",
+      "expect": "support",
+      "headers": ["number", "incident_state", "active", "reassignment_count", "reopen_count", "sys_mod_count", "made_sla", "caller_id", "opened_by", "opened_at", "sys_created_by", "sys_created_at", "sys_updated_by", "sys_updated_at", "contact_type", "location", "category", "subcategory", "u_symptom", "cmdb_ci", "impact", "urgency", "priority", "assignment_group", "assigned_to", "knowledge", "u_priority_confirmation", "notify", "problem_id", "rfc", "vendor", "caused_by", "closed_code", "resolved_by", "resolved_at", "closed_at"],
+      "rows": [
+        ["INC0000045", "New", "true", "0", "0", "0", "true", "Caller 2403", "Opened by 8", "29/2/2016 01:16", "Created by 6", "29/2/2016 01:23", "Updated by 21", "29/2/2016 01:23", "Phone", "Location 143", "Category 55", "Subcategory 170", "Symptom 72", "?", "2 - Medium", "2 - Medium", "3 - Moderate", "Group 56", "?", "true", "false", "Do Not Notify", "?", "?", "?", "?", "code 5", "Resolved by 149", "29/2/2016 11:29", "5/3/2016 12:00"],
+        ["INC0000045", "Active", "true", "0", "0", "1", "true", "Caller 2403", "Opened by 8", "29/2/2016 01:16", "Created by 6", "29/2/2016 01:23", "Updated by 642", "29/2/2016 08:53", "Phone", "Location 143", "Category 55", "Subcategory 170", "Symptom 72", "?", "2 - Medium", "2 - Medium", "3 - Moderate", "Group 56", "Resolver 89", "true", "false", "Do Not Notify", "?", "?", "?", "?", "code 5", "Resolved by 149", "29/2/2016 11:29", "5/3/2016 12:00"],
+        ["INC0000045", "Resolved", "true", "0", "0", "2", "true", "Caller 2403", "Opened by 8", "29/2/2016 01:16", "Created by 6", "29/2/2016 01:23", "Updated by 804", "29/2/2016 11:29", "Phone", "Location 143", "Category 55", "Subcategory 170", "Symptom 72", "?", "2 - Medium", "2 - Medium", "3 - Moderate", "Group 56", "Resolver 89", "true", "false", "Do Not Notify", "?", "?", "?", "?", "code 5", "Resolved by 149", "29/2/2016 11:29", "5/3/2016 12:00"],
+        ["INC0000047", "Active", "true", "1", "0", "1", "true", "Caller 4416", "Opened by 397", "29/2/2016 04:40", "Created by 171", "29/2/2016 04:57", "Updated by 746", "29/2/2016 05:18", "Email", "Location 165", "Category 40", "Subcategory 215", "Symptom 471", "?", "2 - Medium", "2 - Medium", "3 - Moderate", "Group 70", "Resolver 31", "true", "false", "Do Not Notify", "?", "?", "?", "?", "code 5", "Resolved by 81", "1/3/2016 09:52", "6/3/2016 10:00"],
+        ["INC0000047", "Awaiting User Info", "true", "1", "0", "3", "false", "Caller 4416", "Opened by 397", "29/2/2016 04:40", "Created by 171", "29/2/2016 04:57", "Updated by 908", "1/3/2016 06:53", "Email", "Location 165", "Category 40", "Subcategory 215", "Symptom 471", "?", "2 - Medium", "2 - Medium", "3 - Moderate", "Group 70", "Resolver 31", "true", "false", "Do Not Notify", "?", "?", "?", "?", "code 5", "Resolved by 81", "1/3/2016 09:52", "6/3/2016 10:00"]
+      ],
+      "unique": [],
+      "ids": ["number"],
+      "roles": {
+        "number": "identifier",
+        "incident_state": "dimension",
+        "active": "boolean",
+        "made_sla": "boolean",
+        "reassignment_count": "measure",
+        "opened_at": "datetime",
+        "contact_type": "dimension",
+        "priority": "dimension"
+      }
+    },
+    {
+      "id": "people_ops-support-weekly-sla-summary",
+      "source": "Support operations weekly SLA summary by team and region (dbt model export)",
+      "kind": "analyst",
+      "expect": "support",
+      "headers": ["week_start", "team", "region", "tickets_created", "tickets_solved", "backlog_eow", "median_frt_mins", "median_resolution_hrs", "sla_breach_pct", "csat_pct", "reopen_rate"],
+      "rows": [
+        ["2026-09-07", "Tier 1", "EMEA", "1842", "1790", "312", "14", "6.2", "0.041", "0.912", "0.036"],
+        ["2026-09-07", "Billing", "EMEA", "426", "418", "74", "38", "11.5", "0.083", "0.874", "0.021"],
+        ["2026-09-14", "Tier 1", "NA", "2210", "2302", "265", "11", "5.4", "0.029", "0.928", "0.031"],
+        ["2026-09-14", "Tier 2", "NA", "388", "341", "196", "95", "31.8", "0.152", "0.861", "0.058"],
+        ["2026-09-21", "Tier 1", "APAC", "964", "951", "140", "22", "8.9", "0.057", "0.903", "0.044"]
+      ],
+      "unique": [],
+      "ids": [],
+      "roles": {
+        "week_start": "datetime",
+        "team": "dimension",
+        "tickets_created": "measure",
+        "median_frt_mins": "measure",
+        "sla_breach_pct": "percentage",
+        "csat_pct": "percentage",
+        "reopen_rate": "rate"
+      }
+    },
+    {
+      "id": "people_ops-bpo-agent-scorecard-monthly",
+      "source": "BPO process MIS (Excel): monthly agent performance scorecard (India)",
+      "kind": "analyst",
+      "expect": "support",
+      "headers": ["Emp Code", "Agent Name", "TL Name", "Process", "Month", "Contacts Handled", "AHT (Sec)", "FCR %", "CSAT %", "QA Score", "Login Hrs", "Absent Days", "Rating"],
+      "rows": [
+        ["BP20457", "Rakesh Yadav", "Sunita Rao", "Inbound - Telecom Postpaid", "Sep-26", "1,412", "342", "78%", "84%", "91", "186.5", "1", "Meets"],
+        ["BP20458", "Shalini Das", "Sunita Rao", "Inbound - Telecom Postpaid", "Sep-26", "1,198", "405", "71%", "79%", "86", "180.0", "2", "Below"],
+        ["BP20459", "Faizan Ali", "Manoj Kumar", "Email Support - Ecommerce", "Sep-26", "864", "512", "82%", "88%", "94", "176.0", "0", "Exceeds"],
+        ["BP20460", "Kiran Bhosale", "Manoj Kumar", "Email Support - Ecommerce", "Aug-26", "905", "488", "80%", "86%", "89", "182.5", "0", "Meets"],
+        ["BP20461", "Deepa Menon", "Sunita Rao", "Inbound - Telecom Postpaid", "Aug-26", "1,356", "361", "76%", "82%", "90", "184.0", "1", "Meets"]
+      ],
+      "unique": [],
+      "ids": ["Emp Code"],
+      "roles": {
+        "Emp Code": "identifier",
+        "Process": "dimension",
+        "Contacts Handled": "measure",
+        "AHT (Sec)": "measure",
+        "FCR %": "percentage",
+        "CSAT %": "percentage",
+        "Login Hrs": "measure"
+      }
+    },
+    {
+      "id": "people_ops-analyst-ticket-metrics-camelcase",
+      "source": "Support data warehouse: cleaned ticket metrics table (camelCase columns)",
+      "kind": "analyst",
+      "expect": "support",
+      "shape": "ticket_metrics",
+      "headers": ["ticketId", "createdAt", "firstReplyAt", "solvedAt", "channel", "priority", "productArea", "assigneeTeam", "firstReplyMins", "fullResolutionHrs", "slaBreached", "reopened", "csatScore"],
+      "rows": [
+        ["T-500812", "2026-10-01T08:12:44Z", "2026-10-01T08:31:02Z", "2026-10-01T15:40:10Z", "email", "normal", "Billing", "Payments Pod", "18", "7.5", "false", "false", "5"],
+        ["T-500813", "2026-10-01T09:05:10Z", "2026-10-01T11:47:55Z", "2026-10-03T10:02:31Z", "web", "high", "Integrations", "Platform Pod", "163", "49.0", "true", "true", "2"],
+        ["T-500814", "2026-10-02T13:22:05Z", "2026-10-02T13:23:40Z", "2026-10-02T13:51:18Z", "chat", "low", "Account Access", "Core Pod", "2", "0.5", "false", "false", "5"],
+        ["T-500815", "2026-10-03T22:48:37Z", "2026-10-04T07:15:09Z", "", "email", "urgent", "Integrations", "Platform Pod", "507", "", "true", "false", ""],
+        ["T-500816", "2026-10-04T10:10:00Z", "2026-10-04T10:42:51Z", "2026-10-05T09:12:14Z", "api", "normal", "Reporting", "Core Pod", "33", "23.0", "false", "false", "4"]
+      ],
+      "unique": ["ticketId"],
+      "ids": [],
+      "roles": {
+        "ticketId": "identifier",
+        "createdAt": "datetime",
+        "solvedAt": "datetime",
+        "channel": "dimension",
+        "priority": "dimension",
+        "firstReplyMins": "measure",
+        "slaBreached": "boolean",
+        "csatScore": "measure"
+      }
+    },
+    {
+      "id": "people_ops-jira-software-issues",
+      "source": "Jira Software: issue search CSV export (Scrum project)",
+      "kind": "export",
+      "expect": "project_management",
+      "headers": ["Summary", "Issue key", "Issue id", "Issue Type", "Status", "Project name", "Priority", "Assignee", "Reporter", "Created", "Updated", "Resolved", "Due date", "Sprint", "Custom field (Story Points)", "Labels", "Parent"],
+      "rows": [
+        ["Add PDF download to invoice history", "CP-1287", "74512", "Story", "In Progress", "Customer Portal", "Medium", "Neha Kapoor", "Daniel Reyes", "29/Sep/26 10:15 AM", "15/Oct/26 4:02 PM", "", "23/Oct/26", "CP Sprint 42", "5", "frontend", "CP-1201"],
+        ["Rounding error on order totals above 10,000", "CP-1288", "74513", "Bug", "Done", "Customer Portal", "High", "Arjun Mehta", "Sara Lindqvist", "30/Sep/26 2:41 PM", "03/Oct/26 11:20 AM", "03/Oct/26 11:20 AM", "", "CP Sprint 41", "2", "backend", "CP-1190"],
+        ["Spike: evaluate feature-flag service", "CP-1289", "74514", "Task", "To Do", "Customer Portal", "Low", "", "Daniel Reyes", "01/Oct/26 9:05 AM", "01/Oct/26 9:05 AM", "", "", "", "3", "tech-debt", ""],
+        ["Bulk upload of delivery addresses via CSV", "CP-1290", "74515", "Story", "Code Review", "Customer Portal", "Medium", "Sara Lindqvist", "Daniel Reyes", "02/Oct/26 11:47 AM", "16/Oct/26 6:18 PM", "", "30/Oct/26", "CP Sprint 42", "8", "backend", "CP-1201"],
+        ["Audit log for admin role changes", "CP-1291", "74516", "Story", "Done", "Customer Portal", "High", "Neha Kapoor", "Priya Menon", "05/Oct/26 3:30 PM", "14/Oct/26 12:02 PM", "14/Oct/26 12:02 PM", "16/Oct/26", "CP Sprint 42", "5", "security", "CP-1215"]
+      ],
+      "unique": ["Issue key", "Issue id"],
+      "ids": [],
+      "roles": {
+        "Summary": "text",
+        "Issue key": "identifier",
+        "Issue Type": "dimension",
+        "Status": "dimension",
+        "Priority": "dimension",
+        "Created": "datetime",
+        "Custom field (Story Points)": "measure"
+      }
+    },
+    {
+      "id": "people_ops-clockify-informe-detallado-es",
+      "source": "Clockify: informe detallado de horas exportado en español (agencia en España)",
+      "kind": "export",
+      "expect": "project_management",
+      "headers": ["Proyecto", "Cliente", "Descripción", "Tarea", "Usuario", "Grupo", "Correo electrónico", "Etiquetas", "Facturable", "Fecha de inicio", "Hora de inicio", "Fecha de finalización", "Hora de finalización", "Duración (h)", "Duración (decimal)", "Tarifa facturable (EUR)", "Importe facturable (EUR)"],
+      "rows": [
+        ["Rediseño web Grupo Almenara", "Grupo Almenara", "Maquetación de la home", "Desarrollo front-end", "Lucía Fernández", "Diseño", "lucia.fernandez@example.es", "", "Sí", "14/10/2026", "09:00:00", "14/10/2026", "12:30:00", "03:30:00", "3,50", "85,00", "297,50"],
+        ["Rediseño web Grupo Almenara", "Grupo Almenara", "Reunión de seguimiento con cliente", "Gestión de proyecto", "Javier Morales", "Dirección", "javier.morales@example.es", "Reunión", "Sí", "14/10/2026", "13:00:00", "14/10/2026", "14:00:00", "01:00:00", "1,00", "95,00", "95,00"],
+        ["App de reservas Clínica Sol", "Clínica Sol", "Corrección de errores en el login", "Desarrollo back-end", "Pablo Ruiz", "Desarrollo", "pablo.ruiz@example.es", "Bug", "Sí", "15/10/2026", "10:15:00", "15/10/2026", "16:45:00", "06:30:00", "6,50", "75,00", "487,50"],
+        ["Interno", "", "Formación en accesibilidad", "Formación", "Lucía Fernández", "Diseño", "lucia.fernandez@example.es", "", "No", "15/10/2026", "16:00:00", "15/10/2026", "18:00:00", "02:00:00", "2,00", "0,00", "0,00"],
+        ["App de reservas Clínica Sol", "Clínica Sol", "Pruebas de integración de pagos", "QA", "Marta Gil", "Desarrollo", "marta.gil@example.es", "", "Sí", "16/10/2026", "08:30:00", "16/10/2026", "13:15:00", "04:45:00", "4,75", "70,00", "332,50"]
+      ],
+      "unique": [],
+      "ids": [],
+      "roles": {
+        "Proyecto": "dimension",
+        "Descripción": "text",
+        "Facturable": "boolean",
+        "Fecha de inicio": "datetime",
+        "Hora de inicio": "time",
+        "Duración (decimal)": "measure",
+        "Importe facturable (EUR)": "currency"
+      }
+    },
+    {
+      "id": "people_ops-coupa-purchase-order-lines",
+      "source": "Coupa: purchase order lines export (UK entity)",
+      "kind": "export",
+      "expect": "procurement",
+      "headers": ["PO Number", "Line Num", "Created Date", "Status", "Supplier", "Description", "Commodity", "Quantity", "UOM", "Price", "Total", "Currency", "Received Quantity", "Need By Date", "Requester", "Account"],
+      "rows": [
+        ["PO-004512", "1", "05/10/2026", "Issued", "Northgate Office Supplies Ltd", "A4 copier paper 80gsm, box of 5 reams", "Office Supplies", "40", "EA", "22.50", "900.00", "GBP", "40", "12/10/2026", "Hannah Wright", "6100-OPS-UK"],
+        ["PO-004512", "2", "05/10/2026", "Issued", "Northgate Office Supplies Ltd", "Toner cartridge, black, high yield", "Office Supplies", "6", "EA", "118.00", "708.00", "GBP", "0", "12/10/2026", "Hannah Wright", "6100-OPS-UK"],
+        ["PO-004513", "1", "06/10/2026", "Closed", "Brightwire IT Services", "Laptop 14in, 32GB RAM, 3-year warranty", "IT Hardware", "10", "EA", "1,149.00", "11,490.00", "GBP", "10", "20/10/2026", "Aaron Fletcher", "6500-IT-UK"],
+        ["PO-004514", "1", "07/10/2026", "Issued", "Clearview Recruitment Partners", "Contract recruiter, 3 months", "Professional Services", "1", "EA", "18,600.00", "18,600.00", "GBP", "0", "31/12/2026", "Lisa Okoro", "6200-HR-UK"],
+        ["PO-004515", "1", "08/10/2026", "Cancelled", "Greenleaf Facilities Ltd", "Office deep clean, Leeds", "Facilities", "2", "EA", "650.00", "1,300.00", "GBP", "0", "17/10/2026", "Hannah Wright", "6100-OPS-UK"]
+      ],
+      "unique": [],
+      "ids": ["PO Number"],
+      "roles": {
+        "PO Number": "identifier",
+        "Created Date": "datetime",
+        "Status": "dimension",
+        "Commodity": "dimension",
+        "Quantity": "measure",
+        "Price": "currency",
+        "Total": "currency"
+      }
+    },
+    {
+      "id": "people_ops-vendor-spend-pivot-by-quarter",
+      "source": "Procurement team sheet: vendor-wise spend pivot by quarter, FY26 (India)",
+      "kind": "analyst",
+      "expect": "procurement",
+      "headers": ["Vendor Code", "Vendor Name", "Spend Category", "Q1 FY26", "Q2 FY26", "Q3 FY26", "Q4 FY26", "FY26 Total", "% of Spend", "MSME (Y/N)"],
+      "rows": [
+        ["V10021", "Shree Ganesh Packaging Pvt Ltd", "Packaging Material", "₹12,45,600", "₹14,02,300", "₹13,88,750", "₹16,10,200", "₹56,46,850", "18.2%", "Y"],
+        ["V10034", "Apex Industrial Gases", "Utilities", "₹4,20,000", "₹4,35,500", "₹4,18,900", "₹4,51,200", "₹17,25,600", "5.6%", "N"],
+        ["V10052", "Metro Logistics Solutions", "Freight & Logistics", "₹9,86,450", "₹11,24,800", "₹10,75,300", "₹12,98,600", "₹44,85,150", "14.5%", "Y"],
+        ["V10067", "Nexa IT Services LLP", "IT Services", "₹3,60,000", "₹3,60,000", "₹3,60,000", "₹3,60,000", "₹14,40,000", "4.6%", "N"],
+        ["V10089", "Kaveri Engineering Works", "MRO Spares", "₹2,14,380", "₹1,86,920", "₹2,47,610", "₹2,03,090", "₹8,52,000", "2.7%", "Y"]
+      ],
+      "unique": ["Vendor Code"],
+      "ids": [],
+      "roles": {
+        "Vendor Code": "identifier",
+        "Spend Category": "dimension",
+        "Q1 FY26": "currency",
+        "FY26 Total": "currency",
+        "% of Spend": "percentage",
+        "MSME (Y/N)": "boolean"
+      }
+    }
+  ]
+}

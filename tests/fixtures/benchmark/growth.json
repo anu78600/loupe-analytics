@@ -1,0 +1,563 @@
+{
+  "family": "growth",
+  "description": "Sales and marketing tables: CRM lead and deal exports, B2B invoice and distributor registers, rep targets, ad, email, SEO, social and web-analytics reports, product event logs, and the MIS sheets analysts build from them.",
+  "fixtures": [
+    {
+      "id": "growth-salesforce-dataloader-leads",
+      "source": "Salesforce Data Loader: Lead object export (API field names)",
+      "kind": "export",
+      "expect": "marketing",
+      "shape": "leads",
+      "headers": ["Id", "OwnerId", "FirstName", "LastName", "Company", "Title", "Email", "Phone", "City", "State", "Country", "LeadSource", "Status", "Rating", "Industry", "AnnualRevenue", "NumberOfEmployees", "IsConverted", "ConvertedDate", "CreatedDate"],
+      "rows": [
+        ["00Q5j00000Kx3TQEAZ", "0055j000006a1BcAAI", "Megan", "Ortiz", "Brightline Logistics", "VP Operations", "megan.ortiz@brightlinelogistics.example", "(512) 555-0147", "Austin", "TX", "United States", "Web", "Working - Contacted", "Warm", "Transportation", "42000000", "180", "false", "", "2024-03-04T15:22:10.000Z"],
+        ["00Q5j00000Kx3UBEAZ", "0055j000006a1BdAAI", "Trevor", "Huang", "Pinecrest Dental Partners", "Practice Manager", "t.huang@pinecrestdental.example", "(303) 555-0192", "Denver", "CO", "United States", "Partner Referral", "Closed - Converted", "Hot", "Healthcare", "8500000", "65", "true", "2024-03-27", "2024-03-06T18:40:55.000Z"],
+        ["00Q5j00000Kx3V8EAJ", "0055j000006a1BcAAI", "Alicia", "Moreno", "Sunvale Foods", "Purchasing Director", "amoreno@sunvalefoods.example", "(916) 555-0113", "Sacramento", "CA", "United States", "Trade Show", "Open - Not Contacted", "Cold", "Food & Beverage", "120000000", "540", "false", "", "2024-03-11T14:05:31.000Z"],
+        ["00Q5j00000Kx3WaEAJ", "0055j000006a1BeAAI", "Daniel", "Brooks", "Ironwood Fabrication", "Plant Manager", "dbrooks@ironwoodfab.example", "(414) 555-0168", "Milwaukee", "WI", "United States", "Purchased List", "Closed - Not Converted", "Cold", "Manufacturing", "26000000", "210", "false", "", "2024-03-12T16:18:02.000Z"],
+        ["00Q5j00000Kx3XkEAJ", "0055j000006a1BdAAI", "Priya", "Desai", "Northgate Credit Union", "CIO", "priya.desai@northgatecu.example", "(614) 555-0131", "Columbus", "OH", "United States", "Phone Inquiry", "Working - Contacted", "Hot", "Banking", "64000000", "320", "false", "", "2024-03-15T13:47:49.000Z"]
+      ],
+      "unique": ["Id"],
+      "ids": ["OwnerId"],
+      "roles": { "Id": "identifier", "LeadSource": "dimension", "Status": "dimension", "State": "geo", "AnnualRevenue": "currency", "NumberOfEmployees": "measure", "IsConverted": "boolean", "CreatedDate": "datetime" }
+    },
+    {
+      "id": "growth-leadsquared-leads",
+      "source": "LeadSquared: Manage Leads export (online-degree admissions team)",
+      "kind": "export",
+      "expect": "marketing",
+      "shape": "leads",
+      "headers": ["Prospect ID", "First Name", "Last Name", "Email", "Phone Number", "Lead Source", "Lead Stage", "Lead Owner", "Lead Score", "Engagement Score", "Course Interested", "City", "State", "Created On", "Last Activity", "Last Activity Date", "Notes"],
+      "rows": [
+        ["4f9c2a1e-7b3d-4c11-9e55-0a6b2d8c1f37", "Rahul", "Verma", "rahul.verma92@mailbox.example", "+91-9812345670", "Google Ads", "Counselling Done", "Sneha Kapoor", "85", "14", "MBA (Online)", "Lucknow", "Uttar Pradesh", "2024-08-03 10:42:17", "Phone Conversation", "2024-08-05 16:20:03", "Wants weekend batch; asked about EMI options"],
+        ["b72e6d04-1c9a-4f8e-8d3b-5e1f0c7a2b64", "Ishita", "Banerjee", "ishita.b@mailbox.example", "+91-9831122334", "Facebook", "Prospect", "Arjun Menon", "20", "3", "PG Diploma in Data Science", "Kolkata", "West Bengal", "2024-08-04 21:15:52", "Email Opened", "2024-08-06 09:02:44", ""],
+        ["0c5d8a97-3e2f-4b61-a0d4-9f7e1b2c3d58", "Mohammed", "Irfan", "irfan.mohd@mailbox.example", "+91-9900112233", "Organic Search", "Application Submitted", "Sneha Kapoor", "140", "22", "Executive MBA", "Hyderabad", "Telangana", "2024-07-28 11:08:30", "Form Submitted on Website", "2024-08-02 14:37:15", "8 yrs experience, needs employer sponsorship letter"],
+        ["e18f4b2c-6a7d-4d93-b5c0-1a2b3c4d5e69", "Kavya", "Reddy", "kavya.reddy@mailbox.example", "+91-9845098450", "Referral", "Enrolled", "Arjun Menon", "210", "31", "MCA (Online)", "Bengaluru", "Karnataka", "2024-07-15 09:55:01", "Payment Received", "2024-07-30 12:10:48", "Paid first semester fee"],
+        ["93a6c1d7-8b2e-4f05-9c4a-7d8e9f0a1b72", "Aman", "Gill", "aman.gill@mailbox.example", "+91-9876001234", "Walk-in", "Not Interested", "Ritu Sharma", "-10", "0", "BBA", "Ludhiana", "Punjab", "2024-08-06 17:30:26", "Unreachable", "2024-08-07 11:45:09", "Fee concern, not looking this year"]
+      ],
+      "unique": ["Prospect ID"],
+      "roles": { "Prospect ID": "identifier", "Lead Source": "dimension", "Lead Stage": "dimension", "Lead Score": "measure", "City": "geo", "State": "geo", "Created On": "datetime", "Notes": "text" }
+    },
+    {
+      "id": "growth-rdstation-leads",
+      "source": "RD Station Marketing (Brasil): exportação de leads",
+      "kind": "export",
+      "expect": "marketing",
+      "shape": "leads",
+      "headers": ["Email", "Nome", "Empresa", "Cargo", "Celular", "Cidade", "Estado", "Estágio no funil", "Lead Scoring - Perfil", "Lead Scoring - Interesse", "Origem da primeira conversão", "Data da primeira conversão", "Origem da última conversão", "Data da última conversão", "Oportunidade"],
+      "rows": [
+        ["ana.souza@lojasaurora.example", "Ana Souza", "Lojas Aurora Ltda", "Gerente de Compras", "(11) 98765-4321", "São Paulo", "SP", "Lead Qualificado", "A", "60%", "ebook-gestao-de-estoque", "12/03/2024 14:05", "webinar-tendencias-varejo-2024", "02/04/2024 19:30", "true"],
+        ["rodrigo.lima@valeverde.example", "Rodrigo Lima", "Construtora Vale Verde", "Diretor Financeiro", "(41) 99812-3344", "Curitiba", "PR", "Lead", "B", "20%", "Formulário de contato", "15/03/2024 09:12", "Formulário de contato", "15/03/2024 09:12", "false"],
+        ["juliana@paodourado.example", "Juliana Ferreira", "Padaria Pão Dourado", "Proprietária", "(31) 98123-7766", "Belo Horizonte", "MG", "Lead", "D", "40%", "checklist-abertura-de-loja", "21/02/2024 22:47", "ebook-fluxo-de-caixa", "18/03/2024 08:15", "false"],
+        ["marcos.teixeira@techsul.example", "Marcos Teixeira", "TechSul Sistemas", "CTO", "(51) 99654-2210", "Porto Alegre", "RS", "Cliente", "A", "80%", "webinar-tendencias-varejo-2024", "07/02/2024 16:00", "Solicitação de demonstração", "25/03/2024 11:42", "true"],
+        ["beatriz.alves@bemviver.example", "Beatriz Alves", "Clínica Bem Viver", "Coordenadora Administrativa", "(81) 98877-1203", "Recife", "PE", "Lead Qualificado", "C", "60%", "ebook-fluxo-de-caixa", "28/03/2024 10:20", "Solicitação de demonstração", "29/03/2024 15:08", "true"]
+      ],
+      "unique": ["Email"],
+      "roles": { "Cidade": "geo", "Estado": "geo", "Estágio no funil": "dimension", "Data da primeira conversão": "datetime", "Data da última conversão": "datetime", "Oportunidade": "boolean" }
+    },
+    {
+      "id": "growth-pipedrive-deals",
+      "source": "Pipedrive: Deals export",
+      "kind": "export",
+      "expect": "sales",
+      "shape": "pipeline",
+      "headers": ["Deal - ID", "Deal - Title", "Deal - Creator", "Deal - Owner", "Deal - Value", "Deal - Currency", "Deal - Weighted value", "Deal - Probability", "Deal - Organization", "Deal - Pipeline", "Deal - Contact person", "Deal - Stage", "Deal - Status", "Deal - Deal created", "Deal - Update time", "Deal - Expected close date", "Deal - Won time", "Deal - Lost time", "Deal - Lost reason"],
+      "rows": [
+        ["1842", "Nordlicht Software deal", "Jonas Weber", "Jonas Weber", "18500", "EUR", "11100", "60", "Nordlicht Software GmbH", "Sales pipeline", "Lena Hoffmann", "Proposal Made", "Open", "2024-02-14 09:12:44", "2024-03-20 11:45:02", "2024-04-30", "", "", ""],
+        ["1847", "Vela Studio deal", "Sofie de Vries", "Sofie de Vries", "7200", "EUR", "1440", "20", "Vela Studio BV", "Sales pipeline", "Daan Bakker", "Contact Made", "Open", "2024-02-19 14:30:08", "2024-03-04 10:12:51", "2024-05-15", "", "", ""],
+        ["1851", "Kestrel Analytics deal", "Jonas Weber", "Mikko Laine", "32000", "EUR", "32000", "100", "Kestrel Analytics Oy", "Sales pipeline", "Aino Virtanen", "Negotiations Started", "Won", "2024-01-22 08:47:19", "2024-03-18 15:03:27", "2024-03-31", "2024-03-18 15:03:27", "", ""],
+        ["1856", "Atelier Rouge deal", "Claire Dubois", "Claire Dubois", "9800", "EUR", "0", "0", "Atelier Rouge SAS", "Sales pipeline", "Julien Moreau", "Demo Scheduled", "Lost", "2024-02-02 16:20:41", "2024-03-11 09:40:16", "2024-03-29", "", "2024-03-11 09:40:16", "Went with competitor"],
+        ["1860", "Brisa Retail deal", "Sofie de Vries", "Sofie de Vries", "14250", "EUR", "1425", "10", "Brisa Retail SL", "Sales pipeline", "Marta Navarro", "Qualified", "Open", "2024-03-05 11:05:33", "2024-03-06 08:30:12", "2024-06-28", "", "", ""]
+      ],
+      "unique": ["Deal - ID"],
+      "roles": { "Deal - ID": "identifier", "Deal - Value": "currency", "Deal - Probability": "percentage", "Deal - Stage": "dimension", "Deal - Status": "dimension", "Deal - Deal created": "datetime", "Deal - Expected close date": "datetime" }
+    },
+    {
+      "id": "growth-zoho-crm-deals",
+      "source": "Zoho CRM: Deals module export",
+      "kind": "export",
+      "expect": "sales",
+      "shape": "pipeline",
+      "headers": ["Record Id", "Deal Owner", "Deal Name", "Amount", "Closing Date", "Account Name", "Stage", "Type", "Lead Source", "Contact Name", "Probability (%)", "Expected Revenue", "Created Time", "Modified Time", "Reason For Loss"],
+      "rows": [
+        ["zcrm_5725767000004417025", "Karan Mehta", "Apex Pharma - ERP rollout", "450000", "2024-03-28", "Apex Formulations Pvt Ltd", "Proposal/Price Quote", "New Business", "Web Download", "Neha Joshi", "75", "337500", "2024-01-18 11:04:37", "2024-03-02 16:45:10", ""],
+        ["zcrm_5725767000004417089", "Ananya Rao", "Sunrise Hospitals - HIS upgrade", "1250000", "2024-04-15", "Sunrise Multispeciality Hospitals", "Negotiation/Review", "Existing Business", "Partner", "Vikram Shetty", "90", "1125000", "2024-01-25 09:20:11", "2024-03-10 12:02:55", ""],
+        ["zcrm_5725767000004418002", "Karan Mehta", "Indus Freight - fleet module", "280000", "2024-02-29", "Indus Freight Movers LLP", "Closed Won", "New Business", "Trade Show", "Farhan Qureshi", "100", "280000", "2023-12-06 15:41:09", "2024-02-28 18:22:40", ""],
+        ["zcrm_5725767000004418120", "Pooja Iyer", "Greenleaf Foods - CRM pilot", "95000", "2024-03-15", "Greenleaf Foods Pvt Ltd", "Closed Lost", "New Business", "Cold Call", "Sanjay Patil", "0", "0", "2024-01-09 10:15:33", "2024-03-14 17:05:12", "Price"],
+        ["zcrm_5725767000004418347", "Ananya Rao", "Vidya Schools - fee module", "160000", "2024-05-10", "Vidya Group of Schools", "Needs Analysis", "New Business", "Web Research", "Meera Pillai", "20", "32000", "2024-03-04 13:48:26", "2024-03-12 09:31:58", ""]
+      ],
+      "unique": ["Record Id"],
+      "roles": { "Record Id": "identifier", "Amount": "currency", "Expected Revenue": "currency", "Closing Date": "datetime", "Created Time": "datetime", "Stage": "dimension", "Lead Source": "dimension", "Probability (%)": "percentage" }
+    },
+    {
+      "id": "growth-sap-billing-documents",
+      "source": "SAP S/4HANA: billing document items list (ALV grid exported to spreadsheet)",
+      "kind": "export",
+      "expect": "sales",
+      "shape": "transactions",
+      "headers": ["Billing Doc.", "Item", "BillT", "Billing Date", "SOrg.", "DChl", "Dv", "Sold-to pt", "Name 1", "Material", "Description", "Billed Qty", "SU", "Net value", "Tax amount", "Curr."],
+      "rows": [
+        ["90012345", "10", "F2", "12.03.2024", "IN01", "10", "00", "100234", "Sharma Industrial Supplies", "FG-20045", "Hydraulic Hose 1/2in x 10m", "120.000", "EA", "144,000.00", "25,920.00", "INR"],
+        ["90012345", "20", "F2", "12.03.2024", "IN01", "10", "00", "100234", "Sharma Industrial Supplies", "FG-20112", "Ball Valve SS 25mm", "60.000", "EA", "51,600.00", "9,288.00", "INR"],
+        ["90012351", "10", "F2", "13.03.2024", "IN01", "10", "00", "100518", "Kaveri Engineering Works", "FG-30007", "Gear Pump GP-40", "8.000", "EA", "236,000.00", "42,480.00", "INR"],
+        ["90012360", "10", "F2", "15.03.2024", "IN01", "10", "00", "100307", "Patel Polymers Pvt Ltd", "FG-40210", "Coupling Kit HC-12", "250.000", "EA", "87,500.00", "15,750.00", "INR"],
+        ["90012367", "10", "F2", "18.03.2024", "IN01", "10", "00", "100642", "Deccan Auto Components", "FG-50033", "Pressure Gauge 0-100 bar", "40.000", "EA", "58,000.00", "10,440.00", "INR"]
+      ],
+      "ids": ["Billing Doc.", "Sold-to pt", "Material"],
+      "roles": { "Billing Doc.": "identifier", "Billing Date": "datetime", "Material": "identifier", "Billed Qty": "measure", "Net value": "currency", "Tax amount": "currency" }
+    },
+    {
+      "id": "growth-quickbooks-sales-by-product-detail",
+      "source": "QuickBooks Online: Sales by Product/Service Detail report (exported to Excel)",
+      "kind": "export",
+      "expect": "sales",
+      "shape": "transactions",
+      "headers": ["Date", "Transaction Type", "Num", "Customer", "Product/Service", "Memo/Description", "Qty", "Sales Price", "Amount", "Balance"],
+      "rows": [
+        ["03/04/2024", "Invoice", "1045", "Redwood Dental Group", "Consulting Hours", "Q1 process review", "8", "125.00", "1,000.00", "1,000.00"],
+        ["03/06/2024", "Sales Receipt", "1046", "Harbor Point Marine", "Service Call", "Emergency call-out", "1", "185.00", "185.00", "1,185.00"],
+        ["03/11/2024", "Invoice", "1047", "Summit Ridge HVAC", "Filter Pack - 12ct", "", "6", "45.00", "270.00", "1,455.00"],
+        ["03/14/2024", "Credit Memo", "1048", "Summit Ridge HVAC", "Filter Pack - 12ct", "Returned damaged pack", "-2", "45.00", "-90.00", "1,365.00"],
+        ["03/19/2024", "Invoice", "1049", "Cedar & Pine Interiors", "Installation", "Install 3 units, 2nd floor", "12", "95.00", "1,140.00", "2,505.00"]
+      ],
+      "unique": ["Num"],
+      "roles": { "Date": "datetime", "Transaction Type": "dimension", "Num": "identifier", "Qty": "measure", "Sales Price": "currency", "Amount": "currency" }
+    },
+    {
+      "id": "growth-sevdesk-rechnungen",
+      "source": "sevDesk (DE): Export der Ausgangsrechnungen",
+      "kind": "export",
+      "expect": ["sales", "finance"],
+      "headers": ["Rechnungsnummer", "Rechnungsdatum", "Lieferdatum", "Kundennummer", "Kunde", "Betreff", "Netto", "MwSt", "Brutto", "Währung", "Status", "Fälligkeit", "Bezahlt am"],
+      "rows": [
+        ["RE-2024-0187", "05.03.2024", "05.03.2024", "10023", "Müller Maschinenbau GmbH", "Wartungsvertrag Q1 2024", "2.400,00", "456,00", "2.856,00", "EUR", "Bezahlt", "19.03.2024", "18.03.2024"],
+        ["RE-2024-0188", "07.03.2024", "06.03.2024", "10041", "Becker & Söhne KG", "Lieferung Ersatzteile", "865,50", "164,45", "1.029,95", "EUR", "Offen", "21.03.2024", ""],
+        ["RE-2024-0189", "11.03.2024", "08.03.2024", "10007", "Hansa Logistik AG", "Montage Förderband", "12.750,00", "2.422,50", "15.172,50", "EUR", "Bezahlt", "10.04.2024", "04.04.2024"],
+        ["RE-2024-0190", "14.03.2024", "14.03.2024", "10058", "Schröder Elektrotechnik", "Beratung Energieaudit", "1.980,00", "376,20", "2.356,20", "EUR", "Offen", "28.03.2024", ""],
+        ["RE-2024-0191", "20.03.2024", "20.03.2024", "10023", "Müller Maschinenbau GmbH", "Software-Lizenz Jahresgebühr", "4.200,00", "798,00", "4.998,00", "EUR", "Bezahlt", "03.04.2024", "02.04.2024"]
+      ],
+      "unique": ["Rechnungsnummer"],
+      "ids": ["Kundennummer"],
+      "roles": { "Rechnungsnummer": "identifier", "Rechnungsdatum": "datetime", "Kundennummer": "identifier", "Netto": "currency", "Brutto": "currency", "Status": "dimension", "Fälligkeit": "datetime" }
+    },
+    {
+      "id": "growth-dms-secondary-sales",
+      "source": "FMCG distributor management system: secondary sales export (retailer invoice lines)",
+      "kind": "export",
+      "expect": "sales",
+      "shape": "transactions",
+      "headers": ["DIST_CODE", "DIST_NAME", "BEAT_NAME", "DSR_NAME", "RETAILER_CODE", "RETAILER_NAME", "RETAILER_CHANNEL", "INV_NO", "INV_DATE", "SKU_CODE", "SKU_NAME", "BRAND", "QTY_CS", "QTY_PCS", "MRP", "PTR", "GROSS_AMT", "SCHEME_DISC", "TAX_AMT", "NET_AMT"],
+      "rows": [
+        ["DST0451", "Shree Balaji Agencies", "Rajajinagar Beat 2", "Ravi Kumar", "RT0458231", "Sri Lakshmi Stores", "Kirana", "SI/24-25/00873", "03-04-2024", "SKU10023", "Glucose Biscuit 100g", "CrunchyDay", "2", "6", "10.00", "8.40", "453.60", "22.68", "77.57", "508.49"],
+        ["DST0451", "Shree Balaji Agencies", "Malleswaram Beat 1", "Manjunath S", "RT0458244", "Sanjeevini Medicals", "Chemist", "SI/24-25/00874", "03-04-2024", "SKU10057", "Marie Lite 250g", "Teatime", "1", "0", "40.00", "33.60", "806.40", "0.00", "145.15", "951.55"],
+        ["DST0612", "Om Sai Distributors", "Whitefield Beat 3", "Imran Pasha", "RT0461102", "Fresh Mart Supermarket", "Modern Trade", "SI/24-25/01208", "04-04-2024", "SKU10088", "Cookies Choco 120g", "CrunchyDay", "5", "0", "30.00", "25.20", "3024.00", "151.20", "517.10", "3389.90"],
+        ["DST0612", "Om Sai Distributors", "Whitefield Beat 3", "Imran Pasha", "RT0461130", "Ganesh Paan Bhandar", "Paan Plus", "SI/24-25/01209", "04-04-2024", "SKU10023", "Glucose Biscuit 100g", "CrunchyDay", "0", "12", "10.00", "8.40", "100.80", "0.00", "18.14", "118.94"],
+        ["DST0451", "Shree Balaji Agencies", "Yeshwanthpur Beat 1", "Ravi Kumar", "RT0458301", "Kumar Wholesale Traders", "Wholesale", "SI/24-25/00879", "05-04-2024", "SKU10102", "Salted Crackers 200g", "Snapz", "10", "0", "35.00", "29.40", "7056.00", "705.60", "1143.07", "7493.47"]
+      ],
+      "ids": ["DIST_CODE", "RETAILER_CODE", "INV_NO", "SKU_CODE"],
+      "roles": { "INV_NO": "identifier", "INV_DATE": "datetime", "SKU_CODE": "identifier", "RETAILER_CHANNEL": "dimension", "QTY_CS": "measure", "GROSS_AMT": "currency", "NET_AMT": "currency" }
+    },
+    {
+      "id": "growth-google-ads-search-terms",
+      "source": "Google Ads: Search terms report",
+      "kind": "export",
+      "expect": "marketing",
+      "shape": "campaigns",
+      "headers": ["Search term", "Match type", "Added/Excluded", "Campaign", "Ad group", "Keyword", "Currency code", "Cost", "Impr.", "Clicks", "CTR", "Avg. CPC", "Conversions", "Conv. rate", "Cost / conv."],
+      "rows": [
+        ["solar panels melbourne", "Phrase match", "None", "Search | Solar | VIC", "Solar Panels - Melbourne", "\"solar panels melbourne\"", "AUD", "412.80", "3,210", "148", "4.61%", "2.79", "9.00", "6.08%", "45.87"],
+        ["solar battery rebate vic", "Broad match", "Added", "Search | Batteries | VIC", "Battery Rebates", "solar battery rebate", "AUD", "96.30", "1,045", "41", "3.92%", "2.35", "3.00", "7.32%", "32.10"],
+        ["tesla powerwall price", "Phrase match (close variant)", "None", "Search | Batteries | VIC", "Powerwall", "\"tesla powerwall cost\"", "AUD", "158.75", "2,480", "52", "2.10%", "3.05", "1.00", "1.92%", "158.75"],
+        ["solar installers near me", "Exact match (close variant)", "None", "Search | Solar | VIC", "Solar Installers - Generic", "[solar installer near me]", "AUD", "221.40", "860", "67", "7.79%", "3.30", "5.00", "7.46%", "44.28"],
+        ["free solar panels government", "Broad match", "Excluded", "Search | Solar | VIC", "Solar Panels - Melbourne", "solar panels government rebate", "AUD", "18.60", "742", "11", "1.48%", "1.69", "0.00", "0.00%", "0.00"]
+      ],
+      "roles": { "Match type": "dimension", "Cost": "currency", "Impr.": "measure", "Clicks": "measure", "CTR": "rate", "Avg. CPC": "currency", "Conversions": "measure", "Conv. rate": "rate" }
+    },
+    {
+      "id": "growth-microsoft-ads-campaign-performance",
+      "source": "Microsoft Advertising: Campaign performance report (Reporting API download, daily)",
+      "kind": "export",
+      "expect": "marketing",
+      "shape": "campaigns",
+      "headers": ["TimePeriod", "AccountName", "CampaignName", "CampaignId", "CampaignStatus", "Network", "DeviceType", "Impressions", "Clicks", "Ctr", "AverageCpc", "Spend", "Conversions", "ConversionRate", "CostPerConversion", "Revenue", "ReturnOnAdSpend"],
+      "rows": [
+        ["2024-03-12", "Lakeside Home Supply", "Brand - Exact", "418290351", "Active", "Microsoft sites and select traffic", "Computer", "4812", "386", "8.02%", "0.62", "239.32", "31", "8.03%", "7.72", "3410.00", "14.25"],
+        ["2024-03-12", "Lakeside Home Supply", "Generic - Patio Furniture", "418290377", "Active", "Microsoft sites and select traffic", "Smartphone", "12930", "241", "1.86%", "1.47", "354.27", "7", "2.90%", "50.61", "1890.00", "5.33"],
+        ["2024-03-13", "Lakeside Home Supply", "Shopping - All Products", "418290402", "Active", "Syndicated search partners", "Computer", "20415", "312", "1.53%", "0.88", "274.56", "9", "2.88%", "30.51", "1125.50", "4.10"],
+        ["2024-03-13", "Lakeside Home Supply", "Generic - Grills & Outdoor Cooking", "418290388", "Paused", "Microsoft sites and select traffic", "Tablet", "2104", "39", "1.85%", "1.21", "47.19", "1", "2.56%", "47.19", "289.00", "6.12"],
+        ["2024-03-14", "Lakeside Home Supply", "Remarketing - Cart Abandoners", "418290415", "Active", "Audience", "Smartphone", "18760", "205", "1.09%", "0.54", "110.70", "12", "5.85%", "9.23", "1644.00", "14.85"]
+      ],
+      "ids": ["CampaignId"],
+      "roles": { "TimePeriod": "datetime", "CampaignId": "identifier", "DeviceType": "dimension", "Impressions": "measure", "Clicks": "measure", "Ctr": "rate", "Spend": "currency", "Revenue": "currency" }
+    },
+    {
+      "id": "growth-amazon-ads-sp-search-terms",
+      "source": "Amazon Ads: Sponsored Products search term report",
+      "kind": "export",
+      "expect": ["marketing", "ecommerce"],
+      "headers": ["Date", "Portfolio name", "Currency", "Campaign Name", "Ad Group Name", "Targeting", "Match Type", "Customer Search Term", "Impressions", "Clicks", "Click-Thru Rate (CTR)", "Cost Per Click (CPC)", "Spend", "7 Day Total Sales ", "Total Advertising Cost of Sales (ACOS) ", "Total Return on Advertising Spend (ROAS)", "7 Day Total Orders (#)", "7 Day Total Units (#)", "7 Day Conversion Rate"],
+      "rows": [
+        ["Mar 12, 2024", "Kitchen - Core", "USD", "SP - Cutting Boards - Auto", "Auto Group 1", "close-match", "-", "bamboo cutting board set", "2,315", "14", "0.60%", "$1.12", "$15.68", "$79.96", "19.61%", "5.10", "2", "2", "14.29%"],
+        ["Mar 12, 2024", "Kitchen - Core", "USD", "SP - Cutting Boards - Exact", "Bamboo Board Exact", "bamboo cutting board", "EXACT", "bamboo cutting board", "5,480", "41", "0.75%", "$1.38", "$56.58", "$279.86", "20.22%", "4.95", "7", "7", "17.07%"],
+        ["Mar 13, 2024", "Kitchen - Core", "USD", "SP - Cutting Boards - Broad", "Cutting Board Broad", "cutting board", "BROAD", "large wooden chopping board", "1,920", "9", "0.47%", "$0.94", "$8.46", "$39.98", "21.16%", "4.73", "1", "1", "11.11%"],
+        ["Mar 13, 2024", "Kitchen - Accessories", "USD", "SP - Knife Sharpener - Phrase", "Sharpener Phrase", "knife sharpener", "PHRASE", "knife sharpener for kitchen knives", "3,104", "22", "0.71%", "$0.81", "$17.82", "$74.97", "23.77%", "4.21", "3", "3", "13.64%"],
+        ["Mar 14, 2024", "Kitchen - Accessories", "USD", "SP - Knife Sharpener - Auto", "Auto Group 1", "substitutes", "-", "b0c7xk2l9q", "846", "5", "0.59%", "$0.66", "$3.30", "$49.98", "6.60%", "15.15", "2", "2", "40.00%"]
+      ],
+      "roles": { "Date": "datetime", "Match Type": "dimension", "Impressions": "measure", "Clicks": "measure", "Click-Thru Rate (CTR)": "rate", "Cost Per Click (CPC)": "currency", "Spend": "currency", "7 Day Total Orders (#)": "measure" }
+    },
+    {
+      "id": "growth-mailchimp-campaign-reports",
+      "source": "Mailchimp: campaign reports export (all campaigns)",
+      "kind": "export",
+      "expect": "marketing",
+      "shape": "campaigns",
+      "headers": ["Title", "Subject", "List", "Send Date", "Send Weekday", "Total Recipients", "Successful Deliveries", "Soft Bounces", "Hard Bounces", "Total Bounces", "Times Forwarded", "Forwarded Opens", "Unique Opens", "Open Rate", "Total Opens", "Unique Clicks", "Click Rate", "Total Clicks", "Unsubscribes", "Abuse Complaints", "Unique Id", "Total Orders", "Total Revenue"],
+      "rows": [
+        ["March Newsletter", "New single-origin from Huila is here", "Copper Kettle Customers", "Mar 05, 2024 10:00 am", "Tuesday", "12480", "12301", "96", "83", "179", "4", "6", "4726", "38.42%", "7015", "612", "4.98%", "901", "38", "2", "a1b2c3d4e5", "74", "$2,846.30"],
+        ["Spring Sale - 20% off brewers", "20% off all brewers this week only", "Copper Kettle Customers", "Mar 12, 2024 09:30 am", "Tuesday", "12544", "12390", "88", "66", "154", "9", "15", "4402", "35.53%", "6630", "803", "6.48%", "1210", "52", "3", "b7e19f0c42", "118", "$6,912.40"],
+        ["Wholesale Partner Update - Q1", "Q1 pricing and new 5lb bags", "Wholesale Cafes", "Mar 14, 2024 02:00 pm", "Thursday", "386", "382", "3", "1", "4", "0", "0", "221", "57.85%", "498", "64", "16.75%", "97", "1", "0", "c3d85a1e7f", "0", "$0.00"],
+        ["Last chance: Spring Sale ends tonight", "Ends at midnight: 20% off brewers", "Copper Kettle Customers - Engaged 90d", "Mar 17, 2024 06:00 pm", "Sunday", "7205", "7151", "31", "23", "54", "2", "3", "3349", "46.83%", "4812", "688", "9.62%", "1033", "21", "0", "d90b6e2f18", "96", "$5,288.75"],
+        ["Brew Guide: Pour-over 101", "Your best pour-over in 5 steps", "Copper Kettle Customers", "Mar 19, 2024 10:00 am", "Tuesday", "12610", "12468", "80", "62", "142", "6", "9", "5190", "41.63%", "7744", "950", "7.62%", "1402", "29", "1", "e4f27c9a03", "41", "$1,368.90"]
+      ],
+      "unique": ["Unique Id"],
+      "roles": { "Send Date": "datetime", "Send Weekday": "dimension", "Total Recipients": "measure", "Unique Opens": "measure", "Open Rate": "rate", "Click Rate": "rate", "Unsubscribes": "measure", "Total Revenue": "currency" }
+    },
+    {
+      "id": "growth-brevo-campagnes-email",
+      "source": "Brevo (ex-Sendinblue), interface en français : export des statistiques des campagnes email",
+      "kind": "export",
+      "expect": "marketing",
+      "shape": "campaigns",
+      "headers": ["ID de la campagne", "Nom de la campagne", "Objet", "Date d'envoi", "Liste(s)", "Destinataires", "Délivrés", "Ouvertures uniques", "Taux d'ouverture", "Clics uniques", "Taux de clic", "Désinscriptions", "Hard bounces", "Soft bounces", "Plaintes"],
+      "rows": [
+        ["128", "Newsletter mars 2024", "Nos nouveautés de printemps", "05/03/2024 10:00", "Clients actifs", "8420", "8312", "3194", "38,43 %", "402", "4,84 %", "21", "64", "44", "2"],
+        ["129", "Soldes de printemps -20%", "-20 % sur toute la boutique ce week-end", "14/03/2024 09:30", "Clients actifs", "8455", "8349", "3561", "42,65 %", "688", "8,24 %", "35", "61", "45", "3"],
+        ["130", "Relance panier abandonné - mars", "Vous avez oublié quelque chose ?", "18/03/2024 18:00", "Paniers abandonnés 30j", "612", "605", "341", "56,36 %", "97", "16,03 %", "2", "4", "3", "0"],
+        ["131", "Invitation atelier dégustation", "Atelier dégustation à Lyon le 6 avril", "21/03/2024 11:00", "Abonnés Lyon", "1240", "1226", "604", "49,27 %", "133", "10,85 %", "6", "8", "6", "1"],
+        ["132", "Newsletter avril 2024", "Le guide des rosés est arrivé", "02/04/2024 10:00", "Clients actifs", "8501", "8392", "3102", "36,96 %", "371", "4,42 %", "27", "65", "44", "4"]
+      ],
+      "unique": ["ID de la campagne"],
+      "roles": { "ID de la campagne": "identifier", "Date d'envoi": "datetime", "Destinataires": "measure", "Ouvertures uniques": "measure", "Taux d'ouverture": "rate", "Taux de clic": "rate", "Désinscriptions": "measure" }
+    },
+    {
+      "id": "growth-gsc-bulk-export-url-impressions",
+      "source": "Google Search Console: bulk data export to BigQuery (searchdata_url_impression)",
+      "kind": "export",
+      "expect": "marketing",
+      "headers": ["data_date", "site_url", "url", "query", "is_anonymized_query", "country", "search_type", "device", "impressions", "clicks", "sum_position"],
+      "rows": [
+        ["2024-03-12", "sc-domain:ledgerleaf.example", "https://www.ledgerleaf.example/blog/gst-invoice-format", "gst invoice format in excel", "false", "ind", "WEB", "DESKTOP", "412", "37", "1690"],
+        ["2024-03-12", "sc-domain:ledgerleaf.example", "https://www.ledgerleaf.example/blog/gst-invoice-format", "gst bill format", "false", "ind", "WEB", "MOBILE", "958", "61", "6420"],
+        ["2024-03-13", "sc-domain:ledgerleaf.example", "https://www.ledgerleaf.example/templates/proforma-invoice", "", "true", "ind", "WEB", "MOBILE", "233", "4", "2610"],
+        ["2024-03-13", "sc-domain:ledgerleaf.example", "https://www.ledgerleaf.example/blog/e-way-bill-limit", "e way bill limit 2024", "false", "ind", "WEB", "MOBILE", "1840", "122", "5170"],
+        ["2024-03-14", "sc-domain:ledgerleaf.example", "https://www.ledgerleaf.example/templates/proforma-invoice", "proforma invoice format", "false", "usa", "IMAGE", "DESKTOP", "96", "2", "1488"]
+      ],
+      "roles": { "data_date": "datetime", "is_anonymized_query": "boolean", "country": "geo", "search_type": "dimension", "device": "dimension", "impressions": "measure", "clicks": "measure" }
+    },
+    {
+      "id": "growth-meta-business-suite-instagram-content",
+      "source": "Meta Business Suite: Instagram posts and reels content export",
+      "kind": "export",
+      "expect": ["marketing", "media"],
+      "headers": ["Post ID", "Account ID", "Account username", "Account name", "Description", "Duration (sec)", "Publish time", "Permalink", "Post type", "Data comment", "Date", "Views", "Reach", "Likes", "Shares", "Follows", "Comments", "Saves"],
+      "rows": [
+        ["18034567890123456", "17841400123456789", "sutradhar.handloom", "Sutradhar Handloom", "New Ikat dupattas just dropped. Handwoven in Pochampally, shop via the link in bio #handloom #ikat", "28", "03/04/2024 19:30", "https://www.instagram.com/reel/C4aBcD1eFgH/", "IG reel", "", "Lifetime", "48210", "36540", "2184", "312", "146", "87", "540"],
+        ["18034567890124781", "17841400123456789", "sutradhar.handloom", "Sutradhar Handloom", "Behind the loom: 14 days to weave one Kanjivaram saree #weaversofindia", "0", "03/07/2024 12:00", "https://www.instagram.com/p/C4hIjK2lMnO/", "IG carousel", "", "Lifetime", "15890", "11230", "964", "58", "21", "34", "410"],
+        ["18034567890126032", "17841400123456789", "sutradhar.handloom", "Sutradhar Handloom", "Holi sale: flat 15% off on cotton sarees till Sunday", "0", "03/21/2024 10:15", "https://www.instagram.com/p/C4xYzA3bCdE/", "IG image", "", "Lifetime", "9420", "7815", "402", "19", "6", "22", "61"],
+        ["18034567890125317", "17841400123456789", "sutradhar.handloom", "Sutradhar Handloom", "How to drape a Mangalagiri saree in 60 seconds", "59", "03/15/2024 20:00", "https://www.instagram.com/reel/C4pQrS4tUvW/", "IG reel", "", "Lifetime", "112450", "90310", "5320", "1460", "498", "211", "2870"],
+        ["18034567890127254", "17841400123456789", "sutradhar.handloom", "Sutradhar Handloom", "Customer love: Ananya in our indigo Bagru print kurta", "17", "03/26/2024 18:45", "https://www.instagram.com/reel/C5bEfG5hIjK/", "IG reel", "", "Lifetime", "22340", "18120", "1105", "96", "38", "45", "132"]
+      ],
+      "unique": ["Post ID"],
+      "roles": { "Post ID": "identifier", "Description": "text", "Publish time": "datetime", "Post type": "dimension", "Views": "measure", "Reach": "measure", "Likes": "measure" }
+    },
+    {
+      "id": "growth-ga4-traffic-acquisition-by-date",
+      "source": "Google Analytics 4: Traffic acquisition report by session channel group and date (downloaded CSV)",
+      "kind": "export",
+      "expect": ["marketing", "ecommerce"],
+      "headers": ["Session primary channel group (Default Channel Group)", "Date", "Sessions", "Engaged sessions", "Engagement rate", "Average engagement time per session", "Events per session", "Event count", "Key events", "Session key event rate", "Total revenue"],
+      "rows": [
+        ["Organic Search", "20240311", "1842", "1203", "0.6531", "58.42", "9.84", "18126", "61", "0.0293", "2841.6"],
+        ["Paid Search", "20240311", "968", "604", "0.6240", "41.07", "8.12", "7860", "44", "0.0424", "2190.25"],
+        ["Direct", "20240312", "1210", "702", "0.5802", "47.90", "8.47", "10249", "38", "0.0281", "1588"],
+        ["Organic Social", "20240313", "655", "281", "0.4290", "22.35", "5.61", "3675", "6", "0.0076", "214.9"],
+        ["Email", "20240314", "402", "318", "0.7910", "71.66", "11.20", "4502", "29", "0.0647", "1402.75"]
+      ],
+      "roles": { "Session primary channel group (Default Channel Group)": "dimension", "Date": "datetime", "Sessions": "measure", "Engaged sessions": "measure", "Engagement rate": "rate", "Key events": "measure", "Total revenue": "currency" }
+    },
+    {
+      "id": "growth-mixpanel-raw-events",
+      "source": "Mixpanel: raw event export (JSONL from the Export API) flattened to CSV",
+      "kind": "export",
+      "expect": "product_analytics",
+      "headers": ["event", "time", "distinct_id", "$insert_id", "$device_id", "$city", "$region", "mp_country_code", "$os", "$browser", "$current_url", "plan", "utm_source"],
+      "rows": [
+        ["Sign Up", "1710235882", "u_48213", "a1f3c9e24b7d4e219c8a2f6d7b1e0a91", "18e2f0a9c1b3d4-0e5f6a7b8c9d01", "Pune", "Maharashtra", "IN", "Windows", "Chrome", "https://app.taskwise.example/signup", "free", "google"],
+        ["Project Created", "1710236104", "u_48213", "c7d2e8f1a3b94c5d8e6f7a8b9c0d1e22", "18e2f0a9c1b3d4-0e5f6a7b8c9d01", "Pune", "Maharashtra", "IN", "Windows", "Chrome", "https://app.taskwise.example/projects/new", "free", "google"],
+        ["Task Completed", "1710312455", "u_47390", "5e6f7a8b9c0d4e1f2a3b4c5d6e7f8a93", "18e1c4b7a2d9e0-3f4a5b6c7d8e02", "Austin", "Texas", "US", "Mac OS X", "Safari", "https://app.taskwise.example/projects/2291/board", "pro", ""],
+        ["Invite Sent", "1710320918", "u_47390", "9a0b1c2d3e4f4a5b6c7d8e9f0a1b2c34", "18e1c4b7a2d9e0-3f4a5b6c7d8e02", "Austin", "Texas", "US", "Mac OS X", "Safari", "https://app.taskwise.example/settings/team", "pro", ""],
+        ["Upgrade Clicked", "1710401377", "u_48802", "2b3c4d5e6f7a4b8c9d0e1f2a3b4c5d65", "18e3a1d5c7f9b2-4a5b6c7d8e9f03", "London", "England", "GB", "iOS", "Mobile Safari", "https://app.taskwise.example/billing", "free", "linkedin"]
+      ],
+      "unique": ["$insert_id"],
+      "ids": ["distinct_id", "$device_id"],
+      "roles": { "event": "dimension", "time": "datetime", "distinct_id": "identifier", "$city": "geo", "mp_country_code": "geo", "$os": "dimension" }
+    },
+    {
+      "id": "growth-google-trends-interest-over-time",
+      "source": "Google Trends: Interest over time download (multiTimeline.csv), three search terms",
+      "kind": "export",
+      "expect": null,
+      "headers": ["Week", "crm software: (Worldwide)", "marketing automation: (Worldwide)", "email marketing: (Worldwide)"],
+      "rows": [
+        ["2024-03-03", "92", "45", "71"],
+        ["2024-03-10", "100", "47", "74"],
+        ["2024-03-17", "95", "44", "70"],
+        ["2024-03-24", "86", "41", "66"],
+        ["2024-03-31", "81", "39", "63"]
+      ],
+      "roles": { "Week": "datetime", "crm software: (Worldwide)": "measure", "marketing automation: (Worldwide)": "measure" }
+    },
+    {
+      "id": "growth-maven-crm-sales-opportunities",
+      "source": "Maven Analytics CRM Sales Opportunities dataset (sales_pipeline.csv)",
+      "kind": "dataset",
+      "expect": "sales",
+      "shape": "pipeline",
+      "headers": ["opportunity_id", "sales_agent", "product", "account", "deal_stage", "engage_date", "close_date", "close_value"],
+      "rows": [
+        ["1C1I7A6R", "Darnell Pruitt", "GTX Plus Basic", "Brightlane", "Won", "2016-10-20", "2017-03-01", "1054"],
+        ["Z063OYW0", "Elena Vasquez", "GTXPro", "Quadstone", "Won", "2016-10-25", "2017-03-11", "4514"],
+        ["EC4QE1BX", "Darnell Pruitt", "MG Special", "Velotrix", "Lost", "2016-10-25", "2017-03-07", "0"],
+        ["MV1LWRNH", "Priya Raman", "GTX Basic", "Omnicore", "Engaging", "2017-08-14", "", ""],
+        ["PE84CX4O", "Elena Vasquez", "MG Advanced", "", "Prospecting", "", "", ""]
+      ],
+      "unique": ["opportunity_id"],
+      "roles": { "opportunity_id": "identifier", "product": "dimension", "deal_stage": "dimension", "engage_date": "datetime", "close_date": "datetime", "close_value": "currency" }
+    },
+    {
+      "id": "growth-kaggle-facebook-ad-conversions",
+      "source": "Kaggle: Sales Conversion Optimization (KAG_conversion_data.csv, Facebook ad campaigns)",
+      "kind": "dataset",
+      "expect": "marketing",
+      "shape": "campaigns",
+      "headers": ["ad_id", "xyz_campaign_id", "fb_campaign_id", "age", "gender", "interest", "Impressions", "Clicks", "Spent", "Total_Conversion", "Approved_Conversion"],
+      "rows": [
+        ["708752", "916", "103918", "30-34", "M", "15", "8120", "2", "2.86", "2", "1"],
+        ["708815", "916", "103928", "35-39", "F", "28", "21480", "4", "6.21", "1", "0"],
+        ["734209", "936", "109857", "40-44", "M", "64", "2286", "0", "0", "1", "0"],
+        ["951779", "936", "110904", "35-39", "F", "27", "40321", "8", "13.51", "3", "1"],
+        ["1121104", "1178", "144531", "45-49", "F", "10", "1245324", "241", "374.38", "11", "4"]
+      ],
+      "unique": ["ad_id"],
+      "ids": ["fb_campaign_id"],
+      "roles": { "ad_id": "identifier", "age": "dimension", "gender": "dimension", "Impressions": "measure", "Clicks": "measure", "Spent": "currency", "Total_Conversion": "measure" }
+    },
+    {
+      "id": "growth-adventureworks-fact-reseller-sales",
+      "source": "AdventureWorks DW sample database (Microsoft): FactResellerSales",
+      "kind": "dataset",
+      "expect": "sales",
+      "shape": "transactions",
+      "headers": ["ProductKey", "OrderDateKey", "DueDateKey", "ShipDateKey", "ResellerKey", "EmployeeKey", "PromotionKey", "CurrencyKey", "SalesTerritoryKey", "SalesOrderNumber", "SalesOrderLineNumber", "RevisionNumber", "OrderQuantity", "UnitPrice", "ExtendedAmount", "UnitPriceDiscountPct", "DiscountAmount", "ProductStandardCost", "TotalProductCost", "SalesAmount", "TaxAmt", "Freight", "CarrierTrackingNumber", "CustomerPONumber", "OrderDate", "DueDate", "ShipDate"],
+      "rows": [
+        ["349", "20110701", "20110713", "20110708", "676", "285", "1", "100", "5", "SO43659", "1", "1", "1", "2024.994", "2024.994", "0", "0", "1898.0944", "1898.0944", "2024.994", "161.9995", "50.6249", "4911-403C-9A", "PO522145791", "2011-07-01 00:00:00.000", "2011-07-13 00:00:00.000", "2011-07-08 00:00:00.000"],
+        ["350", "20110701", "20110713", "20110708", "676", "285", "1", "100", "5", "SO43659", "2", "1", "3", "2024.994", "6074.982", "0", "0", "1898.0944", "5694.2832", "6074.982", "485.9986", "151.8746", "4911-403C-9A", "PO522145791", "2011-07-01 00:00:00.000", "2011-07-13 00:00:00.000", "2011-07-08 00:00:00.000"],
+        ["214", "20110701", "20110713", "20110708", "117", "275", "1", "100", "5", "SO43660", "1", "1", "1", "419.4589", "419.4589", "0", "0", "413.1463", "413.1463", "419.4589", "33.5567", "10.4865", "6431-4D57-8F", "PO18850127512", "2011-07-01 00:00:00.000", "2011-07-13 00:00:00.000", "2011-07-08 00:00:00.000"],
+        ["465", "20110702", "20110714", "20110709", "442", "282", "2", "100", "6", "SO43661", "1", "1", "4", "28.8404", "115.3616", "0.02", "2.3072", "13.0863", "52.3452", "113.0544", "9.0444", "2.8264", "4E0A-4F89-A2", "PO18473189633", "2011-07-02 00:00:00.000", "2011-07-14 00:00:00.000", "2011-07-09 00:00:00.000"],
+        ["604", "20110703", "20110715", "20110710", "227", "276", "1", "100", "4", "SO43662", "1", "1", "6", "178.5808", "1071.4848", "0", "0", "147.9246", "887.5476", "1071.4848", "85.7188", "26.7871", "8551-4CDF-B7", "PO18444174055", "2011-07-03 00:00:00.000", "2011-07-15 00:00:00.000", "2011-07-10 00:00:00.000"]
+      ],
+      "ids": ["ProductKey", "ResellerKey", "EmployeeKey", "SalesOrderNumber"],
+      "roles": { "ProductKey": "identifier", "SalesOrderNumber": "identifier", "OrderQuantity": "measure", "UnitPrice": "currency", "SalesAmount": "currency", "TaxAmt": "currency", "OrderDate": "datetime" }
+    },
+    {
+      "id": "growth-uci-bank-marketing",
+      "source": "UCI Bank Marketing dataset (bank-full.csv): Portuguese bank term-deposit telemarketing",
+      "kind": "dataset",
+      "expect": ["marketing", "banking"],
+      "headers": ["age", "job", "marital", "education", "default", "balance", "housing", "loan", "contact", "day", "month", "duration", "campaign", "pdays", "previous", "poutcome", "y"],
+      "rows": [
+        ["41", "management", "married", "tertiary", "no", "1870", "yes", "no", "cellular", "12", "may", "312", "2", "-1", "0", "unknown", "no"],
+        ["29", "technician", "single", "secondary", "no", "-245", "yes", "yes", "unknown", "6", "jun", "98", "4", "-1", "0", "unknown", "no"],
+        ["52", "retired", "divorced", "primary", "no", "5320", "no", "no", "telephone", "18", "nov", "845", "1", "182", "3", "success", "yes"],
+        ["36", "blue-collar", "married", "secondary", "yes", "0", "yes", "no", "cellular", "21", "jul", "156", "7", "-1", "0", "unknown", "no"],
+        ["47", "admin.", "married", "secondary", "no", "912", "no", "no", "cellular", "3", "feb", "410", "2", "94", "1", "failure", "yes"]
+      ],
+      "roles": { "age": "measure", "job": "dimension", "balance": "currency", "housing": "boolean", "loan": "boolean", "contact": "dimension", "duration": "measure", "y": "boolean" }
+    },
+    {
+      "id": "growth-ga4-sample-ecommerce-events",
+      "source": "Google Merchandise Store GA4 sample (BigQuery ga4_obfuscated_sample_ecommerce), events flattened to CSV",
+      "kind": "dataset",
+      "expect": "product_analytics",
+      "headers": ["event_date", "event_timestamp", "event_name", "user_pseudo_id", "ga_session_id", "platform", "device.category", "device.operating_system", "geo.country", "geo.city", "traffic_source.source", "traffic_source.medium", "ecommerce.purchase_revenue_in_usd", "ecommerce.transaction_id"],
+      "rows": [
+        ["20201215", "1608026873011123", "session_start", "2347811.6912034478", "1608026872", "WEB", "desktop", "Windows", "United States", "San Jose", "google", "organic", "", ""],
+        ["20201215", "1608026874240051", "page_view", "2347811.6912034478", "1608026872", "WEB", "desktop", "Windows", "United States", "San Jose", "google", "organic", "", ""],
+        ["20201215", "1608027120558830", "add_to_cart", "2347811.6912034478", "1608026872", "WEB", "desktop", "Windows", "United States", "San Jose", "google", "organic", "", ""],
+        ["20201216", "1608105512903817", "view_item", "48890215.5530177042", "1608105490", "WEB", "mobile", "iOS", "India", "Bengaluru", "(direct)", "(none)", "", ""],
+        ["20201216", "1608106733217704", "purchase", "2347811.6912034478", "1608106701", "WEB", "desktop", "Windows", "United States", "San Jose", "google", "organic", "88.0", "984521"]
+      ],
+      "ids": ["user_pseudo_id"],
+      "roles": { "event_date": "datetime", "event_name": "dimension", "user_pseudo_id": "identifier", "device.category": "dimension", "geo.country": "geo", "ecommerce.purchase_revenue_in_usd": "currency" }
+    },
+    {
+      "id": "growth-analyst-rep-target-vs-achievement",
+      "source": "Sales MIS (Excel): rep-wise monthly target vs achievement",
+      "kind": "analyst",
+      "expect": "sales",
+      "headers": ["Month", "Zone", "Region", "Emp Code", "Sales Rep", "Designation", "Target (₹ Lakh)", "Achievement (₹ Lakh)", "Ach %", "Gap (₹ Lakh)", "New Dealers", "Collections (₹ Lakh)"],
+      "rows": [
+        ["Apr-24", "South", "Karnataka", "EMP1043", "Arjun Nair", "ASM", "45.00", "41.85", "93.0%", "-3.15", "3", "38.20"],
+        ["Apr-24", "South", "Tamil Nadu", "EMP1067", "Divya Subramaniam", "TSE", "22.00", "24.64", "112.0%", "2.64", "2", "21.10"],
+        ["Apr-24", "West", "Maharashtra", "EMP1102", "Rohit Kulkarni", "ASM", "60.00", "48.30", "80.5%", "-11.70", "1", "44.75"],
+        ["May-24", "North", "Delhi NCR", "EMP1121", "Simran Kaur", "TSE", "25.00", "26.10", "104.4%", "1.10", "4", "22.40"],
+        ["May-24", "East", "West Bengal", "EMP1150", "Sourav Ghosh", "TSE", "18.00", "13.68", "76.0%", "-4.32", "0", "15.05"]
+      ],
+      "ids": ["Emp Code"],
+      "roles": { "Month": "datetime", "Zone": "dimension", "Emp Code": "identifier", "Target (₹ Lakh)": "currency", "Achievement (₹ Lakh)": "currency", "Ach %": "percentage", "New Dealers": "measure" }
+    },
+    {
+      "id": "growth-analyst-distributor-monthly-mis",
+      "source": "FMCG sales MIS (Excel): distributor-wise monthly primary and secondary sales",
+      "kind": "analyst",
+      "expect": "sales",
+      "headers": ["Month", "Zone", "State", "Distributor Code", "Distributor Name", "Primary Sales (₹)", "Secondary Sales (₹)", "Closing Stock (₹)", "Stock Days", "Outlets Billed", "Productive Calls", "Lines Per Call"],
+      "rows": [
+        ["Jan'24", "South", "Karnataka", "DST0451", "Shree Balaji Agencies", "₹18,45,200", "₹16,92,750", "₹7,10,400", "13", "412", "1,186", "3.4"],
+        ["Jan'24", "South", "Tamil Nadu", "DST0533", "Murugan Traders", "₹12,08,900", "₹11,64,300", "₹4,95,600", "13", "356", "1,020", "2.9"],
+        ["Feb'24", "West", "Maharashtra", "DST0612", "Om Sai Distributors", "₹24,31,500", "₹22,87,400", "₹9,46,800", "12", "538", "1,642", "3.8"],
+        ["Feb'24", "North", "Uttar Pradesh", "DST0705", "Gupta Sales Corporation", "₹9,86,000", "₹8,12,450", "₹6,22,300", "22", "288", "790", "2.5"],
+        ["Mar'24", "East", "Odisha", "DST0788", "Jagannath Enterprises", "₹6,54,700", "₹7,02,100", "₹2,18,900", "10", "241", "652", "2.7"]
+      ],
+      "ids": ["Distributor Code"],
+      "roles": { "Zone": "dimension", "State": "geo", "Distributor Code": "identifier", "Primary Sales (₹)": "currency", "Secondary Sales (₹)": "currency", "Outlets Billed": "measure" }
+    },
+    {
+      "id": "growth-analyst-marketing-spend-pivot",
+      "source": "Marketing spend tracker (Google Sheets): monthly spend by channel, months as columns",
+      "kind": "analyst",
+      "expect": "marketing",
+      "headers": ["Channel", "Owner", "Jan 2024", "Feb 2024", "Mar 2024", "Apr 2024", "May 2024", "Jun 2024", "H1 Total"],
+      "rows": [
+        ["Paid Search", "Demand Gen", "$42,150", "$39,800", "$45,600", "$44,200", "$47,950", "$46,300", "$266,000"],
+        ["Paid Social", "Demand Gen", "$28,400", "$30,150", "$26,900", "$31,700", "$33,250", "$29,600", "$180,000"],
+        ["LinkedIn Ads", "ABM", "$18,500", "$18,500", "$21,000", "$19,750", "$22,400", "$20,850", "$121,000"],
+        ["Events & Sponsorships", "Field Marketing", "$0", "$12,000", "$55,000", "$8,500", "$0", "$64,500", "$140,000"],
+        ["Content & SEO", "Content", "$9,800", "$9,800", "$10,400", "$10,400", "$11,200", "$11,200", "$62,800"]
+      ],
+      "roles": { "Channel": "dimension", "Jan 2024": "currency", "Mar 2024": "currency", "H1 Total": "currency" }
+    },
+    {
+      "id": "growth-analyst-marketing-budget-vs-actual",
+      "source": "Marketing budget vs actual by channel and quarter (FP&A workbook, UK)",
+      "kind": "analyst",
+      "expect": ["marketing", "finance"],
+      "headers": ["FY", "Quarter", "Channel", "Budget (£)", "Actual (£)", "Variance (£)", "Variance %", "Leads", "Cost per Lead (£)"],
+      "rows": [
+        ["FY24/25", "Q1", "Paid Search", "£60,000", "£57,420", "-£2,580", "-4.3%", "1,148", "£50.02"],
+        ["FY24/25", "Q1", "Paid Social", "£40,000", "£43,850", "£3,850", "9.6%", "1,462", "£29.99"],
+        ["FY24/25", "Q1", "Events", "£25,000", "£21,300", "-£3,700", "-14.8%", "310", "£68.71"],
+        ["FY24/25", "Q2", "Paid Search", "£62,000", "£64,190", "£2,190", "3.5%", "1,251", "£51.31"],
+        ["FY24/25", "Q2", "Content & SEO", "£15,000", "£14,250", "-£750", "-5.0%", "402", "£35.45"]
+      ],
+      "roles": { "Quarter": "dimension", "Channel": "dimension", "Budget (£)": "currency", "Actual (£)": "currency", "Variance %": "percentage", "Leads": "measure" }
+    },
+    {
+      "id": "growth-analyst-weekly-growth-scorecard",
+      "source": "Weekly growth scorecard (Google Sheets): tall Metric / Value layout",
+      "kind": "analyst",
+      "expect": ["marketing", "sales"],
+      "headers": ["Week Ending", "Funnel Stage", "Metric", "Value", "Target", "vs Target", "WoW Change"],
+      "rows": [
+        ["2024-03-15", "Top of funnel", "Website sessions", "48,210", "45,000", "107.1%", "6.2%"],
+        ["2024-03-15", "Acquisition", "MQLs", "612", "650", "94.2%", "-3.1%"],
+        ["2024-03-15", "Acquisition", "SQLs", "184", "175", "105.1%", "8.9%"],
+        ["2024-03-08", "Revenue", "Pipeline created ($)", "1,240,000", "1,100,000", "112.7%", "14.0%"],
+        ["2024-03-08", "Efficiency", "Blended CAC ($)", "1,860", "1,750", "106.3%", "-2.4%"]
+      ],
+      "roles": { "Week Ending": "datetime", "Funnel Stage": "dimension", "Metric": "dimension", "vs Target": "percentage", "WoW Change": "percentage" }
+    },
+    {
+      "id": "growth-analyst-fact-sales-invoice-line",
+      "source": "Analyst-cleaned sales fact table (fact_sales_invoice_line) consolidated from Tally exports",
+      "kind": "analyst",
+      "expect": "sales",
+      "shape": "transactions",
+      "headers": ["invoice_no", "invoice_dt", "fy", "cust_id", "cust_name", "cust_segment", "region_cd", "state", "sku_cd", "sku_desc", "product_category", "qty", "unit_price_inr", "gross_amt_inr", "disc_amt_inr", "net_sales_inr", "gst_amt_inr", "is_return_flg"],
+      "rows": [
+        ["INV/24-25/0012", "2024-04-03", "FY2024-25", "C0041", "Raghav Electricals", "Dealer", "S01", "Karnataka", "SKU-1102", "MCB 32A Double Pole", "Switchgear", "50", "412.00", "20600.00", "1030.00", "19570.00", "3522.60", "0"],
+        ["INV/24-25/0013", "2024-04-03", "FY2024-25", "C0107", "Prakash Builders Pvt Ltd", "Project", "S02", "Tamil Nadu", "SKU-2210", "FR Cable 2.5 sqmm 90m", "Cables", "40", "2150.00", "86000.00", "6880.00", "79120.00", "14241.60", "0"],
+        ["INV/24-25/0014", "2024-04-05", "FY2024-25", "C0023", "Shakti Traders", "Dealer", "W01", "Maharashtra", "SKU-3305", "LED Panel 18W Round", "Lighting", "200", "265.00", "53000.00", "2650.00", "50350.00", "9063.00", "0"],
+        ["INV/24-25/0015", "2024-04-06", "FY2024-25", "C0041", "Raghav Electricals", "Dealer", "S01", "Karnataka", "SKU-1102", "MCB 32A Double Pole", "Switchgear", "-10", "412.00", "-4120.00", "-206.00", "-3914.00", "-704.52", "1"],
+        ["INV/24-25/0016", "2024-04-08", "FY2024-25", "C0215", "Om Electric House", "Retail", "N01", "Delhi", "SKU-4410", "Modular Switch 6A (pack of 10)", "Wiring Devices", "30", "540.00", "16200.00", "0.00", "16200.00", "2916.00", "0"]
+      ],
+      "unique": ["invoice_no"],
+      "ids": ["cust_id", "sku_cd"],
+      "roles": { "invoice_no": "identifier", "invoice_dt": "datetime", "cust_segment": "dimension", "state": "geo", "qty": "measure", "net_sales_inr": "currency", "gst_amt_inr": "currency", "is_return_flg": "boolean" }
+    },
+    {
+      "id": "growth-analyst-metabase-monthly-region-sales",
+      "source": "Metabase question export over a MongoDB orders collection: monthly B2B sales by region (EU)",
+      "kind": "analyst",
+      "expect": "sales",
+      "headers": ["month", "salesRegion", "orderCount", "unitsSold", "grossRevenueEur", "discountEur", "netRevenueEur", "avgOrderValueEur", "newAccounts", "repeatRate"],
+      "rows": [
+        ["January, 2024", "DACH", "412", "9860", "186420.50", "9321.03", "177099.47", "429.85", "37", "0.62"],
+        ["January, 2024", "Benelux", "238", "5104", "98345.00", "3933.80", "94411.20", "396.69", "21", "0.58"],
+        ["February, 2024", "Nordics", "167", "3720", "81230.40", "2436.91", "78793.49", "471.82", "15", "0.66"],
+        ["February, 2024", "France", "301", "6684", "120544.00", "7232.64", "113311.36", "376.45", "33", "0.54"],
+        ["March, 2024", "Iberia", "129", "2810", "48760.25", "1462.81", "47297.44", "366.65", "18", "0.49"]
+      ],
+      "roles": { "month": "datetime", "orderCount": "measure", "unitsSold": "measure", "netRevenueEur": "currency", "avgOrderValueEur": "currency", "repeatRate": "rate" }
+    },
+    {
+      "id": "growth-analyst-informe-ventas-comercial",
+      "source": "Informe de ventas por comercial (Excel de una distribuidora española, depurado del ERP)",
+      "kind": "analyst",
+      "expect": "sales",
+      "shape": "transactions",
+      "headers": ["Fecha", "Nº Factura", "Código Cliente", "Cliente", "Provincia", "Comercial", "Familia", "Artículo", "Unidades", "Precio Unitario (€)", "Descuento %", "Base Imponible (€)", "IVA (€)", "Total Factura (€)"],
+      "rows": [
+        ["05/03/2024", "FV24-00412", "CL0187", "Restaurante El Fogón SL", "Madrid", "Lucía Martín", "Charcutería", "Jamón serrano reserva", "4", "89,50", "5%", "340,10", "34,01", "374,11"],
+        ["06/03/2024", "FV24-00413", "CL0042", "Bar Los Arcos", "Sevilla", "Javier Ruiz", "Quesos", "Queso manchego curado 3kg", "6", "41,20", "0%", "247,20", "24,72", "271,92"],
+        ["08/03/2024", "FV24-00414", "CL0221", "Hotel Mirador del Puerto SA", "Málaga", "Javier Ruiz", "Bodega", "Vino tinto Rioja crianza (caja 6)", "10", "38,90", "8%", "357,88", "75,15", "433,03"],
+        ["12/03/2024", "FV24-00415", "CL0187", "Restaurante El Fogón SL", "Madrid", "Lucía Martín", "Conservas", "Atún claro en aceite (pack 6)", "12", "14,75", "0%", "177,00", "17,70", "194,70"],
+        ["14/03/2024", "FV24-00416", "CL0309", "Catering Levante SL", "Valencia", "Marta Gómez", "Conservas", "Aceitunas manzanilla (lata 5kg)", "20", "11,30", "10%", "203,40", "20,34", "223,74"]
+      ],
+      "unique": ["Nº Factura"],
+      "ids": ["Código Cliente"],
+      "roles": { "Fecha": "datetime", "Nº Factura": "identifier", "Código Cliente": "identifier", "Provincia": "geo", "Familia": "dimension", "Unidades": "measure", "Descuento %": "percentage", "Base Imponible (€)": "currency" }
+    },
+    {
+      "id": "growth-analyst-bikri-register",
+      "source": "Small distributor's sales register (bikri register) kept in Excel, Hindi headers in Latin script",
+      "kind": "analyst",
+      "expect": "sales",
+      "shape": "transactions",
+      "headers": ["Dinank", "Bill No.", "Party Ka Naam", "Shahar", "Maal Ka Naam", "Matra (Pcs)", "Dar (₹)", "Rakam (₹)", "Chhoot (₹)", "GST (₹)", "Kul Rakam (₹)", "Bhugtan Ka Tarika", "Baaki (₹)"],
+      "rows": [
+        ["02/04/2024", "1201", "Sharma Hardware Store", "Jaipur", "CPVC Pipe 1 inch (3m)", "40", "185.00", "7400.00", "370.00", "1265.40", "8295.40", "Udhaar", "8295.40"],
+        ["02/04/2024", "1202", "Gupta Sanitary", "Ajmer", "Ball Valve 1 inch", "25", "240.00", "6000.00", "0.00", "1080.00", "7080.00", "Nakad", "0.00"],
+        ["03/04/2024", "1203", "Jain Traders", "Jaipur", "Solvent Cement 250ml", "60", "95.00", "5700.00", "285.00", "974.70", "6389.70", "UPI", "0.00"],
+        ["05/04/2024", "1204", "Shree Ram Plumbing", "Kota", "PVC Elbow 1 inch", "200", "18.00", "3600.00", "0.00", "648.00", "4248.00", "Udhaar", "2248.00"],
+        ["06/04/2024", "1205", "Agarwal Building Material", "Jaipur", "Water Tank 1000L", "4", "6450.00", "25800.00", "1290.00", "4411.80", "29701.80", "Cheque", "0.00"]
+      ],
+      "unique": ["Bill No."],
+      "roles": { "Dinank": "datetime", "Bill No.": "identifier", "Shahar": "geo", "Matra (Pcs)": "measure", "Rakam (₹)": "currency", "Kul Rakam (₹)": "currency", "Bhugtan Ka Tarika": "dimension" }
+    },
+    {
+      "id": "growth-analyst-influencer-campaign-tracker",
+      "source": "Influencer campaign tracker (Google Sheets) for a D2C skincare launch",
+      "kind": "analyst",
+      "expect": "marketing",
+      "headers": ["Creator Handle", "Platform", "Tier", "Followers", "Deliverable", "Go-Live Date", "Fee (₹)", "Views", "Likes", "Comments", "Engagement Rate", "Promo Code", "Code Redemptions", "Attributed Revenue (₹)", "ROI"],
+      "rows": [
+        ["@glowwithmeera", "Instagram", "Micro", "48,200", "1 Reel + 2 Stories", "04/03/2024", "₹18,000", "62,400", "3,510", "128", "7.55%", "MEERA15", "41", "₹36,490", "2.03"],
+        ["@thedermadiaries", "YouTube", "Macro", "6,12,000", "Dedicated video", "08/03/2024", "₹1,50,000", "2,85,400", "14,230", "1,104", "2.51%", "DERMA20", "212", "₹1,88,680", "1.26"],
+        ["@skinbyaditi", "Instagram", "Nano", "8,950", "1 Reel", "12/03/2024", "₹4,000", "11,200", "902", "64", "10.79%", "ADITI10", "9", "₹8,010", "2.00"],
+        ["@rohanreviews", "Instagram", "Mid-tier", "1,84,000", "1 Reel + 3 Stories", "15/03/2024", "₹55,000", "1,96,300", "8,420", "377", "4.78%", "ROHAN15", "96", "₹85,440", "1.55"],
+        ["@minimalist.ira", "Instagram", "Micro", "32,600", "2 Stories", "20/03/2024", "₹9,500", "14,800", "640", "41", "2.09%", "IRA10", "6", "₹5,340", "0.56"]
+      ],
+      "roles": { "Platform": "dimension", "Tier": "dimension", "Go-Live Date": "datetime", "Fee (₹)": "currency", "Views": "measure", "Engagement Rate": "rate", "Code Redemptions": "measure" }
+    }
+  ]
+}

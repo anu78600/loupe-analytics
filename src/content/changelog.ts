@@ -41,6 +41,36 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "40.0",
+    kind: "major",
+    date: "2026-10-17T09:28:47Z",
+    title: "A real-world benchmark for recognising data",
+    summary:
+      "Loupe is now measured against 265 tables analysts actually work with, from business tools, public datasets and spreadsheets analysts build themselves. Each is labelled with its industry, data shape and column roles. This shows honestly how well Loupe recognises data it was not built around, and every improvement from here is measured against it.",
+    changes: [
+      "265 new table layouts in eight families: shops and marketplaces; sales and marketing; finance, banking and insurance; people and support; manufacturing, logistics and telecom; healthcare, education, hotels and property; public datasets; and analyst-made tables.",
+      "Sources include tool exports (SAP, Tally, Zoho, QuickBooks, Salesforce, GA4, Jira, Workday, Shopify and many more) and practice datasets (Kaggle, UCI, World Bank, Microsoft's AdventureWorks, Contoso and Northwind). They also include analyst-built tables: MIS summaries, pivots, budget vs actual, scorecards, cohorts and data-warehouse tables.",
+      "Headers come as they are written in practice: snake_case, camelCase, ALL CAPS, abbreviations, units in brackets, and Spanish, Portuguese, French, German and Hindi in Latin letters. Values use local formats such as lakh grouping, decimal commas, bracketed negatives and many date styles. All people and companies are made up.",
+      "Each table is scored on four things: is the industry named first, is the data shape right, is each labelled column read correctly, and is a wrong industry ever presented without asking. The last is the failure that matters most.",
+      "40% of the tables are held out, chosen by a fixed rule rather than by their authors. Later work tunes against the rest, so the held-out score is the honest estimate for files nobody has seen.",
+      "Tables from ten industries Loupe doesn't cover yet (procurement, product analytics, projects, restaurants, energy, non-profit, travel, pharma, media, agriculture) are scored apart: until an industry exists, the right answer is to ask.",
+      "The starting point: industry named first 64.1% of the time (66.7% held out), shape 85.7%, column roles 87.6%, and a wrong industry presented without asking on 2.3% of tables. These scores are now floors that can only go up.",
+      "`npm run benchmark` writes the full report, by family, split and scope with every miss, to docs/DETECTION-BENCHMARK.md. The roadmap of the next steps is on this page under Up next.",
+    ],
+    tags: ["Tests", "Data", "Docs"],
+    files: [
+      "tests/benchmark.test.ts",
+      "tests/fixtures/benchmark/",
+      "tests/helpers/layouts.ts",
+      "tests/detect.test.ts",
+      "scripts/benchmark.mjs",
+      "docs/DETECTION-BENCHMARK.md",
+      "package.json",
+      "src/content/changelog.ts",
+      "CLAUDE.md",
+    ],
+  },
+  {
     version: "39.0",
     kind: "major",
     date: "2026-10-17T07:31:56Z",
@@ -2467,7 +2497,43 @@ export const RELEASES: Release[] = [
  * Shown on /changelog under "Up next" so the owner can see what is coming.
  * Remove an item when its version ships.
  */
-export const PLANNED: Array<{ title: string; detail: string }> = [];
+export const PLANNED: Array<{ title: string; detail: string }> = [
+  {
+    title: "Read every column correctly",
+    detail:
+      "Percentages written as 0–1, 0–100 or 45%; currency and scale in headers and values (“Revenue (USD)”, “₹ Cr”, “in thousands”); durations; fiscal years, quarters, weeks and month labels; year columns that aren't measures; ratings, Likert answers, age bands and NPS; personal data flagged.",
+  },
+  {
+    title: "Understand the tables analysts build",
+    detail:
+      "Summaries that must never be summed twice, time series and panel data, survey responses, cohort tables, event logs, budget vs actual, P&L statements, lookup tables and “Metric, Value” scorecards, each with sensible KPIs and charts.",
+  },
+  {
+    title: "The words analysts actually use",
+    detail:
+      "More abbreviations and naming styles (fact_, dim_, _cd, _flg, camelCase, units in brackets) and business vocabulary in Spanish, Portuguese, French, German and Hindi written in Latin letters.",
+  },
+  {
+    title: "Ten more industries",
+    detail:
+      "Procurement, product analytics, project management, restaurants, energy and utilities, non-profit, travel and airlines, pharma, media and agriculture, each with KPIs proven against DuckDB.",
+  },
+  {
+    title: "Better dashboards for any other table",
+    detail:
+      "When no industry fits: a plain description of what the table is, KPIs that suit its shape, and better automatic charts (trend, top N, distribution, correlation, cross-tab).",
+  },
+  {
+    title: "Learns from your corrections, in your browser",
+    detail:
+      "A corrected industry, column mapping or role is remembered and reused for the next file with similar headers; teach Loupe your own words; see, export, share or clear what it has learned. Nothing leaves the browser.",
+  },
+  {
+    title: "Workbooks with several tables",
+    detail:
+      "Excel files with orders, customers and products on separate sheets: the keys between them found and the tables joined, and a star model in the Power BI export.",
+  },
+];
 
 /** The newest release; shown in the footer and settings. */
 export const CURRENT_RELEASE: Release = RELEASES[0] as Release;

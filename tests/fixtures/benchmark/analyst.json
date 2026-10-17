@@ -1,0 +1,760 @@
+{
+  "family": "analyst",
+  "description": "Tables analysts build or clean themselves across industries: monthly MIS summaries, league tables, wide pivots, budget vs actual and target vs achievement sheets, tall KPI scorecards, cohorts, funnels, survey sheets, star-schema and Power BI extracts, daily series, panels and non-English headers.",
+  "fixtures": [
+    {
+      "id": "analyst-nbfc-branch-mis-monthly",
+      "source": "NBFC branch performance MIS (Excel): monthly disbursement, AUM and asset quality by region and branch",
+      "kind": "analyst",
+      "expect": "banking",
+      "headers": ["Month", "Region", "Branch", "Disb. Count", "Disb. Amt (₹ Lakh)", "AUM (₹ Cr)", "Active Loans", "Collection Efficiency %", "30+ DPD %", "GNPA %"],
+      "rows": [
+        ["Apr-24", "South", "Madurai", "412", "618.40", "48.62", "5,214", "98.2%", "3.1%", "1.4%"],
+        ["Apr-24", "West", "Nashik", "356", "512.75", "41.08", "4,630", "97.6%", "3.8%", "1.9%"],
+        ["May-24", "South", "Madurai", "438", "655.20", "50.11", "5,402", "98.5%", "2.9%", "1.3%"],
+        ["May-24", "North", "Jaipur", "289", "401.30", "32.47", "3,881", "96.4%", "4.6%", "2.3%"],
+        ["Jun-24", "East", "Bhubaneswar", "247", "338.90", "27.95", "3,312", "95.8%", "5.2%", "2.7%"]
+      ],
+      "roles": {
+        "Month": "datetime",
+        "Region": "dimension",
+        "Disb. Amt (₹ Lakh)": "currency",
+        "AUM (₹ Cr)": "currency",
+        "Active Loans": "measure",
+        "Collection Efficiency %": "rate",
+        "GNPA %": "rate"
+      }
+    },
+    {
+      "id": "analyst-uk-store-league-table",
+      "source": "Area manager's weekly store league table (UK convenience grocery chain)",
+      "kind": "analyst",
+      "expect": "sales",
+      "headers": ["Rank", "Store No", "Store Name", "Region", "Sales TY (£)", "Sales LY (£)", "LFL %", "Txns", "ATV (£)", "Wastage %"],
+      "rows": [
+        ["1", "0412", "Leeds Headingley", "North", "£78,412", "£72,950", "7.5%", "9,846", "£7.96", "2.1%"],
+        ["2", "0207", "Bristol Clifton", "South West", "£74,180", "£70,115", "5.8%", "8,920", "£8.32", "1.8%"],
+        ["3", "0133", "Manchester Didsbury", "North West", "£69,905", "£67,240", "4.0%", "8,512", "£8.21", "2.4%"],
+        ["4", "0358", "Reading Caversham", "South East", "£61,330", "£60,018", "2.2%", "7,104", "£8.63", "1.6%"],
+        ["5", "0521", "Norwich Unthank Road", "East", "£52,775", "£54,610", "-3.4%", "6,688", "£7.89", "3.0%"]
+      ],
+      "unique": ["Rank", "Store No"],
+      "roles": {
+        "Store No": "identifier",
+        "Region": "dimension",
+        "Sales TY (£)": "currency",
+        "LFL %": "rate",
+        "Txns": "measure",
+        "ATV (£)": "currency"
+      }
+    },
+    {
+      "id": "analyst-excel-pivot-revenue-category-month",
+      "source": "Excel PivotTable pasted as values: Sum of Revenue by product category, months as columns",
+      "kind": "analyst",
+      "expect": ["sales", "ecommerce"],
+      "headers": ["Row Labels", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Grand Total"],
+      "rows": [
+        ["Accessories", "18,240", "16,905", "21,380", "19,775", "22,410", "24,060", "122,770"],
+        ["Bikes", "412,850", "388,120", "455,300", "470,915", "502,640", "531,280", "2,761,105"],
+        ["Clothing", "36,410", "33,875", "39,920", "41,305", "44,780", "47,215", "243,505"],
+        ["Components", "98,630", "91,415", "104,260", "101,880", "110,345", "115,920", "622,450"],
+        ["Service", "9,120", "8,640", "11,050", "12,380", "13,925", "14,710", "69,825"]
+      ],
+      "roles": { "Row Labels": "dimension" }
+    },
+    {
+      "id": "analyst-fpa-opex-budget-vs-actual",
+      "source": "FP&A departmental opex tracker: budget vs actual by cost center, GL account and month (US)",
+      "kind": "analyst",
+      "expect": "finance",
+      "shape": "pnl",
+      "headers": ["Fiscal Month", "Cost Center", "Department", "GL Account", "Account Description", "Budget", "Actual", "Variance $", "Variance %", "Fav/(Unfav)"],
+      "rows": [
+        ["01/31/2024", "CC-4100", "Marketing", "6100", "Advertising & Promotion", "$125,000.00", "$131,420.55", "($6,420.55)", "-5.1%", "Unfav"],
+        ["01/31/2024", "CC-5200", "Engineering", "6420", "Software Subscriptions", "$48,500.00", "$45,310.20", "$3,189.80", "6.6%", "Fav"],
+        ["02/29/2024", "CC-3000", "Sales", "6510", "Travel & Entertainment", "$32,000.00", "$36,875.40", "($4,875.40)", "-15.2%", "Unfav"],
+        ["02/29/2024", "CC-2100", "G&A", "6200", "Professional Fees", "$60,000.00", "$52,150.00", "$7,850.00", "13.1%", "Fav"],
+        ["03/31/2024", "CC-5200", "Engineering", "6010", "Salaries & Wages", "$412,000.00", "$405,862.18", "$6,137.82", "1.5%", "Fav"]
+      ],
+      "ids": ["Cost Center", "GL Account"],
+      "roles": {
+        "Fiscal Month": "datetime",
+        "Department": "dimension",
+        "Budget": "currency",
+        "Actual": "currency",
+        "Variance %": "rate"
+      }
+    },
+    {
+      "id": "analyst-fmcg-target-vs-achievement",
+      "source": "FMCG distributor sales MIS: monthly target vs achievement by sales officer (India)",
+      "kind": "analyst",
+      "expect": "sales",
+      "headers": ["Month", "Zone", "ASM", "SO Code", "SO Name", "Town", "Target (₹)", "Achievement (₹)", "Ach %", "Shortfall (₹)", "YTD Ach %", "Outlets Billed", "ECO %"],
+      "rows": [
+        ["Jul-2024", "North", "Rakesh Malhotra", "SO-1021", "Amit Saini", "Panipat", "₹18,00,000", "₹16,74,250", "93.0%", "₹1,25,750", "91.4%", "412", "68%"],
+        ["Jul-2024", "North", "Rakesh Malhotra", "SO-1022", "Vikas Rana", "Karnal", "₹15,00,000", "₹15,82,400", "105.5%", "₹0", "102.7%", "388", "74%"],
+        ["Jul-2024", "West", "Sneha Kulkarni", "SO-2045", "Prakash Jadhav", "Kolhapur", "₹22,00,000", "₹19,36,880", "88.0%", "₹2,63,120", "90.2%", "455", "61%"],
+        ["Aug-2024", "South", "Arvind Iyer", "SO-3017", "Karthik Raman", "Salem", "₹20,00,000", "₹20,48,600", "102.4%", "₹0", "99.1%", "503", "71%"],
+        ["Aug-2024", "East", "Debasish Pal", "SO-4009", "Sourav Ghosh", "Siliguri", "₹12,00,000", "₹9,87,360", "82.3%", "₹2,12,640", "84.6%", "297", "55%"]
+      ],
+      "ids": ["SO Code"],
+      "roles": {
+        "Month": "datetime",
+        "Zone": "dimension",
+        "Town": "geo",
+        "Target (₹)": "currency",
+        "Achievement (₹)": "currency",
+        "Ach %": "rate",
+        "Outlets Billed": "measure"
+      }
+    },
+    {
+      "id": "analyst-saas-board-kpi-scorecard",
+      "source": "SaaS monthly board pack: KPI scorecard in tall Metric / Period / Value format",
+      "kind": "analyst",
+      "expect": "saas",
+      "headers": ["Metric", "Period", "Value", "Unit", "Target", "Status"],
+      "rows": [
+        ["Ending ARR", "2024-06", "4,820,000", "USD", "4,750,000", "On Track"],
+        ["Net Revenue Retention", "2024-06", "112.4", "%", "110.0", "On Track"],
+        ["Logo Churn (monthly)", "2024-06", "1.8", "%", "1.5", "At Risk"],
+        ["New MRR", "2024-07", "38,600", "USD", "42,000", "Behind"],
+        ["CAC Payback", "2024-07", "16.2", "months", "15.0", "At Risk"]
+      ],
+      "roles": { "Metric": "dimension", "Period": "datetime", "Unit": "dimension", "Status": "dimension" }
+    },
+    {
+      "id": "analyst-hospital-quality-kpi-scorecard",
+      "source": "Hospital quality and operations scorecard (NABH indicators): one row per KPI per month with numerator and denominator",
+      "kind": "analyst",
+      "expect": "healthcare",
+      "headers": ["KPI Code", "KPI", "Department", "Month", "Numerator", "Denominator", "Value", "Benchmark", "RAG"],
+      "rows": [
+        ["QI-01", "Bed Occupancy Rate (%)", "Hospital-wide", "Apr 2024", "5,940", "7,200", "82.5", "85.0", "Amber"],
+        ["QI-04", "Hand Hygiene Compliance (%)", "ICU", "Apr 2024", "412", "460", "89.6", "90.0", "Amber"],
+        ["QI-07", "Return to ICU within 48 hrs (%)", "ICU", "May 2024", "3", "186", "1.6", "2.0", "Green"],
+        ["QI-11", "Medication Errors per 1000 Patient Days", "Nursing", "May 2024", "9", "6,105", "1.5", "1.0", "Red"],
+        ["QI-15", "OPD Waiting Time (mins)", "OPD", "Jun 2024", "168,420", "8,760", "19.2", "20.0", "Green"]
+      ],
+      "ids": ["KPI Code"],
+      "roles": { "Department": "dimension", "Month": "datetime", "Numerator": "measure", "Denominator": "measure", "RAG": "dimension" }
+    },
+    {
+      "id": "analyst-d2c-cohort-repeat-purchase",
+      "source": "D2C brand cohort analysis: repeat-purchase retention by first-order month (Excel triangle)",
+      "kind": "analyst",
+      "expect": "ecommerce",
+      "headers": ["Cohort (First Order Month)", "New Customers", "M0", "M1", "M2", "M3", "M4", "M5", "M6"],
+      "rows": [
+        ["Jan-2024", "4,812", "100%", "17.8%", "12.4%", "10.1%", "8.9%", "8.2%", "7.6%"],
+        ["Feb-2024", "4,305", "100%", "18.6%", "12.9%", "10.4%", "9.2%", "8.5%", ""],
+        ["Mar-2024", "5,927", "100%", "16.9%", "11.8%", "9.7%", "8.6%", "", ""],
+        ["Apr-2024", "5,410", "100%", "19.3%", "13.2%", "10.8%", "", "", ""],
+        ["May-2024", "6,288", "100%", "18.1%", "12.6%", "", "", "", ""]
+      ],
+      "roles": { "Cohort (First Order Month)": "datetime", "New Customers": "measure", "M1": "rate", "M2": "rate" }
+    },
+    {
+      "id": "analyst-ecom-weekly-funnel-by-device",
+      "source": "Online retailer conversion funnel by week and device (analyst summary built from GA4 explorations, UK)",
+      "kind": "analyst",
+      "expect": "ecommerce",
+      "shape": "web",
+      "headers": ["Week Commencing", "Device", "Sessions", "Product Views", "Add to Basket", "Checkout Started", "Orders", "Basket Rate", "Checkout Rate", "Conversion Rate", "Revenue (£)"],
+      "rows": [
+        ["01/07/2024", "Mobile", "48,210", "21,694", "4,821", "2,169", "1,108", "10.0%", "45.0%", "2.30%", "£62,048"],
+        ["01/07/2024", "Desktop", "19,640", "10,213", "2,750", "1,513", "943", "14.0%", "55.0%", "4.80%", "£77,326"],
+        ["08/07/2024", "Mobile", "51,385", "23,640", "5,036", "2,317", "1,182", "9.8%", "46.0%", "2.30%", "£67,374"],
+        ["08/07/2024", "Tablet", "4,920", "2,312", "566", "283", "148", "11.5%", "50.0%", "3.01%", "£9,916"],
+        ["15/07/2024", "Desktop", "20,115", "10,661", "2,917", "1,575", "977", "14.5%", "54.0%", "4.86%", "£81,091"]
+      ],
+      "roles": {
+        "Week Commencing": "datetime",
+        "Device": "dimension",
+        "Sessions": "measure",
+        "Orders": "measure",
+        "Conversion Rate": "rate",
+        "Revenue (£)": "currency"
+      }
+    },
+    {
+      "id": "analyst-hr-engagement-survey-likert",
+      "source": "Annual employee engagement survey: cleaned response sheet with Likert answers (from Microsoft Forms)",
+      "kind": "analyst",
+      "expect": "hr",
+      "headers": [
+        "Response ID",
+        "Submitted On",
+        "Business Unit",
+        "Location",
+        "Tenure Band",
+        "Grade",
+        "I would recommend this company as a great place to work",
+        "My manager gives me regular feedback",
+        "I have the tools and resources to do my job well",
+        "I see myself working here in two years",
+        "eNPS (0-10)",
+        "What one thing should we change?"
+      ],
+      "rows": [
+        ["R-000184", "15/03/2024 09:42", "Operations", "Pune", "1-3 years", "M2", "Agree", "Strongly agree", "Agree", "Agree", "8", "More cross-team projects"],
+        ["R-000185", "15/03/2024 10:05", "Technology", "Bengaluru", "Less than 1 year", "E1", "Strongly agree", "Agree", "Neither agree nor disagree", "Agree", "9", "Faster laptop refresh for new joiners"],
+        ["R-000186", "15/03/2024 11:17", "Sales", "Delhi NCR", "3-5 years", "M1", "Disagree", "Disagree", "Agree", "Neither agree nor disagree", "5", "A clearer incentive structure"],
+        ["R-000187", "16/03/2024 14:30", "Finance", "Mumbai", "5+ years", "M3", "Neither agree nor disagree", "Agree", "Strongly agree", "Disagree", "6", ""],
+        ["R-000188", "18/03/2024 17:52", "Technology", "Hyderabad", "1-3 years", "E2", "Strongly disagree", "Disagree", "Disagree", "Strongly disagree", "2", "Workload in my team is too high and nobody is hiring"]
+      ],
+      "unique": ["Response ID"],
+      "roles": {
+        "Response ID": "identifier",
+        "Submitted On": "datetime",
+        "Business Unit": "dimension",
+        "Location": "geo",
+        "Tenure Band": "dimension",
+        "eNPS (0-10)": "measure",
+        "What one thing should we change?": "text"
+      }
+    },
+    {
+      "id": "analyst-dw-fact-sales",
+      "source": "dbt / Snowflake retail warehouse export: fact_sales (surrogate keys, one row per invoice line)",
+      "kind": "analyst",
+      "expect": "sales",
+      "shape": "transactions",
+      "headers": ["sales_key", "date_key", "store_key", "product_key", "customer_key", "promotion_key", "invoice_no", "line_no", "quantity", "unit_price", "discount_amount", "sales_amount", "cost_amount", "load_ts"],
+      "rows": [
+        ["10458231", "20240305", "12", "4471", "88214", "0", "INV-24-0305-001842", "1", "2", "24.99", "0.00", "49.98", "28.40", "2024-03-06 02:15:44"],
+        ["10458232", "20240305", "12", "3108", "88214", "17", "INV-24-0305-001842", "2", "1", "79.00", "7.90", "71.10", "41.25", "2024-03-06 02:15:44"],
+        ["10458233", "20240305", "7", "5520", "102937", "0", "INV-24-0305-001843", "1", "3", "4.49", "0.00", "13.47", "6.12", "2024-03-06 02:15:44"],
+        ["10458234", "20240306", "21", "1286", "0", "0", "INV-24-0306-000417", "1", "1", "149.00", "0.00", "149.00", "92.80", "2024-03-07 02:14:09"],
+        ["10458235", "20240306", "21", "4471", "65120", "9", "INV-24-0306-000418", "1", "4", "24.99", "10.00", "89.96", "56.80", "2024-03-07 02:14:09"]
+      ],
+      "unique": ["sales_key"],
+      "ids": ["store_key", "product_key", "customer_key", "invoice_no"],
+      "roles": {
+        "sales_key": "identifier",
+        "product_key": "identifier",
+        "quantity": "measure",
+        "unit_price": "currency",
+        "sales_amount": "currency",
+        "load_ts": "datetime"
+      }
+    },
+    {
+      "id": "analyst-dw-dim-customer",
+      "source": "dbt / Snowflake retail warehouse export: dim_customer (type 2 slowly changing dimension)",
+      "kind": "analyst",
+      "expect": ["sales", "ecommerce"],
+      "headers": ["customer_key", "customer_id", "first_name", "last_name", "email", "gender", "date_of_birth", "city", "state_province", "country_code", "customer_segment", "loyalty_tier", "valid_from", "valid_to", "is_current"],
+      "rows": [
+        ["88214", "C-0041892", "Megan", "Holloway", "megan.holloway@examplemail.com", "F", "1987-04-12", "Columbus", "OH", "US", "Consumer", "Gold", "2022-08-14", "", "1"],
+        ["88215", "C-0041893", "Darnell", "Pryce", "d.pryce@examplemail.com", "M", "1979-11-03", "Tampa", "FL", "US", "Consumer", "Silver", "2023-01-09", "", "1"],
+        ["88216", "C-0029470", "Priya", "Raman", "priya.r@examplemail.com", "F", "1992-06-25", "Plano", "TX", "US", "Small Business", "Bronze", "2021-05-02", "2023-10-17", "0"],
+        ["88217", "C-0029470", "Priya", "Raman", "priya.r@examplemail.com", "F", "1992-06-25", "Austin", "TX", "US", "Small Business", "Silver", "2023-10-18", "", "1"],
+        ["88218", "C-0050117", "Tom", "Kowalczyk", "tkowalczyk@examplemail.com", "M", "1968-02-09", "Milwaukee", "WI", "US", "Corporate", "Platinum", "2024-02-20", "", "1"]
+      ],
+      "unique": ["customer_key"],
+      "ids": ["customer_id"],
+      "roles": {
+        "customer_key": "identifier",
+        "gender": "dimension",
+        "date_of_birth": "datetime",
+        "city": "geo",
+        "state_province": "geo",
+        "customer_segment": "dimension",
+        "is_current": "boolean"
+      }
+    },
+    {
+      "id": "analyst-dw-dimproduct-pascalcase",
+      "source": "SQL Server data warehouse (Kimball style): DimProduct table for an outdoor retailer",
+      "kind": "analyst",
+      "expect": ["sales", "ecommerce"],
+      "headers": ["ProductKey", "ProductSKU", "ProductName", "Brand", "Category", "Subcategory", "Size", "Color", "ListPrice", "StandardCost", "LaunchDate", "DiscontinuedFlag"],
+      "rows": [
+        ["4471", "SKU-100457", "Trail Running Sock 3-Pack", "Northpeak", "Apparel", "Socks", "M", "Charcoal", "24.99", "14.20", "2022-09-01", "N"],
+        ["3108", "SKU-087213", "Ultralight Daypack 22L", "Summitline", "Equipment", "Backpacks", "22L", "Teal", "79.00", "41.25", "2021-03-15", "N"],
+        ["5520", "SKU-112904", "Energy Gel Citrus", "FuelUp", "Nutrition", "Gels", "40g", "", "4.49", "2.04", "2023-06-12", "N"],
+        ["1286", "SKU-045310", "Waterproof Hiking Jacket", "Northpeak", "Apparel", "Jackets", "L", "Navy", "149.00", "92.80", "2020-10-05", "N"],
+        ["2093", "SKU-061775", "Aluminum Trekking Poles (Pair)", "Summitline", "Equipment", "Poles", "One Size", "Black", "59.95", "33.10", "2019-08-20", "Y"]
+      ],
+      "unique": ["ProductKey", "ProductSKU"],
+      "roles": {
+        "ProductKey": "identifier",
+        "ProductSKU": "identifier",
+        "Category": "dimension",
+        "ListPrice": "currency",
+        "StandardCost": "currency",
+        "LaunchDate": "datetime",
+        "DiscontinuedFlag": "boolean"
+      }
+    },
+    {
+      "id": "analyst-dw-dim-date",
+      "source": "Data warehouse calendar table: dim_date with calendar and fiscal attributes",
+      "kind": "analyst",
+      "expect": null,
+      "headers": ["date_key", "full_date", "day_of_week", "day_name", "day_of_month", "week_of_year", "month_num", "month_name", "quarter", "calendar_year", "fiscal_year", "fiscal_quarter", "is_weekend", "is_holiday"],
+      "rows": [
+        ["20240101", "2024-01-01", "1", "Monday", "1", "1", "1", "January", "Q1", "2024", "FY2024", "FQ3", "0", "1"],
+        ["20240102", "2024-01-02", "2", "Tuesday", "2", "1", "1", "January", "Q1", "2024", "FY2024", "FQ3", "0", "0"],
+        ["20240706", "2024-07-06", "6", "Saturday", "6", "27", "7", "July", "Q3", "2024", "FY2025", "FQ1", "1", "0"],
+        ["20241128", "2024-11-28", "4", "Thursday", "28", "48", "11", "November", "Q4", "2024", "FY2025", "FQ2", "0", "1"],
+        ["20241225", "2024-12-25", "3", "Wednesday", "25", "52", "12", "December", "Q4", "2024", "FY2025", "FQ2", "0", "1"]
+      ],
+      "unique": ["date_key"],
+      "roles": { "full_date": "datetime", "day_name": "dimension", "month_name": "dimension", "is_weekend": "boolean", "is_holiday": "boolean" }
+    },
+    {
+      "id": "analyst-powerbi-orders-clean-inr",
+      "source": "Power BI-ready orders extract cleaned in Power Query (snake_case, _inr suffixes) for an Indian D2C beauty brand",
+      "kind": "analyst",
+      "expect": "ecommerce",
+      "shape": "orders",
+      "headers": ["order_id", "order_date", "customer_id", "channel", "state", "pin_code", "sku", "category", "qty", "gross_sales_inr", "discount_inr", "net_sales_inr", "cogs_inr", "gross_margin_pct", "payment_mode", "is_returned"],
+      "rows": [
+        ["ORD-240512-08812", "2024-05-12", "CUST-102394", "Website", "Maharashtra", "411038", "SKU-SR-0142", "Skincare", "2", "1398.00", "210.00", "1188.00", "452.00", "0.6195", "Prepaid", "0"],
+        ["ORD-240512-08813", "2024-05-12", "CUST-087751", "Amazon", "Karnataka", "560076", "SKU-HC-0033", "Haircare", "1", "549.00", "0.00", "549.00", "198.00", "0.6393", "Prepaid", "0"],
+        ["ORD-240513-08840", "2024-05-13", "CUST-110562", "Website", "Uttar Pradesh", "201301", "SKU-SR-0187", "Skincare", "3", "2097.00", "419.40", "1677.60", "702.00", "0.5815", "COD", "1"],
+        ["ORD-240514-08902", "2024-05-14", "CUST-102394", "Flipkart", "Maharashtra", "411038", "SKU-BC-0009", "Bodycare", "1", "799.00", "80.00", "719.00", "265.00", "0.6314", "Prepaid", "0"],
+        ["ORD-240515-08957", "2024-05-15", "CUST-095430", "Website", "Delhi", "110017", "SKU-SR-0142", "Skincare", "1", "699.00", "0.00", "699.00", "226.00", "0.6767", "COD", "0"]
+      ],
+      "unique": ["order_id"],
+      "ids": ["customer_id", "sku"],
+      "roles": {
+        "order_date": "datetime",
+        "channel": "dimension",
+        "state": "geo",
+        "pin_code": "geo",
+        "qty": "measure",
+        "net_sales_inr": "currency",
+        "gross_margin_pct": "rate",
+        "is_returned": "boolean"
+      }
+    },
+    {
+      "id": "analyst-powerbi-fact-claims-coded",
+      "source": "Insurer BI layer: fact_claims table prepared for Power BI (coded columns with _cd, _dt, _amt and _flg suffixes, UK motor and home)",
+      "kind": "analyst",
+      "expect": "insurance",
+      "shape": "claims",
+      "headers": ["claim_no", "policy_no", "lob_cd", "claim_type_cd", "loss_dt", "reported_dt", "settled_dt", "claim_status_cd", "claimed_amt", "reserve_amt", "paid_amt", "litigation_flg", "fraud_review_flg", "branch_cd"],
+      "rows": [
+        ["CLM2024004518", "POL-MTR-7781203", "MTR", "OD", "2024-02-03", "2024-02-05", "2024-03-11", "CLSD", "4,820.00", "0.00", "4,515.00", "N", "N", "BR014"],
+        ["CLM2024004519", "POL-HOM-3305917", "HOM", "ESC", "2024-02-04", "2024-02-04", "", "OPEN", "12,600.00", "11,250.00", "0.00", "N", "Y", "BR007"],
+        ["CLM2024004520", "POL-MTR-7790466", "MTR", "TPBI", "2024-01-28", "2024-02-06", "", "OPEN", "38,000.00", "35,000.00", "2,500.00", "Y", "N", "BR014"],
+        ["CLM2024004521", "POL-MTR-7754012", "MTR", "WS", "2024-02-06", "2024-02-06", "2024-02-14", "CLSD", "385.00", "0.00", "385.00", "N", "N", "BR021"],
+        ["CLM2024004522", "POL-HOM-3298840", "HOM", "STM", "2024-01-19", "2024-02-07", "2024-02-29", "REPD", "2,140.00", "0.00", "0.00", "N", "N", "BR007"]
+      ],
+      "unique": ["claim_no"],
+      "ids": ["policy_no", "branch_cd"],
+      "roles": {
+        "claim_no": "identifier",
+        "policy_no": "identifier",
+        "loss_dt": "datetime",
+        "reported_dt": "datetime",
+        "claim_status_cd": "dimension",
+        "claimed_amt": "currency",
+        "paid_amt": "currency",
+        "litigation_flg": "boolean"
+      }
+    },
+    {
+      "id": "analyst-solar-daily-generation-log",
+      "source": "Solar park daily generation report kept by the O&M analyst (Excel log, India)",
+      "kind": "analyst",
+      "expect": "energy_utilities",
+      "headers": ["Date", "Plant", "Capacity (MWp)", "Generation (kWh)", "Export to Grid (kWh)", "GHI (kWh/m²)", "POA Irradiation (kWh/m²)", "PR (%)", "CUF (%)", "Grid Availability (%)", "Remarks"],
+      "rows": [
+        ["01/04/2024", "Bhadla-2", "50", "312,500", "310,620", "6.92", "7.85", "79.6", "26.0", "100.0", ""],
+        ["09/04/2024", "Bhadla-2", "50", "298,150", "296,330", "6.71", "7.52", "79.3", "24.8", "100.0", "Inverter INV-07 tripped for 2 hrs, reset by site team"],
+        ["17/04/2024", "Bhadla-2", "50", "241,880", "240,140", "5.88", "6.61", "73.2", "20.2", "96.5", "Grid outage 11:20-13:05 on SLDC instruction"],
+        ["22/04/2024", "Pavagada-1", "30", "176,940", "175,860", "6.48", "7.36", "80.1", "24.6", "100.0", ""],
+        ["30/04/2024", "Pavagada-1", "30", "158,310", "157,320", "5.95", "6.74", "78.3", "22.0", "100.0", "Module cleaning cycle 3 of 4 in progress"]
+      ],
+      "roles": {
+        "Date": "datetime",
+        "Plant": "dimension",
+        "Generation (kWh)": "measure",
+        "Export to Grid (kWh)": "measure",
+        "PR (%)": "rate",
+        "CUF (%)": "rate",
+        "Remarks": "text"
+      }
+    },
+    {
+      "id": "analyst-contact-centre-daily-log",
+      "source": "Contact centre daily performance log by queue (workforce-management analyst's sheet, UK)",
+      "kind": "analyst",
+      "expect": "support",
+      "headers": ["Date", "Queue", "Calls Offered", "Calls Answered", "Abandoned", "Abandon Rate", "Answered in 20s", "Service Level (80/20)", "AHT (sec)", "ASA (sec)", "FTE Logged In"],
+      "rows": [
+        ["03/06/2024", "Billing", "1,842", "1,701", "141", "7.7%", "1,326", "72.0%", "412", "38", "46.5"],
+        ["03/06/2024", "Technical Support", "968", "921", "47", "4.9%", "797", "82.3%", "586", "21", "39.0"],
+        ["04/06/2024", "Billing", "1,615", "1,537", "78", "4.8%", "1,302", "80.6%", "398", "24", "48.0"],
+        ["04/06/2024", "Sales", "522", "509", "13", "2.5%", "468", "89.7%", "344", "9", "14.5"],
+        ["21/06/2024", "Technical Support", "1,104", "1,012", "92", "8.3%", "781", "70.7%", "602", "47", "37.0"]
+      ],
+      "roles": {
+        "Date": "datetime",
+        "Queue": "dimension",
+        "Calls Offered": "measure",
+        "Abandon Rate": "rate",
+        "Service Level (80/20)": "rate",
+        "AHT (sec)": "measure"
+      }
+    },
+    {
+      "id": "analyst-district-crop-yield-panel",
+      "source": "District-wise crop area, production and yield panel (cleaned from state agriculture department statistics, India)",
+      "kind": "analyst",
+      "expect": "agriculture",
+      "headers": ["State", "District", "Crop", "Season", "Year", "Area (ha)", "Production (tonnes)", "Yield (kg/ha)"],
+      "rows": [
+        ["Punjab", "Ludhiana", "Wheat", "Rabi", "2019-20", "251,000", "1,315,240", "5,240"],
+        ["Punjab", "Ludhiana", "Rice", "Kharif", "2019-20", "259,000", "1,725,980", "6,664"],
+        ["Maharashtra", "Yavatmal", "Cotton", "Kharif", "2020-21", "468,500", "149,920", "320"],
+        ["Madhya Pradesh", "Sehore", "Soyabean", "Kharif", "2021-22", "215,300", "234,680", "1,090"],
+        ["Uttar Pradesh", "Muzaffarnagar", "Sugarcane", "Whole Year", "2021-22", "183,400", "15,415,687", "84,055"]
+      ],
+      "roles": {
+        "State": "geo",
+        "District": "geo",
+        "Crop": "dimension",
+        "Season": "dimension",
+        "Area (ha)": "measure",
+        "Production (tonnes)": "measure",
+        "Yield (kg/ha)": "measure"
+      }
+    },
+    {
+      "id": "analyst-country-indicators-panel",
+      "source": "Country-year development indicators panel reshaped from World Bank WDI downloads (one row per country per year)",
+      "kind": "analyst",
+      "expect": null,
+      "headers": [
+        "Country Name",
+        "Country Code",
+        "Year",
+        "GDP (current US$)",
+        "GDP per capita (current US$)",
+        "Population, total",
+        "Inflation, consumer prices (annual %)",
+        "Unemployment, total (% of total labor force)",
+        "Life expectancy at birth, total (years)"
+      ],
+      "rows": [
+        ["India", "IND", "2019", "2835606000000", "2050.2", "1383112050", "3.7", "6.5", "70.9"],
+        ["Brazil", "BRA", "2020", "1476107000000", "6923.7", "213196304", "3.2", "13.7", "74.0"],
+        ["Germany", "DEU", "2021", "4278504000000", "51426.8", "83196078", "3.1", "3.6", "80.9"],
+        ["Kenya", "KEN", "2022", "113420000000", "2099.3", "54027487", "7.7", "5.6", "62.1"],
+        ["United Kingdom", "GBR", "2022", "3089072000000", "46125.2", "66971395", "7.9", "3.7", "80.7"]
+      ],
+      "roles": {
+        "Country Name": "geo",
+        "GDP (current US$)": "currency",
+        "GDP per capita (current US$)": "currency",
+        "Population, total": "measure",
+        "Inflation, consumer prices (annual %)": "rate",
+        "Life expectancy at birth, total (years)": "measure"
+      }
+    },
+    {
+      "id": "analyst-office-market-city-quarter-panel",
+      "source": "Grade A office market tracker: city and micro-market by quarter, compiled from broker research (India)",
+      "kind": "analyst",
+      "expect": "real_estate",
+      "headers": ["City", "Micro-market", "Quarter", "Stock (mn sq ft)", "New Supply (mn sq ft)", "Net Absorption (mn sq ft)", "Vacancy (%)", "Avg Rent (₹/sq ft/month)", "QoQ Rent Change (%)"],
+      "rows": [
+        ["Bengaluru", "ORR", "Q1 2024", "88.4", "1.20", "1.65", "11.8", "98", "1.0"],
+        ["Bengaluru", "Whitefield", "Q1 2024", "41.7", "0.85", "0.62", "17.4", "72", "0.0"],
+        ["Mumbai", "BKC", "Q2 2024", "13.2", "0.00", "0.18", "9.6", "285", "2.5"],
+        ["Pune", "Hinjewadi", "Q2 2024", "24.9", "0.60", "0.41", "21.3", "68", "-1.4"],
+        ["Hyderabad", "HITEC City", "Q3 2024", "56.3", "2.10", "1.48", "24.7", "79", "1.3"]
+      ],
+      "roles": {
+        "City": "geo",
+        "Stock (mn sq ft)": "measure",
+        "Net Absorption (mn sq ft)": "measure",
+        "Vacancy (%)": "rate",
+        "Avg Rent (₹/sq ft/month)": "currency"
+      }
+    },
+    {
+      "id": "analyst-es-kpis-hotel-mensual",
+      "source": "Cadena hotelera (España): informe mensual de KPIs por hotel con ocupación, ADR y RevPAR",
+      "kind": "analyst",
+      "expect": "hospitality",
+      "shape": "inventory",
+      "headers": ["Mes", "Hotel", "Ciudad", "Habitaciones disponibles", "Habitaciones vendidas", "Ocupación (%)", "ADR (€)", "RevPAR (€)", "Ingresos habitaciones (€)", "Ingresos A&B (€)"],
+      "rows": [
+        ["abr-24", "Hotel Mar Azul Benidorm", "Benidorm", "5.400", "4.547", "84,2", "96,50", "81,26", "438.785,50", "121.340,00"],
+        ["abr-24", "Hotel Plaza Real Sevilla", "Sevilla", "3.600", "3.204", "89,0", "142,80", "127,09", "457.531,20", "98.210,00"],
+        ["may-24", "Hotel Mar Azul Benidorm", "Benidorm", "5.580", "4.910", "88,0", "104,20", "91,69", "511.622,00", "139.870,00"],
+        ["may-24", "Hotel Gran Vía Centro", "Madrid", "6.200", "5.394", "87,0", "168,90", "146,94", "911.046,60", "176.450,00"],
+        ["jun-24", "Hotel Costa Brava Lloret", "Lloret de Mar", "4.500", "4.185", "93,0", "131,60", "122,39", "550.746,00", "152.900,00"]
+      ],
+      "roles": {
+        "Mes": "datetime",
+        "Ciudad": "geo",
+        "Habitaciones disponibles": "measure",
+        "Habitaciones vendidas": "measure",
+        "Ocupación (%)": "rate",
+        "ADR (€)": "currency",
+        "RevPAR (€)": "currency"
+      }
+    },
+    {
+      "id": "analyst-pt-base-assinantes-uf",
+      "source": "Operadora móvel (Brasil): base de assinantes, ARPU e churn por UF, segmento e mês (planilha de BI)",
+      "kind": "analyst",
+      "expect": "telecom",
+      "headers": ["Mês", "UF", "Segmento", "Assinantes Ativos", "Adições Brutas", "Desconexões", "Churn Mensal (%)", "ARPU (R$)", "Receita Líquida (R$ mil)", "Tráfego de Dados (TB)"],
+      "rows": [
+        ["jan/24", "SP", "Pré-pago", "4.812.340", "198.450", "221.870", "4,6", "14,82", "71.319", "38.420"],
+        ["jan/24", "SP", "Pós-pago", "2.106.775", "61.240", "24.230", "1,2", "52,40", "110.395", "41.860"],
+        ["fev/24", "RJ", "Pré-pago", "2.204.118", "87.630", "99.190", "4,5", "13,95", "30.747", "16.210"],
+        ["fev/24", "MG", "Controle", "1.318.902", "45.870", "30.330", "2,3", "31,90", "42.073", "12.940"],
+        ["mar/24", "BA", "Pré-pago", "1.497.556", "66.120", "70.390", "4,7", "12,60", "18.869", "9.870"]
+      ],
+      "roles": {
+        "UF": "geo",
+        "Segmento": "dimension",
+        "Assinantes Ativos": "measure",
+        "Churn Mensal (%)": "rate",
+        "ARPU (R$)": "currency",
+        "Receita Líquida (R$ mil)": "currency"
+      }
+    },
+    {
+      "id": "analyst-fr-suivi-collecte-dons",
+      "source": "Association caritative (France) : tableau de suivi de la collecte par campagne, canal et mois",
+      "kind": "analyst",
+      "expect": "nonprofit",
+      "headers": ["Mois", "Campagne", "Canal", "Nombre de dons", "Montant collecté (€)", "Don moyen (€)", "Nouveaux donateurs", "Donateurs réguliers recrutés", "Taux de réponse (%)", "Coût de collecte (€)"],
+      "rows": [
+        ["janv. 2024", "Urgence Hiver", "Mailing papier", "1 842", "88 416,00", "48,00", "312", "27", "4,6", "21 300,00"],
+        ["janv. 2024", "Urgence Hiver", "E-mailing", "956", "43 020,00", "45,00", "188", "41", "1,9", "1 850,00"],
+        ["févr. 2024", "Programme Eau Potable", "Site web", "611", "33 605,00", "55,00", "142", "58", "", ""],
+        ["mars 2024", "Programme Eau Potable", "Face-à-face (rue)", "384", "5 760,00", "15,00", "384", "384", "", "18 400,00"],
+        ["mars 2024", "Legs et libéralités", "Courrier", "12", "186 500,00", "15 541,67", "3", "0", "", ""]
+      ],
+      "roles": {
+        "Campagne": "dimension",
+        "Canal": "dimension",
+        "Nombre de dons": "measure",
+        "Montant collecté (€)": "currency",
+        "Don moyen (€)": "currency",
+        "Taux de réponse (%)": "rate"
+      }
+    },
+    {
+      "id": "analyst-de-produktionsbericht-werk-linie",
+      "source": "Produktionscontrolling (Deutschland): monatlicher Produktionsbericht je Werk und Linie",
+      "kind": "analyst",
+      "expect": "manufacturing",
+      "headers": ["Monat", "Werk", "Linie", "Soll-Menge (Stk.)", "Ist-Menge (Stk.)", "Gutteile (Stk.)", "Ausschuss (Stk.)", "Ausschussquote (%)", "Stillstandszeit (Std.)", "OEE (%)", "Energieverbrauch (MWh)"],
+      "rows": [
+        ["01.2024", "Werk Ingolstadt", "Linie 1 – Gehäuse", "48.000", "45.820", "44.904", "916", "2,0", "62,5", "78,4", "412,6"],
+        ["01.2024", "Werk Ingolstadt", "Linie 2 – Montage", "36.000", "36.410", "36.046", "364", "1,0", "18,0", "84,1", "205,3"],
+        ["02.2024", "Werk Chemnitz", "Linie 1 – Spritzguss", "120.000", "112.650", "108.931", "3.719", "3,3", "96,5", "71,2", "688,9"],
+        ["02.2024", "Werk Ingolstadt", "Linie 1 – Gehäuse", "46.000", "46.980", "46.135", "845", "1,8", "41,0", "80,2", "398,1"],
+        ["03.2024", "Werk Chemnitz", "Linie 3 – Lackierung", "60.000", "54.120", "51.252", "2.868", "5,3", "120,5", "66,8", "902,4"]
+      ],
+      "roles": {
+        "Werk": "dimension",
+        "Linie": "dimension",
+        "Ist-Menge (Stk.)": "measure",
+        "Ausschuss (Stk.)": "measure",
+        "Ausschussquote (%)": "rate",
+        "Stillstandszeit (Std.)": "measure",
+        "OEE (%)": "rate"
+      }
+    },
+    {
+      "id": "analyst-hi-doodh-sangrah-register",
+      "source": "Village dairy cooperative milk collection register with Hindi headers in Latin script (shift-wise, per member)",
+      "kind": "analyst",
+      "expect": "agriculture",
+      "headers": ["Dinank", "Paali", "Sadasya Code", "Kisan ka Naam", "Gaon", "Pashu", "Doodh (Litre)", "Fat (%)", "SNF (%)", "Dar (₹/Litre)", "Rashi (₹)"],
+      "rows": [
+        ["01/08/2024", "Subah", "M-0142", "Ramesh Yadav", "Bhagwanpur", "Bhains", "8.5", "6.8", "9.0", "46.20", "392.70"],
+        ["01/08/2024", "Subah", "M-0157", "Sunita Devi", "Bhagwanpur", "Gaay", "6.0", "4.1", "8.5", "35.80", "214.80"],
+        ["01/08/2024", "Shaam", "M-0142", "Ramesh Yadav", "Bhagwanpur", "Bhains", "7.0", "7.2", "9.1", "48.10", "336.70"],
+        ["14/08/2024", "Subah", "M-0203", "Mahendra Singh", "Rampur Khurd", "Gaay", "11.5", "3.9", "8.4", "34.60", "397.90"],
+        ["31/08/2024", "Shaam", "M-0188", "Kamla Bai", "Rampur Khurd", "Bhains", "5.5", "6.5", "8.9", "45.40", "249.70"]
+      ],
+      "ids": ["Sadasya Code"],
+      "roles": {
+        "Dinank": "datetime",
+        "Paali": "dimension",
+        "Gaon": "geo",
+        "Pashu": "dimension",
+        "Doodh (Litre)": "measure",
+        "Dar (₹/Litre)": "currency",
+        "Rashi (₹)": "currency"
+      }
+    },
+    {
+      "id": "analyst-hi-lakshya-uplabdhi-kshetra",
+      "source": "Distributor sales MIS with Hindi headers in Latin script: monthly lakshya (target) vs bikri (sales) by kshetra and distributor",
+      "kind": "analyst",
+      "expect": "sales",
+      "headers": ["Mahina", "Kshetra", "Vitrak", "Utpaad Shreni", "Lakshya (₹)", "Bikri (₹)", "Uplabdhi %", "Antar (₹)", "Dukaanon ki Sankhya"],
+      "rows": [
+        ["Apr-2024", "Purvanchal", "Shree Ganesh Traders", "Biscuit", "850000", "802400", "94.4%", "-47600", "214"],
+        ["Apr-2024", "Purvanchal", "Maa Durga Agencies", "Namkeen", "420000", "455700", "108.5%", "35700", "168"],
+        ["May-2024", "Bundelkhand", "Jai Bajrang Distributors", "Biscuit", "600000", "531600", "88.6%", "-68400", "142"],
+        ["May-2024", "Awadh", "Laxmi Narayan Enterprises", "Atta", "1200000", "1218000", "101.5%", "18000", "305"],
+        ["Jun-2024", "Rohilkhand", "Saini Brothers", "Namkeen", "380000", "296400", "78.0%", "-83600", "121"]
+      ],
+      "roles": {
+        "Kshetra": "dimension",
+        "Utpaad Shreni": "dimension",
+        "Lakshya (₹)": "currency",
+        "Bikri (₹)": "currency",
+        "Uplabdhi %": "rate",
+        "Dukaanon ki Sankhya": "measure"
+      }
+    },
+    {
+      "id": "analyst-procurement-spend-cube-quarters",
+      "source": "Procurement spend cube: supplier and category spend with fiscal quarters as columns (category manager's pivot, US)",
+      "kind": "analyst",
+      "expect": "procurement",
+      "headers": ["Supplier", "Supplier No.", "Category L1", "Category L2", "Business Unit", "Q1 FY24", "Q2 FY24", "Q3 FY24", "Q4 FY24", "FY24 Total", "% of Category Spend", "Preferred Supplier"],
+      "rows": [
+        ["Apex Industrial Supply Co.", "V100482", "MRO", "Bearings & Power Transmission", "Plant Operations", "$142,300", "$128,950", "$151,720", "$137,480", "$560,450", "38.2%", "Yes"],
+        ["Brightline Freight LLC", "V100517", "Logistics", "Inbound Freight", "Supply Chain", "$412,800", "$398,150", "$446,920", "$501,330", "$1,759,200", "22.6%", "Yes"],
+        ["Corvid Office Solutions", "V100233", "Indirect", "Office Supplies", "Corporate", "$18,420", "$16,905", "$21,330", "$24,110", "$80,765", "61.4%", "No"],
+        ["Halvorsen Packaging Inc.", "V100391", "Direct Materials", "Corrugated Packaging", "Plant Operations", "$286,540", "$301,275", "$318,960", "$295,110", "$1,201,885", "44.9%", "Yes"],
+        ["Northgate IT Services", "V100604", "IT", "Managed Services", "Corporate", "$95,000", "$95,000", "$95,000", "$102,500", "$387,500", "17.3%", "No"]
+      ],
+      "unique": ["Supplier No."],
+      "roles": {
+        "Supplier No.": "identifier",
+        "Category L1": "dimension",
+        "Business Unit": "dimension",
+        "FY24 Total": "currency",
+        "% of Category Spend": "rate",
+        "Preferred Supplier": "boolean"
+      }
+    },
+    {
+      "id": "analyst-nonprofit-grant-spend-tracker",
+      "source": "Non-profit grants tracker: award vs spend to date by grant, kept by the finance team (US)",
+      "kind": "analyst",
+      "expect": "nonprofit",
+      "headers": ["Grant ID", "Funder", "Program", "Grant Type", "Start Date", "End Date", "Award Amount", "Spent to Date", "Remaining Balance", "% Spent", "% Time Elapsed", "Next Report Due", "Status"],
+      "rows": [
+        ["GR-2023-014", "Lakeshore Community Foundation", "Youth Literacy", "Restricted", "07/01/2023", "06/30/2025", "$250,000", "$118,450", "$131,550", "47.4%", "50.0%", "07/31/2024", "Active"],
+        ["GR-2023-021", "Harbor Light Trust", "Food Security", "Restricted", "10/01/2023", "09/30/2024", "$75,000", "$61,200", "$13,800", "81.6%", "75.0%", "10/30/2024", "Active"],
+        ["GR-2024-003", "State Arts Council", "Community Arts", "Project", "01/15/2024", "12/31/2024", "$40,000", "$9,850", "$30,150", "24.6%", "47.6%", "08/15/2024", "Active"],
+        ["GR-2022-031", "Meridian Health Fund", "Mobile Clinics", "Multi-year", "04/01/2022", "03/31/2025", "$600,000", "$512,300", "$87,700", "85.4%", "75.0%", "09/30/2024", "Active"],
+        ["GR-2022-008", "Riverbend Family Foundation", "General Operating", "Unrestricted", "01/01/2022", "12/31/2023", "$100,000", "$100,000", "$0", "100.0%", "100.0%", "", "Closed"]
+      ],
+      "unique": ["Grant ID"],
+      "roles": {
+        "Grant ID": "identifier",
+        "Program": "dimension",
+        "Start Date": "datetime",
+        "Award Amount": "currency",
+        "Spent to Date": "currency",
+        "% Spent": "rate",
+        "Status": "dimension"
+      }
+    },
+    {
+      "id": "analyst-box-office-weekend-chart",
+      "source": "Weekend box office chart compiled by a studio analyst (domestic, top titles by weekend gross)",
+      "kind": "analyst",
+      "expect": "media",
+      "headers": ["Rank", "Prev Rank", "Title", "Distributor", "Genre", "Weekend Gross", "% Change", "Theaters", "Theater Change", "Per-Theater Avg", "Total Gross", "Weeks in Release", "Weekend Ending"],
+      "rows": [
+        ["1", "", "The Iron Meridian", "Starfall Pictures", "Action", "$48,250,000", "", "4,105", "", "$11,754", "$48,250,000", "1", "07/14/2024"],
+        ["2", "1", "Paper Lanterns", "Northlight Releasing", "Animation", "$31,480,000", "-42.1%", "4,210", "-35", "$7,477", "$118,960,000", "2", "07/14/2024"],
+        ["3", "2", "Quiet Harbor", "Cobalt Films", "Drama", "$12,915,000", "-28.6%", "3,388", "-410", "$3,812", "$64,705,000", "3", "07/14/2024"],
+        ["4", "3", "Night Shift Zero", "Bluehaven Studios", "Horror", "$8,060,000", "-55.3%", "2,950", "-604", "$2,732", "$39,440,000", "2", "07/21/2024"],
+        ["5", "", "Grandma Goes Rogue", "Kestrel Entertainment", "Comedy", "$6,720,000", "", "2,615", "", "$2,570", "$6,720,000", "1", "07/21/2024"]
+      ],
+      "roles": {
+        "Genre": "dimension",
+        "Weekend Gross": "currency",
+        "% Change": "rate",
+        "Theaters": "measure",
+        "Total Gross": "currency",
+        "Weekend Ending": "datetime"
+      }
+    },
+    {
+      "id": "analyst-courier-performance-mis-caps",
+      "source": "E-commerce seller's courier performance MIS: monthly delivery %, RTO % and TAT by courier partner and zone (India, all-caps headers)",
+      "kind": "analyst",
+      "expect": ["logistics", "ecommerce"],
+      "headers": ["MONTH", "COURIER PARTNER", "ZONE", "SHIPPED", "DELIVERED", "RTO", "IN TRANSIT", "DEL %", "RTO %", "AVG TAT (DAYS)", "FREIGHT COST (₹)", "CPS (₹)"],
+      "rows": [
+        ["Apr-24", "SwiftKart Express", "Metro", "12,480", "11,357", "874", "249", "91.0%", "7.0%", "2.4", "₹6,49,920", "₹52.08"],
+        ["Apr-24", "Bluejay Logistics", "Rest of India", "8,215", "6,983", "1,068", "164", "85.0%", "13.0%", "4.6", "₹6,40,770", "₹78.00"],
+        ["May-24", "SwiftKart Express", "North East", "1,940", "1,494", "369", "77", "77.0%", "19.0%", "6.8", "₹1,94,000", "₹100.00"],
+        ["May-24", "XpressWay Couriers", "Within City", "5,630", "5,405", "169", "56", "96.0%", "3.0%", "1.1", "₹2,25,200", "₹40.00"],
+        ["Jun-24", "Bluejay Logistics", "Metro", "10,760", "9,899", "646", "215", "92.0%", "6.0%", "2.7", "₹5,91,800", "₹55.00"]
+      ],
+      "roles": {
+        "ZONE": "dimension",
+        "SHIPPED": "measure",
+        "DELIVERED": "measure",
+        "DEL %": "rate",
+        "RTO %": "rate",
+        "AVG TAT (DAYS)": "measure",
+        "FREIGHT COST (₹)": "currency"
+      }
+    },
+    {
+      "id": "analyst-marketing-channel-monthly-summary",
+      "source": "Agency marketing report: monthly spend and results by channel (B2B client, Australia)",
+      "kind": "analyst",
+      "expect": "marketing",
+      "shape": "campaigns",
+      "headers": ["Month", "Channel", "Spend (AUD)", "Impressions", "Clicks", "CTR", "CPC (AUD)", "Leads", "CPL (AUD)", "Sales Qualified Leads", "Revenue Attributed (AUD)", "ROAS"],
+      "rows": [
+        ["2024-07", "Google Search", "18,450.00", "412,300", "24,738", "6.00%", "0.75", "1,230", "15.00", "246", "92,250.00", "5.0"],
+        ["2024-07", "Meta", "12,600.00", "1,860,400", "22,325", "1.20%", "0.56", "840", "15.00", "118", "37,800.00", "3.0"],
+        ["2024-07", "LinkedIn", "9,800.00", "286,500", "1,433", "0.50%", "6.84", "196", "50.00", "88", "68,600.00", "7.0"],
+        ["2024-08", "Google Search", "19,200.00", "430,150", "26,670", "6.20%", "0.72", "1,280", "15.00", "269", "101,760.00", "5.3"],
+        ["2024-08", "Programmatic Display", "6,400.00", "2,560,000", "5,120", "0.20%", "1.25", "128", "50.00", "19", "9,600.00", "1.5"]
+      ],
+      "roles": {
+        "Month": "datetime",
+        "Channel": "dimension",
+        "Spend (AUD)": "currency",
+        "Impressions": "measure",
+        "Clicks": "measure",
+        "CTR": "rate",
+        "Leads": "measure",
+        "Revenue Attributed (AUD)": "currency"
+      }
+    },
+    {
+      "id": "analyst-app-install-cohort-retention-camelcase",
+      "source": "Mobile app weekly install cohorts: day-N retention table built from an event export (camelCase notebook output)",
+      "kind": "analyst",
+      "expect": "product_analytics",
+      "headers": ["installWeek", "platform", "installs", "d1Retention", "d7Retention", "d14Retention", "d30Retention", "avgSessionsPerUserD7"],
+      "rows": [
+        ["2024-09-02", "Android", "18,420", "0.412", "0.218", "0.164", "0.112", "4.6"],
+        ["2024-09-02", "iOS", "9,875", "0.455", "0.246", "0.189", "0.131", "5.2"],
+        ["2024-09-09", "Android", "17,960", "0.405", "0.211", "0.158", "", "4.5"],
+        ["2024-09-16", "iOS", "10,340", "0.462", "0.251", "0.192", "", "5.4"],
+        ["2024-09-23", "Android", "19,105", "0.398", "0.207", "", "", "4.3"]
+      ],
+      "roles": {
+        "installWeek": "datetime",
+        "platform": "dimension",
+        "installs": "measure",
+        "d1Retention": "rate",
+        "d7Retention": "rate"
+      }
+    }
+  ]
+}
