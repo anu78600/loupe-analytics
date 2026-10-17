@@ -123,7 +123,7 @@ export function DetectStep() {
           <h1 className="mt-2 font-display text-display-sm text-fg">What kind of data is this?</h1>
           <FileIdentity summary={summary} className="mt-2" />
         </div>
-        <p className="font-figures text-ui text-fg-muted">
+        <p className="text-ui text-fg-muted">
           {countOf(summary.rowCount, "row", locale)} · {countOf(summary.columnCount, "column", locale)} ·{" "}
           {grain}
         </p>
@@ -134,7 +134,7 @@ export function DetectStep() {
           className="mb-5 flex items-start gap-2.5 rounded-card border border-warning/30 bg-warning-soft px-4 py-3"
         >
           <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden />
-          <p className="text-ui text-fg">
+          <p className="text-sm text-fg">
             <span className="font-medium">A sample of the file.</span>{" "}
             {formatCount(sampling.keptRows, locale)} of about{" "}
             {countOf(sampling.estimatedTotalRows, "row", locale)} were loaded (
@@ -152,7 +152,7 @@ export function DetectStep() {
         >
           {unproven.map((d) => (
             <div key={d.column} className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
-              <p className="flex min-w-0 flex-1 items-start gap-2.5 text-ui text-fg">
+              <p className="flex min-w-0 flex-1 items-start gap-2.5 text-sm text-fg">
                 <CalendarClock className="mt-0.5 size-4 shrink-0 text-info" aria-hidden />
                 <span>
                   <span className="font-medium">
@@ -169,7 +169,7 @@ export function DetectStep() {
       ) : null}
       {profile.wide ? (
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-card border border-info/30 bg-info-soft px-4 py-3">
-          <p className="text-ui text-fg">
+          <p className="text-sm text-fg">
             <span className="font-medium">Wide format detected.</span> {profile.wide.suggestion}
           </p>
           <Button size="sm" variant="secondary" onClick={() => void askUnpivot()}>
@@ -211,7 +211,7 @@ function DetectionCard() {
             className="mb-5 flex items-start gap-2.5 rounded-control border border-warning/30 bg-warning-soft px-3 py-2.5"
           >
             <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden />
-            <p className="text-ui text-fg">
+            <p className="text-sm text-fg">
               <span className="font-medium">Please confirm.</span> {detection.reason} Use the form{" "}
               <span className="lg:hidden">below</span>
               <span className="hidden lg:inline">on the right</span>; your choice always overrides detection.
@@ -226,9 +226,7 @@ function DetectionCard() {
 
         <div className="mt-6 grid gap-5 border-t border-border pt-5 md:grid-cols-2">
           <div>
-            <p className="mb-2 text-2xs font-medium tracking-[0.12em] text-fg-subtle uppercase">
-              Top matches
-            </p>
+            <p className="eyebrow mb-2 text-fg-subtle">Top matches</p>
             <ul className="grid gap-2">
               {detection.candidates.map((c) => (
                 <li key={c.domainId}>
@@ -263,7 +261,7 @@ function DetectionCard() {
             </ul>
           </div>
           <div>
-            <p className="mb-2 text-2xs font-medium tracking-[0.12em] text-fg-subtle uppercase">Structure</p>
+            <p className="eyebrow mb-2 text-fg-subtle">Structure</p>
             <ul className="grid gap-1.5 text-ui text-fg-muted">
               {detection.structural.map((s) => (
                 <li key={s} className="flex gap-2">
@@ -296,7 +294,7 @@ function ChoiceDetail({ domain, top }: { domain: DomainListItem | undefined; top
         </span>
         <Badge tone="accent">{noFit ? "No industry fits" : "Your choice"}</Badge>
       </div>
-      <h2 className="font-display text-[40px] leading-none text-fg">{domain?.name ?? "Generic"}</h2>
+      <h2 className="font-display text-display-sm text-fg">{domain?.name ?? "Generic"}</h2>
       <p className="max-w-xl text-sm text-fg-muted">
         {generic
           ? `${noFit ? `No industry matches this file well (the closest, ${top.name}, scores ${top.confidence}%), so the` : "The"} dashboard is built from the data's own structure: totals of its measures over time and by its categories, with no industry's KPIs assumed. Pick a top match instead if one fits.`
@@ -321,7 +319,7 @@ function CandidateDetail({ candidate: shown, best }: { candidate: DomainCandidat
             </span>
             <Badge tone="accent">{best ? "Best match" : "Your choice"}</Badge>
           </div>
-          <h2 className="mt-3 font-display text-[40px] leading-none text-fg">{shown.name}</h2>
+          <h2 className="mt-3 font-display text-display-sm text-fg">{shown.name}</h2>
           <p className="mt-2 text-sm text-fg-muted">
             {shown.subDomain.name} · {Math.round(shown.subDomain.coverage * 100)}% of its key fields found ·
             grain: {shown.grain}
@@ -330,9 +328,7 @@ function CandidateDetail({ candidate: shown, best }: { candidate: DomainCandidat
       </div>
 
       <div className="mt-6">
-        <p className="mb-2 text-2xs font-medium tracking-[0.12em] text-fg-subtle uppercase">
-          Evidence · matched columns
-        </p>
+        <p className="eyebrow mb-2 text-fg-subtle">Evidence · matched columns</p>
         <motion.ul
           className="flex flex-wrap gap-1.5"
           initial="hidden"
@@ -350,7 +346,7 @@ function CandidateDetail({ candidate: shown, best }: { candidate: DomainCandidat
                 {/* Focusable, so the tooltip opens from the keyboard too. */}
                 <span
                   tabIndex={0}
-                  className="inline-flex h-7 items-center gap-1.5 rounded-full border border-border-strong bg-surface-2 pr-3 pl-2.5 text-2xs outline-none focus-visible:ring-2 focus-visible:ring-accent-ring"
+                  className="inline-flex h-7 items-center gap-1.5 rounded-full border border-border-strong bg-surface-2 pr-3 pl-2.5 text-xs outline-none focus-visible:ring-2 focus-visible:ring-accent-ring"
                 >
                   <span
                     className={cn(
@@ -361,7 +357,7 @@ function CandidateDetail({ candidate: shown, best }: { candidate: DomainCandidat
                   />
                   <span className="text-fg-muted">{e.fieldLabel}</span>
                   <span className="text-fg-subtle">←</span>
-                  <span className="font-figures text-fg">{e.column}</span>
+                  <span className="font-medium text-fg">{e.column}</span>
                   {e.via !== "name" ? (
                     <Sparkles className="size-3 text-accent" aria-label="value evidence" />
                   ) : null}
@@ -371,7 +367,7 @@ function CandidateDetail({ candidate: shown, best }: { candidate: DomainCandidat
           ))}
         </motion.ul>
         {shown.missingSignals.length ? (
-          <p className="mt-3 text-ui text-fg-subtle">
+          <p className="mt-3 text-sm text-fg-subtle">
             Not found: {shown.missingSignals.map((m) => m.label).join(", ")}. KPIs that need them will say so
             instead of guessing.
           </p>
@@ -403,8 +399,8 @@ function BusinessForm() {
         emphasise && "border-border-accent shadow-[0_0_0_4px_var(--accent-soft),var(--shadow-card)]",
       )}
     >
-      <h2 className="text-base font-medium text-fg">Tell us about your business</h2>
-      <p className="mt-1 text-ui text-fg-muted">
+      <h2 className="text-base font-semibold text-fg">Tell us about your business</h2>
+      <p className="mt-1 text-sm text-fg-muted">
         Detection is a starting point. Anything you set here wins: the dashboard is built from it as soon as
         you move on.
       </p>
@@ -443,7 +439,7 @@ function BusinessForm() {
               <SelectItem value="generic">Generic (build from the data&apos;s structure)</SelectItem>
             </SelectContent>
           </Select>
-          {domain ? <p className="text-2xs text-fg-subtle">{domain.tagline}</p> : null}
+          {domain ? <p className="text-xs text-fg-subtle">{domain.tagline}</p> : null}
         </div>
         {domain && domain.subDomains.length > 1 ? (
           <div className="grid gap-1.5">
@@ -491,7 +487,7 @@ function BusinessForm() {
             onChange={(v) => setBusiness({ goal: v })}
             options={GOALS.map((g) => ({ value: g.value, label: g.label }))}
           />
-          <p className="text-2xs text-fg-subtle">Orders the KPI strip around what you care about most.</p>
+          <p className="text-xs text-fg-subtle">Orders the KPI strip around what you care about most.</p>
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div className="grid gap-1.5">
@@ -537,7 +533,7 @@ function BusinessForm() {
           </div>
         </div>
         {profileCurrency && !currencyOverride ? (
-          <p className="-mt-2 text-2xs text-fg-subtle">
+          <p className="-mt-2 text-xs text-fg-subtle">
             Currency source: {profileCurrency.source}
             {/[.!?]$/.test(profileCurrency.source) ? "" : "."}
           </p>
@@ -556,7 +552,8 @@ function BusinessForm() {
             type="submit"
             variant="primary"
             size="lg"
-            className="flex-1"
+            // Grows only in the side-by-side row: in the stacked column a zero basis would squash it.
+            className="@md:flex-1"
             disabled={!domainId || Boolean(loading)}
           >
             Next: check your data <ArrowRight aria-hidden />
@@ -589,10 +586,10 @@ function ColumnsInFile() {
     <Card className="mt-5 overflow-hidden">
       <div className="flex flex-wrap items-end justify-between gap-2 px-6 pt-5 pb-3">
         <div>
-          <h2 className="flex items-center gap-2 text-base font-medium text-fg">
+          <h2 className="flex items-center gap-2 text-base font-semibold text-fg">
             <Columns3 className="size-4 text-accent" aria-hidden /> Columns in your file
           </h2>
-          <p className="mt-1 text-ui text-fg-muted">
+          <p className="mt-1 text-sm text-fg-muted">
             {profile.columns.length === 1
               ? "1 column header, read from its values."
               : `${profile.columns.length} column headers, each read from its values.`}{" "}
@@ -611,7 +608,7 @@ function ColumnsInFile() {
           <thead className="bg-surface-2 text-left text-fg-muted">
             <tr>
               {["#", "Column header", "Holds", "Read as", "In your data"].map((h) => (
-                <th key={h} scope="col" className="border-y border-border px-4 py-2 font-medium">
+                <th key={h} scope="col" className="border-y border-border px-4 py-2 text-xs font-medium">
                   {h}
                 </th>
               ))}
@@ -622,7 +619,7 @@ function ColumnsInFile() {
               const Icon = c.role === "time" ? Clock : KIND_ICON[c.storage];
               return (
                 <tr key={c.name} className="hover:bg-surface-2/60">
-                  <td className="font-figures border-b border-border px-4 py-2 text-2xs text-fg-subtle">
+                  <td className="font-figures border-b border-border px-4 py-2 text-xs text-fg-subtle">
                     {i + 1}
                   </td>
                   <td className="border-b border-border px-4 py-2 font-medium text-fg">{c.name}</td>
@@ -642,7 +639,7 @@ function ColumnsInFile() {
                       </span>
                     </Tooltip>
                   </td>
-                  <td className="max-w-[420px] border-b border-border px-4 py-2 text-2xs leading-relaxed text-fg-muted">
+                  <td className="font-data max-w-[420px] border-b border-border px-4 py-2 text-xs leading-relaxed text-fg-muted">
                     {dataSummary(c, locale)}
                   </td>
                 </tr>

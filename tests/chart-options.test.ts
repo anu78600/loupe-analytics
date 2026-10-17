@@ -143,6 +143,27 @@ describe("geo tiles", () => {
     // A state without data has nothing to filter to.
     expect(tiles.find((t) => t.code === "TN")?.category).toBeUndefined();
   });
+
+  it("leave the state codes off tiles too small to hold an 11 px label (version 39.0)", () => {
+    const codes = (size: { width?: number; height?: number }) =>
+      (
+        seriesOf(
+          buildOption({
+            tokens: TOKENS,
+            fmt: { locale: "IN", currency: "INR" },
+            kind: "geoTile",
+            spec: spec("geoTile", { geoRegion: "IN" }),
+            data: data(["MH", "KA"]),
+            animate: false,
+            ...size,
+          }) as Obj,
+        )[0]?.label as Obj
+      ).show;
+    expect(codes({})).toBe(true);
+    expect(codes({ width: 520, height: 320 })).toBe(true);
+    // The one-page dashboard's short card.
+    expect(codes({ width: 420, height: 150 })).toBe(false);
+  });
 });
 
 describe("labels and axes", () => {

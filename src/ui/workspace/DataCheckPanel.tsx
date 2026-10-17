@@ -82,13 +82,17 @@ export function DataCheckPanel() {
           <Icon className={cn("mt-0.5 size-4 shrink-0", TONE_TEXT[v.tone])} aria-hidden />
           <span className="min-w-0 flex-1">
             <span className="flex items-baseline justify-between gap-2">
-              <span className="truncate text-ui text-fg">{v.label}</span>
-              <span className="font-figures shrink-0 text-2xs text-fg-muted">
+              <span className="min-w-0 truncate text-ui text-fg" title={v.label}>
+                {v.label}
+              </span>
+              <span className="font-figures shrink-0 text-xs text-fg-muted">
                 {formatCount(v.rows, locale)}
               </span>
             </span>
             {v.id.startsWith("issue:") ? (
-              <span className="mt-0.5 line-clamp-2 text-2xs leading-relaxed text-fg-subtle">{v.detail}</span>
+              <span className="mt-0.5 line-clamp-2 text-xs leading-relaxed text-fg-subtle" title={v.detail}>
+                {v.detail}
+              </span>
             ) : null}
           </span>
         </button>
@@ -100,9 +104,7 @@ export function DataCheckPanel() {
     <div className="grid gap-4 lg:grid-cols-[300px_minmax(0,1fr)]">
       <aside aria-label="What to check" className="grid min-w-0 grid-cols-1 content-start gap-4">
         <div className="rounded-card border border-border bg-surface-1 p-4">
-          <p className="text-2xs font-medium tracking-[0.12em] text-fg-subtle uppercase">
-            {summary.isDemo ? "Demo file" : "Your file"}
-          </p>
+          <p className="eyebrow text-fg-subtle">{summary.isDemo ? "Demo file" : "Your file"}</p>
           <FileIdentity summary={summary} badge={false} className="mt-1.5" />
           <p className="mt-1 text-ui text-fg">
             {formatCount(summary.rowCount, locale)} rows · {summary.columnCount} columns
@@ -147,15 +149,13 @@ export function DataCheckPanel() {
             </ul>
             {issues.length ? (
               <div>
-                <p className="mb-1 px-3 text-2xs font-medium tracking-[0.12em] text-fg-subtle uppercase">
-                  Problems found
-                </p>
+                <p className="eyebrow mb-1 px-3 text-fg-subtle">Problems found</p>
                 <ul className="grid grid-cols-1 gap-1">{issues.map(item)}</ul>
               </div>
             ) : null}
             {blanks.length ? (
               <details className="group">
-                <summary className="cursor-pointer rounded-control px-3 py-1.5 text-2xs font-medium tracking-[0.12em] text-fg-subtle uppercase hover:text-fg">
+                <summary className="eyebrow cursor-pointer rounded-control px-3 py-1.5 text-fg-subtle hover:text-fg">
                   Blank cells by column ({blanks.length})
                 </summary>
                 <ul className="mt-1 grid grid-cols-1 gap-1">{blanks.map(item)}</ul>
@@ -182,7 +182,7 @@ export function DataCheckPanel() {
               "Loading…"
             )}
           </p>
-          <ul className="flex flex-wrap gap-3 text-2xs text-fg-muted" aria-label="Legend">
+          <ul className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-fg-muted" aria-label="Legend">
             <li className="flex items-center gap-1.5">
               <span className="size-3 rounded-[3px] border border-border bg-warning-soft" aria-hidden /> Needs
               a look (hover for why)

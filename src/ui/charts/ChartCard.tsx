@@ -365,7 +365,7 @@ export function ChartCard({
             {/* Two lines before an ellipsis, so a title is read rather than guessed. */}
             <h3
               id={`chart-title-${spec.id}`}
-              className="line-clamp-2 min-w-0 text-[13.5px] leading-snug font-medium tracking-[-0.005em] break-words text-fg"
+              className="line-clamp-2 min-w-0 text-sm font-medium break-words text-fg"
               title={title}
             >
               {drillLevel ? drillPath.join(" › ") : title}
@@ -377,13 +377,13 @@ export function ChartCard({
           {/* Two lines on wider cards; on a phone it is never cut, so its figures are always read. */}
           {data?.headline && !data.empty ? (
             <p
-              className="mt-1 border-l-2 border-accent pl-2 text-ui leading-snug text-fg sm:line-clamp-2"
+              className="mt-1 border-l-2 border-accent pl-2 text-ui text-fg sm:line-clamp-2"
               title={data.headline}
             >
               {data.headline}
             </p>
           ) : null}
-          {subtitle ? <p className="mt-1 text-2xs text-fg-subtle">{subtitle}</p> : null}
+          {subtitle ? <p className="mt-1 text-xs text-fg-subtle">{subtitle}</p> : null}
         </div>
         <div className="no-print flex shrink-0 items-center gap-0.5 opacity-100 transition-opacity md:opacity-60 md:group-focus-within/card:opacity-100 md:group-hover/card:opacity-100">
           <Popover>
@@ -393,12 +393,12 @@ export function ChartCard({
               </Button>
             </PopoverTrigger>
             <PopoverContent align="end" className="w-80">
-              <p className="text-2xs font-medium tracking-[0.1em] text-fg-subtle uppercase">Why this chart</p>
-              <p className="mt-1.5 text-ui leading-relaxed text-fg">{spec.reason}</p>
+              <p className="eyebrow text-fg-subtle">Why this chart</p>
+              <p className="mt-1.5 text-sm leading-relaxed text-fg">{spec.reason}</p>
               {/* The slice this chart shows, kept here rather than under every chart's title. */}
-              <p className="mt-2 text-2xs text-fg-muted">Showing: {caption}</p>
+              <p className="mt-2 text-xs text-fg-muted">Showing: {caption}</p>
               {spec.measures.length ? (
-                <p className="mt-2 text-2xs text-fg-muted">
+                <p className="mt-2 text-xs text-fg-muted">
                   Measures: {spec.measures.map((m) => m.label).join(", ")}
                   {spec.topN
                     ? ` · Top ${widget.topN ?? spec.topN}${spec.others ? " + Others (recomputed, not summed)" : ""}`
@@ -406,9 +406,9 @@ export function ChartCard({
                 </p>
               ) : null}
               {spec.drill ? (
-                <p className="mt-1 text-2xs text-fg-muted">Click a bar to drill: {spec.drill.join(" › ")}.</p>
+                <p className="mt-1 text-xs text-fg-muted">Click a bar to drill: {spec.drill.join(" › ")}.</p>
               ) : categorical ? (
-                <p className="mt-1 text-2xs text-fg-muted">Click a bar to filter every chart by it.</p>
+                <p className="mt-1 text-xs text-fg-muted">Click a bar to filter every chart by it.</p>
               ) : null}
             </PopoverContent>
           </Popover>
@@ -433,7 +433,7 @@ export function ChartCard({
                     <DropdownMenuRadioItem key={k} value={k}>
                       {KIND_LABEL[k]}
                       {k === spec.kind ? (
-                        <span className="ml-auto pl-3 text-2xs text-fg-subtle">recommended</span>
+                        <span className="ml-auto pl-3 text-xs text-fg-subtle">recommended</span>
                       ) : null}
                     </DropdownMenuRadioItem>
                   ))}
@@ -565,7 +565,7 @@ export function ChartCard({
       {notes.length && data && !data.empty ? (
         <footer className="border-t border-border px-4 py-1.5">
           {/* Two lines, so a note is read rather than cut; any further notes are in the tooltip. */}
-          <p className="line-clamp-2 text-2xs leading-relaxed text-fg-subtle" title={notes.join(" ")}>
+          <p className="line-clamp-2 text-xs leading-relaxed text-fg-subtle" title={notes.join(" ")}>
             {notes[0]}
             {notes.length > 1 ? ` (+${notes.length - 1} more)` : ""}
           </p>

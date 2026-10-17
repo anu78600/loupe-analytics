@@ -159,7 +159,7 @@ export function KpiBuilder({
         />
         {ratio ? (
           <>
-            <p className="flex items-center gap-2 text-2xs text-fg-subtle">
+            <p className="flex items-center gap-2 text-xs text-fg-subtle">
               <Divide className="size-3.5" aria-hidden /> divided by (a ratio of totals, not an average of row
               ratios)
             </p>
@@ -289,7 +289,7 @@ function AggregatePicker({
           </SelectContent>
         </Select>
         {value.agg === "count" ? (
-          <p className="self-center text-2xs text-fg-subtle">Counts every row in view.</p>
+          <p className="self-center text-xs text-fg-subtle">Counts every row in view.</p>
         ) : (
           <Select
             value={value.column ?? NONE}

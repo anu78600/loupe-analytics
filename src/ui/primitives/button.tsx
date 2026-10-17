@@ -31,10 +31,10 @@ const buttonVariants = cva(
         link: "h-auto px-0 text-accent underline-offset-4 hover:underline",
       },
       size: {
-        xs: "h-7 rounded-[8px] px-2.5 text-2xs [&_svg]:size-3.5",
+        xs: "h-7 rounded-[8px] px-2.5 text-xs [&_svg]:size-3.5",
         sm: "h-8 rounded-control px-3 text-ui [&_svg]:size-4",
         md: "h-10 rounded-control px-4 text-sm [&_svg]:size-4",
-        lg: "h-12 rounded-[12px] px-6 text-[15px] [&_svg]:size-[18px]",
+        lg: "h-12 rounded-[12px] px-6 text-md [&_svg]:size-[18px]",
         icon: "size-9 rounded-control [&_svg]:size-4",
         "icon-sm": "size-7 rounded-[8px] [&_svg]:size-3.5",
       },

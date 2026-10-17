@@ -36,7 +36,16 @@ import { openDemo, stepEnabled } from "./Shell";
 const itemClass =
   "flex cursor-default select-none items-center gap-2.5 rounded-[8px] px-2.5 py-2 text-ui text-fg outline-none data-[selected=true]:bg-surface-3 [&_svg]:size-4 [&_svg]:text-fg-subtle";
 const groupHeading =
-  "[&_[cmdk-group-heading]]:px-2.5 [&_[cmdk-group-heading]]:pb-1 [&_[cmdk-group-heading]]:pt-2.5 [&_[cmdk-group-heading]]:text-2xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-[0.1em] [&_[cmdk-group-heading]]:text-fg-subtle";
+  "[&_[cmdk-group-heading]]:px-2.5 [&_[cmdk-group-heading]]:pb-1 [&_[cmdk-group-heading]]:pt-2.5";
+
+/**
+ * A group's heading in the one small-label style (.eyebrow). cmdk renders the
+ * heading in its own element, and .eyebrow is a plain utility class that a
+ * Tailwind variant can't reach, so the label is passed in already styled.
+ */
+function heading(text: string) {
+  return <span className="eyebrow text-fg-subtle">{text}</span>;
+}
 
 export function CommandPalette({
   open,
@@ -87,7 +96,7 @@ function PaletteBody({ onClose, onOpenSettings }: { onClose: () => void; onOpenS
       </div>
       <Command.List className="overflow-y-auto p-2">
         <Command.Empty className="px-3 py-6 text-center text-ui text-fg-muted">No matches.</Command.Empty>
-        <Command.Group heading="Go to" className={groupHeading}>
+        <Command.Group heading={heading("Go to")} className={groupHeading}>
           {STEPS.map((s) => {
             const enabled = stepEnabled(s.id, Boolean(ws.summary), Boolean(ws.domainId));
             return (
@@ -100,7 +109,7 @@ function PaletteBody({ onClose, onOpenSettings }: { onClose: () => void; onOpenS
               >
                 <LayoutGrid aria-hidden /> {s.label}
                 {enabled ? null : (
-                  <span className="ml-auto text-2xs text-fg-subtle">
+                  <span className="ml-auto text-xs text-fg-subtle">
                     {ws.summary ? "Choose an industry first" : "Load data first"}
                   </span>
                 )}
@@ -109,7 +118,7 @@ function PaletteBody({ onClose, onOpenSettings }: { onClose: () => void; onOpenS
           })}
         </Command.Group>
         {specs.length ? (
-          <Command.Group heading="Charts" className={groupHeading}>
+          <Command.Group heading={heading("Charts")} className={groupHeading}>
             {specs.map((s) => (
               <Command.Item
                 key={s.id}
@@ -123,7 +132,7 @@ function PaletteBody({ onClose, onOpenSettings }: { onClose: () => void; onOpenS
           </Command.Group>
         ) : null}
         {ws.context ? (
-          <Command.Group heading="KPIs" className={groupHeading}>
+          <Command.Group heading={heading("KPIs")} className={groupHeading}>
             {ws.context.kpis
               .filter((k) => k.available && !k.hidden)
               .map((k) => (
@@ -143,7 +152,7 @@ function PaletteBody({ onClose, onOpenSettings }: { onClose: () => void; onOpenS
               ))}
           </Command.Group>
         ) : null}
-        <Command.Group heading="Actions" className={groupHeading}>
+        <Command.Group heading={heading("Actions")} className={groupHeading}>
           {ws.context ? (
             <>
               {(["executive", "analyst", "compact"] as const).map((m) => (
@@ -202,7 +211,7 @@ function PaletteBody({ onClose, onOpenSettings }: { onClose: () => void; onOpenS
             <History aria-hidden /> Open the version log
           </Command.Item>
         </Command.Group>
-        <Command.Group heading="Demo data" className={groupHeading}>
+        <Command.Group heading={heading("Demo data")} className={groupHeading}>
           {SAMPLES.map((s) => (
             <Command.Item
               key={s.id}

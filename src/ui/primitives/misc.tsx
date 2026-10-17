@@ -38,7 +38,7 @@ export function Kbd({ children, className }: { children: React.ReactNode; classN
   return (
     <kbd
       className={cn(
-        "inline-flex h-5 min-w-5 items-center justify-center rounded-[5px] border border-border-strong bg-surface-2 px-1 font-mono text-[10px] font-medium text-fg-muted",
+        "inline-flex h-5 min-w-5 items-center justify-center rounded-[5px] border border-border-strong bg-surface-2 px-1 text-2xs font-medium text-fg-muted",
         className,
       )}
     >
@@ -109,7 +109,7 @@ export function AccordionTrigger({
     <AccordionPrimitive.Header className="flex">
       <AccordionPrimitive.Trigger
         className={cn(
-          "group flex flex-1 items-center justify-between gap-6 py-5 text-left text-[15px] font-medium text-fg transition-colors hover:text-accent",
+          "group flex flex-1 items-center justify-between gap-6 py-5 text-left text-md font-medium text-fg transition-colors hover:text-accent",
           className,
         )}
         {...props}
@@ -145,9 +145,5 @@ export function AccordionContent({
 
 /** Small uppercase section label used throughout panels. */
 export function Eyebrow({ children, className }: { children: React.ReactNode; className?: string }) {
-  return (
-    <p className={cn("text-2xs font-medium tracking-[0.12em] text-fg-subtle uppercase", className)}>
-      {children}
-    </p>
-  );
+  return <p className={cn("eyebrow text-fg-subtle", className)}>{children}</p>;
 }

@@ -242,13 +242,13 @@ function AskPanel({ onDone, edit }: { onDone: () => void; edit?: ChartSpec }) {
         </div>
         {examples.length ? (
           <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-2xs text-fg-subtle">From your columns:</span>
+            <span className="text-xs text-fg-subtle">From your columns:</span>
             {examples.map((e) => (
               <button
                 key={e}
                 type="button"
                 onClick={() => run(e)}
-                className="rounded-full border border-border bg-surface-2 px-2.5 py-1 text-2xs text-fg-muted transition-colors hover:border-border-accent hover:text-fg focus-visible:ring-2 focus-visible:ring-accent-ring focus-visible:outline-none"
+                className="rounded-full border border-border bg-surface-2 px-2.5 py-1 text-xs text-fg-muted transition-colors hover:border-border-accent hover:text-fg focus-visible:ring-2 focus-visible:ring-accent-ring focus-visible:outline-none"
               >
                 {e}
               </button>
@@ -259,7 +259,7 @@ function AskPanel({ onDone, edit }: { onDone: () => void; edit?: ChartSpec }) {
 
       {reading ? (
         <div
-          className="grid gap-1.5 rounded-card border border-border bg-surface-2 px-4 py-3 text-ui"
+          className="grid gap-1.5 rounded-card border border-border bg-surface-2 px-4 py-3 text-sm"
           aria-live="polite"
         >
           <p className="text-fg">
@@ -280,7 +280,7 @@ function AskPanel({ onDone, edit }: { onDone: () => void; edit?: ChartSpec }) {
             </p>
           ) : null}
           {reading.notes.map((n) => (
-            <p key={n} className="text-2xs leading-relaxed text-fg-muted">
+            <p key={n} className="text-xs leading-relaxed text-fg-muted">
               {n}
             </p>
           ))}
@@ -291,9 +291,9 @@ function AskPanel({ onDone, edit }: { onDone: () => void; edit?: ChartSpec }) {
 
       {design ? (
         <div className="grid gap-3">
-          {design.error ? <p className="text-ui text-fg-muted">{design.error}</p> : null}
+          {design.error ? <p className="text-sm text-fg-muted">{design.error}</p> : null}
           {design.notes.map((n) => (
-            <p key={n} className="text-2xs leading-relaxed text-fg-muted">
+            <p key={n} className="text-xs leading-relaxed text-fg-muted">
               {n}
             </p>
           ))}
@@ -371,9 +371,7 @@ function AskEditor({
 
   return (
     <fieldset className="grid gap-4 rounded-card border border-border p-4">
-      <legend className="px-1 text-2xs font-medium tracking-[0.12em] text-fg-subtle uppercase">
-        Your picks
-      </legend>
+      <legend className="eyebrow px-1 text-fg-subtle">Your picks</legend>
       <div className="grid gap-2">
         <Label>Measure</Label>
         {ask.measures.map((m, i) => {
@@ -633,9 +631,9 @@ export function ChartPreview({ spec, why, filters }: { spec: ChartSpec; why?: st
       ) : (
         <DataTable spec={spec} data={data} fmt={fmt} maxRows={8} className="max-h-52 overflow-auto" />
       )}
-      {why ? <p className="text-2xs leading-relaxed text-fg-muted">{why}</p> : null}
+      {why ? <p className="text-xs leading-relaxed text-fg-muted">{why}</p> : null}
       {data?.notes.map((n) => (
-        <p key={n} className="text-2xs leading-relaxed text-fg-subtle">
+        <p key={n} className="text-xs leading-relaxed text-fg-subtle">
           {n}
         </p>
       ))}
@@ -660,7 +658,7 @@ function ManageCharts() {
   const shown = rows.filter((r) => !r.w.hidden).length;
   return (
     <div className="grid gap-3">
-      <p className="text-ui text-fg-muted">
+      <p className="text-sm text-fg-muted">
         {shown} of {rows.length} charts shown. Hidden charts keep their settings; switch them back on any
         time.
       </p>
@@ -672,7 +670,7 @@ function ManageCharts() {
             <li key={w.id} className="flex items-center justify-between gap-3 px-4 py-2.5">
               <div className="min-w-0">
                 <p className="truncate text-ui text-fg">{spec.title}</p>
-                <p className="text-2xs text-fg-subtle">
+                <p className="text-xs text-fg-subtle">
                   {KIND_LABEL[w.kind ?? spec.kind]}
                   {custom ? " · custom" : spec.section === "columns" ? " · from your other columns" : ""}
                   {inMode ? "" : ` · not in ${mode} layout`}

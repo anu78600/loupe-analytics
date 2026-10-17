@@ -85,13 +85,7 @@ DropdownMenuCheckboxItem.displayName = "DropdownMenuCheckboxItem";
 
 export function DropdownMenuLabel({ className, ...props }: React.ComponentProps<typeof MenuPrimitive.Label>) {
   return (
-    <MenuPrimitive.Label
-      className={cn(
-        "px-2 pt-2 pb-1 text-2xs font-medium tracking-[0.08em] text-fg-subtle uppercase",
-        className,
-      )}
-      {...props}
-    />
+    <MenuPrimitive.Label className={cn("eyebrow px-2 pt-2 pb-1 text-fg-subtle", className)} {...props} />
   );
 }
 

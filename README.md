@@ -82,7 +82,7 @@ More detail is in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and [docs/DESIGN.
 ## Known limitations
 
 - **No .pbix file.** A .pbix is a proprietary binary that only Power BI Desktop writes. Loupe exports a Power BI _package_ instead; its README walks through two paths (about five minutes in any Power BI Desktop). The PBIP/TMDL path follows Microsoft's published format but has not been opened in every Power BI Desktop release. If Desktop reports a schema error, the manual path always works.
-- **The dashboard PDF is made of images.** Its pages are rendered to high-resolution images, so its text isn't selectable or searchable. The SQL and insights PDFs are real text, with the Geist typeface embedded (SIL Open Font Licence, `public/fonts/OFL.txt`).
+- **The dashboard PDF is made of images.** Its pages are rendered to high-resolution images, so its text isn't selectable or searchable. The SQL and insights PDFs are real text, with the app's own typefaces embedded: Inter for text and Geist Mono for code (SIL Open Font Licence; the licences are in `public/fonts`).
 - **SQL verification needs the internet once.** "Verify in browser" downloads DuckDB-WASM (a 34–39 MB WebAssembly file, compressed in transit) from jsDelivr the first time. On networks that block it, the SQL can still be downloaded and run elsewhere.
 - **Size limits depend on the device's memory.** CSV is comfortable to about 2.1 million rows or 700 MB, beyond which Loupe offers sampling. Excel is limited to 150 MB and JSON to 250 MB.
 - **Dates are wall-clock.** Times are read exactly as written and never shifted between time zones.

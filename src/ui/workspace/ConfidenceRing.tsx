@@ -74,11 +74,11 @@ export function ConfidenceRing({
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="tabular text-[30px] leading-none font-semibold tracking-[-0.03em] text-fg">
+        <span className="font-figures text-3xl leading-none font-semibold text-fg">
           {Math.round(shown)}
-          <span className="text-[15px] font-medium text-fg-muted">%</span>
+          <span className="text-md font-medium text-fg-muted">%</span>
         </span>
-        <span className="mt-1 text-2xs tracking-[0.12em] text-fg-subtle uppercase">{label}</span>
+        <span className="eyebrow mt-1 text-fg-subtle">{label}</span>
       </div>
     </div>
   );

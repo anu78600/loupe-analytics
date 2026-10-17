@@ -31,7 +31,7 @@ export function FileIdentity({
         aria-hidden
       />
       <span
-        className={cn("min-w-0 truncate font-medium text-fg", size === "sm" ? "text-2xs" : "text-ui")}
+        className={cn("min-w-0 truncate font-medium text-fg", size === "sm" ? "text-xs" : "text-ui")}
         title={full}
       >
         {summary.fileName}

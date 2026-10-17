@@ -156,7 +156,7 @@ export function QuestionsStep() {
         <div>
           <Eyebrow>Step {stepNumber("questions")} · Questions & SQL</Eyebrow>
           <h1 className="mt-2 font-display text-display-sm text-fg">Ask your data a business question.</h1>
-          <p className="mt-2 max-w-2xl text-ui text-fg-muted">
+          <p className="mt-2 max-w-2xl text-sm text-fg-muted">
             Pick a question or type your own. Loupe answers it from your file and writes the SQL query that
             returns the same answer, which you can check right here.
           </p>
@@ -190,7 +190,7 @@ export function QuestionsStep() {
               Answer with SQL
             </Button>
           </div>
-          <p className="min-h-5 text-2xs" aria-live="polite">
+          <p className="min-h-5 text-xs" aria-live="polite">
             {reading ? (
               <>
                 <span className="text-fg-muted">
@@ -213,7 +213,7 @@ export function QuestionsStep() {
         </form>
         <div className="grid gap-1.5">
           <div className="flex flex-wrap items-center gap-3">
-            <span className="text-2xs text-fg-muted">Answer with</span>
+            <span className="text-xs text-fg-muted">Answer with</span>
             <Segmented<"dashboard" | "file">
               ariaLabel="Which rows to use"
               size="sm"
@@ -225,7 +225,7 @@ export function QuestionsStep() {
               ]}
             />
           </div>
-          <p className="text-2xs text-fg-subtle">
+          <p className="text-xs leading-relaxed text-fg-subtle">
             {scope === "dashboard"
               ? `Rows used: ${dashboardRows.length ? dashboardRows.join(" · ") : "every row (the dashboard has no filters)"}. `
               : "Rows used: every row of your file. "}
@@ -237,7 +237,7 @@ export function QuestionsStep() {
         </div>
         {suggestions.length ? (
           <div>
-            <p className="mb-2 flex items-center gap-1.5 text-2xs font-medium tracking-[0.12em] text-fg-subtle uppercase">
+            <p className="eyebrow mb-2 flex items-center gap-1.5 text-fg-subtle">
               <Lightbulb className="size-3.5" aria-hidden /> Questions about your data
             </p>
             <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
@@ -277,7 +277,7 @@ export function QuestionsStep() {
             <AnswerCard key={a.id} answer={a} ctx={actx} onRemove={remove} onEdit={edit} />
           ))
         ) : (
-          <Card className="flex items-start gap-3 p-6 text-ui text-fg-muted">
+          <Card className="flex items-start gap-3 p-6 text-sm text-fg-muted">
             <MessageSquareText className="mt-0.5 size-5 shrink-0 text-fg-subtle" aria-hidden />
             <p>
               No questions yet. Each answer comes with its SQL query, so you can run it on your own database
@@ -469,15 +469,15 @@ function AnswerCard({
           <h2
             id={`answer-${a.id}`}
             tabIndex={-1}
-            className="rounded-[4px] text-base font-medium text-fg focus-visible:ring-2 focus-visible:ring-accent-ring focus-visible:outline-none"
+            className="rounded-[4px] text-base font-semibold text-fg focus-visible:ring-2 focus-visible:ring-accent-ring focus-visible:outline-none"
           >
             {a.question}
           </h2>
-          <p className="mt-1 text-2xs text-fg-muted">
+          <p className="mt-1 text-xs text-fg-muted">
             Read as: {a.understood} · Rows used: {rowsUsed}
           </p>
           {a.notes.map((n) => (
-            <p key={n} className="mt-1 text-2xs text-fg-subtle">
+            <p key={n} className="mt-1 text-xs text-fg-subtle">
               {n}
             </p>
           ))}
@@ -502,16 +502,16 @@ function AnswerCard({
         </div>
       </div>
       {a.error ? (
-        <p className="text-ui text-warning">{a.error}</p>
+        <p className="text-sm text-warning">{a.error}</p>
       ) : !a.rows.length ? (
-        <p className="rounded-card border border-border bg-surface-2 px-4 py-3 text-ui text-fg-muted">
+        <p className="rounded-card border border-border bg-surface-2 px-4 py-3 text-sm text-fg-muted">
           No rows match {a.filters.length ? `these filters (${rowsUsed})` : "this question"}, so there is
           nothing to answer. Widen the filters or ask about the whole file.
         </p>
       ) : (
         <>
           {a.headline ? (
-            <p className="rounded-card border border-border-accent bg-accent-soft px-4 py-3 text-ui text-fg">
+            <p className="rounded-card border border-border-accent bg-accent-soft px-4 py-3 text-sm text-fg">
               {a.headline}
             </p>
           ) : null}
@@ -523,7 +523,7 @@ function AnswerCard({
               className="max-h-[360px] overflow-auto rounded-card border border-border focus-visible:ring-2 focus-visible:ring-accent-ring focus-visible:outline-none"
             >
               <table className="w-full border-separate border-spacing-0 text-ui">
-                <thead className="sticky top-0 bg-surface-2 text-left text-fg-muted">
+                <thead className="sticky top-0 bg-surface-2 text-left text-xs text-fg-muted">
                   <tr>
                     {a.keyLabel !== null ? (
                       <th scope="col" className="border-b border-border px-3 py-2 font-medium">
@@ -547,16 +547,13 @@ function AnswerCard({
                       {a.keyLabel !== null ? (
                         <th
                           scope="row"
-                          className="border-b border-border px-3 py-1.5 text-left font-normal text-fg"
+                          className="font-data border-b border-border px-3 py-1.5 text-left font-normal text-fg"
                         >
                           {r.label}
                         </th>
                       ) : null}
                       {r.values.map((v, i) => (
-                        <td
-                          key={i}
-                          className="font-figures border-b border-border px-3 py-1.5 text-right text-fg"
-                        >
+                        <td key={i} className="tabular border-b border-border px-3 py-1.5 text-right text-fg">
                           {formatValue(v, a.measures[i]?.format ?? "number", {
                             ...fmt,
                             ...(decimals[i] !== undefined ? { decimals: decimals[i] } : {}),
@@ -568,7 +565,7 @@ function AnswerCard({
                 </tbody>
               </table>
               {a.more ? (
-                <p className="px-3 py-2 text-2xs text-fg-subtle">
+                <p className="px-3 py-2 text-xs text-fg-subtle">
                   {a.more} more {a.more === 1 ? "group" : "groups"} with{" "}
                   {a.order === "asc" ? "higher" : "lower"} values, not listed.
                 </p>
@@ -578,7 +575,7 @@ function AnswerCard({
           </div>
           {a.sql ? <CodeBlock code={a.sql} language="SQL · DuckDB / PostgreSQL" label="SQL query" /> : null}
           {a.skipped.map((s) => (
-            <p key={s.label} className="text-2xs text-fg-muted">
+            <p key={s.label} className="text-xs text-fg-muted">
               No SQL for {s.label}: {s.reason}
             </p>
           ))}
@@ -606,7 +603,7 @@ function AnswerCard({
             {check.status !== "idle" ? (
               <span
                 className={cn(
-                  "flex items-center gap-1.5 text-2xs",
+                  "flex items-center gap-1.5 text-xs",
                   check.status === "ok"
                     ? "text-success"
                     : check.status === "running"

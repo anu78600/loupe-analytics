@@ -71,11 +71,7 @@ export const DialogTitle = React.forwardRef<
   HTMLHeadingElement,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Title>
 >(({ className, ...props }, ref) => (
-  <DialogPrimitive.Title
-    ref={ref}
-    className={cn("text-lg font-medium tracking-[-0.01em] text-fg", className)}
-    {...props}
-  />
+  <DialogPrimitive.Title ref={ref} className={cn("text-lg font-semibold text-fg", className)} {...props} />
 ));
 DialogTitle.displayName = "DialogTitle";
 

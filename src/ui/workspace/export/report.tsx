@@ -16,6 +16,13 @@
  * height is left: a long note can never be drawn over. A table measures the
  * height it was given and shows as many rows as fit. KPI values are written
  * as the dashboard's cards write them (ui/common/kpiFormat).
+ *
+ * Type follows the app's families at print sizes: Inter for every word and
+ * figure (figures in .font-figures, with tabular numerals), Instrument Serif
+ * only for the cover title and the appendix heading, and small uppercase
+ * labels in the eyebrow's recipe. Nothing on a page is under 12 px (about
+ * 6 pt on A4): charts and tables are drawn slightly enlarged (REPORT_ZOOM)
+ * so their 11 px labels print at 12 px too.
  */
 import * as React from "react";
 import { createRoot } from "react-dom/client";
@@ -133,6 +140,50 @@ export function StaticChart({
   return <div ref={ref} style={{ width: "100%", height: height ?? "100%" }} />;
 }
 
+/**
+ * Lays its child out at 1/zoom of the space it fills, then scales it up to
+ * fill it: a chart or table on a page or a slide, its labels enlarged. The
+ * inner box is positioned, so an absolutely placed child (a fitted table)
+ * fills and measures the laid-out size, not the scaled one.
+ */
+export function Zoomed({ zoom, children }: { zoom: number; children: React.ReactNode }) {
+  return (
+    <div className="absolute inset-0 overflow-hidden">
+      <div
+        className="relative"
+        style={{
+          width: `${100 / zoom}%`,
+          height: `${100 / zoom}%`,
+          transform: `scale(${zoom})`,
+          transformOrigin: "0 0",
+        }}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The smallest text the app draws in a chart or a table (axis labels, a
+ * table's "Showing" line). Exports that print it larger scale charts and
+ * tables by their own minimum over this (REPORT_ZOOM, the slides' zoom).
+ */
+export const APP_MIN_TEXT = 11;
+
+/** The smallest text on a report page, in laid-out pixels: 12 px on the 1240 px page is about 6 pt on A4. */
+const PAGE_MIN_TEXT = 12;
+
+/** How much a page enlarges its charts and tables, so their smallest labels reach PAGE_MIN_TEXT. */
+const REPORT_ZOOM = PAGE_MIN_TEXT / APP_MIN_TEXT;
+
+/**
+ * A small uppercase label on a drawn page or slide: the app's .eyebrow recipe
+ * (weight 600, 0.08em tracking, case-sensitive forms) at the canvas's own size,
+ * which the caller adds.
+ */
+export const CANVAS_EYEBROW = "font-semibold tracking-[0.08em] uppercase [font-feature-settings:'case']";
+
 /** DataTable's print metrics, as laid out: its header row, the "Showing n of m rows" line, and one row. */
 const TABLE_HEAD = 37;
 const TABLE_SHOWING = 32;
@@ -207,11 +258,7 @@ function ChartBlock({
       className="flex min-h-0 flex-col overflow-hidden rounded-[14px] border border-border bg-surface-1 p-6"
       style={{ breakInside: "avoid" }}
     >
-      {figure ? (
-        <p className="text-[11.5px] font-medium tracking-[0.12em] text-fg-subtle uppercase">
-          Figure {figure}
-        </p>
-      ) : null}
+      {figure ? <p className={`text-[12px] text-fg-subtle ${CANVAS_EYEBROW}`}>Figure {figure}</p> : null}
       <h3 className="mt-1 truncate text-[19px] font-medium text-fg">{chart.spec.title}</h3>
       {/* What the figure shows, in a sentence computed from its data. */}
       {chart.data.headline && !chart.data.empty ? (
@@ -222,12 +269,15 @@ function ChartBlock({
       <div className="relative mt-4 min-h-0 flex-1">
         {chart.data.empty ? (
           <p className="text-[14px] text-fg-subtle">{chart.data.notes[0] ?? "No data for this selection."}</p>
-        ) : rendersWithECharts(chart.kind, chart.data) ? (
-          <div className="absolute inset-0">
-            <StaticChart chart={chart} fmt={fmt} />
-          </div>
         ) : (
-          <FittedTable chart={chart} fmt={fmt} />
+          // Slightly enlarged, so the chart's or table's 11 px labels print at 12 px.
+          <Zoomed zoom={REPORT_ZOOM}>
+            {rendersWithECharts(chart.kind, chart.data) ? (
+              <StaticChart chart={chart} fmt={fmt} pixelRatio={2 * REPORT_ZOOM} />
+            ) : (
+              <FittedTable chart={chart} fmt={fmt} />
+            )}
+          </Zoomed>
         )}
       </div>
       <div className="mt-3 grid shrink-0 gap-1 text-[12px] leading-relaxed text-fg-subtle">
@@ -250,7 +300,7 @@ function KpiTile({ meta, value, fmt }: { meta: KpiMeta; value: KpiValue | undefi
   return (
     <div className="rounded-[14px] border border-border bg-surface-1 p-5">
       <p className="text-[14px] text-fg-muted">{kpiLabel(meta)}</p>
-      <p className="mt-2 text-[34px] leading-none font-semibold tracking-[-0.02em] text-fg">
+      <p className="font-figures mt-2 text-[34px] leading-none font-semibold tracking-[-0.02em] text-fg">
         {formatKpi(value?.value, meta.format, fmt)}
       </p>
       {change !== null && change !== undefined ? (
@@ -302,12 +352,12 @@ function Page({
         </div>
       </header>
       <div className="flex min-h-0 flex-1 flex-col pt-8">{children}</div>
-      <footer className="flex items-center justify-between border-t border-border pt-4 text-[11.5px] text-fg-subtle">
+      <footer className="flex items-center justify-between border-t border-border pt-4 text-[12px] text-fg-subtle">
         <span>
           Generated locally by Loupe on {input.generatedAt}. Data never left the browser.
           {input.isDemo ? " Demo data, not real transactions." : ""}
         </span>
-        <span>
+        <span className="tabular">
           Page {index} of {total}
         </span>
       </footer>
@@ -334,20 +384,18 @@ export function ReportDocument({ input }: { input: ReportInput }) {
   return (
     <div className="flex flex-col gap-0 font-sans">
       <Page index={1} total={total} input={input}>
-        <p className="text-[13px] font-medium tracking-[0.14em] text-fg-subtle uppercase">
-          Performance report
-        </p>
+        <p className={`text-[13px] text-fg-subtle ${CANVAS_EYEBROW}`}>Performance report</p>
         <h1 className="mt-3 font-display text-[60px] leading-[1.02] text-fg">{input.title}</h1>
         <p className="mt-3 text-[18px] text-fg-muted">{input.subtitle}</p>
         <dl className="mt-7 grid grid-cols-3 gap-x-6 gap-y-4 rounded-[14px] border border-border bg-surface-1 p-5">
           {facts.map(([k, v]) => (
             <div key={k} className="min-w-0">
-              <dt className="text-[11.5px] tracking-[0.1em] text-fg-subtle uppercase">{k}</dt>
+              <dt className={`text-[12px] text-fg-subtle ${CANVAS_EYEBROW}`}>{k}</dt>
               <dd className="mt-1 text-[14px] text-fg">{v}</dd>
             </div>
           ))}
         </dl>
-        <h2 className="mt-8 text-[15px] font-medium text-fg">Headline KPIs</h2>
+        <h2 className="mt-8 text-[16px] font-semibold text-fg">Headline KPIs</h2>
         <div className="mt-3 grid grid-cols-3 gap-4">
           {input.hero.map((h) => (
             <KpiTile key={h.meta.id} meta={h.meta} value={h.value} fmt={input.fmt} />
@@ -355,7 +403,7 @@ export function ReportDocument({ input }: { input: ReportInput }) {
         </div>
         {input.insights.length ? (
           <>
-            <h2 className="mt-8 text-[15px] font-medium text-fg">Executive summary</h2>
+            <h2 className="mt-8 text-[16px] font-semibold text-fg">Executive summary</h2>
             <ol className="mt-3 grid gap-3">
               {input.insights.slice(0, 4).map((i, n) => {
                 const fig = i.chartId ? figureOf.get(i.chartId) : undefined;
@@ -375,7 +423,7 @@ export function ReportDocument({ input }: { input: ReportInput }) {
         ) : null}
         {input.supporting.length ? (
           <>
-            <h2 className="mt-8 text-[15px] font-medium text-fg">Supporting KPIs</h2>
+            <h2 className="mt-8 text-[16px] font-semibold text-fg">Supporting KPIs</h2>
             <div className="mt-3 grid grid-cols-2 gap-x-10">
               {input.supporting.slice(0, 12).map((s) => {
                 const pct = s.meta.format === "percent";
@@ -389,7 +437,7 @@ export function ReportDocument({ input }: { input: ReportInput }) {
                     <span className="font-figures shrink-0 text-fg">
                       {formatKpi(s.value?.value, s.meta.format, input.fmt)}
                       {change !== null && change !== undefined ? (
-                        <span className="ml-2 text-[12.5px] text-fg-subtle">
+                        <span className="ml-2 text-[13px] text-fg-subtle">
                           {pct
                             ? formatPointDelta(change, input.fmt.locale)
                             : formatDelta(change, input.fmt.locale)}
@@ -421,7 +469,7 @@ export function ReportDocument({ input }: { input: ReportInput }) {
       ))}
       <Page index={total} total={total} input={input}>
         <h2 className="font-display text-[40px] text-fg">Appendix</h2>
-        <h3 className="mt-6 text-[16px] font-medium text-fg">KPI glossary</h3>
+        <h3 className="mt-6 text-[16px] font-semibold text-fg">KPI glossary</h3>
         <dl className="mt-3 grid gap-2.5">
           {glossary.map((h) => (
             <div key={h.meta.id} className="text-[13px] leading-relaxed">
@@ -435,7 +483,7 @@ export function ReportDocument({ input }: { input: ReportInput }) {
         </dl>
         {input.health ? (
           <>
-            <h3 className="mt-8 text-[16px] font-medium text-fg">
+            <h3 className="mt-8 text-[16px] font-semibold text-fg">
               Data health: {input.health.score}/100 ({input.health.grade})
             </h3>
             <p className="mt-1 text-[14px] text-fg-muted">{input.health.summary}</p>
@@ -449,7 +497,7 @@ export function ReportDocument({ input }: { input: ReportInput }) {
             </ul>
           </>
         ) : null}
-        <p className="mt-8 text-[12.5px] leading-relaxed text-fg-subtle">
+        <p className="mt-8 text-[13px] leading-relaxed text-fg-subtle">
           Every figure is computed from the file named above; nothing is estimated. Ratios are recomputed from
           their totals for every period and segment (never summed or averaged). Rates change in percentage
           points (pp). Benchmarks, where shown in the app, are indicative ranges and are not computed from

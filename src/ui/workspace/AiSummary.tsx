@@ -60,31 +60,29 @@ export function PayloadPreviewDialog({
           <DialogTitle>Review what will be sent</DialogTitle>
           <DialogDescription>
             This exact payload goes to {preview?.endpoint} using your API key and model{" "}
-            <span className="font-figures">{preview?.model}</span>. No raw rows are included, only what you
-            see below.
+            <span className="font-medium text-fg">{preview?.model}</span>. No raw rows are included, only what
+            you see below.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-3">
           <div>
-            <p className="mb-1 text-2xs font-medium tracking-[0.1em] text-fg-subtle uppercase">
-              Instructions
-            </p>
+            <p className="eyebrow mb-1 text-fg-subtle">Instructions</p>
             <pre
               tabIndex={0}
               aria-label="Instructions sent to the model"
-              className="max-h-32 overflow-auto rounded-control border border-border bg-bg-subtle p-3 text-2xs leading-relaxed text-fg-muted"
+              className="max-h-32 overflow-auto rounded-control border border-border bg-bg-subtle p-3 font-mono text-xs leading-relaxed text-fg-muted"
             >
               {preview?.system}
             </pre>
           </div>
           <div>
-            <p className="mb-1 text-2xs font-medium tracking-[0.1em] text-fg-subtle uppercase">
+            <p className="eyebrow mb-1 text-fg-subtle">
               Payload · {new Blob([json]).size.toLocaleString("en-US")} bytes
             </p>
             <pre
               tabIndex={0}
               aria-label="Payload sent to the model"
-              className="max-h-72 overflow-auto rounded-control border border-border bg-bg-subtle p-3 font-mono text-2xs leading-relaxed text-fg"
+              className="max-h-72 overflow-auto rounded-control border border-border bg-bg-subtle p-3 font-mono text-xs leading-relaxed text-fg"
             >
               {json}
             </pre>
@@ -181,12 +179,12 @@ export function AiSummary({ insights }: { insights: Insight[] }) {
       ) : null}
       {result ? (
         <div className="mt-4 border-t border-border pt-4">
-          <p className="text-[15px] leading-snug font-medium text-fg">{result.headline}</p>
+          <p className="text-md font-medium text-fg">{result.headline}</p>
           <ul className="mt-3 grid gap-2">
             {result.bullets.map((b, i) => {
               const bad = unverifiedNumbers(b.text, payloadText);
               return (
-                <li key={i} className="flex gap-2 text-ui leading-relaxed text-fg">
+                <li key={i} className="flex gap-2 text-sm leading-relaxed text-fg">
                   <span className="mt-2 size-1.5 shrink-0 rounded-full bg-accent" aria-hidden />
                   <span>
                     {b.text}
@@ -200,9 +198,9 @@ export function AiSummary({ insights }: { insights: Insight[] }) {
               );
             })}
           </ul>
-          <p className="mt-3 flex items-center gap-1.5 text-2xs text-fg-subtle">
-            <Lock className="size-3" aria-hidden /> Written by {ai.model} from the headline KPIs and the
-            insights below. Figures not found in what was sent are flagged as unverified.
+          <p className="mt-3 flex items-start gap-1.5 text-xs text-fg-subtle">
+            <Lock className="mt-0.5 size-3 shrink-0" aria-hidden /> Written by {ai.model} from the headline
+            KPIs and the insights below. Figures not found in what was sent are flagged as unverified.
           </p>
         </div>
       ) : null}
@@ -266,14 +264,14 @@ export function AiDomainCheck() {
           {sending ? <Loader2 className="animate-spin" aria-hidden /> : null} Ask
         </Button>
       </div>
-      {error ? <p className="mt-2 text-2xs text-danger">{error}</p> : null}
+      {error ? <p className="mt-2 text-xs text-danger">{error}</p> : null}
       {opinion ? (
         <div className="mt-2 text-ui">
           <p className="text-fg">
             {match?.name ?? (opinion.domainId === "generic" ? "Generic" : opinion.domainId)} ·{" "}
             <span className="font-figures">{Math.round(opinion.confidence)}%</span>
           </p>
-          <p className="mt-1 text-2xs leading-relaxed text-fg-muted">{opinion.rationale}</p>
+          <p className="mt-1 text-xs leading-relaxed text-fg-muted">{opinion.rationale}</p>
           {match || opinion.domainId === "generic" ? (
             <Button
               size="xs"

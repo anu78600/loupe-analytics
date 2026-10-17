@@ -83,9 +83,9 @@ function Tile({
             <span className="grid size-8 place-items-center rounded-[9px] border border-border-accent bg-accent-soft text-accent">
               <Icon className="size-4" aria-hidden />
             </span>
-            <h3 className="text-[15px] font-medium text-fg">{title}</h3>
+            <h3 className="text-md font-medium text-fg">{title}</h3>
           </div>
-          <p className="mt-2 text-ui text-fg-muted">{line}</p>
+          <p className="mt-2 text-sm text-fg-muted">{line}</p>
         </div>
         {children}
       </Spotlight>
@@ -107,7 +107,7 @@ function CodeTile({ kpi }: { kpi: LandingData["showcase"]["kpi"] }) {
     <div ref={ref} data-loop className="grid min-w-0 gap-3">
       <p className="text-ui text-fg-muted">
         <span className="font-medium text-fg">{kpi.name}</span>{" "}
-        <span className="font-figures text-fg">= {kpi.formula}</span>
+        <span className="text-fg">= {kpi.formula}</span>
       </p>
       <div className="min-w-0 overflow-hidden rounded-card border border-border bg-bg">
         <div className="flex items-center justify-between gap-3 border-b border-border px-3 py-1.5">
@@ -119,7 +119,7 @@ function CodeTile({ kpi }: { kpi: LandingData["showcase"]["kpi"] }) {
                 aria-pressed={lang === l}
                 onClick={() => setChosen(l)}
                 className={cn(
-                  "rounded-[7px] px-2 py-0.5 text-2xs font-medium tracking-[0.08em] uppercase transition-colors",
+                  "eyebrow rounded-[7px] px-2 py-0.5 transition-colors",
                   lang === l ? "bg-accent-soft text-accent" : "text-fg-subtle hover:text-fg",
                 )}
               >
@@ -127,15 +127,16 @@ function CodeTile({ kpi }: { kpi: LandingData["showcase"]["kpi"] }) {
               </button>
             ))}
           </div>
-          <span className="font-figures truncate text-2xs text-fg-subtle">
+          <span className="truncate text-xs text-fg-subtle">
             {lang === "sql" ? "DuckDB · PostgreSQL" : `[${kpi.daxName}]`}
           </span>
         </div>
-        {/* Focusable so keyboard users can scroll long code. */}
+        {/* Focusable so keyboard users can scroll long code. The code face comes from <pre> and
+            <code> themselves (Tailwind's base styles set them in the monospace), so only code wears it. */}
         <pre
           tabIndex={0}
           aria-label={`${kpi.name} in ${lang === "sql" ? "SQL" : "DAX"}`}
-          className="font-figures h-[208px] overflow-auto p-3 text-[11.5px] leading-[1.65] [overflow-wrap:anywhere] whitespace-pre-wrap text-fg-muted focus-visible:outline-offset-[-2px]"
+          className="h-[208px] overflow-auto p-3 text-xs leading-relaxed [overflow-wrap:anywhere] whitespace-pre-wrap text-fg-muted focus-visible:outline-offset-[-2px]"
         >
           <code>
             <Typewriter
@@ -237,7 +238,7 @@ function layoutTreemap(values: number[], x: number, y: number, w: number, h: num
 
 function Legend({ parts }: { parts: Part[] }) {
   return (
-    <ul className="grid content-center gap-1.5 text-[11px]">
+    <ul className="grid content-center gap-1.5 text-xs">
       {parts.map((p, i) => (
         <li key={p.label} className="flex min-w-0 items-center gap-2">
           <span
@@ -259,10 +260,7 @@ function MorphBars({ parts }: { parts: Part[] }) {
   return (
     <ul className="grid h-full content-center gap-2">
       {named.map((p, i) => (
-        <li
-          key={p.label}
-          className="grid grid-cols-[6.5rem_minmax(0,1fr)_auto] items-center gap-2 text-[11px]"
-        >
+        <li key={p.label} className="grid grid-cols-[6.5rem_minmax(0,1fr)_auto] items-center gap-2 text-xs">
           <span className="truncate text-fg-muted">{p.label}</span>
           <span className="h-2.5 overflow-hidden rounded-r-[4px]">
             <motion.span
@@ -360,9 +358,9 @@ function MorphTile({ state }: { state: PreviewState }) {
   const parts = partsOf(state);
   return (
     <div ref={ref} className="mt-auto grid gap-3">
-      <div className="flex items-center justify-between gap-2 text-2xs">
+      <div className="flex items-center justify-between gap-2 text-xs">
         <span className="text-fg-subtle">Net revenue by category · {state.label}</span>
-        <span className="rounded-full border border-border-accent bg-accent-soft px-2 py-0.5 text-accent">
+        <span className="shrink-0 rounded-full border border-border-accent bg-accent-soft px-2 py-0.5 text-accent">
           {form}
         </span>
       </div>
@@ -420,8 +418,8 @@ function ProfileTile({
           variants={{ hidden: {}, show: { transition: { staggerChildren: 0.18, delayChildren: 0.2 } } }}
         >
           {list.map((c) => (
-            <li key={c.name} className="flex items-center justify-between gap-3 px-3 py-2 text-[11.5px]">
-              <span className="font-figures truncate text-fg">{c.name}</span>
+            <li key={c.name} className="flex items-center justify-between gap-3 px-3 py-2 text-xs">
+              <span className="truncate font-medium text-fg">{c.name}</span>
               <motion.span
                 className="shrink-0 rounded-full border border-border px-2 py-0.5 text-fg-muted"
                 variants={{
@@ -435,7 +433,7 @@ function ProfileTile({
           ))}
         </motion.ul>
       </div>
-      <p className="text-2xs text-fg-subtle">
+      <p className="text-xs text-fg-subtle">
         Demo file health: <span className="font-figures text-fg">{health.score}/100</span> ({health.grade})
       </p>
     </div>
@@ -509,7 +507,7 @@ function InsightTile({ state, title }: { state: PreviewState; title: string }) {
           />
         ) : null}
       </div>
-      <p className="text-2xs text-fg-subtle">
+      <p className="text-xs text-fg-subtle">
         From the chart: {state.trend.title} · {state.label}
       </p>
     </motion.div>
@@ -565,7 +563,7 @@ function ExportTile() {
               animate={{ opacity: 1, scale: 1, x: Math.cos(a) * rx, y: Math.sin(a) * 78 }}
               transition={{ type: "spring", stiffness: 140, damping: 16, delay: 0.15 + i * 0.09 }}
             >
-              <span className="block rounded-full border border-border-strong bg-surface-1 px-3 py-1 text-2xs whitespace-nowrap text-fg shadow-card">
+              <span className="block rounded-full border border-border-strong bg-surface-1 px-3 py-1 text-xs whitespace-nowrap text-fg shadow-card">
                 {f}
               </span>
             </motion.li>
@@ -600,10 +598,7 @@ function AskTile({ state }: { state: PreviewState }) {
         aria-label={`Net revenue by category, ${state.label}`}
       >
         {cats.map((c, i) => (
-          <li
-            key={c.label}
-            className="grid grid-cols-[7rem_minmax(0,1fr)_auto] items-center gap-2 text-[11px]"
-          >
+          <li key={c.label} className="grid grid-cols-[7rem_minmax(0,1fr)_auto] items-center gap-2 text-xs">
             <span className="truncate text-fg-muted">{c.label}</span>
             <span className="h-2.5 overflow-hidden rounded-r-[4px]">
               <motion.span

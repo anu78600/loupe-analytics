@@ -11,6 +11,7 @@ import Link from "next/link";
 import { ArrowRight, BookOpenText, ChartNoAxesCombined, GraduationCap, Layers } from "lucide-react";
 import { chartGlossary, GLOSSARY, industryGlossary } from "@/content/glossary";
 import { DOMAINS } from "@/registry";
+import { Kbd } from "@/ui/primitives/misc";
 import { CreditBar } from "@/ui/site/CreditBar";
 import { Glossary } from "@/ui/site/Glossary";
 import { SiteFooter } from "@/ui/site/SiteFooter";
@@ -43,11 +44,11 @@ export default function GlossaryPage() {
       <main id="main" className="relative isolate">
         <div aria-hidden className="mesh absolute inset-x-0 top-0 -z-10 h-[420px] opacity-70" />
         <div className="mx-auto max-w-6xl px-4 pt-14 pb-24 sm:px-6 sm:pt-20">
-          <p className="text-2xs font-medium tracking-[0.14em] text-accent uppercase">Glossary</p>
-          <h1 className="mt-3 max-w-3xl font-display text-[44px] leading-[1.02] tracking-[-0.025em] text-fg sm:text-[60px]">
+          <p className="eyebrow text-accent">Glossary</p>
+          <h1 className="mt-3 max-w-3xl font-display text-display-md text-fg sm:text-display-lg">
             Learn the language of data.
           </h1>
-          <p className="mt-5 max-w-2xl text-[16px] leading-relaxed text-fg-muted">
+          <p className="mt-5 max-w-2xl text-base leading-relaxed text-fg-muted">
             Every word Loupe uses, explained in plain English: what it means, why it matters, an example, and
             where you meet it in the app. Start with the basics and work down, or jump to the KPIs of your
             industry.
@@ -56,10 +57,10 @@ export default function GlossaryPage() {
           <dl className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
             {stats.map((s) => (
               <div key={s.label} className="rounded-card border border-border bg-surface-1 p-4">
-                <dt className="flex items-center gap-1.5 text-2xs text-fg-subtle">
+                <dt className="flex items-center gap-1.5 text-xs text-fg-subtle">
                   <s.icon className="size-3.5" aria-hidden /> {s.label}
                 </dt>
-                <dd className="font-figures mt-1 text-[22px] text-fg">{s.value}</dd>
+                <dd className="font-figures mt-1 text-2xl font-medium text-fg">{s.value}</dd>
               </div>
             ))}
           </dl>
@@ -68,17 +69,17 @@ export default function GlossaryPage() {
             aria-labelledby="how-to-use"
             className="mt-6 rounded-panel border border-border bg-surface-1 p-5"
           >
-            <h2 id="how-to-use" className="text-[15px] font-medium text-fg">
+            <h2 id="how-to-use" className="text-md font-medium text-fg">
               How to use this page
             </h2>
-            <ul className="mt-3 grid gap-2.5 text-ui leading-relaxed text-fg-muted md:grid-cols-3">
+            <ul className="mt-3 grid gap-2.5 text-sm leading-relaxed text-fg-muted md:grid-cols-3">
               <li>
                 <span className="text-fg">New to data?</span> Choose <span className="text-fg">Beginner</span>{" "}
                 and read the learning path from the top: each step builds on the one before.
               </li>
               <li>
                 <span className="text-fg">Looking for one word?</span> Press{" "}
-                <kbd className="font-figures">/</kbd> and search: terms, charts and every industry&apos;s KPIs
+                <Kbd className="font-sans">/</Kbd> and search: terms, charts and every industry&apos;s KPIs
                 come up together.
               </li>
               <li>
@@ -91,8 +92,8 @@ export default function GlossaryPage() {
           <Glossary sections={GLOSSARY} chartGroups={chartGroups} industries={industries} />
 
           <div className="mt-16 rounded-panel border border-border-accent bg-surface-1 p-6 sm:p-8">
-            <h2 className="font-display text-[28px] leading-tight text-fg">Put the words to work</h2>
-            <p className="mt-2 max-w-xl text-ui leading-relaxed text-fg-muted">
+            <h2 className="font-display text-display-xs text-fg">Put the words to work</h2>
+            <p className="mt-2 max-w-xl text-sm leading-relaxed text-fg-muted">
               Open a demo or your own file: every KPI card, chart and insight in Loupe uses the words on this
               page, with its working shown.
             </p>

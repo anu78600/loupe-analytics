@@ -1,7 +1,8 @@
 /**
  * What the generated images share (opengraph-image.tsx, apple-icon.tsx): the
  * dark theme's colours, read from styles/tokens.css, and the Loupe mark,
- * wordmark and Geist font from public/, so the images always match the app.
+ * wordmark and the type system's fonts (Inter, Instrument Serif) from
+ * public/, so the images always match the app.
  * Everything is read from disk when the image is built; nothing is fetched.
  */
 import { readFileSync } from "node:fs";
@@ -47,7 +48,7 @@ export function brandImage(name: string): string {
   return `data:image/svg+xml;base64,${readFileSync(join(process.cwd(), "public", "brand", name)).toString("base64")}`;
 }
 
-/** A font from public/fonts (the files the PDF exports embed). */
+/** A font from public/fonts (TrueType: the image renderer reads no WOFF2; the PDF exports embed the Inter files too). */
 export function brandFont(name: string): Buffer {
   return readFileSync(join(process.cwd(), "public", "fonts", name));
 }

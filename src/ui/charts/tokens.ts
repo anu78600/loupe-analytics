@@ -9,6 +9,9 @@
  * (ui/charts/palette).
  * inkOn() picks the colour of a label drawn inside a fill by WCAG contrast,
  * never below 4.5:1.
+ * Chart text uses the interface face (Inter) for words and figures alike, as
+ * the type system does: a canvas can't switch on tabular numerals, but a value
+ * label or an axis tick stands on its own, so nothing needs to line up.
  */
 
 /** Chart colours and chrome read from the live CSS tokens, so charts follow the active theme. */
@@ -32,8 +35,10 @@ export interface ChartTokens {
   success: string;
   danger: string;
   warning: string;
+  /** The interface face for words: titles, axis names, categories, legends. */
   fontSans: string;
-  fontMono: string;
+  /** The face for figures (value labels, value axes, tooltip values): the same Inter. */
+  fontFigures: string;
 }
 
 // Used during server rendering and for any token the stylesheet does not define.
@@ -57,8 +62,8 @@ const FALLBACK_DARK: ChartTokens = {
   success: "#3fb68b",
   danger: "#e5484d",
   warning: "#e8833a",
-  fontSans: "Geist, ui-sans-serif, system-ui, sans-serif",
-  fontMono: "Geist Mono, ui-monospace, monospace",
+  fontSans: "Inter, ui-sans-serif, system-ui, sans-serif",
+  fontFigures: "Inter, ui-sans-serif, system-ui, sans-serif",
 };
 
 /**
@@ -73,6 +78,12 @@ export function readChartTokens(el?: HTMLElement | null): ChartTokens {
   const v = (name: string, fallback: string) => cs.getPropertyValue(name).trim() || fallback;
   const themed = host.closest<HTMLElement>("[data-theme]") ?? document.documentElement;
   const dark = themed.dataset.theme !== "light";
+  // next/font's generated family names, then the extended-Latin subset for any character the first lacks.
+  const families = [
+    cs.getPropertyValue("--font-inter").trim(),
+    cs.getPropertyValue("--font-inter-ext").trim(),
+  ];
+  const sans = `${families.filter(Boolean).join(", ") || "Inter"}, ui-sans-serif, system-ui, sans-serif`;
   return {
     dark,
     palette: Array.from({ length: 8 }, (_, i) => v(`--chart-${i + 1}`, FALLBACK_DARK.palette[i] as string)),
@@ -93,8 +104,8 @@ export function readChartTokens(el?: HTMLElement | null): ChartTokens {
     success: v("--success", FALLBACK_DARK.success),
     danger: v("--danger", FALLBACK_DARK.danger),
     warning: v("--warning", FALLBACK_DARK.warning),
-    fontSans: `${cs.getPropertyValue("--font-geist-sans").trim() || "Geist"}, ui-sans-serif, system-ui, sans-serif`,
-    fontMono: `${cs.getPropertyValue("--font-geist-mono").trim() || "Geist Mono"}, ui-monospace, monospace`,
+    fontSans: sans,
+    fontFigures: sans,
   };
 }
 

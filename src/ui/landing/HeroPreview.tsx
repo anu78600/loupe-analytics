@@ -61,9 +61,9 @@ const ROLE_DOT: Record<string, string> = {
 export const PRESET_SHORT: Record<PreviewPresetId, string> = { last12m: "12M", last6m: "6M", last90d: "90D" };
 
 /**
- * Below Tailwind's sm breakpoint the trend chart is drawn on a narrower canvas so its labels stay
- * readable. Its box takes the matching aspect ratio from CSS, so the switch after hydration never
- * changes its height.
+ * Below Tailwind's sm breakpoint the trend chart is drawn on a narrower canvas, so on a phone it
+ * keeps its height and shows fewer, wider-spaced labels. Its box takes the matching aspect ratio
+ * from CSS, so the switch after hydration never changes its height.
  */
 const NARROW_QUERY = "(max-width: 639.98px)";
 function subscribeNarrow(onChange: () => void): () => void {
@@ -172,7 +172,7 @@ function DeltaChip({ kpi }: { kpi: PreviewKpi }) {
   return (
     <span
       className={cn(
-        "font-figures inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[11px] font-medium whitespace-nowrap",
+        "font-figures inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-xs font-medium whitespace-nowrap",
         tone,
       )}
     >
@@ -202,12 +202,10 @@ function KpiTile({
   return (
     <div className="grid min-w-0 content-start gap-1.5 rounded-card border border-border bg-surface-2/60 p-3">
       {/* Names wrap rather than truncate; on phones every name keeps two lines, so the figures line up. */}
-      <p className="min-h-8 text-2xs font-medium tracking-[0.1em] text-fg-subtle uppercase sm:min-h-0">
-        {kpi.name}
-      </p>
+      <p className="eyebrow min-h-8 text-fg-subtle sm:min-h-0">{kpi.name}</p>
       {/* On phones the change sits under the figure; from sm there is room beside it. */}
       <div className="flex flex-col items-start gap-1 sm:flex-row sm:flex-wrap sm:items-baseline sm:justify-between sm:gap-x-2">
-        <p className="font-figures text-[21px] leading-none font-medium tracking-[-0.02em] whitespace-nowrap text-fg">
+        <p className="font-figures text-xl leading-none font-medium whitespace-nowrap text-fg">
           {/* The count runs over an invisible copy of the final figure, which holds the width. */}
           <span aria-hidden className="relative inline-block">
             <span className="invisible">{kpi.display}</span>
@@ -289,14 +287,27 @@ function timeLabel(start: number, grain: string, withYear: boolean, fallback: st
   return withYear ? `${base} ${d.getUTCFullYear()}` : base;
 }
 
+/**
+ * The trend chart's margins round the plot, in the SVG's units: room on the left for the value
+ * labels and a little above for the top one. The labels themselves are HTML laid over the SVG, at
+ * the type scale's caption size: SVG text would shrink with the drawing (to about 8 px in the
+ * panel's width at 1440 px), below the 11 px floor every chart keeps.
+ */
+const PAD = { left: 52, top: 10, right: 12, bottom: 4 };
+
 function TrendChart({ state, active }: { state: PreviewState; active: boolean }) {
   const calm = useCalm();
   const { values, labels, starts, display, peak, partialLast, grain } = state.trend;
   const [hover, setHover] = React.useState<number | null>(null);
-  // SVG text scales with the viewBox: a narrower canvas on phones keeps axis labels near 10 px.
   const narrow = React.useSyncExternalStore(subscribeNarrow, isNarrow, () => false);
   const W = narrow ? 320 : 560;
   const H = narrow ? 150 : 168;
+  // The whole drawing, margins included: its proportions are the aspect ratios in the class below.
+  const VW = W + PAD.left + PAD.right;
+  const VH = H + PAD.top + PAD.bottom;
+  /** A point's place across and down the drawing, as a percentage, for the HTML laid over it. */
+  const across = (px: number) => ((px + PAD.left) / VW) * 100;
+  const down = (py: number) => ((py + PAD.top) / VH) * 100;
   const ticks = niceTicks(Math.max(...values, 0));
   const max = ticks[ticks.length - 1] ?? 1;
   const tickText = axisLabeller(max);
@@ -331,13 +342,13 @@ function TrendChart({ state, active }: { state: PreviewState; active: boolean })
     <figure className="grid min-w-0 gap-2" aria-label={`${state.trend.title}, ${state.label}`}>
       <figcaption className="flex items-baseline justify-between gap-3">
         <span className="truncate text-ui font-medium text-fg">{state.trend.title}</span>
-        <span className="font-figures shrink-0 text-2xs text-fg-subtle">by {grain}</span>
+        <span className="shrink-0 text-xs text-fg-subtle">by {grain}</span>
       </figcaption>
       <div className="relative">
         {/* Its CSS ratio matches the viewBox at each width, so its height is right before hydration. */}
         <svg
-          viewBox={`-46 -10 ${W + 58} ${H + 32}`}
-          className="block aspect-[378/182] h-auto w-full overflow-visible sm:aspect-[618/200]"
+          viewBox={`${-PAD.left} ${-PAD.top} ${VW} ${VH}`}
+          className="block aspect-[384/164] h-auto w-full overflow-visible sm:aspect-[624/182]"
           role="img"
           aria-label={`Peak ${display[peak]} in ${labels[peak]}`}
         >
@@ -348,37 +359,8 @@ function TrendChart({ state, active }: { state: PreviewState; active: boolean })
             </linearGradient>
           </defs>
           {ticks.map((t) => (
-            <g key={t}>
-              <line x1={0} x2={W} y1={y(t)} y2={y(t)} stroke="var(--chart-grid)" strokeWidth={1} />
-              <text
-                x={-10}
-                y={y(t)}
-                dy="0.32em"
-                textAnchor="end"
-                className="font-figures"
-                fontSize={10.5}
-                fill="var(--chart-label)"
-              >
-                {tickText(t)}
-              </text>
-            </g>
+            <line key={t} x1={0} x2={W} y1={y(t)} y2={y(t)} stroke="var(--chart-grid)" strokeWidth={1} />
           ))}
-          {shownTicks.map((i, k) => {
-            const prev = shownTicks[k - 1];
-            const withYear = prev === undefined || yearOf(prev) !== yearOf(i);
-            return (
-              <text
-                key={i}
-                x={x(i)}
-                y={H + 18}
-                textAnchor={i === 0 ? "start" : i === n - 1 ? "end" : "middle"}
-                fontSize={10.5}
-                fill="var(--chart-label)"
-              >
-                {timeLabel(starts[i] ?? 0, grain, withYear, labels[i] ?? "")}
-              </text>
-            );
-          })}
           <motion.path
             d={area}
             fill={`url(#${gradId})`}
@@ -442,6 +424,17 @@ function TrendChart({ state, active }: { state: PreviewState; active: boolean })
             onPointerLeave={() => setHover(null)}
           />
         </svg>
+        {/* Value labels, right-aligned a little left of the plot and centred on their gridlines. */}
+        {ticks.map((t) => (
+          <span
+            key={t}
+            aria-hidden
+            className="tabular pointer-events-none absolute -translate-y-1/2 pr-2 text-xs whitespace-nowrap text-[var(--chart-label)]"
+            style={{ right: `${100 - across(0)}%`, top: `${down(y(t))}%` }}
+          >
+            {tickText(t)}
+          </span>
+        ))}
         {active && n > 0 ? (
           <div
             className={cn(
@@ -453,16 +446,35 @@ function TrendChart({ state, active }: { state: PreviewState; active: boolean })
                   ? ""
                   : "-translate-x-1/2",
             )}
-            style={{ left: `${((x(shown) + 46) / (W + 58)) * 100}%` }}
+            style={{ left: `${across(x(shown))}%` }}
           >
-            <p className="font-figures text-[11px] font-medium whitespace-nowrap text-fg">{display[shown]}</p>
-            <p className="text-[10px] whitespace-nowrap text-fg-muted">
+            <p className="font-figures text-xs font-medium whitespace-nowrap text-fg">{display[shown]}</p>
+            <p className="text-xs whitespace-nowrap text-fg-muted">
               {hover === null ? "Peak · " : ""}
               {labels[shown]}
               {partialLast && shown === n - 1 ? " (partial)" : ""}
             </p>
           </div>
         ) : null}
+      </div>
+      {/* Period labels in a row of their own under the plot, the end ones flush with its edges. */}
+      <div aria-hidden className="relative -mt-1 h-4.5">
+        {shownTicks.map((i, k) => {
+          const prev = shownTicks[k - 1];
+          const withYear = prev === undefined || yearOf(prev) !== yearOf(i);
+          return (
+            <span
+              key={i}
+              className={cn(
+                "absolute top-0 text-xs whitespace-nowrap text-[var(--chart-label)]",
+                i === 0 ? "" : i === n - 1 ? "-translate-x-full" : "-translate-x-1/2",
+              )}
+              style={{ left: `${across(x(i))}%` }}
+            >
+              {timeLabel(starts[i] ?? 0, grain, withYear, labels[i] ?? "")}
+            </span>
+          );
+        })}
       </div>
     </figure>
   );
@@ -498,9 +510,7 @@ function CategoryBars({ state, active }: { state: PreviewState; active: boolean 
               />
             </span>
             {/* Hidden, not removed, until computed: its line sets the row's height either way. */}
-            <span
-              className={cn("font-figures w-14 text-right text-[11.5px] text-fg", !active && "invisible")}
-            >
+            <span className={cn("font-figures w-14 text-right text-xs text-fg", !active && "invisible")}>
               {c.display}
             </span>
           </li>
@@ -533,7 +543,7 @@ function StateTiles({
       <figcaption className="flex items-baseline justify-between gap-2 text-ui font-medium text-fg">
         By state
         {top ? (
-          <span className="font-figures text-2xs font-normal text-fg-subtle">
+          <span className="text-xs font-normal text-fg-subtle">
             Top: {top.code} {top.display}
           </span>
         ) : null}
@@ -570,7 +580,7 @@ function StateTiles({
           );
         })}
       </div>
-      <div className="flex items-center gap-2 text-[10px] text-fg-subtle" aria-hidden>
+      <div className="flex items-center gap-2 text-xs text-fg-subtle" aria-hidden>
         Low
         <span className="flex h-1.5 w-20 overflow-hidden rounded-full">
           {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
@@ -617,7 +627,7 @@ function InsightList({ state, active }: { state: PreviewState; active: boolean }
             <Icon className={cn("mt-0.5 size-4 shrink-0", color)} aria-hidden />
             <div className="min-w-0">
               <p className="text-ui font-medium text-fg">{ins.title}</p>
-              <p className="mt-0.5 line-clamp-2 text-[12px] leading-relaxed text-fg-muted">{ins.body}</p>
+              <p className="mt-0.5 line-clamp-2 text-xs text-fg-muted">{ins.body}</p>
             </div>
           </motion.li>
         );
@@ -669,11 +679,11 @@ function StillRing({ value, size, label }: { value: number; size: number; label:
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="tabular text-[30px] leading-none font-semibold tracking-[-0.03em] text-fg">
+        <span className="font-figures text-3xl leading-none font-semibold text-fg">
           {Math.round(value)}
-          <span className="text-[15px] font-medium text-fg-muted">%</span>
+          <span className="text-md font-medium text-fg-muted">%</span>
         </span>
-        <span className="mt-1 text-2xs tracking-[0.12em] text-fg-subtle uppercase">{label}</span>
+        <span className="eyebrow mt-1 text-fg-subtle">{label}</span>
       </div>
     </div>
   );
@@ -752,12 +762,12 @@ export function HeroPreview({
           <div className="flex min-w-0 items-center gap-2 text-ui">
             <FileSpreadsheet className="size-4 shrink-0 text-accent" aria-hidden />
             <span className="truncate font-medium text-fg">{data.file.name}</span>
-            <span className="font-figures hidden shrink-0 text-2xs text-fg-subtle sm:inline">
+            <span className="tabular hidden shrink-0 text-xs text-fg-subtle sm:inline">
               <motion.span>{rowsText}</motion.span> rows · {data.file.columns} columns
             </span>
           </div>
           <ol
-            className="order-3 flex w-full flex-wrap items-center gap-1 text-2xs sm:order-none sm:ml-auto sm:w-auto sm:flex-nowrap"
+            className="order-3 flex w-full flex-wrap items-center gap-1 text-xs sm:order-none sm:ml-auto sm:w-auto sm:flex-nowrap"
             aria-label="Pipeline progress"
           >
             {STAGES.map((label, i) => {
@@ -814,7 +824,7 @@ export function HeroPreview({
                 title={s.label}
                 onClick={() => onPresetChange(i)}
                 className={cn(
-                  "font-figures rounded-[7px] px-2 py-0.5 text-2xs transition-colors",
+                  "rounded-[7px] px-2 py-0.5 text-xs transition-colors",
                   i === presetIndex
                     ? "bg-surface-3 text-fg shadow-[0_0_0_1px_var(--border-strong)]"
                     : "text-fg-subtle hover:text-fg",
@@ -845,25 +855,23 @@ export function HeroPreview({
                 animate={{ opacity: detected ? 1 : 0.15 }}
                 transition={reveal(detected, calm, { duration: 0.5 })}
               >
-                <p className="text-2xs font-medium tracking-[0.12em] text-fg-subtle uppercase">Detected</p>
-                <p className="font-display text-[26px] leading-tight text-fg">{data.detection.domain}</p>
+                <p className="eyebrow text-fg-subtle">Detected</p>
+                <p className="font-display text-display-xs text-fg">{data.detection.domain}</p>
                 <p className="text-ui text-fg-muted">
                   {data.detection.subDomain} · one row per {data.detection.grain}
                 </p>
               </motion.div>
             </div>
             <div className="hidden lg:block">
-              <p className="mb-2 flex items-baseline justify-between text-2xs font-medium tracking-[0.12em] text-fg-subtle uppercase">
+              <p className="eyebrow mb-2 flex items-baseline justify-between text-fg-subtle">
                 Columns profiled
-                <span className="font-figures tracking-normal normal-case">
-                  {profiled ? data.columns.length : 0}
-                </span>
+                <span className="font-figures tracking-normal">{profiled ? data.columns.length : 0}</span>
               </p>
               <ul className="mask-fade-b grid max-h-[248px] gap-px overflow-hidden" aria-label="Column roles">
                 {data.columns.map((c, i) => (
                   <motion.li
                     key={c.name}
-                    className="flex items-center justify-between gap-3 rounded-[6px] px-1.5 py-[3px] text-[11.5px]"
+                    className="flex items-center justify-between gap-3 rounded-[6px] px-1.5 py-[3px] text-xs"
                     initial={false}
                     animate={{ opacity: profiled ? 1 : 0, x: profiled ? 0 : -6 }}
                     transition={reveal(profiled, calm, { duration: 0.25, delay: i * 0.032 })}
@@ -874,7 +882,7 @@ export function HeroPreview({
                         style={{ background: ROLE_DOT[c.role] ?? "var(--fg-subtle)" }}
                         aria-hidden
                       />
-                      <span className="font-figures truncate text-fg">{c.name}</span>
+                      <span className="truncate text-fg">{c.name}</span>
                     </span>
                     <span className="shrink-0 text-fg-subtle">{c.role}</span>
                   </motion.li>
@@ -889,7 +897,7 @@ export function HeroPreview({
               <p className="text-ui text-fg-muted">
                 <span className="font-medium text-fg">{state.label}</span> · {state.periodLabel}
               </p>
-              <p className="font-figures text-2xs text-fg-subtle">
+              <p className="text-xs text-fg-subtle">
                 vs {state.comparisonLabel} · {state.rows} rows
               </p>
             </div>

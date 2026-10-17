@@ -45,7 +45,7 @@ export function HiddenColumns() {
                     ? "This column looks replaced by a cleaned copy"
                     : `These ${open.length} columns look replaced by cleaned copies`}
                 </h2>
-                <p className="mt-0.5 max-w-3xl text-ui text-fg-muted">
+                <p className="mt-0.5 max-w-3xl text-sm text-fg-muted">
                   Hide {open.length === 1 ? "it" : "them"} and every KPI, chart and question uses the clean
                   column instead. {open.length === 1 ? "It stays" : "They stay"} in your file as a reference.
                 </p>
@@ -84,7 +84,7 @@ export function HiddenColumns() {
                     <span className="sr-only">replaced by</span>
                     <span className="font-medium text-fg">{r.keep}</span>
                   </p>
-                  <p className="mt-0.5 text-2xs leading-relaxed text-fg-muted">{r.reason}</p>
+                  <p className="mt-0.5 text-xs leading-relaxed text-fg-muted">{r.reason}</p>
                 </div>
                 <Button
                   size="sm"
@@ -110,9 +110,11 @@ export function HiddenColumns() {
               {list.map((c) => (
                 <li
                   key={c}
-                  className="inline-flex items-center gap-1 rounded-full border border-border-strong bg-surface-2 py-0.5 pr-0.5 pl-2.5 text-2xs text-fg"
+                  className="inline-flex max-w-full min-w-0 items-center gap-1 rounded-full border border-border-strong bg-surface-2 py-0.5 pr-0.5 pl-2.5 text-xs text-fg"
                 >
-                  {c}
+                  <span className="min-w-0 truncate" title={c}>
+                    {c}
+                  </span>
                   <button
                     type="button"
                     onClick={() => setHidden([c], false)}
@@ -125,7 +127,7 @@ export function HiddenColumns() {
               ))}
             </ul>
           </div>
-          <p className="text-2xs leading-relaxed text-fg-subtle">
+          <p className="text-xs leading-relaxed text-fg-subtle">
             {list.length === 1 ? "It stays" : "They stay"} in your file, in the grid and in every export as
             your reference, but no KPI, chart, filter, insight or question uses{" "}
             {list.length === 1 ? "it" : "them"}. Power BI gets {list.length === 1 ? "it" : "them"} as hidden
@@ -133,8 +135,8 @@ export function HiddenColumns() {
           </p>
         </div>
       ) : !open.length ? (
-        <p className="flex items-start gap-2 text-2xs leading-relaxed text-fg-subtle">
-          <EyeOff className="mt-px size-3.5 shrink-0" aria-hidden />
+        <p className="flex items-start gap-2 text-xs leading-relaxed text-fg-subtle">
+          <EyeOff className="mt-0.5 size-3.5 shrink-0" aria-hidden />
           Keeping a raw column only as a reference for a cleaned one? Hide it with the eye button on its
           header below, or in Your columns: it stays in your file, and nothing is computed from it.
         </p>

@@ -73,7 +73,7 @@ export function CustomiseStep() {
         <div className="max-w-3xl">
           <Eyebrow>Step {stepNumber("customise")} · Customise</Eyebrow>
           <h1 className="mt-2 font-display text-display-sm text-fg">Make the dashboard yours.</h1>
-          <p className="mt-2 text-ui text-fg-muted">
+          <p className="mt-2 text-sm text-fg-muted">
             Choose exactly which KPIs and charts it shows, in what order and how big; change any chart&apos;s
             type or data; and build new KPIs and charts from your columns. Everything applies straight away.
           </p>

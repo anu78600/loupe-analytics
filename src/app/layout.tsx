@@ -1,10 +1,21 @@
 /**
- * Root layout for every route. Loads the three type families (Instrument
- * Serif for display via next/font/local, Geist Sans for UI, Geist Mono for
- * figures), sets metadata, and runs themeBootScript in <head> so the saved
- * theme is applied before React hydrates (no light/dark flash). Also renders
- * the skip link and the client Providers (motion config, tooltips, theme
- * sync, toasts).
+ * Root layout for every route. Loads the three type families of the type
+ * system (globals.css, docs/DESIGN.md): Inter for the interface, body copy and
+ * figures; Instrument Serif for display headings and the wordmark; Geist Mono
+ * for code only (SQL, DAX). Sets metadata, and runs themeBootScript in <head>
+ * so the saved theme is applied before React hydrates (no light/dark flash).
+ * Also renders the skip link and the client Providers (motion config,
+ * tooltips, theme sync, toasts).
+ *
+ * Inter is self-hosted (the privacy rule allows no font CDN) as two subsets
+ * of the variable font, each keeping the optical-size axis (opsz 14–32, so
+ * headings get the tighter display cut and small text the open text cut) and
+ * weights 400–700. The Latin file covers the interface and English text and
+ * is preloaded; the extended file (Central European, Vietnamese, Greek)
+ * downloads only when a page shows one of its characters, which the
+ * unicode-range tells the browser without fetching it. Geist Mono and the
+ * extended Inter file aren't preloaded, so a page fetches only the faces it
+ * draws.
  *
  * The social tags carry no title or description of their own: Next fills
  * og:title, og:description and Twitter's from each page's own metadata, so a
@@ -14,13 +25,53 @@
  */
 import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
-import { GeistSans } from "geist/font/sans";
-import { GeistMono } from "geist/font/mono";
 import { Providers } from "@/ui/common/providers";
 import { themeBootScript } from "@/store/settings";
 import { chartThemeBootScript } from "@/ui/charts/palette/apply";
 import { AUTHOR } from "@/content/credits";
 import "./globals.css";
+
+// next/font reads its options at build time, so they must be literals. The unicode-range values are
+// the ranges scripts/subset-fonts.py cuts the two files to (tests/typography.test.ts compares them).
+const inter = localFont({
+  src: "./fonts/Inter-Latin.woff2",
+  weight: "400 700",
+  variable: "--font-inter",
+  display: "swap",
+  declarations: [
+    {
+      prop: "unicode-range",
+      value:
+        "U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0394, U+03A3, U+03A9, U+03BB, U+03BC, U+03C0, U+03C3, U+2000-206F, U+2070-209F, U+20A0-20CF, U+2122, U+2150-218F, U+2190-21FF, U+2200-22FF, U+2300-23FF, U+25A0-25FF, U+FEFF, U+FFFD",
+    },
+  ],
+});
+
+const interExt = localFont({
+  src: "./fonts/Inter-LatinExt.woff2",
+  weight: "400 700",
+  variable: "--font-inter-ext",
+  display: "swap",
+  preload: false,
+  adjustFontFallback: false,
+  declarations: [
+    {
+      prop: "unicode-range",
+      value: "U+0100-024F, U+0259, U+02B0-02FF, U+0300-036F, U+0370-03FF, U+1E00-1EFF, U+FB01-FB02",
+    },
+  ],
+});
+
+// Code only (SQL, DAX, the AI request's payload), so it isn't preloaded: it downloads on the pages
+// that show code.
+const geistMono = localFont({
+  src: "./fonts/GeistMono-Variable.woff2",
+  weight: "100 900",
+  variable: "--font-geist-mono",
+  display: "swap",
+  preload: false,
+  adjustFontFallback: false,
+});
 
 const instrumentSerif = localFont({
   src: [
@@ -71,7 +122,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       lang="en"
       data-theme="dark"
       suppressHydrationWarning
-      className={`${GeistSans.variable} ${GeistMono.variable} ${instrumentSerif.variable}`}
+      className={`${inter.variable} ${interExt.variable} ${geistMono.variable} ${instrumentSerif.variable}`}
     >
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeBootScript }} />

@@ -1,6 +1,6 @@
 # Design
 
-**Quiet luxury meets precision instrument.** Graphite surfaces, one brass accent, an editorial serif for headlines and tabular figures for every number. The data is the colour; the chrome stays out of the way.
+**Quiet luxury meets precision instrument.** Graphite surfaces, one brass accent, an editorial serif for headlines, a precise grotesque (Inter) for everything else, and tabular figures for every number. The data is the colour; the chrome stays out of the way.
 
 ## Tokens (`src/styles/tokens.css`)
 
@@ -29,9 +29,47 @@ Both palettes were validated with an OKLab colour-vision-deficiency check (prota
 
 ## Type
 
-- **Display**: Instrument Serif (self-hosted, `next/font/local`), used for headlines and the wordmark, with an italic for emphasis.
-- **UI**: Geist Sans. Sizes: 11 px (`text-2xs`), 13 px (`text-ui`), 14–17 px body; display sizes 36 / 52 / 76 px.
-- **Figures**: Geist Mono with tabular, slashed-zero figures (`font-figures`), so numbers align and don't jitter while counting up.
+Three families, one job each. All are self-hosted under the SIL Open Font Licence: the files are in `src/app/fonts` (web) and `public/fonts` (PDFs and the social image), with their licences. No font host is contacted.
+
+- **Inter** (`font-sans`, the default) is used for every word of the interface and every figure.
+  - It is the variable font with optical sizes: small text gets the open text cut and headings the tighter display cut, without a second family.
+  - It is cut into two files. The Latin file is preloaded. The extended file (Central European, Vietnamese, Greek) has its own `unicode-range`, so it downloads only for a page that shows one of those characters. `scripts/subset-fonts.py` rebuilds both from the Inter release.
+  - The defaults stay on, and they do real work: contextual alternates centre a colon between digits (10:30) and a hyphen between capitals.
+- **Instrument Serif** (`font-display`) is the editorial voice. It sets page and section headings of 28 px and up, always through a `display-*` size, and the wordmark. It has one weight, so it is never bolded.
+- **Geist Mono** (`font-mono`) is for code only: SQL, DAX, TMDL and the AI request's payload. It isn't preloaded.
+
+**Figures** are Inter with tabular numerals.
+
+- `font-figures` is for KPI values and anything that counts up. `tabular` is for numbers in running text and tables.
+- A column of values lines up digit for digit, and a counting value doesn't jitter. A monospace is never used for numbers, because it made them read like code.
+- `font-data` sets the user's own values in the data grid, samples and table views. It turns off ligatures (Inter would draw `->` as an arrow) and turns on Inter's disambiguation set, so "Il1" can't be misread.
+
+**The scale** (globals.css `@theme`). Each size carries its line height and its tracking: slightly open at 11 px, tighter as sizes grow.
+
+| Class                    | Size / line | Use                                                               |
+| ------------------------ | ----------- | ----------------------------------------------------------------- |
+| `text-2xs`               | 11 / 16     | Uppercase labels (the `eyebrow` utility), counters, keyboard keys |
+| `text-xs`                | 12 / 18     | Captions, hints, meta lines, table headers, chips                 |
+| `text-ui`                | 13 / 20     | Controls: buttons, inputs, menus, tabs, dense rows                |
+| `text-sm`                | 14 / 22     | Body copy in the app                                              |
+| `text-md`                | 15 / 24     | Card titles and lead lines                                        |
+| `text-base`              | 16 / 26     | Reading text on the landing page, glossary and version log        |
+| `text-lg` … `text-5xl`   | 18 – 48     | Sans titles and figures                                           |
+| `text-display-xs` … `xl` | 28 – 88     | Serif headings: 28, 36, 44, 52, 64 and 88 px                      |
+
+Rules:
+
+- No text is smaller than 11 px, and no sentence is smaller than 12 px.
+- One uppercase label style everywhere: `eyebrow` (11 px, weight 600, 0.08em tracking, case-sensitive forms).
+- Weights: 400 for body text, 500 for labels and controls, 600 for sans headings and hero figures.
+- Chart text is Inter at 11 px or more; value labels and value axes use the figures face (`ui/charts/tokens.ts`).
+- The text PDFs embed Inter, with Geist Mono for their code blocks. The social image sets its headline in the serif and its facts in Inter.
+- Only the fixed-size export canvases (the report pages and the 1920 × 1080 slides) size text in pixels.
+- `tests/typography.test.ts` enforces these rules:
+  - no hand-picked sizes or letter-spacing;
+  - the serif only at display sizes, and monospace only in code views;
+  - a 11 px floor on chart text;
+  - the font files and their character ranges match the layout.
 
 ## Space, shape, depth and motion
 

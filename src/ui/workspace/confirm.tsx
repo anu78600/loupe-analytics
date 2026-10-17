@@ -71,7 +71,7 @@ export function ConfirmHost() {
             <DialogTitle>{request.title}</DialogTitle>
             <DialogDescription>{request.body}</DialogDescription>
           </DialogHeader>
-          {request.note ? <p className="text-ui text-fg-muted">{request.note}</p> : null}
+          {request.note ? <p className="text-sm text-fg-muted">{request.note}</p> : null}
           <DialogFooter>
             <Button ref={cancelRef} variant="secondary" onClick={() => answer(false)}>
               {request.cancelLabel ?? "Cancel"}

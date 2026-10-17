@@ -137,8 +137,8 @@ export function useColumnConsent(): {
             <ul className="grid gap-1.5">
               {req.columns.map((c) => (
                 <li key={c.name} className="rounded-card border border-border bg-surface-2 px-3 py-2">
-                  <p className="font-figures text-ui text-fg">{c.name}</p>
-                  <p className="mt-0.5 text-2xs leading-relaxed text-fg-muted">
+                  <p className="text-ui font-medium text-fg">{c.name}</p>
+                  <p className="mt-0.5 text-xs leading-relaxed text-fg-muted">
                     From {c.source}: {c.reason}.
                   </p>
                 </li>
@@ -154,13 +154,13 @@ export function useColumnConsent(): {
                 <Replace className="size-3.5 text-warning" aria-hidden />
                 Replaces {req.replaces.length} of your columns
               </h3>
-              <p className="font-figures text-2xs leading-relaxed text-fg-muted">
+              <p className="text-xs leading-relaxed text-fg-muted">
                 {req.replaces.slice(0, 12).join(", ")}
                 {req.replaces.length > 12 ? ` and ${req.replaces.length - 12} more` : ""}
               </p>
             </section>
           ) : null}
-          <p className="flex gap-2 rounded-card border border-border bg-surface-2 px-3 py-2 text-ui leading-relaxed text-fg-muted">
+          <p className="flex gap-2 rounded-card border border-border bg-surface-2 px-3 py-2 text-sm leading-relaxed text-fg-muted">
             <Columns3 className="mt-0.5 size-4 shrink-0 text-fg-subtle" aria-hidden />
             <span>
               <span className="text-fg">If you say no, nothing is added.</span> {req.ifNo}
@@ -174,7 +174,7 @@ export function useColumnConsent(): {
               {req.yesLabel}
             </Button>
           </DialogFooter>
-          <p className="text-2xs text-fg-subtle">
+          <p className="text-xs text-fg-subtle">
             To never be asked again and never add columns, choose “Never add” under Settings → New columns.
           </p>
         </DialogContent>

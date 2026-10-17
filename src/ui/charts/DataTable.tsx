@@ -5,6 +5,10 @@
  * HTML table with a caption and aria-sort, for screen readers and for anyone
  * who wants the numbers. Also the only view for results that have no chart
  * form (market-basket pairs, RFM outside a treemap).
+ *
+ * Cells hold the user's values, so they are set as data (.font-data: no
+ * ligatures, tabular numerals, an unambiguous I and l), numbers right-aligned;
+ * the headers are labels, in the caption size.
  */
 import * as React from "react";
 import { ArrowDown, ArrowUp } from "lucide-react";
@@ -184,7 +188,7 @@ export function DataTable({
                 scope="col"
                 aria-sort={sort?.i === i ? (sort.dir === 1 ? "ascending" : "descending") : "none"}
                 className={cn(
-                  "border-b border-border px-3 py-2 font-medium text-fg-muted",
+                  "border-b border-border px-3 py-2 text-xs font-medium text-fg-muted",
                   c.numeric ? "text-right" : "text-left",
                 )}
               >
@@ -219,8 +223,8 @@ export function DataTable({
                   <td
                     key={c.key}
                     className={cn(
-                      "border-b border-border px-3 py-1.5",
-                      c.numeric ? "font-figures text-right text-fg" : "max-w-[260px] truncate text-fg",
+                      "font-data border-b border-border px-3 py-1.5",
+                      c.numeric ? "text-right text-fg" : "max-w-[260px] truncate text-fg",
                       ci === 0 && "font-medium",
                     )}
                     title={typeof v === "string" ? v : undefined}
@@ -234,7 +238,7 @@ export function DataTable({
         </tbody>
       </table>
       {rows.length > maxRows ? (
-        <p className="px-3 py-2 text-2xs text-fg-subtle">
+        <p className="px-3 py-2 text-xs text-fg-subtle">
           Showing {maxRows} of {rows.length} rows.{" "}
           {print ? "Every row is in the app and in this chart's CSV." : "Export CSV for all."}
         </p>

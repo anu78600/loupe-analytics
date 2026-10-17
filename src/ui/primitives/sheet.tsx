@@ -48,9 +48,7 @@ export const SheetContent = React.forwardRef<
     >
       <div className="flex items-start justify-between gap-4 border-b border-border px-6 py-5">
         <div className="min-w-0">
-          <SheetPrimitive.Title className="text-base font-medium tracking-[-0.01em] text-fg">
-            {title}
-          </SheetPrimitive.Title>
+          <SheetPrimitive.Title className="text-base font-semibold text-fg">{title}</SheetPrimitive.Title>
           {description ? (
             <SheetPrimitive.Description className="mt-1 text-ui text-fg-muted">
               {description}

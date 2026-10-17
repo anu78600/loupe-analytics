@@ -69,7 +69,7 @@ export function DeltaChip({
   const pct = meta.format === "percent";
   const relative = pct ? value.deltaAbs : value.delta;
   // Nothing in the selection: say so, rather than a change against an empty period.
-  if (value.rows === 0) return <span className="text-2xs text-fg-subtle">No rows in this selection</span>;
+  if (value.rows === 0) return <span className="text-xs text-fg-subtle">No rows in this selection</span>;
   // From zero a relative change has no base: the chip shows the direction and "from 0" instead of
   // a percentage (and never the comparison's dates, which read like a change in the chip's place).
   const fromZero =
@@ -82,7 +82,7 @@ export function DeltaChip({
         ? "No value to compare with"
         : value.comparisonLabel || "No comparison";
     return reason === shared ? null : (
-      <span className="text-2xs text-fg-subtle" title={value.comparisonLabel || undefined}>
+      <span className="text-xs text-fg-subtle" title={value.comparisonLabel || undefined}>
         {reason}
       </span>
     );
@@ -110,7 +110,8 @@ export function DeltaChip({
       className={cn(
         "tabular inline-flex items-center gap-0.5 rounded-full font-medium",
         tone,
-        size === "sm" ? "h-5 px-1.5 text-2xs" : "h-6 px-2 text-ui",
+        // One chip size of text (12 px, tabular), a step taller beside a big figure.
+        size === "sm" ? "h-5 px-1.5 text-xs" : "h-6 px-2 text-xs",
       )}
       aria-label={`${text} ${value.comparisonLabel}${verdict}`}
     >
@@ -158,7 +159,7 @@ export function ComparisonNote() {
   const shared = batch ? sharedComparison(batch.values) : null;
   if (!shared) return null;
   return (
-    <p className="text-2xs text-fg-subtle">
+    <p className="text-xs text-fg-subtle">
       {!shared.changes
         ? shared.label
         : shared.current
@@ -206,7 +207,7 @@ export function KpiCard({
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.04, type: "spring", stiffness: 380, damping: 32 }}
       className={cn(
-        "group relative flex min-w-0 flex-col rounded-card border bg-surface-1 p-4 text-left shadow-card transition-[border-color,box-shadow] duration-200 hover:border-border-accent",
+        "group @container/kpi relative flex min-w-0 flex-col rounded-card border bg-surface-1 p-4 text-left shadow-card transition-[border-color,box-shadow] duration-200 hover:border-border-accent",
         selected ? "border-accent shadow-[0_0_0_3px_var(--accent-soft)]" : "border-border",
       )}
       title={`${meta.name}: ${full}${value?.comparisonLabel ? ` · change ${value.currentLabel ? `${value.currentLabel} ` : ""}${value.comparisonLabel}` : ""}`}
@@ -224,8 +225,10 @@ export function KpiCard({
       </div>
       {value ? (
         <>
+          {/* The hero figure, sized by the card's own width (the longest values, "−₹3.13Cr", are about
+              4.4 em): 24 px on a narrow card, 30 px from six across a desktop strip, 36 px on wide cards. */}
           <p
-            className="tabular mt-2 truncate text-[26px] leading-none font-semibold tracking-[-0.025em] text-fg md:text-[28px]"
+            className="font-figures mt-2.5 truncate text-2xl leading-none font-semibold text-fg @[8.5rem]/kpi:text-3xl @[14rem]/kpi:text-4xl"
             title={full}
           >
             {display}
@@ -235,7 +238,7 @@ export function KpiCard({
                 for like), that window's own value comes first, so the change never sits under a
                 number it doesn't describe: "September 2026: ₹37.9L ↗ +46.9% from ₹25.8L". */}
             {!noRows && value.currentLabel && value.current !== null ? (
-              <span className="font-figures text-2xs text-fg-muted">
+              <span className="tabular text-xs text-fg-muted">
                 {value.currentLabel}:{" "}
                 <span className="text-fg">
                   {formatValue(value.current, meta.format, { ...fmt, compact })}
@@ -245,14 +248,14 @@ export function KpiCard({
             <DeltaChip meta={meta} value={value} shared={shared?.changes ? undefined : shared?.label} />
             {/* What the change is measured from. */}
             {!noRows && value.previous !== null && value.delta !== null ? (
-              <span className="font-figures text-2xs text-fg-subtle">
+              <span className="tabular text-xs text-fg-subtle">
                 from {formatValue(value.previous, meta.format, { ...fmt, compact })}
               </span>
             ) : null}
             {/* The comparison is said once above the strip; a card names its own only when it differs. */}
             {(value.delta !== null || value.deltaAbs !== null) &&
             (value.comparisonLabel !== shared?.label || (value.currentLabel ?? "") !== shared?.current) ? (
-              <span className="line-clamp-2 text-2xs text-fg-subtle" title={value.comparisonLabel}>
+              <span className="line-clamp-2 text-xs text-fg-subtle" title={value.comparisonLabel}>
                 {value.currentLabel ? `${value.currentLabel} ` : ""}
                 {value.comparisonLabel}
               </span>
@@ -269,12 +272,12 @@ export function KpiCard({
           )}
           {progress !== null ? (
             <div className="mt-2">
-              <div className="flex items-center justify-between text-2xs text-fg-subtle">
+              <div className="flex items-center justify-between text-xs text-fg-subtle">
                 <span className="inline-flex items-center gap-1">
                   <Target className="size-3" aria-hidden /> Target{" "}
                   {formatValue(target ?? null, meta.format, { ...fmt, compact: true })}
                 </span>
-                <span className="font-figures">{Math.round(progress * 100)}%</span>
+                <span className="tabular">{Math.round(progress * 100)}%</span>
               </div>
               <div className="mt-1 h-1 overflow-hidden rounded-full bg-surface-3">
                 <div
@@ -389,10 +392,12 @@ export function KpiTiles({ ids, label }: { ids: string[]; label: string }) {
             }
             className="flex min-w-0 flex-col items-start gap-1 rounded-card border border-border bg-surface-1 px-3.5 py-3 text-left transition-colors hover:border-border-accent hover:bg-surface-2"
           >
-            <span className="w-full truncate text-2xs text-fg-muted" title={meta.name}>
+            {/* Up to two lines, so a longer name ("Customer LTV (historical)") isn't cut off; the figures
+                then sit at the foot, level with the rest of the row. */}
+            <span className="line-clamp-2 w-full text-ui font-medium text-fg-muted" title={meta.name}>
               {meta.name}
             </span>
-            <span className="tabular truncate text-base font-semibold tracking-[-0.01em] text-fg">
+            <span className="font-figures mt-auto max-w-full truncate pt-0.5 text-xl leading-tight font-medium text-fg">
               {v ? (
                 v.rows === 0 ? (
                   "—"
@@ -405,7 +410,7 @@ export function KpiTiles({ ids, label }: { ids: string[]; label: string }) {
             </span>
             {/* As on the cards: the window a change describes, with its own value, when it isn't the tile's. */}
             {v && v.rows > 0 && v.currentLabel && v.current !== null ? (
-              <span className="font-figures w-full truncate text-2xs text-fg-muted">
+              <span className="tabular w-full truncate text-xs text-fg-muted">
                 {v.currentLabel}:{" "}
                 <span className="text-fg">
                   {formatValue(v.current, meta.format, { ...fmt, compact: kpiCompact(meta.format, v.value) })}

@@ -101,8 +101,8 @@ function ChartInspector({ id }: { id: string }) {
   return (
     <div className="grid gap-4">
       <div>
-        <h3 className="text-base font-medium text-fg">{spec.title}</h3>
-        <p className="mt-1 text-ui leading-relaxed text-fg-muted">{spec.reason}</p>
+        <h3 className="text-lg font-semibold text-fg">{spec.title}</h3>
+        <p className="mt-1 text-sm leading-relaxed text-fg-muted">{spec.reason}</p>
       </div>
       <dl className="grid gap-2 text-ui">
         <div className="flex justify-between gap-3">
@@ -110,7 +110,7 @@ function ChartInspector({ id }: { id: string }) {
           <dd className="text-fg">
             {KIND_LABEL[kind]}
             {kind !== spec.kind ? (
-              <span className="ml-1.5 text-2xs text-fg-subtle">(recommended: {KIND_LABEL[spec.kind]})</span>
+              <span className="ml-1.5 text-xs text-fg-subtle">(recommended: {KIND_LABEL[spec.kind]})</span>
             ) : null}
           </dd>
         </div>
@@ -125,19 +125,19 @@ function ChartInspector({ id }: { id: string }) {
         {data ? (
           <div className="flex justify-between gap-3">
             <dt className="text-fg-muted">Rows in view</dt>
-            <dd className="font-figures text-fg">{formatCount(data.totalRows, locale)}</dd>
+            <dd className="tabular text-fg">{formatCount(data.totalRows, locale)}</dd>
           </div>
         ) : null}
       </dl>
       {data?.notes.length ? (
-        <ul className="grid gap-1 rounded-control border border-border bg-surface-2 p-3 text-2xs text-fg-muted">
+        <ul className="grid gap-1 rounded-control border border-border bg-surface-2 p-3 text-xs leading-relaxed text-fg-muted">
           {data.notes.map((n) => (
             <li key={n}>{n}</li>
           ))}
         </ul>
       ) : null}
       <div className="border-t border-border pt-4">
-        <p className="mb-3 text-ui font-medium text-fg">
+        <p className="mb-3 text-sm font-medium text-fg">
           {spec.source === "custom" ? "Edit this chart" : "Customise a copy"}
         </p>
         {/* The builder edits one measure; charts with several (or asked in words) change in the Ask panel. */}
@@ -156,7 +156,7 @@ function ChangeWithAsk({ spec }: { spec: ChartSpec }) {
   const [open, setOpen] = React.useState(false);
   return (
     <div className="grid gap-2">
-      <p className="text-2xs leading-relaxed text-fg-muted">
+      <p className="text-xs leading-relaxed text-fg-muted">
         {spec.measures.length > 1
           ? `This chart shows ${spec.measures.length} measures; change any of them, or what they are shown by, in Ask for a chart.`
           : "Change the measure, what it is shown by, or the chart type in Ask for a chart."}
@@ -414,7 +414,7 @@ function ChartBuilder({ base }: { base?: ChartSpec }) {
         {measure === "__agg__" &&
         agg === "sum" &&
         ["rate", "percentage"].includes(columns.find((c) => c.name === aggCol)?.role ?? "") ? (
-          <p className="text-2xs text-warning">
+          <p className="text-xs text-warning">
             Summing a rate column is almost always wrong; prefer Average, or a KPI built from its parts.
           </p>
         ) : null}
@@ -478,7 +478,7 @@ function ChartBuilder({ base }: { base?: ChartSpec }) {
         <Plus aria-hidden /> {base?.source === "custom" ? "Update chart" : "Add to dashboard"}
       </Button>
       {customCharts.length ? (
-        <p className="text-2xs text-fg-subtle">
+        <p className="text-xs text-fg-subtle">
           {customCharts.length} custom chart{customCharts.length > 1 ? "s" : ""} on this dashboard.{" "}
           <Badge>saved in config export</Badge>
         </p>

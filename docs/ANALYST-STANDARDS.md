@@ -9,6 +9,7 @@ Loupe's output is read the way an analyst's work is read: by managers, finance t
   - A KPI is written the same way on the cards, the one-page dashboard, the slides and the reports (`formatKpi` in `ui/common/kpiFormat.ts`): "Leads 1.75L" everywhere, never "1,74,867" on a slide.
   - Percentages keep one decimal below 1,000% (100.5%, not 100%).
   - Numbers side by side, in one sentence or one table column, share one precision (`formatTogether` and `columnDecimals` in `engine/core/together.ts`): "₹663 to ₹2.71K", never "₹662.75 to ₹2.71K".
+- **Figures line up.** Every figure is set in tabular numerals in the interface's own face (`font-figures`, `tabular` and `font-data` in `app/globals.css`), so a column of values aligns digit for digit and a value that counts up doesn't jitter. A monospace is kept for code: numbers set in it read like code, not like a report (`tests/typography.test.ts`).
 - **One unit per axis.** A value axis uses the unit its largest value needs: ₹0.9L, ₹1.2L, ₹1.5L, never ₹90K beside ₹1.2L (`axisTicks` in `ui/charts/options.ts`).
 - **Rates change in percentage points.** 40% → 42% is +2.0 pp, never +5.0%: on cards, in insights, in the KPI details, in DAX (`YoY pp`, `MoM pp`) and in the SQL monthly views (`*_change_pp`).
 - **A change states its base.** A KPI card says what it is measured from ("+40.5% from ₹2.23Cr"), and the comparison period is named once above the cards.

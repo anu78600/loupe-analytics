@@ -6,8 +6,11 @@
  * unit line above the plot, and the slice it shows (file, rows, period,
  * filters) under it, so the picture still says what it is once it leaves the
  * app. Drawn on a canvas at the plot image's own pixel ratio, in the chart
- * tokens' colours and font, so it matches the theme it was taken in; a
- * transparent export keeps the text and drops only the background.
+ * tokens' colours and font (Inter, the interface face), so it matches the
+ * theme it was taken in; a transparent export keeps the text and drops only
+ * the background. Sizes follow the app's type scale, in pixels before the
+ * scale: a 15 px title, the 13 px takeaway, 12 px caption lines; nothing is
+ * smaller than 12.
  */
 import type { ChartTokens } from "./tokens";
 
@@ -93,11 +96,11 @@ export async function framedChartPng(f: FramedChart): Promise<string> {
         ]
       : []),
     ...(f.subtitle
-      ? [{ text: f.subtitle, size: 11 * s, color: t.subtle, lineHeight: 15 * s, gap: 4 * s }]
+      ? [{ text: f.subtitle, size: 12 * s, color: t.subtle, lineHeight: 16 * s, gap: 4 * s }]
       : []),
   ];
   const below: Block[] = f.footer
-    ? [{ text: f.footer, size: 11 * s, color: t.subtle, lineHeight: 15 * s, gap: 10 * s }]
+    ? [{ text: f.footer, size: 12 * s, color: t.subtle, lineHeight: 16 * s, gap: 10 * s }]
     : [];
 
   // Measure first (sizing a canvas resets its drawing state), then draw.

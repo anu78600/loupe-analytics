@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Top navigation for the marketing pages (landing and version log).
+ * Top navigation for the marketing pages (landing, glossary and version log).
  *
  * Transparent over the hero, then turns into a frosted bar with a hairline once
  * the page scrolls; a brass line along its bottom edge shows how far down the

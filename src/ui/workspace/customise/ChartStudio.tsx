@@ -162,7 +162,7 @@ export function ChartStudio({ editing, onDone }: { editing: ChartSpec | null; on
     <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,560px)]">
       <section aria-label="Chart types" className="grid min-w-0 content-start gap-5">
         {editing ? (
-          <p className="rounded-card border border-border-accent bg-accent-soft px-4 py-3 text-ui text-fg">
+          <p className="rounded-card border border-border-accent bg-accent-soft px-4 py-3 text-sm text-fg">
             Editing “{widget?.title?.trim() || editing.title}”.{" "}
             <span className="text-fg-muted">
               {editing.source === "custom"
@@ -173,7 +173,7 @@ export function ChartStudio({ editing, onDone }: { editing: ChartSpec | null; on
         ) : null}
         {groups.map((g) => (
           <div key={g.id}>
-            <h2 className="text-sm font-medium text-fg">
+            <h2 className="text-md font-medium text-fg">
               {g.title} <span className="font-normal text-fg-subtle">· {g.question}</span>
             </h2>
             <ul role="list" className="mt-2 grid gap-2 sm:grid-cols-2 2xl:grid-cols-3">
@@ -208,8 +208,8 @@ export function ChartStudio({ editing, onDone }: { editing: ChartSpec | null; on
                           {t.name}
                           {on ? <Check className="size-3.5 text-accent" aria-hidden /> : null}
                         </span>
-                        <span className="mt-0.5 block text-2xs leading-relaxed text-fg-muted">{t.shows}</span>
-                        <span className="block text-2xs leading-relaxed text-fg-subtle">
+                        <span className="mt-0.5 block text-xs leading-relaxed text-fg-muted">{t.shows}</span>
+                        <span className="block text-xs leading-relaxed text-fg-subtle">
                           {why ? (
                             <span className="text-warning">{why}.</span>
                           ) : (
@@ -245,8 +245,8 @@ export function ChartStudio({ editing, onDone }: { editing: ChartSpec | null; on
         ) : (
           <Card className="grid place-items-center gap-2 p-10 text-center">
             <Plus className="size-6 text-fg-subtle" aria-hidden />
-            <p className="text-sm text-fg">Pick a chart type</p>
-            <p className="max-w-xs text-2xs leading-relaxed text-fg-muted">
+            <p className="text-md font-medium text-fg">Pick a chart type</p>
+            <p className="max-w-xs text-sm leading-relaxed text-fg-muted">
               Each type says what it shows and what data it suits best. Choose one, then the columns and
               measures to draw; the real chart previews here before you add it.
             </p>
@@ -300,11 +300,11 @@ function Builder({
           <h2
             data-builder-heading
             tabIndex={-1}
-            className="rounded-[6px] text-sm font-medium text-fg focus-visible:ring-2 focus-visible:ring-accent-ring focus-visible:outline-none"
+            className="rounded-[6px] text-md font-medium text-fg focus-visible:ring-2 focus-visible:ring-accent-ring focus-visible:outline-none"
           >
             {t.name}
           </h2>
-          <p className="text-2xs leading-relaxed text-fg-muted">
+          <p className="text-xs leading-relaxed text-fg-muted">
             {t.shows} Best for: {lower(t.bestFor)}
           </p>
         </div>
@@ -362,7 +362,7 @@ function Builder({
             </Select>
           </Field>
           {d.kind === "calendar" ? (
-            <p className="self-end pb-2 text-2xs text-fg-subtle">One cell per day.</p>
+            <p className="self-end pb-2 text-xs text-fg-subtle">One cell per day.</p>
           ) : (
             <Field label="Group by">
               <Select
@@ -627,7 +627,7 @@ function Builder({
       {preview ? (
         <ChartPreview spec={preview} />
       ) : (
-        <p className="rounded-control border border-warning bg-warning-soft px-3 py-2.5 text-2xs leading-relaxed text-fg">
+        <p className="rounded-control border border-warning bg-warning-soft px-3 py-2.5 text-ui leading-relaxed text-fg">
           {problem}
         </p>
       )}
@@ -640,7 +640,7 @@ function Builder({
         </Button>
       </div>
       {!editing ? (
-        <p className="text-2xs text-fg-subtle">
+        <p className="text-xs text-fg-subtle">
           <Badge tone="outline">Tip</Badge> The preview uses the dashboard&apos;s filters; it is the chart you
           get.
         </p>
@@ -707,7 +707,7 @@ function MeasureRow({
 }) {
   if (countOnly)
     return (
-      <p className="rounded-control border border-border bg-surface-2 px-3 py-2 text-2xs text-fg-muted">
+      <p className="rounded-control border border-border bg-surface-2 px-3 py-2 text-xs text-fg-muted">
         Number of rows in each band.
       </p>
     );
@@ -781,7 +781,7 @@ function MeasureRow({
               </SelectContent>
             </Select>
             {value.agg === "count" ? (
-              <p className="self-center text-2xs text-fg-subtle">Counts the rows in each group.</p>
+              <p className="self-center text-xs text-fg-subtle">Counts the rows in each group.</p>
             ) : (
               <ColumnSelect
                 value={value.column}

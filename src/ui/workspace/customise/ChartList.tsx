@@ -90,7 +90,7 @@ export function ChartList({ onEdit, onCreate }: { onEdit: (spec: ChartSpec) => v
               { value: "compact", label: "Compact" },
             ]}
           />
-          <p className="text-2xs text-fg-subtle">
+          <p className="text-xs text-fg-subtle">
             The charts of the {mode} layout, in dashboard order. Switch a chart off to hide it; it can come
             back.
           </p>
@@ -115,7 +115,7 @@ export function ChartList({ onEdit, onCreate }: { onEdit: (spec: ChartSpec) => v
         if (!list.length) return null;
         return (
           <Card key={sec.id} className="p-4">
-            <h2 className="mb-3 text-sm font-medium text-fg">
+            <h2 className="mb-3 text-md font-medium text-fg">
               {sec.title}{" "}
               <span className="font-normal text-fg-subtle">
                 · {list.filter((r) => !r.w.hidden).length} of {list.length} shown
@@ -241,11 +241,11 @@ function ChartRow({
           ) : null}
         </div>
         {problem ? (
-          <p id={problemId} className="px-1.5 text-2xs leading-relaxed text-fg">
+          <p id={problemId} className="px-1.5 text-xs leading-relaxed text-fg">
             {problem}
           </p>
         ) : (
-          <p className="truncate px-1.5 text-2xs text-fg-subtle" title={chartType(kind).bestFor}>
+          <p className="truncate px-1.5 text-xs text-fg-subtle" title={chartType(kind).bestFor}>
             {chartType(kind).name}: {chartType(kind).bestFor}
           </p>
         )}

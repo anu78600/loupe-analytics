@@ -85,16 +85,11 @@ function SectionHeading({
 }) {
   return (
     <Reveal className="mx-auto max-w-3xl text-center">
-      <p className="text-2xs font-medium tracking-[0.16em] text-accent uppercase">{eyebrow}</p>
-      <h2
-        id={id}
-        className="mt-4 font-display text-[38px] leading-[1.04] tracking-[-0.025em] text-fg sm:text-[54px]"
-      >
+      <p className="eyebrow text-accent">{eyebrow}</p>
+      <h2 id={id} className="mt-4 font-display text-display-sm text-fg sm:text-display">
         {title}
       </h2>
-      {line ? (
-        <p className="mx-auto mt-4 max-w-xl text-[15.5px] leading-relaxed text-fg-muted">{line}</p>
-      ) : null}
+      {line ? <p className="mx-auto mt-4 max-w-xl text-lg text-fg-muted">{line}</p> : null}
     </Reveal>
   );
 }
@@ -168,7 +163,7 @@ export function Hero({ data }: { data: LandingData }) {
           </SectionLink>
           <h1
             id="hero-title"
-            className="mt-8 font-display text-[46px] leading-[1.02] tracking-[-0.03em] text-fg sm:text-[72px] lg:text-[88px] lg:leading-[0.98]"
+            className="mt-8 font-display text-display-md text-fg sm:text-display-lg lg:text-display-xl"
           >
             <Words text="Analyst-grade dashboards," from={1} />
             <br className="hidden sm:block" />{" "}
@@ -177,7 +172,7 @@ export function Hero({ data }: { data: LandingData }) {
             </em>
           </h1>
           <p
-            className="word-rise mx-auto mt-7 max-w-xl text-[17px] leading-relaxed text-fg-muted sm:text-[18px]"
+            className="word-rise mx-auto mt-7 max-w-xl text-lg text-fg-muted sm:text-xl"
             style={{ "--i": 9 } as React.CSSProperties}
           >
             Drop in a file. Get the KPIs, each with its SQL and DAX, plus the charts and insights.
@@ -198,7 +193,7 @@ export function Hero({ data }: { data: LandingData }) {
             </Button>
           </div>
           <ul
-            className="word-rise mt-9 flex flex-wrap justify-center gap-x-6 gap-y-2.5 text-ui text-fg-subtle"
+            className="word-rise mt-9 flex flex-wrap justify-center gap-x-6 gap-y-2.5 text-sm text-fg-subtle"
             style={{ "--i": 11 } as React.CSSProperties}
           >
             {proof.map((p) => (
@@ -219,7 +214,7 @@ export function Hero({ data }: { data: LandingData }) {
             tiles: data.tiles,
           }}
         />
-        <p className="mt-5 text-center text-2xs text-fg-subtle">
+        <p className="mt-5 text-center text-xs text-fg-subtle">
           Live engine output from the bundled demo file: synthetic orders from an Indian D2C brand.{" "}
           <Link
             href={demoHref("ecommerce")}
@@ -301,9 +296,9 @@ function IndustryPill({ d }: { d: Domain }) {
       <DomainIcon name={d.icon} className="size-4 text-accent" />
       {d.name}
       {/* Muted, not subtle: on the flagship's brass tint the subtle ink falls below 4.5:1. */}
-      <span className="font-figures text-2xs text-fg-muted">{d.kpis} KPIs</span>
+      <span className="text-xs text-fg-muted">{d.kpis} KPIs</span>
       {d.flagship ? (
-        <span className="rounded-full bg-[image:var(--accent-gradient)] px-2 py-0.5 text-[10px] font-medium text-accent-fg">
+        <span className="rounded-full bg-[image:var(--accent-gradient)] px-2 py-0.5 text-2xs font-medium text-accent-fg">
           Flagship
         </span>
       ) : null}
@@ -366,12 +361,14 @@ export function Industries({ data }: { data: LandingData }) {
       <Reveal>
         <dl className="mx-auto mt-14 grid max-w-3xl grid-cols-3 gap-3 sm:gap-6">
           {stats.map((s) => (
+            // Packed from the top (the column runs in reverse), so a label that wraps on a phone
+            // leaves its figure level with the others.
             <div
               key={s.label}
-              className="flex flex-col-reverse items-center rounded-panel border border-border bg-surface-1/60 px-2 py-5 text-center sm:py-7"
+              className="flex flex-col-reverse items-center justify-end rounded-panel border border-border bg-surface-1/60 px-2 py-5 text-center sm:py-7"
             >
-              <dt className="mt-1 text-2xs text-fg-muted sm:text-ui">{s.label}</dt>
-              <dd className="font-display text-[38px] leading-none text-fg sm:text-[60px]">
+              <dt className="mt-2 text-xs text-fg-muted sm:text-sm">{s.label}</dt>
+              <dd className="font-figures text-4xl leading-none font-medium text-fg sm:text-5xl">
                 <CountUp value={s.value} />
               </dd>
             </div>
@@ -382,7 +379,7 @@ export function Industries({ data }: { data: LandingData }) {
         <Marquee items={list.slice(0, half)} seconds={52} />
         <Marquee items={list.slice(half)} reverse seconds={58} />
       </MarqueeGroup>
-      <p className="mt-8 text-center text-ui text-fg-muted">
+      <p className="mt-8 text-center text-base text-fg-muted">
         Anything else gets a dashboard built from its own columns.
       </p>
     </Section>
@@ -419,10 +416,7 @@ function FlowNode({
         <Icon className="size-6" aria-hidden />
       </span>
       <span
-        className={cn(
-          "text-[12px] sm:text-ui",
-          tone === "blocked" ? "text-fg-subtle line-through" : "text-fg",
-        )}
+        className={cn("text-xs sm:text-ui", tone === "blocked" ? "text-fg-subtle line-through" : "text-fg")}
       >
         {label}
       </span>
@@ -500,16 +494,11 @@ export function Privacy() {
           flow diagram's minimum and push the page sideways on a 320px phone. */}
       <div className="grid grid-cols-[minmax(0,1fr)] items-center gap-12 lg:grid-cols-[1fr_1.15fr]">
         <Reveal>
-          <p className="text-2xs font-medium tracking-[0.16em] text-accent uppercase">Privacy</p>
-          <h2
-            id="privacy-title"
-            className="mt-4 font-display text-[38px] leading-[1.04] tracking-[-0.025em] text-fg sm:text-[54px]"
-          >
+          <p className="eyebrow text-accent">Privacy</p>
+          <h2 id="privacy-title" className="mt-4 font-display text-display-sm text-fg sm:text-display">
             Your data <em className="text-gradient-accent ink-pad">never leaves</em> your browser.
           </h2>
-          <p className="mt-4 text-[15.5px] leading-relaxed text-fg-muted">
-            No server to receive it. No account to sign in to.
-          </p>
+          <p className="mt-4 text-lg text-fg-muted">No server to receive it. No account to sign in to.</p>
           <ul className="mt-8 grid gap-2.5 sm:grid-cols-2">
             {points.map((p) => (
               <li
@@ -561,17 +550,17 @@ export function Samples({ data }: { data: LandingData }) {
                     <DomainIcon name={iconOf(s.domain)} className="size-4" />
                   </span>
                   {s.flagship ? (
-                    <span className="rounded-full border border-border-accent bg-accent-soft px-2 py-0.5 text-2xs text-accent">
+                    <span className="rounded-full border border-border-accent bg-accent-soft px-2 py-0.5 text-2xs font-medium text-accent">
                       Flagship
                     </span>
                   ) : null}
                 </div>
                 <div>
-                  <h3 className="text-[15px] font-medium text-fg">{s.name}</h3>
-                  <p className="mt-1 line-clamp-2 text-ui leading-relaxed text-fg-muted">{s.description}</p>
+                  <h3 className="text-md font-medium text-fg">{s.name}</h3>
+                  <p className="mt-1 line-clamp-3 text-sm text-fg-muted">{s.description}</p>
                 </div>
-                <p className="mt-auto flex items-center justify-between text-2xs text-fg-subtle">
-                  <span className="font-figures">
+                <p className="mt-auto flex items-center justify-between text-xs text-fg-subtle">
+                  <span className="tabular">
                     {data.samples[s.id]
                       ? `${data.samples[s.id]?.rows} rows · ${data.samples[s.id]?.columns} columns`
                       : s.approxRows}
@@ -638,14 +627,11 @@ export function Faq() {
     <Section id="faq" labelledBy="faq-title">
       <div className="grid gap-12 lg:grid-cols-[1fr_1.6fr]">
         <Reveal>
-          <p className="text-2xs font-medium tracking-[0.16em] text-accent uppercase">FAQ</p>
-          <h2
-            id="faq-title"
-            className="mt-4 font-display text-[38px] leading-[1.04] tracking-[-0.025em] text-fg sm:text-[54px]"
-          >
+          <p className="eyebrow text-accent">FAQ</p>
+          <h2 id="faq-title" className="mt-4 font-display text-display-sm text-fg sm:text-display">
             Straight answers
           </h2>
-          <p className="mt-4 text-[15.5px] leading-relaxed text-fg-muted">
+          <p className="mt-4 text-lg text-fg-muted">
             Every change is in the{" "}
             <Link
               href="/changelog"
@@ -747,10 +733,7 @@ export function ClosingCta() {
       <div className="mx-auto max-w-4xl px-4 py-24 text-center sm:px-6 sm:py-32">
         <LensOrb className="mx-auto mb-10 size-36 sm:size-44" />
         <Reveal>
-          <h2
-            id="cta-title"
-            className="font-display text-[42px] leading-[1.02] tracking-[-0.025em] text-fg sm:text-[64px]"
-          >
+          <h2 id="cta-title" className="font-display text-display-md text-fg sm:text-display-lg">
             Bring a table. Leave with a dashboard{" "}
             <em className="text-gradient-accent ink-pad">you can defend.</em>
           </h2>

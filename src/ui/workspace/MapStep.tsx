@@ -183,24 +183,24 @@ export function MapStep() {
           <h1 className="mt-2 font-display text-display-sm text-fg">
             Is this your data? Check it, then map it.
           </h1>
-          <p className="mt-2 max-w-2xl text-ui text-fg-muted">
+          <p className="mt-2 max-w-2xl text-sm text-fg-muted">
             Scroll the whole file to confirm it is right; anything that looks wrong is marked. Then check how
             the columns were read: change any mapping, value meaning or role and everything regenerates.
           </p>
           {/* What Loupe read the file as, in one line: industry and shape, size, date span, grain. */}
-          <p className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-2xs text-fg-subtle">
+          <p className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-fg-subtle">
             <span className="text-fg-muted">
               {context.domain.name}
               {subName && !context.domain.generic ? ` · ${subName}` : ""}
             </span>
             {summary ? (
-              <span className="font-figures inline-flex items-center gap-1">
+              <span className="inline-flex items-center gap-1">
                 <Rows3 className="size-3.5" aria-hidden />
                 {formatCount(summary.rowCount, locale)} rows · {rows?.length ?? summary.columnCount} columns
               </span>
             ) : null}
             {context.dateColumn && context.dateBounds ? (
-              <span className="font-figures inline-flex items-center gap-1">
+              <span className="inline-flex items-center gap-1">
                 <CalendarRange className="size-3.5" aria-hidden />
                 {formatRange(context.dateBounds.min, context.dateBounds.max)} by{" "}
                 {friendly(context.dateColumn)}
@@ -301,7 +301,7 @@ const CHIP_PANEL = "max-h-[70vh] overflow-y-auto p-0";
 
 /** A small uppercase section label inside a breakdown. */
 function SectionLabel({ children }: { children: React.ReactNode }) {
-  return <h3 className="text-2xs font-medium tracking-[0.12em] text-fg-subtle uppercase">{children}</h3>;
+  return <h3 className="eyebrow text-fg-subtle">{children}</h3>;
 }
 
 /**
@@ -335,7 +335,7 @@ function KpisChip({ onOpen }: { onOpen: () => void }) {
             KPIs for {context.domain.name}
             {subName && !context.domain.generic ? ` · ${subName}` : ""}
           </p>
-          <p className="mt-0.5 text-2xs leading-relaxed text-fg-subtle">
+          <p className="mt-0.5 text-xs leading-relaxed text-fg-subtle">
             {on.length} can be computed from your columns
             {off.length ? `; ${off.length} need a column your file doesn't have` : ""}. Nothing is estimated.
           </p>
@@ -349,7 +349,7 @@ function KpisChip({ onOpen }: { onOpen: () => void }) {
                   <CircleSlash className="mt-0.5 size-3.5 shrink-0 text-fg-subtle" aria-hidden />
                   <div className="min-w-0">
                     <p className="text-ui text-fg">{k.name}</p>
-                    <p className="text-2xs leading-relaxed text-fg-muted">
+                    <p className="text-xs leading-relaxed text-fg-muted">
                       {/* Already under "Not available": the word isn't repeated. */}
                       {k.unavailableReason?.replace(/^Unavailable:\s*/, "")}
                       {k.substitute ? ` ${k.substitute}` : ""}
@@ -369,7 +369,7 @@ function KpisChip({ onOpen }: { onOpen: () => void }) {
                 <span className="min-w-0">
                   {k.name}
                   {k.fieldsUsed.length ? (
-                    <span className="block text-2xs text-fg-subtle">
+                    <span className="block text-xs text-fg-subtle">
                       From {[...new Set(k.fieldsUsed.map((f) => f.column))].join(", ")}
                     </span>
                   ) : null}
@@ -423,7 +423,7 @@ function ColumnsChip({ rows, onOpen }: { rows: ColumnRow[]; onOpen: (filter: Col
           <p id={headingId} className="text-ui font-medium text-fg">
             The columns of your file
           </p>
-          <p className="mt-0.5 text-2xs leading-relaxed text-fg-subtle">
+          <p className="mt-0.5 text-xs leading-relaxed text-fg-subtle">
             {used.length} feed the dashboard · {unused.length} not used · {hidden.length} hidden by you. Loupe
             added none: everything is built from your own columns.
           </p>
@@ -450,16 +450,16 @@ function ColumnsChip({ rows, onOpen }: { rows: ColumnRow[]; onOpen: (filter: Col
                       </Button>
                     </span>
                   </div>
-                  <p className="mt-1 text-2xs leading-relaxed text-fg-muted">{r.why?.reason}</p>
+                  <p className="mt-1 text-xs leading-relaxed text-fg-muted">{r.why?.reason}</p>
                   {r.why?.hint ? (
-                    <p className="mt-0.5 text-2xs leading-relaxed text-fg-subtle">{r.why.hint}</p>
+                    <p className="mt-0.5 text-xs leading-relaxed text-fg-subtle">{r.why.hint}</p>
                   ) : null}
                 </li>
               ))}
             </ul>
           </section>
         ) : (
-          <p className="border-b border-border px-4 py-3 text-2xs text-fg-muted">
+          <p className="border-b border-border px-4 py-3 text-xs text-fg-muted">
             Every column you kept feeds a KPI, a chart or a filter.
           </p>
         )}
@@ -469,7 +469,9 @@ function ColumnsChip({ rows, onOpen }: { rows: ColumnRow[]; onOpen: (filter: Col
             <ul className="mt-1 divide-y divide-border">
               {hidden.map((r) => (
                 <li key={r.column.name} className="flex items-center justify-between gap-2 py-2">
-                  <span className="min-w-0 truncate text-ui text-fg-muted line-through">{r.column.name}</span>
+                  <span className="min-w-0 truncate text-ui text-fg-muted line-through" title={r.column.name}>
+                    {r.column.name}
+                  </span>
                   <Button
                     size="xs"
                     variant="ghost"
@@ -491,7 +493,7 @@ function ColumnsChip({ rows, onOpen }: { rows: ColumnRow[]; onOpen: (filter: Col
                 <span className="min-w-0 truncate text-fg" title={r.column.name}>
                   {r.column.name}
                 </span>
-                <span className="shrink-0 text-2xs text-fg-subtle">{feedsText(r.use)}</span>
+                <span className="shrink-0 text-xs text-fg-subtle">{feedsText(r.use)}</span>
               </li>
             ))}
           </ul>
@@ -566,16 +568,16 @@ function FieldMapping() {
         <table className="w-full min-w-[720px] border-separate border-spacing-0 text-ui">
           <thead className="bg-surface-2 text-left text-fg-muted">
             <tr>
-              <th scope="col" className="border-b border-border px-4 py-2.5 font-medium">
+              <th scope="col" className="border-b border-border px-4 py-2.5 text-xs font-medium">
                 Field Loupe looks for
               </th>
-              <th scope="col" className="border-b border-border px-4 py-2.5 font-medium">
+              <th scope="col" className="border-b border-border px-4 py-2.5 text-xs font-medium">
                 Your column
               </th>
-              <th scope="col" className="border-b border-border px-4 py-2.5 font-medium">
+              <th scope="col" className="border-b border-border px-4 py-2.5 text-xs font-medium">
                 Match
               </th>
-              <th scope="col" className="border-b border-border px-4 py-2.5 text-right font-medium">
+              <th scope="col" className="border-b border-border px-4 py-2.5 text-right text-xs font-medium">
                 Used by
               </th>
             </tr>
@@ -592,7 +594,7 @@ function FieldMapping() {
                       <span className="font-medium text-fg">{f.label}</span>
                       {f.core ? <Badge tone="outline">core</Badge> : null}
                     </div>
-                    {f.description ? <p className="mt-0.5 text-2xs text-fg-subtle">{f.description}</p> : null}
+                    {f.description ? <p className="mt-0.5 text-xs text-fg-subtle">{f.description}</p> : null}
                   </td>
                   <td className="border-b border-border px-4 py-2 align-top">
                     <Select value={col ?? NONE} onValueChange={(v) => choose(f.id, v === NONE ? null : v)}>
@@ -638,7 +640,7 @@ function FieldMapping() {
                         </Badge>
                       )
                     ) : (
-                      <span className="text-2xs text-fg-subtle">—</span>
+                      <span className="text-xs text-fg-subtle">—</span>
                     )}
                   </td>
                   <td className="border-b border-border px-4 py-2 align-top">
@@ -649,7 +651,7 @@ function FieldMapping() {
                     ) : (
                       // The select beside it already says "Not mapped": a dash, as in the Match column.
                       // `relative` keeps the screen-reader text inside the table's scroll area.
-                      <p className="relative text-right text-2xs text-fg-subtle">
+                      <p className="relative text-right text-xs text-fg-subtle">
                         <span aria-hidden>—</span>
                         <span className="sr-only">Feeds nothing: no column</span>
                       </p>
@@ -675,7 +677,7 @@ function ValueMeanings() {
   );
   if (!entries.length)
     return (
-      <p className="text-ui text-fg-muted">Map a status or payment column to edit what its values mean.</p>
+      <p className="text-sm text-fg-muted">Map a status or payment column to edit what its values mean.</p>
     );
   return (
     <div className="grid gap-4 lg:grid-cols-2">
@@ -688,7 +690,9 @@ function ValueMeanings() {
             <div className="flex items-center gap-2">
               <Tags className="size-4 text-accent" aria-hidden />
               <h3 className="text-sm font-medium text-fg">{label}</h3>
-              <span className="text-2xs text-fg-subtle">column “{column}”</span>
+              <span className="min-w-0 truncate text-xs text-fg-subtle" title={column}>
+                column “{column}”
+              </span>
             </div>
             <ul className="mt-4 grid gap-3">
               {classes.map((c) => {
@@ -710,11 +714,13 @@ function ValueMeanings() {
                               // The space keeps the values apart when read out; between flex items it isn't drawn.
                               <React.Fragment key={v}>
                                 {i ? " " : null}
-                                <Badge tone="neutral">{v}</Badge>
+                                <Badge tone="neutral" className="font-data">
+                                  {v}
+                                </Badge>
                               </React.Fragment>
                             ))
                           ) : (
-                            <span className="text-2xs text-fg-subtle">
+                            <span className="text-xs text-fg-subtle">
                               No values: KPIs needing this are unavailable
                             </span>
                           )}
@@ -735,7 +741,7 @@ function ValueMeanings() {
                         aria-label={`Values of ${column} that mean ${phrase(c.label)}`}
                         className="max-h-80 w-72 overflow-y-auto p-2"
                       >
-                        <p className="px-2 pt-1 pb-1.5 text-2xs text-fg-subtle">
+                        <p className="px-2 pt-1 pb-1.5 text-xs text-fg-subtle">
                           Values of “{column}” that mean {phrase(c.label)}
                         </p>
                         {values.map((v) => {
@@ -754,8 +760,10 @@ function ValueMeanings() {
                                   )
                                 }
                               />
-                              <span className="flex-1 truncate">{v.value}</span>
-                              <span className="font-figures text-2xs text-fg-subtle">
+                              <span className="font-data min-w-0 flex-1 truncate" title={v.value}>
+                                {v.value}
+                              </span>
+                              <span className="font-figures shrink-0 text-xs text-fg-subtle">
                                 {formatCount(v.count, locale)}
                               </span>
                             </label>
@@ -790,7 +798,7 @@ function ColumnsNote({
   unused: string[];
 }) {
   return (
-    <p className="mb-4 flex gap-2 rounded-card border border-border bg-surface-1 px-4 py-3 text-ui leading-relaxed text-fg-muted">
+    <p className="mb-4 flex gap-2 rounded-card border border-border bg-surface-1 px-4 py-3 text-sm leading-relaxed text-fg-muted">
       <Columns3 className="mt-0.5 size-4 shrink-0 text-accent" aria-hidden />
       <span>
         <span className="text-fg">
@@ -809,7 +817,7 @@ function ColumnsNote({
 /** "Used by" cell: counts with the names in a tooltip, or "Not used". */
 function UsedBy({ use }: { use: ColumnUse | undefined }) {
   if (!use || (!use.kpis.length && !use.charts.length && !use.filters.length))
-    return <span className="text-2xs text-fg-subtle">Not used</span>;
+    return <span className="text-xs text-fg-subtle">Not used</span>;
   const parts: Array<{ label: string; names: string[] }> = [];
   if (use.kpis.length)
     parts.push({ label: use.kpis.length === 1 ? "1 KPI" : `${use.kpis.length} KPIs`, names: use.kpis });
@@ -878,7 +886,7 @@ function ColumnRoles({
             { value: "hidden", label: `Hidden ${count("hidden")}` },
           ]}
         />
-        <p className="text-2xs text-fg-subtle">
+        <p className="text-xs text-fg-subtle">
           Hover a KPI or chart count to see the names; a column that isn&apos;t used says why.
         </p>
       </div>
@@ -897,7 +905,7 @@ function ColumnRoles({
                   "Aggregation",
                   "Why",
                 ].map((h) => (
-                  <th key={h} scope="col" className="border-b border-border px-4 py-2.5 font-medium">
+                  <th key={h} scope="col" className="border-b border-border px-4 py-2.5 text-xs font-medium">
                     {h}
                   </th>
                 ))}
@@ -931,13 +939,13 @@ function ColumnRoles({
                     </td>
                     <td
                       className={cn(
-                        "border-b border-border px-4 py-2 font-medium",
+                        "min-w-36 border-b border-border px-4 py-2 font-medium",
                         off ? "text-fg-subtle line-through" : "text-fg",
                       )}
                     >
                       {c.name}
                     </td>
-                    <td className="max-w-[240px] border-b border-border px-4 py-2 text-2xs leading-relaxed text-fg-muted">
+                    <td className="font-data max-w-[240px] border-b border-border px-4 py-2 text-xs leading-relaxed text-fg-muted">
                       <span className="line-clamp-2" title={dataSummary(c, locale)}>
                         {dataSummary(c, locale)}
                       </span>
@@ -951,7 +959,7 @@ function ColumnRoles({
                         // Not used, and why: the answer to "which columns did it leave out?".
                         <div className="max-w-[280px]">
                           <Badge tone="outline">Not used</Badge>
-                          <p className="mt-1 text-2xs leading-relaxed text-fg-muted">{why?.reason}</p>
+                          <p className="mt-1 text-xs leading-relaxed text-fg-muted">{why?.reason}</p>
                         </div>
                       ) : (
                         <UsedBy use={use} />
@@ -1010,7 +1018,7 @@ function ColumnRoles({
                           </SelectContent>
                         </Select>
                       ) : (
-                        <span className="text-2xs text-fg-subtle">
+                        <span className="text-xs text-fg-subtle">
                           {c.defaultAgg === "countDistinct"
                             ? "Count distinct"
                             : c.defaultAgg === "count"
@@ -1019,7 +1027,7 @@ function ColumnRoles({
                         </span>
                       )}
                     </td>
-                    <td className="max-w-[360px] border-b border-border px-4 py-2 text-2xs leading-relaxed text-fg-muted">
+                    <td className="max-w-[360px] border-b border-border px-4 py-2 text-xs leading-relaxed text-fg-muted">
                       {c.roleReason}
                     </td>
                   </tr>
@@ -1054,7 +1062,7 @@ function KpiAvailability() {
     <div className="grid gap-4 lg:grid-cols-2">
       {groups.map((g) => (
         <Card key={g} className="p-5">
-          <h3 className="text-2xs font-medium tracking-[0.12em] text-fg-subtle uppercase">{g}</h3>
+          <h3 className="eyebrow text-fg-subtle">{g}</h3>
           <ul className="mt-3 grid gap-2.5">
             {visible
               .filter((k) => k.group === g)
@@ -1068,12 +1076,12 @@ function KpiAvailability() {
                   <div className="min-w-0 flex-1">
                     <KpiNameInput id={k.id} name={k.name} title={k.definition} />
                     {k.available ? (
-                      <p className="px-1 text-2xs text-fg-subtle">
+                      <p className="px-1 text-xs text-fg-subtle">
                         {k.variantLabel}
                         {k.caveat ? ` · ${k.caveat}` : ""}
                       </p>
                     ) : (
-                      <p className="px-1 text-2xs text-fg-muted">
+                      <p className="px-1 text-xs text-fg-muted">
                         {k.unavailableReason} {k.substitute}
                       </p>
                     )}

@@ -116,25 +116,28 @@ function FullDashboard() {
         {/* Two levels only: the title, then one quiet line of facts; the actions sit to the right. */}
         <header className="mb-5 flex flex-wrap items-start justify-between gap-x-6 gap-y-4">
           <div className="min-w-0 flex-[1_1_380px]">
-            <h1 className="truncate font-display text-[34px] leading-tight text-fg">
+            {/* leading-tight, not the display size's own 1.08: truncate clips at the line box, which
+                would cut the serif's descenders. */}
+            <h1 className="truncate font-display text-display-sm leading-tight text-fg">
               {context.domain.name}
-              {/* The data shape sits beside the industry, smaller, so the line fits next to the actions. */}
+              {/* The data shape sits beside the industry, smaller and in the interface face (the serif is
+                  for display sizes only), so the line fits next to the actions. */}
               {subName && !context.domain.generic ? (
-                <span className="ml-2.5 text-[21px] text-fg-subtle">{subName}</span>
+                <span className="ml-3 font-sans text-lg text-fg-subtle">{subName}</span>
               ) : null}
             </h1>
-            <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1.5 text-2xs text-fg-subtle">
+            <div className="mt-2 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-fg-subtle">
               {summary ? <FileIdentity summary={summary} size="sm" className="max-w-full" /> : null}
               {/* The period in view, and how recent the data is, as a report's header states them. */}
               {period ? (
-                <span className="font-figures inline-flex items-center gap-1.5">
+                <span className="tabular inline-flex items-center gap-1.5">
                   <CalendarRange className="size-3.5" aria-hidden />
                   {preset !== "custom" && preset !== "all" ? `${PRESET_LABEL[preset]}: ` : ""}
                   {period}
                   {context.dateBounds ? ` · data to ${formatDay(context.dateBounds.max)}` : ""}
                 </span>
               ) : null}
-              <span className="font-figures inline-flex items-center gap-1.5" aria-live="polite">
+              <span className="tabular inline-flex items-center gap-1.5" aria-live="polite">
                 {computing ? <Loader2 className="size-3 animate-spin" aria-hidden /> : null}
                 {computing
                   ? "Updating…"
@@ -205,7 +208,7 @@ function FullDashboard() {
             <section key={sec.id} className="mt-10" aria-labelledby={`sec-${sec.id}`}>
               {/* A title and a hairline; what the section is for is in its tooltip, not more text to read. */}
               <div className="mb-3 flex items-center gap-3" title={sec.blurb}>
-                <h2 id={`sec-${sec.id}`} className="text-[15px] font-medium tracking-[-0.01em] text-fg">
+                <h2 id={`sec-${sec.id}`} className="text-md font-medium text-fg">
                   {sec.title}
                 </h2>
                 <span aria-hidden className="h-px flex-1 bg-border" />
@@ -311,13 +314,13 @@ function NotShown() {
         <div className="grid gap-5 border-t border-border px-5 py-4 md:grid-cols-2">
           {unavailable.length ? (
             <div>
-              <p className="mb-2 text-2xs font-medium tracking-[0.1em] text-fg-subtle uppercase">KPIs</p>
+              <p className="eyebrow mb-2 text-fg-subtle">KPIs</p>
               <ul className="grid gap-2 text-ui">
                 {unavailable.map((k) =>
                   k ? (
                     <li key={k.id}>
                       <span className="text-fg">{k.name}</span>
-                      <span className="block text-2xs text-fg-muted">
+                      <span className="block text-xs text-fg-muted">
                         {k.unavailableReason} {k.substitute}
                       </span>
                     </li>
@@ -329,12 +332,12 @@ function NotShown() {
           <div>
             {context.skippedCharts.length ? (
               <>
-                <p className="mb-2 text-2xs font-medium tracking-[0.1em] text-fg-subtle uppercase">Charts</p>
+                <p className="eyebrow mb-2 text-fg-subtle">Charts</p>
                 <ul className="grid gap-2 text-ui">
                   {context.skippedCharts.map((c) => (
                     <li key={c.id}>
                       <span className="text-fg">{c.title}</span>
-                      <span className="block text-2xs text-fg-muted">{c.reason}</span>
+                      <span className="block text-xs text-fg-muted">{c.reason}</span>
                     </li>
                   ))}
                 </ul>
@@ -342,9 +345,7 @@ function NotShown() {
             ) : null}
             {hidden.length ? (
               <>
-                <p className="mt-4 mb-2 text-2xs font-medium tracking-[0.1em] text-fg-subtle uppercase">
-                  Hidden by you
-                </p>
+                <p className="eyebrow mt-4 mb-2 text-fg-subtle">Hidden by you</p>
                 <div className="flex flex-wrap gap-1.5">
                   {hidden.map((w) => (
                     <Button
@@ -364,7 +365,7 @@ function NotShown() {
         </div>
       ) : null}
       {!open ? null : (
-        <p className="border-t border-border px-5 py-2.5 text-2xs text-fg-subtle">
+        <p className="border-t border-border px-5 py-2.5 text-xs text-fg-subtle">
           <Badge tone="outline">Honest by design</Badge> Loupe never estimates a KPI it can&apos;t compute.
         </p>
       )}

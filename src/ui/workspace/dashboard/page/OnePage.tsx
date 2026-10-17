@@ -295,27 +295,31 @@ function KpiTile({
   const shown = value?.rows === 0 ? "—" : formatKpi(v, meta.format, fmt);
   return (
     <div
-      className="flex min-w-0 items-stretch gap-[0.7cqw] rounded-[12px] border border-border p-[max(8px,0.75cqw)]"
+      className="flex min-w-0 items-stretch gap-[0.55cqw] rounded-[12px] border border-border p-[max(8px,0.75cqw)]"
       style={{ background: tint(index, 7) }}
       title={`${meta.name}: ${formatValue(v, meta.format, fmt)}`}
     >
       <span
-        className="grid size-[clamp(26px,2.5cqw,38px)] shrink-0 place-items-center self-start rounded-[9px]"
+        className="grid size-[clamp(24px,2.2cqw,36px)] shrink-0 place-items-center self-start rounded-[9px]"
         style={{ background: tint(index, 20), color: `var(--chart-${(index % 8) + 1})` }}
       >
         <Icon className="size-[55%]" aria-hidden />
       </span>
       {/* The value and its change sit at the foot, so they line up across the row whatever the name's length. */}
       <div className="flex min-w-0 flex-1 flex-col">
-        {/* Up to two lines, so a longer name ("Average tenure (years)") isn't cut off. */}
-        <p className="line-clamp-2 text-[clamp(10.5px,0.88cqw,14px)] leading-tight font-medium text-fg-muted">
+        {/* Up to two lines, so a longer name ("Average tenure (years)") isn't cut off. 11 px on the
+            1280 px download, with a small icon, so a name like "Average order value" keeps to one line
+            there: a second line in any tile costs every chart on the page its height. */}
+        <p className="line-clamp-2 text-[clamp(11px,0.88cqw,14px)] leading-tight font-medium text-fg-muted">
           {kpiLabel(meta)}
         </p>
-        <p className="tabular mt-auto truncate pt-[0.2cqw] text-[clamp(17px,1.85cqw,30px)] leading-[1.15] font-semibold tracking-[-0.02em] text-fg">
+        {/* Fluid with the page, 24 px on the 1280 px download; Inter's optical size tightens it. */}
+        <p className="font-figures mt-auto truncate pt-[0.3cqw] text-[clamp(18px,1.88cqw,30px)] leading-none font-semibold text-fg">
           {shown}
         </p>
         {value ? (
-          <div className="mt-[0.25cqw] min-w-0 truncate">
+          // A flex row, so the line is the chip's own height rather than the body's line height.
+          <div className="mt-[0.4cqw] flex min-w-0 overflow-hidden">
             <DeltaChip meta={meta} value={value} size="sm" shared={sharedReason} />
           </div>
         ) : null}
@@ -328,9 +332,7 @@ function KpiTile({
 function SlicerBox({ label, value, open }: { label: string; value: string; open?: boolean }) {
   return (
     <span className="block min-w-0 text-left">
-      <span className="block truncate text-[clamp(10px,0.78cqw,12px)] font-medium tracking-[0.04em] text-fg-subtle uppercase">
-        {label}
-      </span>
+      <span className="eyebrow block truncate text-fg-subtle">{label}</span>
       <span
         className={cn(
           "mt-[3px] flex h-[clamp(26px,2.3cqw,34px)] min-w-0 items-center justify-between gap-2 rounded-[8px] border bg-surface-1 px-[9px] text-[clamp(11px,0.9cqw,14px)]",
@@ -487,7 +489,7 @@ function DimSlicer({ column, label }: { column: string; label: string }) {
                 />
                 <span className="flex-1 truncate">{v.value}</span>
                 {v.count ? (
-                  <span className="font-figures text-2xs text-fg-subtle">
+                  <span className="font-figures text-xs text-fg-subtle">
                     {formatCount(v.count, fmt.locale)}
                   </span>
                 ) : null}
@@ -521,11 +523,9 @@ function Sidebar({ model, live }: { model: PageModel; live: boolean }) {
           <DomainIcon name={model.industry.icon} className="size-[55%] text-accent" />
         </span>
         <div className="min-w-0">
-          <p className="truncate text-[clamp(11px,0.95cqw,15px)] font-semibold text-fg">
-            {model.industry.name}
-          </p>
+          <p className="truncate text-[clamp(12px,1cqw,15px)] font-semibold text-fg">{model.industry.name}</p>
           {model.industry.shape ? (
-            <p className="truncate text-[clamp(10px,0.78cqw,12px)] text-fg-subtle">{model.industry.shape}</p>
+            <p className="truncate text-[clamp(11px,0.88cqw,13px)] text-fg-subtle">{model.industry.shape}</p>
           ) : null}
         </div>
       </div>
@@ -547,7 +547,7 @@ function Sidebar({ model, live }: { model: PageModel; live: boolean }) {
         <button
           type="button"
           onClick={clear}
-          className="self-start text-[clamp(11px,0.85cqw,13px)] text-fg-subtle underline-offset-2 hover:text-fg hover:underline"
+          className="self-start text-[clamp(12px,0.94cqw,14px)] text-fg-subtle underline-offset-2 hover:text-fg hover:underline"
         >
           Clear filters
         </button>
@@ -555,7 +555,7 @@ function Sidebar({ model, live }: { model: PageModel; live: boolean }) {
       {/* Where the numbers come from, as a report page's footnote. */}
       <div
         className={cn(
-          "mt-auto min-w-0 border-t border-border pt-[0.6cqw] text-[clamp(10px,0.78cqw,12px)] leading-snug text-fg-subtle",
+          "mt-auto min-w-0 border-t border-border pt-[0.6cqw] text-[clamp(11px,0.88cqw,13px)] leading-snug text-fg-subtle",
           live && "hidden lg:block",
         )}
       >
@@ -591,6 +591,10 @@ function Banner({
         className="pointer-events-none absolute top-1/2 -right-[1.5cqw] size-[clamp(90px,10cqw,160px)] -translate-y-1/2 text-[var(--chart-1)] opacity-[0.06]"
       />
       <div className="relative min-w-0 flex-[1_1_320px]">
+        {/* The serif at its smallest display size; a step up only on a page wider than 1440 px (a
+            container query on the page, so the 1280 px download, drawn in this same window, never
+            takes it). leading-tight, because truncate clips at the line box and would cut descenders.
+            Below lg the live page stacks, so the title wraps there rather than losing its end. */}
         {onRename && editing ? (
           <input
             autoFocus
@@ -605,29 +609,27 @@ function Banner({
               if (e.key === "Enter") e.currentTarget.blur();
               if (e.key === "Escape") setEditing(false);
             }}
-            className="w-full rounded-[8px] border border-border-accent bg-surface-1 px-2 font-display text-[clamp(20px,2.05cqw,34px)] leading-tight text-fg outline-none"
+            className="w-full rounded-[8px] border border-border-accent bg-surface-1 px-2 font-display text-display-xs leading-tight text-fg outline-none @[90rem]:text-display-sm"
           />
         ) : onRename ? (
           <button
             type="button"
             onClick={() => setEditing(true)}
             title="Rename this page"
-            className="block max-w-full truncate rounded-[8px] text-left font-display text-[clamp(20px,2.05cqw,34px)] leading-tight text-fg hover:text-accent"
+            className="block max-w-full rounded-[8px] text-left font-display text-display-xs leading-tight text-fg hover:text-accent lg:truncate @[90rem]:text-display-sm"
           >
             {model.title}
           </button>
         ) : (
-          <h2 className="truncate font-display text-[clamp(20px,2.05cqw,34px)] leading-tight text-fg">
+          <h2 className="truncate font-display text-display-xs leading-tight text-fg @[90rem]:text-display-sm">
             {model.title}
           </h2>
         )}
-        <p className="mt-[0.2cqw] truncate text-[clamp(11px,0.95cqw,15px)] tracking-[0.02em] text-fg-muted">
-          {model.subtitle}
-        </p>
+        <p className="mt-[0.2cqw] truncate text-[clamp(12px,1cqw,15px)] text-fg-muted">{model.subtitle}</p>
       </div>
       <div
         className={cn(
-          "relative min-w-0 text-[clamp(10.5px,0.85cqw,13px)] leading-snug text-fg-muted",
+          "relative min-w-0 text-[clamp(11.5px,0.92cqw,13.5px)] leading-snug text-fg-muted",
           live ? "text-left sm:text-right" : "text-right",
         )}
       >
@@ -663,11 +665,11 @@ function PageChartCard({ chart, live, fmt }: { chart: PlacedChart; live: boolean
       style={{ "--span": chart.span, "--rows": chart.tall ? 2 : 1 } as React.CSSProperties}
       aria-label={chart.title}
     >
-      <h3 className="truncate text-[clamp(12px,1cqw,15px)] font-semibold tracking-[-0.005em] text-fg">
+      <h3 className="truncate text-[clamp(13px,1.05cqw,16px)] leading-snug font-semibold text-fg">
         {chart.title}
       </h3>
       {chart.data.headline ? (
-        <p className="mt-[2px] line-clamp-2 text-[clamp(10.5px,0.85cqw,13px)] leading-snug text-fg-muted">
+        <p className="mt-[2px] line-clamp-2 text-[clamp(12px,0.94cqw,14px)] leading-snug text-fg-muted">
           {chart.data.headline}
         </p>
       ) : null}
@@ -754,7 +756,7 @@ function InsightStrip({ insights, live }: { insights: Insight[]; live: boolean }
         live ? "lg:grid-cols-[auto_repeat(3,minmax(0,1fr))]" : "grid-cols-[auto_repeat(3,minmax(0,1fr))]",
       )}
     >
-      <p className="flex items-center gap-1.5 self-center text-[clamp(10px,0.8cqw,12px)] font-semibold tracking-[0.1em] text-accent uppercase">
+      <p className="eyebrow flex items-center gap-1.5 self-center text-accent">
         <Lightbulb className="size-[1.3em]" aria-hidden />
         Key insights
       </p>
@@ -783,8 +785,11 @@ function InsightStrip({ insights, live }: { insights: Insight[]; live: boolean }
                 aria-hidden
               />
               <div className="min-w-0">
-                <p className="truncate text-[clamp(11px,0.92cqw,14px)] font-semibold text-fg">{ins.title}</p>
-                <p className="line-clamp-2 text-[clamp(10px,0.8cqw,12.5px)] leading-snug text-fg-muted">
+                <p className="truncate text-[clamp(12px,1cqw,15px)] leading-snug font-semibold text-fg">
+                  {ins.title}
+                </p>
+                {/* Three lines at 12 px hold the sentence with both of its figures ("… vs ₹2.23Cr in …"). */}
+                <p className="line-clamp-3 text-[clamp(12px,0.94cqw,14px)] leading-snug text-fg-muted">
                   {firstSentence(ins.body)}
                 </p>
               </div>
@@ -792,7 +797,7 @@ function InsightStrip({ insights, live }: { insights: Insight[]; live: boolean }
           );
         })
       ) : (
-        <p className="text-[clamp(11px,0.85cqw,13px)] text-fg-subtle lg:col-span-3">
+        <p className="text-[clamp(12px,0.94cqw,14px)] text-fg-subtle lg:col-span-3">
           {live ? "Finding the key insights…" : "No insights stood out for this selection."}
         </p>
       )}

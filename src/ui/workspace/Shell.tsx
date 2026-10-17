@@ -131,7 +131,7 @@ export function Stepper() {
                 ) : null}
                 <span
                   className={cn(
-                    "tabular relative grid size-[18px] place-items-center rounded-full border text-[10px] font-semibold",
+                    "tabular relative grid size-[18px] place-items-center rounded-full border text-2xs font-semibold",
                     active
                       ? "border-accent bg-accent text-accent-fg"
                       : done
@@ -218,7 +218,7 @@ export function WorkspaceTopBar({
                 <Badge tone="warning">Sampled</Badge>
               </span>
             ) : null}
-            <span className="font-figures h-6 shrink-0 text-2xs leading-6 whitespace-nowrap text-fg-subtle">
+            <span className="h-6 shrink-0 text-xs leading-6 whitespace-nowrap text-fg-subtle">
               {countOf(summary.rowCount, "row", locale)}
             </span>
           </div>

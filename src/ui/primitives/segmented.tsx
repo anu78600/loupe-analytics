@@ -59,7 +59,7 @@ export function Segmented<T extends string>({
             aria-label={typeof opt.label === "string" ? opt.label : opt.title}
             className={cn(
               "relative inline-flex items-center justify-center gap-1.5 rounded-[8px] font-medium transition-colors [&_svg]:size-3.5",
-              size === "sm" ? "h-6 px-2 text-2xs" : "h-7 px-2.5 text-ui",
+              size === "sm" ? "h-6 px-2 text-xs" : "h-7 px-2.5 text-ui",
               active ? "text-fg" : "text-fg-muted hover:text-fg",
             )}
           >

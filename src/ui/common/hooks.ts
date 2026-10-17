@@ -57,22 +57,40 @@ export function useThemeKey(): string {
 }
 
 // Charts also redraw when the chart colours change: applyChartTheme() renames data-chart-theme
-// on <html> with every new set of colours.
+// on <html> with every new set of colours. And once, when the web fonts first finish loading: a
+// canvas measures and draws its text when it is drawn, so a chart drawn before Inter arrived would
+// keep the fallback face (and its widths) until something else redrew it. It only ever turns
+// true, so a face that loads later (Geist Mono for a code view) doesn't replay every chart.
+let fontsSettled = false;
+function fontsReady(): boolean {
+  if (!fontsSettled && (typeof document.fonts === "undefined" || document.fonts.status === "loaded"))
+    fontsSettled = true;
+  return fontsSettled;
+}
 function subscribeChartTheme(onChange: () => void): () => void {
   const mo = new MutationObserver(onChange);
   mo.observe(document.documentElement, {
     attributes: true,
     attributeFilter: ["data-theme", "data-chart-theme"],
   });
-  return () => mo.disconnect();
+  let live = true;
+  void document.fonts?.ready.then(() => {
+    fontsSettled = true;
+    if (live) onChange();
+  });
+  return () => {
+    live = false;
+    mo.disconnect();
+  };
 }
 const chartThemeSnapshot = () =>
-  `${document.documentElement.dataset.theme ?? "dark"}|${document.documentElement.dataset.chartTheme ?? "loupe"}`;
-const serverChartTheme = () => "dark|loupe";
+  `${document.documentElement.dataset.theme ?? "dark"}|${document.documentElement.dataset.chartTheme ?? "loupe"}|${fontsReady() ? "fonts" : "fallback"}`;
+const serverChartTheme = () => "dark|loupe|fallback";
 
 /**
- * Changes with the light/dark theme and with the chart colours, so a canvas
- * chart rebuilds its option (re-reading the CSS tokens) after either.
+ * Changes with the light/dark theme, with the chart colours and once when the
+ * web fonts first finish loading, so a canvas chart rebuilds its option
+ * (re-reading the CSS tokens) and draws its text in the loaded face.
  */
 export function useChartThemeKey(): string {
   return React.useSyncExternalStore(subscribeChartTheme, chartThemeSnapshot, serverChartTheme);

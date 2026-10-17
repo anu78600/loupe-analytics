@@ -66,7 +66,7 @@ function matches(words: string[], text: string): boolean {
 function LevelPill({ level }: { level: GlossaryLevel }) {
   const l = LEVELS[level];
   return (
-    <span className="inline-flex items-center gap-1 rounded-full border border-border px-2 py-0.5 text-[10.5px] font-medium tracking-[0.02em] text-fg-muted">
+    <span className="inline-flex items-center gap-1 rounded-full border border-border px-2 py-0.5 text-xs font-medium text-fg-muted">
       <span aria-hidden className={cn("size-1.5 rounded-full", l.dot)} />
       {l.label}
     </span>
@@ -94,9 +94,9 @@ function TermCard({
       className="group scroll-mt-36 rounded-card border border-border bg-surface-1 p-4 outline-none focus-visible:ring-2 focus-visible:ring-accent-ring"
     >
       <dt className="flex flex-wrap items-center gap-x-2 gap-y-1">
-        <span className="text-[15px] font-semibold tracking-[-0.005em] text-fg">{term.term}</span>
+        <span className="text-base font-semibold text-fg">{term.term}</span>
         <LevelPill level={term.level} />
-        {section ? <span className="text-2xs text-fg-subtle">· {section}</span> : null}
+        {section ? <span className="text-xs text-fg-subtle">· {section}</span> : null}
         <a
           href={`#term-${term.id}`}
           aria-label={`Link to ${term.term}`}
@@ -106,18 +106,18 @@ function TermCard({
         </a>
       </dt>
       {term.aka?.length ? (
-        <dd className="mt-0.5 text-2xs text-fg-subtle">Also called {term.aka.join(", ")}</dd>
+        <dd className="mt-0.5 text-xs text-fg-subtle">Also called {term.aka.join(", ")}</dd>
       ) : null}
-      <dd className="mt-2 text-ui leading-relaxed text-fg">{term.short}</dd>
-      <dd className="mt-1.5 text-ui leading-relaxed text-fg-muted">{term.body}</dd>
+      <dd className="mt-2 text-sm leading-relaxed text-fg">{term.short}</dd>
+      <dd className="mt-1.5 text-sm leading-relaxed text-fg-muted">{term.body}</dd>
       {term.example ? (
-        <dd className="mt-2.5 rounded-[9px] border border-border bg-surface-2 px-3 py-2 text-ui leading-relaxed text-fg-muted">
+        <dd className="mt-2.5 rounded-[9px] border border-border bg-surface-2 px-3 py-2 text-sm leading-relaxed text-fg-muted">
           <span className="font-medium text-fg">Example. </span>
           {term.example}
         </dd>
       ) : null}
       {term.inLoupe ? (
-        <dd className="mt-2.5 flex items-start gap-1.5 text-2xs leading-relaxed text-fg-subtle">
+        <dd className="mt-2.5 flex items-start gap-1.5 text-xs leading-relaxed text-fg-subtle">
           <BookOpen className="mt-0.5 size-3.5 shrink-0 text-accent" aria-hidden />
           <span>
             <span className="font-medium text-fg-muted">In Loupe: </span>
@@ -126,7 +126,7 @@ function TermCard({
         </dd>
       ) : null}
       {term.related?.length ? (
-        <dd className="mt-3 flex flex-wrap items-center gap-1.5 text-2xs">
+        <dd className="mt-3 flex flex-wrap items-center gap-1.5 text-xs">
           <span className="text-fg-subtle">See also</span>
           {term.related.map((id) => (
             <button
@@ -152,12 +152,12 @@ function ChartCard({ chart, group }: { chart: GlossaryChart; group?: string }) {
         {Icon ? <Icon className="size-4" aria-hidden /> : null}
       </span>
       <div className="min-w-0">
-        <p className="text-ui font-semibold text-fg">
+        <p className="text-md font-medium text-fg">
           {chart.name}
           {group ? <span className="font-normal text-fg-subtle"> · {group}</span> : null}
         </p>
-        <p className="mt-1 text-ui leading-relaxed text-fg-muted">{chart.shows}</p>
-        <p className="mt-1 text-2xs leading-relaxed text-fg-subtle">
+        <p className="mt-1 text-sm leading-relaxed text-fg-muted">{chart.shows}</p>
+        <p className="mt-1.5 text-xs leading-relaxed text-fg-subtle">
           <span className="font-medium text-fg-muted">Best for: </span>
           {chart.bestFor}
         </p>
@@ -179,35 +179,35 @@ function KpiCard({ kpi, industry }: { kpi: GlossaryKpi; industry?: string }) {
   return (
     <article id={`kpi-${kpi.id}`} className="rounded-card border border-border bg-surface-1 p-4">
       <header className="flex flex-wrap items-start justify-between gap-2">
-        <h4 className="text-[15px] font-semibold tracking-[-0.005em] text-fg">
+        <h4 className="text-base font-semibold text-fg">
           {kpi.name}
           {kpi.short && !kpi.name.includes(kpi.short) ? (
-            <span className="ml-1.5 text-ui font-normal text-fg-subtle">({kpi.short})</span>
+            <span className="ml-1.5 text-sm font-normal text-fg-subtle">({kpi.short})</span>
           ) : null}
         </h4>
         <div className="flex flex-wrap gap-1.5">
           {industry ? (
-            <span className="rounded-full border border-border px-2 py-0.5 text-[10.5px] text-fg-muted">
+            <span className="rounded-full border border-border px-2 py-0.5 text-xs text-fg-muted">
               {industry}
             </span>
           ) : null}
           {kpi.headline ? (
-            <span className="rounded-full border border-border-accent bg-accent-soft px-2 py-0.5 text-[10.5px] font-medium text-fg">
+            <span className="rounded-full border border-border-accent bg-accent-soft px-2 py-0.5 text-xs font-medium text-fg">
               Headline KPI
             </span>
           ) : null}
-          <span className="inline-flex items-center gap-0.5 rounded-full border border-border px-2 py-0.5 text-[10.5px] font-medium text-fg-muted">
+          <span className="inline-flex items-center gap-0.5 rounded-full border border-border px-2 py-0.5 text-xs font-medium text-fg-muted">
             <d.Icon className={cn("size-3", d.icon)} aria-hidden />
             {d.label}
           </span>
         </div>
       </header>
-      <p className="mt-2 text-ui leading-relaxed text-fg">{kpi.definition}</p>
+      <p className="mt-2 text-sm leading-relaxed text-fg">{kpi.definition}</p>
       {/* Each term and its description sit directly in the list, as screen readers expect of a <dl>. */}
-      <dl className="mt-3 grid gap-2 text-2xs leading-relaxed text-fg-subtle">
+      <dl className="mt-3 grid gap-2 text-xs leading-relaxed text-fg-subtle">
         <div className="rounded-[9px] border border-border bg-surface-2 px-3 py-2">
           <dt className="font-medium text-fg-muted">Formula</dt>
-          <dd className="mt-0.5 text-ui text-fg">{kpi.formula}</dd>
+          <dd className="mt-0.5 text-sm text-fg">{kpi.formula}</dd>
         </div>
         <div className="flex gap-1">
           <dt className="font-medium text-fg-muted">Unit:</dt>
@@ -254,32 +254,30 @@ function IndustryPanel({ industry }: { industry: GlossaryIndustry }) {
             <DomainIcon name={industry.icon} className="size-5 text-accent" />
           </span>
           <div className="min-w-0">
-            <h3 className="font-display text-[26px] leading-tight text-fg">{industry.name}</h3>
-            <p className="mt-0.5 text-ui text-fg-muted">{industry.tagline}</p>
+            <h3 className="font-display text-display-xs text-fg">{industry.name}</h3>
+            <p className="mt-0.5 text-sm text-fg-muted">{industry.tagline}</p>
           </div>
         </div>
-        <p className="mt-4 text-ui leading-relaxed text-fg-muted">{industry.description}</p>
+        <p className="mt-4 text-sm leading-relaxed text-fg-muted">{industry.description}</p>
         <div className="mt-5 grid gap-5 lg:grid-cols-2">
           <div>
-            <p className="text-2xs font-medium tracking-[0.12em] text-fg-subtle uppercase">
-              Tables Loupe recognises
-            </p>
+            <p className="eyebrow text-fg-subtle">Tables Loupe recognises</p>
             <ul className="mt-2 grid gap-2">
               {industry.shapes.map((s) => (
-                <li key={s.name} className="text-ui leading-relaxed">
+                <li key={s.name} className="text-sm leading-relaxed">
                   <span className="font-medium text-fg">{s.name}</span>
                   <span className="text-fg-subtle"> · one row per {s.grain}</span>
-                  <span className="block text-2xs text-fg-subtle">{s.description}</span>
+                  <span className="block text-xs text-fg-subtle">{s.description}</span>
                 </li>
               ))}
             </ul>
           </div>
           {industry.pitfalls.length ? (
             <div>
-              <p className="flex items-center gap-1.5 text-2xs font-medium tracking-[0.12em] text-fg-subtle uppercase">
+              <p className="eyebrow flex items-center gap-1.5 text-fg-subtle">
                 <TriangleAlert className="size-3.5 text-warning" aria-hidden /> Watch out in {industry.name}
               </p>
-              <ul className="mt-2 grid list-disc gap-1.5 pl-4 text-ui leading-relaxed text-fg-muted marker:text-fg-subtle">
+              <ul className="mt-2 grid list-disc gap-1.5 pl-4 text-sm leading-relaxed text-fg-muted marker:text-fg-subtle">
                 {industry.pitfalls.map((p) => (
                   <li key={p}>{p}</li>
                 ))}
@@ -293,7 +291,7 @@ function IndustryPanel({ industry }: { industry: GlossaryIndustry }) {
             <a
               key={g.name}
               href={`#group-${industry.id}-${slug(g.name)}`}
-              className="rounded-full border border-border px-2.5 py-1 text-2xs text-fg-muted transition-colors hover:border-border-accent hover:text-fg"
+              className="rounded-full border border-border px-2.5 py-1 text-xs text-fg-muted transition-colors hover:border-border-accent hover:text-fg"
             >
               {g.name} <span className="font-figures text-fg-subtle">{g.kpis.length}</span>
             </a>
@@ -307,9 +305,9 @@ function IndustryPanel({ industry }: { industry: GlossaryIndustry }) {
           aria-label={`${industry.name}: ${g.name}`}
           className="mt-8 scroll-mt-36"
         >
-          <h4 className="mb-3 flex items-baseline gap-2 text-[17px] font-medium text-fg">
+          <h4 className="mb-3 flex items-baseline gap-2 text-lg font-semibold text-fg">
             {g.name}
-            <span className="font-figures text-2xs text-fg-subtle">{g.kpis.length} KPIs</span>
+            <span className="font-figures text-xs font-normal text-fg-subtle">{g.kpis.length} KPIs</span>
           </h4>
           <div className="grid gap-3 md:grid-cols-2">
             {g.kpis.map((k) => (
@@ -482,7 +480,7 @@ export function Glossary({
     <div className="mt-12 grid gap-8 lg:grid-cols-[240px_minmax(0,1fr)] lg:gap-12">
       {/* The learning path: the order to read the glossary in, with how much each step holds. */}
       <nav aria-label="Learning path" className="min-w-0 lg:sticky lg:top-24 lg:self-start">
-        <p className="text-2xs font-medium tracking-[0.12em] text-fg-subtle uppercase">Learning path</p>
+        <p className="eyebrow text-fg-subtle">Learning path</p>
         <ol className="mt-3 flex gap-2 overflow-x-auto pb-1 lg:grid lg:gap-1 lg:overflow-visible">
           {steps.map((s, i) => (
             <li key={s.id} className="shrink-0">
@@ -491,15 +489,15 @@ export function Glossary({
                 onClick={() => setQuery("")}
                 className="group flex items-start gap-2.5 rounded-[10px] border border-border px-3 py-2 transition-colors hover:border-border-accent hover:bg-surface-1 lg:border-transparent"
               >
-                <span className="font-figures mt-0.5 grid size-5 shrink-0 place-items-center rounded-full border border-border-strong text-[10px] text-fg-muted group-hover:border-accent group-hover:text-accent">
+                <span className="font-figures mt-0.5 grid size-5 shrink-0 place-items-center rounded-full border border-border-strong text-2xs text-fg-muted group-hover:border-accent group-hover:text-accent">
                   {i + 1}
                 </span>
                 <span className="min-w-0">
                   <span className="flex items-baseline gap-1.5 text-ui font-medium whitespace-nowrap text-fg">
                     {s.title}
-                    <span className="font-figures text-2xs font-normal text-fg-subtle">{s.count}</span>
+                    <span className="font-figures text-xs font-normal text-fg-subtle">{s.count}</span>
                   </span>
-                  <span className="hidden text-2xs leading-snug text-fg-subtle lg:block">{s.blurb}</span>
+                  <span className="mt-0.5 hidden text-xs text-fg-subtle lg:block">{s.blurb}</span>
                 </span>
               </a>
             </li>
@@ -537,7 +535,7 @@ export function Glossary({
                 <X className="size-4" aria-hidden />
               </button>
             ) : (
-              <kbd className="font-figures pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 rounded-[5px] border border-border px-1.5 text-2xs text-fg-subtle">
+              <kbd className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 rounded-[5px] border border-border px-1.5 font-sans text-2xs text-fg-subtle">
                 /
               </kbd>
             )}
@@ -550,7 +548,7 @@ export function Glossary({
                 aria-pressed={level === l}
                 onClick={() => setLevel(l)}
                 className={cn(
-                  "rounded-full border px-3 py-1.5 text-2xs transition-colors",
+                  "rounded-full border px-3 py-1.5 text-xs transition-colors",
                   level === l
                     ? "border-border-accent bg-accent-soft text-fg"
                     : "border-border text-fg-muted hover:border-border-strong hover:text-fg",
@@ -569,15 +567,13 @@ export function Glossary({
               {resultCount === 1 ? "result" : "results"} for “{query.trim()}”
             </p>
             {resultCount === 0 ? (
-              <p className="mt-4 rounded-panel border border-dashed border-border-strong p-6 text-ui text-fg-muted">
+              <p className="mt-4 rounded-panel border border-dashed border-border-strong p-6 text-sm text-fg-muted">
                 Nothing matches. Try a shorter word, or browse the learning path on the left.
               </p>
             ) : null}
             {results.terms.length ? (
               <section aria-label="Terms" className="mt-6">
-                <h2 className="mb-3 text-2xs font-medium tracking-[0.12em] text-fg-subtle uppercase">
-                  Terms
-                </h2>
+                <h2 className="eyebrow mb-3 text-fg-subtle">Terms</h2>
                 <dl className="grid gap-3 md:grid-cols-2">
                   {results.terms.map((x) => (
                     <TermCard
@@ -593,9 +589,7 @@ export function Glossary({
             ) : null}
             {results.charts.length ? (
               <section aria-label="Charts" className="mt-8">
-                <h2 className="mb-3 text-2xs font-medium tracking-[0.12em] text-fg-subtle uppercase">
-                  Charts
-                </h2>
+                <h2 className="eyebrow mb-3 text-fg-subtle">Charts</h2>
                 <div className="grid gap-3 md:grid-cols-2">
                   {results.charts.map((x) => (
                     <ChartCard key={x.chart.kind} chart={x.chart} group={x.group} />
@@ -605,10 +599,10 @@ export function Glossary({
             ) : null}
             {results.kpis.length ? (
               <section aria-label="Industry KPIs" className="mt-8">
-                <h2 className="mb-3 text-2xs font-medium tracking-[0.12em] text-fg-subtle uppercase">
+                <h2 className="eyebrow mb-3 text-fg-subtle">
                   Industry KPIs
                   {results.kpis.length > KPI_RESULTS ? (
-                    <span className="ml-2 tracking-normal normal-case">
+                    <span className="ml-2 text-xs font-normal tracking-normal normal-case">
                       the first {KPI_RESULTS} of {results.kpis.length}: add a word to narrow it
                     </span>
                   ) : null}
@@ -630,15 +624,14 @@ export function Glossary({
               return (
                 <section key={s.id} id={s.id} aria-labelledby={`h-${s.id}`} className="mb-16 scroll-mt-36">
                   <div className="flex items-baseline gap-3">
-                    <span className="font-figures text-ui text-accent">{String(n + 1).padStart(2, "0")}</span>
-                    <h2
-                      id={`h-${s.id}`}
-                      className="font-display text-[32px] leading-tight text-fg sm:text-[38px]"
-                    >
+                    <span className="font-figures text-sm font-medium text-accent">
+                      {String(n + 1).padStart(2, "0")}
+                    </span>
+                    <h2 id={`h-${s.id}`} className="font-display text-display-xs text-fg sm:text-display-sm">
                       {s.title}
                     </h2>
                   </div>
-                  <p className="mt-1.5 text-ui text-fg-muted">{s.blurb}</p>
+                  <p className="mt-2 text-base text-fg-muted">{s.blurb}</p>
                   {terms.length ? (
                     <dl className="mt-6 grid gap-3 md:grid-cols-2">
                       {terms.map((t) => (
@@ -648,16 +641,16 @@ export function Glossary({
                   ) : null}
                   {charts.length ? (
                     <div className="mt-10">
-                      <h3 className="flex items-center gap-2 text-[19px] font-medium text-fg">
+                      <h3 className="flex items-center gap-2 text-lg font-semibold text-fg">
                         <Lightbulb className="size-4 text-accent" aria-hidden /> Which chart for which
                         question
                       </h3>
-                      <p className="mt-1 text-ui text-fg-muted">
+                      <p className="mt-1 text-sm text-fg-muted">
                         Every chart Loupe draws, grouped by the question it answers.
                       </p>
                       {charts.map((g) => (
                         <div key={g.id} className="mt-6">
-                          <p className="text-ui font-medium text-fg">
+                          <p className="text-base font-semibold text-fg">
                             {g.title} <span className="font-normal text-fg-subtle">· {g.question}</span>
                           </p>
                           <div className="mt-3 grid gap-3 md:grid-cols-2">
@@ -675,17 +668,14 @@ export function Glossary({
 
             <section id="industries" aria-labelledby="h-industries" className="scroll-mt-36">
               <div className="flex items-baseline gap-3">
-                <span className="font-figures text-ui text-accent">
+                <span className="font-figures text-sm font-medium text-accent">
                   {String(sections.length + 1).padStart(2, "0")}
                 </span>
-                <h2
-                  id="h-industries"
-                  className="font-display text-[32px] leading-tight text-fg sm:text-[38px]"
-                >
+                <h2 id="h-industries" className="font-display text-display-xs text-fg sm:text-display-sm">
                   Industry KPIs
                 </h2>
               </div>
-              <p className="mt-1.5 max-w-2xl text-ui leading-relaxed text-fg-muted">
+              <p className="mt-2 max-w-2xl text-base leading-relaxed text-fg-muted">
                 Every KPI Loupe computes, industry by industry: what it means, its formula, which way is good,
                 and what to watch out for. These are the same definitions the app uses on your data.
               </p>
@@ -704,7 +694,7 @@ export function Glossary({
                       onClick={() => pickIndustry(i.id)}
                       onKeyDown={(e) => onTabKey(e, n)}
                       className={cn(
-                        "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-2xs transition-colors",
+                        "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs transition-colors",
                         on
                           ? "border-border-accent bg-accent-soft text-fg"
                           : "border-border text-fg-muted hover:border-border-strong hover:text-fg",

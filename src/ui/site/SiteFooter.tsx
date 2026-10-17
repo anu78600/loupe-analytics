@@ -48,7 +48,7 @@ export function SiteFooter() {
       <div className="mx-auto grid max-w-6xl gap-10 px-4 py-14 sm:grid-cols-3 sm:px-6 md:grid-cols-[1.6fr_1fr_1fr_1fr]">
         <div className="grid content-start gap-4">
           <Wordmark />
-          <p className="max-w-sm text-ui leading-relaxed text-fg-muted">
+          <p className="max-w-sm text-sm leading-relaxed text-fg-muted">
             Analyst-grade dashboards from clean data, with the working shown.
           </p>
           <p className="flex items-center gap-2 text-ui text-fg-muted">
@@ -57,7 +57,7 @@ export function SiteFooter() {
         </div>
         {COLUMNS.map((col) => (
           <nav key={col.title} aria-label={col.title} className="grid content-start gap-3">
-            <p className="text-2xs font-medium tracking-[0.12em] text-fg-subtle uppercase">{col.title}</p>
+            <p className="eyebrow text-fg-subtle">{col.title}</p>
             {col.links.map((l) => (
               <SectionLink
                 key={l.href}
@@ -71,7 +71,7 @@ export function SiteFooter() {
         ))}
       </div>
       <div className="border-t border-border">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-5 text-2xs text-fg-subtle sm:px-6">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-5 text-xs text-fg-subtle sm:px-6">
           <div className="grid gap-1">
             <p className="text-fg-muted">
               {copyrightLine(CURRENT_RELEASE.date)} Designed &amp; developed by {AUTHOR}.
@@ -84,7 +84,7 @@ export function SiteFooter() {
           <Link
             href="/changelog"
             title={version}
-            className="font-figures max-w-full truncate rounded-full border border-border px-2.5 py-1 transition-colors hover:border-border-accent hover:text-fg"
+            className="max-w-full truncate rounded-full border border-border px-2.5 py-1 transition-colors hover:border-border-accent hover:text-fg"
           >
             {version}
           </Link>

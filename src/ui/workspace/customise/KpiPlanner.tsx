@@ -168,14 +168,14 @@ export function KpiPlanner() {
         {SLOTS.map((slot) => (
           <Card key={slot.id} className="p-4">
             <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-              <h2 className="text-sm font-medium text-fg">
+              <h2 className="text-md font-medium text-fg">
                 {slot.title}{" "}
                 <span className="font-figures font-normal text-fg-subtle">
                   · {layout[slot.id].length}
                   {slot.id === "hero" ? ` of ${MAX_HEADLINE}` : ""}
                 </span>
               </h2>
-              <p className="text-2xs text-fg-subtle">{slot.hint}</p>
+              <p className="text-xs text-fg-subtle">{slot.hint}</p>
             </div>
             {layout[slot.id].length ? (
               <ol className="grid grid-cols-1 gap-1.5">
@@ -201,7 +201,7 @@ export function KpiPlanner() {
                 })}
               </ol>
             ) : (
-              <p className="rounded-control border border-dashed border-border px-3 py-4 text-center text-2xs text-fg-subtle">
+              <p className="rounded-control border border-dashed border-border px-3 py-4 text-center text-xs text-fg-subtle">
                 Nothing here. Add KPIs from the list on the right.
               </p>
             )}
@@ -212,8 +212,8 @@ export function KpiPlanner() {
         <Card className="p-4">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h2 className="text-sm font-medium text-fg">Build a KPI</h2>
-              <p className="mt-0.5 text-2xs leading-relaxed text-fg-muted">
+              <h2 className="text-md font-medium text-fg">Build a KPI</h2>
+              <p className="mt-0.5 text-xs leading-relaxed text-fg-muted">
                 From any column: a total, average, lowest, highest, median, distinct count or number of rows,
                 or a ratio of two (such as profit ÷ revenue). Its SQL and DAX are written for you.
               </p>
@@ -224,7 +224,7 @@ export function KpiPlanner() {
           </div>
         </Card>
         <Card className="p-4">
-          <h2 className="text-sm font-medium text-fg">
+          <h2 className="text-md font-medium text-fg">
             Not on the dashboard{" "}
             <span className="font-figures font-normal text-fg-subtle">· {pool.length}</span>
           </h2>
@@ -232,9 +232,7 @@ export function KpiPlanner() {
             <div className="mt-3 grid grid-cols-1 gap-4">
               {groups.map((g) => (
                 <div key={g}>
-                  <p className="mb-1.5 text-2xs font-medium tracking-[0.12em] text-fg-subtle uppercase">
-                    {g}
-                  </p>
+                  <p className="eyebrow mb-1.5 text-fg-subtle">{g}</p>
                   <ul className="grid grid-cols-1 gap-1.5">
                     {pool
                       .filter((k) => k.group === g)
@@ -247,7 +245,7 @@ export function KpiPlanner() {
                             <p className="truncate text-ui text-fg" title={k.definition}>
                               {k.name}
                             </p>
-                            <p className="font-figures truncate text-2xs text-fg-subtle">
+                            <p className="font-figures truncate text-xs text-fg-subtle">
                               {shownValue(valueOf(k.id), k, fmt)}
                             </p>
                           </div>
@@ -293,19 +291,19 @@ export function KpiPlanner() {
               ))}
             </div>
           ) : (
-            <p className="mt-2 text-2xs text-fg-subtle">Every available KPI is on the dashboard.</p>
+            <p className="mt-2 text-xs text-fg-subtle">Every available KPI is on the dashboard.</p>
           )}
         </Card>
         {unavailable.length ? (
           <Card className="p-4">
             <details>
-              <summary className="cursor-pointer text-sm font-medium text-fg">
+              <summary className="cursor-pointer text-md font-medium text-fg">
                 Can&apos;t be computed with this file{" "}
                 <span className="font-figures font-normal text-fg-subtle">· {unavailable.length}</span>
               </summary>
               <ul className="mt-3 grid grid-cols-1 gap-2">
                 {unavailable.map((k) => (
-                  <li key={k.id} className="flex items-start gap-2 text-2xs leading-relaxed">
+                  <li key={k.id} className="flex items-start gap-2 text-xs leading-relaxed">
                     <CircleSlash className="mt-0.5 size-3.5 shrink-0 text-fg-subtle" aria-hidden />
                     <span>
                       <span className="text-fg">{k.name}</span>
@@ -327,7 +325,7 @@ export function KpiPlanner() {
               {context.customKpiIssues.map((x) => (
                 <li
                   key={x.id}
-                  className="flex items-start justify-between gap-2 text-2xs leading-relaxed text-fg-muted"
+                  className="flex items-start justify-between gap-2 text-xs leading-relaxed text-fg-muted"
                 >
                   <span>{x.reason}</span>
                   <Button variant="ghost" size="xs" onClick={() => removeUser(x.id)}>
@@ -457,12 +455,14 @@ function KpiRow({
   return (
     <li className="flex flex-wrap items-center gap-2 rounded-control border border-border bg-surface-1 px-3 py-2 sm:flex-nowrap">
       <span className="font-figures w-5 shrink-0 text-2xs text-fg-subtle">{index + 1}</span>
-      <div className="min-w-0 flex-1">
+      {/* A 12rem basis, so on a phone the controls wrap below the name rather than squeezing it to
+          nothing (with a zero basis the row "fitted" whenever the value was short, as "8.1%"). */}
+      <div className="min-w-0 grow basis-48">
         <div className="flex min-w-0 items-center gap-1.5">
           <KpiNameInput id={meta.id} name={meta.name} title={meta.definition} />
           {isUserKpiId(meta.id) ? <Badge tone="accent">yours</Badge> : null}
         </div>
-        <p className="truncate px-1 text-2xs text-fg-subtle" title={meta.formula}>
+        <p className="truncate px-1 text-xs text-fg-subtle" title={meta.formula}>
           {meta.group} · {meta.formula}
         </p>
       </div>

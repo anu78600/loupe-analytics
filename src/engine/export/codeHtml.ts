@@ -15,7 +15,10 @@
  *   the files.
  *
  * One self-contained file (inline CSS, no scripts, fonts or links to other
- * hosts), light or dark with the reader's system setting. Its colours repeat
+ * hosts), light or dark with the reader's system setting. Its type follows
+ * the app's rules with the reader's system faces: a sans for words and
+ * figures (tabular numerals), a monospace for code only, notes in grey
+ * rather than italic, as in the app. Its colours repeat
  * the --code-* tokens of tokens.css, since a downloaded file can't read them.
  */
 import { formatValue } from "@/engine/core/format";
@@ -64,7 +67,7 @@ const STYLE = `
 body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
 main{max-width:1200px;margin:0 auto;padding:40px 20px 64px}
 h1{font:600 30px/1.15 Georgia,"Times New Roman",serif;letter-spacing:-.01em;margin:0}
-h2{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin:44px 0 12px;font-weight:600}
+h2{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);margin:44px 0 12px;font-weight:600}
 h3{font-size:17px;margin:0;font-weight:600}
 .meta{color:var(--muted);margin:6px 0 0}
 .key{display:flex;flex-wrap:wrap;gap:8px 18px;margin:22px 0 0;padding:12px 16px;border:1px solid var(--line);border-radius:12px;background:var(--card);font-size:13px;color:var(--muted)}
@@ -77,16 +80,16 @@ nav a{color:var(--muted);text-decoration:none;margin-right:12px;white-space:nowr
 nav a:hover{color:var(--accent)}
 .kpi{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px 22px;margin:12px 0}
 .kpi header{display:flex;justify-content:space-between;align-items:baseline;gap:16px;flex-wrap:wrap}
-.value{font:600 17px ui-monospace,"Cascadia Mono",Consolas,Menlo,monospace;color:var(--accent)}
+.value{font:600 17px system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-variant-numeric:tabular-nums;color:var(--accent)}
 .value small{font:12px system-ui,sans-serif;color:var(--subtle);margin-left:6px}
 .def{margin:6px 0 0;color:var(--muted)}
 .formula{margin:4px 0 0;font-size:13px;color:var(--subtle)}
 .grid{display:grid;gap:12px;margin-top:16px}
 @media (min-width:1000px){.grid{grid-template-columns:1fr 1fr}}
 figure{margin:0;min-width:0;border:1px solid var(--line);border-radius:12px;overflow:hidden}
-figcaption{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--subtle);padding:7px 12px;border-bottom:1px solid var(--line);background:var(--card)}
+figcaption{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--subtle);padding:7px 12px;border-bottom:1px solid var(--line);background:var(--card)}
 pre{margin:0;padding:12px 14px;background:var(--code);overflow:auto;font:12.5px/1.6 ui-monospace,"Cascadia Mono",Consolas,Menlo,monospace;tab-size:4}
-.k{color:var(--k);font-weight:600}.f{color:var(--f)}.n{color:var(--n)}.s{color:var(--s)}.d{color:var(--d)}.c{color:var(--c);font-style:italic}
+.k{color:var(--k);font-weight:600}.f{color:var(--f)}.n{color:var(--n)}.s{color:var(--s)}.d{color:var(--d)}.c{color:var(--c)}
 footer{margin-top:40px;color:var(--subtle);font-size:13px;border-top:1px solid var(--line);padding-top:16px}
 @media print{body{background:#fff}.kpi,figure{break-inside:avoid}}
 `;

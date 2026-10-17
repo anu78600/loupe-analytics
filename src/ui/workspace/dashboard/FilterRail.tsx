@@ -69,13 +69,13 @@ export function FilterRail({ onOpenHealth }: { onOpenHealth: () => void }) {
           </span>
           <div className="min-w-0">
             <p className="truncate text-ui font-medium text-fg">{context.domain.name}</p>
-            <p className="truncate text-2xs text-fg-subtle">
+            <p className="truncate text-xs text-fg-subtle">
               {context.domain.subDomains.find((s) => s.id === context.subDomainId)?.name}
             </p>
           </div>
         </div>
         {/* The file's name heads the dashboard; here, its size and what one row is. */}
-        <p className="font-figures mt-3 text-2xs text-fg-subtle" title={summary.fileName}>
+        <p className="tabular mt-3 text-xs text-fg-subtle" title={summary.fileName}>
           {formatCount(summary.rowCount, locale)} rows in the file · {context.grainLabel.toLowerCase()}
         </p>
         {summary.isDemo ? (
@@ -98,7 +98,7 @@ export function FilterRail({ onOpenHealth }: { onOpenHealth: () => void }) {
             <p className="text-ui text-fg">
               Data health <span className="font-figures">{health.score}</span>/100
             </p>
-            <p className="truncate text-2xs text-fg-subtle">{health.issues[0]?.title ?? "No issues found"}</p>
+            <p className="truncate text-xs text-fg-subtle">{health.issues[0]?.title ?? "No issues found"}</p>
           </div>
         </button>
       ) : null}
@@ -114,7 +114,7 @@ function DateFilter() {
   const radios = React.useRef<Array<HTMLButtonElement | null>>([]);
   const bounds = context?.dateBounds;
   if (!context?.dateColumn || !bounds) {
-    return <p className="text-2xs text-fg-subtle">No date column mapped, so period filters are off.</p>;
+    return <p className="text-xs text-fg-subtle">No date column mapped, so period filters are off.</p>;
   }
   const current =
     preset === "custom" && custom
@@ -151,12 +151,12 @@ function DateFilter() {
     <div>
       <div className="flex items-baseline justify-between gap-2">
         <Eyebrow>Period</Eyebrow>
-        <span className="truncate text-2xs text-fg-subtle" title={`Dates from ${context.dateColumn}`}>
+        <span className="truncate text-xs text-fg-subtle" title={`Dates from ${context.dateColumn}`}>
           by {friendly(context.dateColumn)}
         </span>
       </div>
       {isRosterView(context) ? (
-        <p className="mt-1 text-2xs leading-relaxed text-fg-subtle">
+        <p className="mt-1 text-xs leading-relaxed text-fg-subtle">
           Each row is {/^[aeiou]/i.test(grainOf(context)) ? "an" : "a"} {grainOf(context)}: a date range keeps
           those whose {friendly(context.dateColumn)} falls in it.
         </p>
@@ -245,7 +245,7 @@ function CustomRangeForm({
       }}
     >
       <div className="grid gap-1">
-        <Label htmlFor="from" className="text-2xs">
+        <Label htmlFor="from" className="text-xs">
           From
         </Label>
         <Input
@@ -264,7 +264,7 @@ function CustomRangeForm({
         />
       </div>
       <div className="grid gap-1">
-        <Label htmlFor="to" className="text-2xs">
+        <Label htmlFor="to" className="text-xs">
           To
         </Label>
         <Input
@@ -283,7 +283,7 @@ function CustomRangeForm({
         />
       </div>
       {error ? (
-        <p id="range-error" role="alert" className="text-2xs text-danger">
+        <p id="range-error" role="alert" className="text-xs text-danger">
           {error}
         </p>
       ) : null}
@@ -370,7 +370,7 @@ function DimensionFilter({
             {selected.length ? (
               <Badge tone="accent">{selected.length}</Badge>
             ) : (
-              <span className="font-figures text-2xs text-fg-subtle">{distinct}</span>
+              <span className="font-figures text-xs text-fg-subtle">{distinct}</span>
             )}
             <ChevronDown className="size-3.5 text-fg-subtle" aria-hidden />
           </span>
@@ -414,7 +414,7 @@ function DimensionFilter({
                 />
                 <span className="flex-1 truncate">{v.value}</span>
                 {v.count ? (
-                  <span className="font-figures text-2xs text-fg-subtle">{formatCount(v.count, locale)}</span>
+                  <span className="font-figures text-xs text-fg-subtle">{formatCount(v.count, locale)}</span>
                 ) : null}
               </label>
             );
@@ -451,14 +451,14 @@ export function ActiveFilters({ inline = false }: { inline?: boolean }) {
       label: `${friendly(cross.column)}: ${cross.value}`,
       onRemove: () => setCross(cross.sourceId, cross.column, null),
     });
-  if (!chips.length) return inline ? null : <p className="text-2xs text-fg-subtle">No filters applied.</p>;
+  if (!chips.length) return inline ? null : <p className="text-xs text-fg-subtle">No filters applied.</p>;
   return (
     <div className={cn("flex flex-wrap items-center gap-1.5", !inline && "")}>
       {!inline ? <FilterIcon className="size-3.5 text-fg-subtle" aria-hidden /> : null}
       {chips.map((c) => (
         <span
           key={c.key}
-          className="inline-flex h-6 max-w-full items-center gap-1 rounded-full border border-border-accent bg-accent-soft pr-1 pl-2.5 text-2xs text-fg"
+          className="inline-flex h-6 max-w-full items-center gap-1 rounded-full border border-border-accent bg-accent-soft pr-1 pl-2.5 text-xs text-fg"
         >
           <span className="truncate">{c.label}</span>
           <button
@@ -474,7 +474,7 @@ export function ActiveFilters({ inline = false }: { inline?: boolean }) {
       <button
         type="button"
         onClick={clear}
-        className="text-2xs text-fg-subtle underline-offset-2 hover:text-fg hover:underline"
+        className="text-xs text-fg-subtle underline-offset-2 hover:text-fg hover:underline"
       >
         Clear all
       </button>

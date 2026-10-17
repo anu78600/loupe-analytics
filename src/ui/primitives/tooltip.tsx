@@ -40,7 +40,7 @@ export function Tooltip({
           sideOffset={6}
           collisionPadding={12}
           className={cn(
-            "z-[60] max-w-72 rounded-[8px] border border-border-strong bg-surface-2 px-2.5 py-1.5 text-2xs leading-relaxed text-fg shadow-pop",
+            "z-[60] max-w-72 rounded-[8px] border border-border-strong bg-surface-2 px-2.5 py-1.5 text-xs text-fg shadow-pop",
             "data-[state=delayed-open]:animate-[fade-up_140ms_var(--ease-out-quint)]",
             className,
           )}

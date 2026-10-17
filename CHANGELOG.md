@@ -5,6 +5,28 @@ Every step of building Loupe, newest first. Generated from `src/content/changelo
 - **MAJOR** (`x.0`): a new capability, subsystem or page.
 - **MINOR** (`x.y`): a refinement, fix or follow-up to that major version.
 
+## 39.0 · A type system that reads like a report
+
+*Major · 2026-10-17 07:31 UTC · Design, Performance, Tests, Docs*
+
+Loupe has a new type system. Inter, a typeface drawn for reading on screens, now sets every word and every number. The serif is kept for headings and a monospace for code only. Small text is larger, and every size, spacing and weight comes from one scale used across the app, the charts and the exports.
+
+- Inter replaces Geist as the interface typeface. It has optical sizes: small text gets open, easy-to-read letters and headings a tighter, more refined cut, from the same font.
+- Numbers are set in Inter with tabular figures, no longer in a monospace. A KPI value now reads like a figure in a finance report rather than a line of code, and a column of numbers still lines up digit for digit.
+- Larger small print. Captions, hints and helper text went from 11 to 12 px, and explanatory paragraphs from 13 to 14 px. 11 px is kept for small uppercase labels and counters, and no text anywhere is smaller than that, chart labels included.
+- One type scale. 36 hand-picked text sizes and 14 letter-spacings were replaced by named sizes: 11 to 16 px and up for text, and 28 to 88 px for serif headings. Each size has its own line height and spacing. Small uppercase labels now share one style everywhere.
+- The serif (Instrument Serif) is used only for headings of 28 px and up, where it reads well. Smaller serif text and serif figures are now set in Inter.
+- Your data appears exactly as written. In the data grid, the samples and table views, letters that are easy to confuse are drawn distinctly: I has serifs and l has a tail. Nothing is joined into a symbol, so “->” stays “->”.
+- Charts: value labels and value axes use Inter, no longer the monospace. Charts redraw once the fonts have loaded, so none keeps a stand-in font. On a card too small to hold the state codes, the state tile map leaves them off; hovering still names each state.
+- The SQL and insights PDFs embed Inter, with Geist Mono kept for the code.
+- The report and slides follow the same rules, with no text under 12 px on a report page or 18 px on a slide.
+- The KPIs' SQL and DAX page (HTML) shows values in a sans with tabular figures, and the picture shown when a link is shared sets its headline in the serif.
+- Lighter loading. Inter is split into a Latin file that loads with the page and an extended file (Central European, Vietnamese, Greek) that downloads only when a page shows one of those characters. The code font loads only where code is shown. Every font is self-hosted, with its licence, and nothing is fetched from a font service.
+- Layout fixes for the new sizes: date and number columns in the data grid are wide enough for a whole value, and KPI rows in Customise no longer squeeze their names on phones. The Detect step's next button keeps its height on phones, and labels that don't fit are cut short and show in full on hover.
+- A test keeps the system in place: no hand-picked sizes or spacing, the serif only at heading sizes and the monospace only in code, chart text at 11 px or more, and font files that cover exactly the characters the app declares.
+
+Files: `src/app/globals.css`, `src/app/layout.tsx`, `src/app/fonts/`, `public/fonts/`, `scripts/subset-fonts.py`, `src/lib/utils.ts`, `src/ui/primitives/`, `src/ui/charts/tokens.ts`, `src/ui/charts/options.ts`, `src/ui/common/hooks.ts`, `src/ui/workspace/export/textPdf.ts`, `src/ui/workspace/export/report.tsx`, `src/ui/workspace/export/slides.tsx`, `src/engine/export/codeHtml.ts`, `src/app/opengraph-image.tsx`, `src/ui/landing/`, `src/ui/site/`, `src/ui/workspace/`, `tests/typography.test.ts`, `tests/chart-options.test.ts`, `docs/DESIGN.md`, `docs/ANALYST-STANDARDS.md`, `CLAUDE.md`
+
 ## 38.0 · A glossary for learning the language of data
 
 *Major · 2026-10-16 21:21 UTC · Feature, Docs, Tests*

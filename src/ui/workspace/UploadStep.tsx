@@ -74,7 +74,7 @@ export function UploadStep() {
               <h1 className="mt-3 font-display text-display-sm text-fg md:text-display">
                 Bring a clean table.
               </h1>
-              <p className="mt-3 text-[15px] leading-relaxed text-fg-muted">
+              <p className="mt-3 text-md leading-relaxed text-fg-muted">
                 Loupe profiles every column, recognises the industry and builds a dashboard with correct KPIs,
                 SQL and DAX, all inside this browser tab.
               </p>
@@ -82,8 +82,8 @@ export function UploadStep() {
             {error ? <ErrorBanner message={error} /> : null}
             <Dropzone />
             <SampleGrid />
-            <p className="mt-8 flex items-center gap-2 text-ui text-fg-muted">
-              <Lock className="size-3.5 text-accent" aria-hidden />
+            <p className="mt-8 flex items-start gap-2 text-sm text-fg-muted">
+              <Lock className="mt-1 size-3.5 shrink-0 text-accent" aria-hidden />
               Your data never leaves your browser. Files are read locally; the page&apos;s security policy
               blocks sending them anywhere.
             </p>
@@ -105,7 +105,7 @@ function ErrorBanner({ message }: { message: string }) {
       <AlertTriangle className="mt-0.5 size-4 shrink-0 text-danger" aria-hidden />
       <div>
         <p className="text-sm font-medium text-fg">That file couldn&apos;t be read</p>
-        <p className="mt-0.5 text-ui text-fg-muted">{message}</p>
+        <p className="mt-0.5 text-sm text-fg-muted">{message}</p>
       </div>
     </div>
   );
@@ -257,8 +257,8 @@ function SampleGrid() {
                   <Sparkles aria-hidden /> Flagship
                 </Badge>
               </div>
-              <p className="mt-5 font-display text-[28px] leading-tight text-fg">{flagship.name}</p>
-              <p className="mt-2 text-ui leading-relaxed text-fg-muted">{flagship.description}</p>
+              <p className="mt-5 font-display text-display-xs text-fg">{flagship.name}</p>
+              <p className="mt-2 text-sm leading-relaxed text-fg-muted">{flagship.description}</p>
               <p className="mt-5 inline-flex items-center gap-1.5 text-ui font-medium text-accent">
                 Open the demo{" "}
                 <ArrowRight
@@ -266,7 +266,7 @@ function SampleGrid() {
                   aria-hidden
                 />
               </p>
-              <p className="font-figures mt-2 text-2xs text-fg-subtle">{flagship.approxRows}</p>
+              <p className="mt-2 text-xs text-fg-subtle">{flagship.approxRows}</p>
             </div>
           </button>
         ) : null}
@@ -285,7 +285,7 @@ function SampleGrid() {
               />
             </div>
             <p className="mt-1 text-ui text-fg-muted">{s.description}</p>
-            <p className="font-figures mt-2 text-2xs text-fg-subtle">{s.approxRows}</p>
+            <p className="mt-2 text-xs text-fg-subtle">{s.approxRows}</p>
           </button>
         ))}
       </div>
@@ -318,7 +318,7 @@ function LoadingPanel() {
         </motion.div>
       </div>
       {loading.fileName ? (
-        <p className="font-figures mb-2 text-2xs text-fg-subtle">{loading.fileName}</p>
+        <p className="mb-2 max-w-full truncate text-xs text-fg-subtle">{loading.fileName}</p>
       ) : null}
       <p className="text-lg font-medium text-fg">{loading.title}</p>
       {loading.detail ? <p className="mt-1.5 text-ui text-fg-muted">{loading.detail}</p> : null}
@@ -329,9 +329,9 @@ function LoadingPanel() {
           <div className="skeleton h-1 rounded-full" />
         )}
       </div>
-      <p className="mt-6 flex items-center gap-1.5 text-2xs text-fg-subtle">
-        <Lock className="size-3" aria-hidden /> Processing locally in a background thread; the page stays
-        responsive.
+      <p className="mt-6 flex items-start gap-1.5 text-xs text-fg-subtle">
+        <Lock className="mt-[3px] size-3 shrink-0" aria-hidden /> Processing locally in a background thread;
+        the page stays responsive.
       </p>
     </div>
   );
@@ -435,7 +435,7 @@ function LargeFileDialogBody({ a }: { a: LargeFileAssessment }) {
               )}
             >
               <p className="text-sm font-medium text-fg">{o.title}</p>
-              <p className="mt-0.5 text-ui text-fg-muted">{o.body}</p>
+              <p className="mt-0.5 text-sm text-fg-muted">{o.body}</p>
             </button>
           ))}
         </div>
@@ -455,7 +455,7 @@ function LargeFileDialogBody({ a }: { a: LargeFileAssessment }) {
             ))}
           </div>
         ) : null}
-        <p className="text-2xs text-fg-subtle">
+        <p className="text-xs text-fg-subtle">
           Prefer the full file? Split it by date (e.g. one file per year) and analyse each part, or load it
           into DuckDB/BigQuery and export a summary table.
         </p>

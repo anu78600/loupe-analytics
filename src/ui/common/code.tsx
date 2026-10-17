@@ -5,7 +5,10 @@
  * - blue: the language's words (SELECT, CASE, VAR…); violet: its functions;
  * - brass: your table, columns and measures;
  * - green: values from your data ('Returned', "Yes"); orange: numbers;
- * - grey italic: notes.
+ * - grey: notes (upright: Geist Mono ships no italic, and a slant the
+ *   browser makes up looks broken).
+ * The code is set in Geist Mono, the one place in the app it is used besides
+ * the AI request's payload (docs/DESIGN.md "Type").
  *
  * <HighlightedCode> colours a block of code; <CodeLegend> names the colours
  * once wherever code is shown.
@@ -20,7 +23,7 @@ const TOKEN_CLASS: Partial<Record<TokenKind, string>> = {
   name: "text-[var(--code-name)]",
   string: "text-[var(--code-string)]",
   number: "text-[var(--code-number)]",
-  comment: "text-[var(--code-comment)] italic",
+  comment: "text-[var(--code-comment)]",
 };
 
 /** The code with each token coloured by what it is; white space and punctuation stay plain. */
@@ -52,7 +55,7 @@ const LEGEND: Array<{ label: string; colour: string }> = [
 /** What the colours mean, in one quiet line. */
 export function CodeLegend({ className }: { className?: string }) {
   return (
-    <ul className={cn("flex flex-wrap items-center gap-x-3 gap-y-1 text-2xs text-fg-subtle", className)}>
+    <ul className={cn("flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-fg-subtle", className)}>
       {LEGEND.map((l) => (
         <li key={l.label} className="inline-flex items-center gap-1.5">
           <span aria-hidden className="size-2 rounded-full" style={{ background: l.colour }} />

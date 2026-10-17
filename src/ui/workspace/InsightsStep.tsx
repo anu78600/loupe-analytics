@@ -101,7 +101,7 @@ export function InsightsStep() {
         <div>
           <Eyebrow>Step {stepNumber("insights")} · Insights</Eyebrow>
           <h1 className="mt-2 font-display text-display-sm text-fg">What the data says</h1>
-          <p className="mt-2 max-w-2xl text-ui text-fg-muted">
+          <p className="mt-2 max-w-2xl text-sm text-fg-muted">
             Ranked by impact. Every number below was computed from your data for{" "}
             {periodWords(preset, custom, bounds)}, with the filters below; nothing is estimated or written by
             a model unless you ask for the optional AI summary.
@@ -122,7 +122,7 @@ export function InsightsStep() {
             : ""}
       </p>
       {updating && insights?.length ? (
-        <p className="mb-3 flex items-center gap-2 text-2xs text-fg-muted">
+        <p className="mb-3 flex items-center gap-2 text-xs text-fg-muted">
           <Loader2 className="size-3.5 animate-spin" aria-hidden /> Updating for this selection…
         </p>
       ) : null}
@@ -136,7 +136,7 @@ export function InsightsStep() {
               aria-selected={kind === k}
               onClick={() => setKind(k)}
               className={cn(
-                "h-7 rounded-full border px-3 text-2xs font-medium transition-colors",
+                "h-7 rounded-full border px-3 text-xs font-medium transition-colors",
                 kind === k
                   ? "border-border-accent bg-accent-soft text-fg"
                   : "border-border text-fg-muted hover:text-fg",
@@ -151,8 +151,8 @@ export function InsightsStep() {
       {noRows ? (
         <Card className="flex flex-col items-center gap-2 p-10 text-center">
           <Lightbulb className="size-6 text-fg-subtle" aria-hidden />
-          <p className="text-sm text-fg">No rows match the current filters.</p>
-          <p className="max-w-md text-ui text-fg-muted">
+          <p className="text-md font-medium text-fg">No rows match the current filters.</p>
+          <p className="max-w-md text-sm text-fg-muted">
             There is nothing to find in an empty selection. Remove a filter or widen the date range to see
             insights.
           </p>
@@ -176,8 +176,8 @@ export function InsightsStep() {
       ) : (
         <Card className="flex flex-col items-center gap-2 p-10 text-center">
           <Lightbulb className="size-6 text-fg-subtle" aria-hidden />
-          <p className="text-sm text-fg">No insights stand out for this selection.</p>
-          <p className="max-w-md text-ui text-fg-muted">
+          <p className="text-md font-medium text-fg">No insights stand out for this selection.</p>
+          <p className="max-w-md text-sm text-fg-muted">
             Insights need enough history and volume to be meaningful. Widen the date range or remove filters,
             then recompute.
           </p>
@@ -215,11 +215,11 @@ function InsightCard({ insight, rank }: { insight: Insight; rank: number }) {
             </Badge>
             <Badge tone="neutral">{insight.confidence} confidence</Badge>
           </div>
-          <h2 className="mt-2 text-[15px] leading-snug font-medium text-fg">{insight.title}</h2>
-          <p className="mt-1.5 text-ui leading-relaxed text-fg-muted">{insight.body}</p>
+          <h2 className="mt-2.5 text-md font-medium text-fg">{insight.title}</h2>
+          <p className="mt-1 text-sm leading-relaxed text-fg-muted">{insight.body}</p>
           <div className="mt-3 flex flex-wrap items-start justify-between gap-2">
             {/* The method is the same for many insights; it is one click away rather than repeated on each. */}
-            <details className="min-w-0 flex-1 text-2xs text-fg-subtle">
+            <details className="min-w-0 flex-1 text-xs text-fg-subtle">
               <summary className="w-fit cursor-pointer rounded-[4px] select-none hover:text-fg-muted">
                 How this was found
               </summary>

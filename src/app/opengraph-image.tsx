@@ -1,9 +1,11 @@
 /**
  * The picture a shared link shows (og:image, and Twitter's card through
  * Next's fallback) for every page: the Loupe wordmark, the headline and three
- * plain facts on the dark theme. Drawn when the site is built, from the brand
- * files, the Geist font and the colour tokens on disk (brand-art.ts); its one
- * number, the industries, is counted from the registry.
+ * plain facts on the dark theme, set like the landing page: the headline in
+ * the display serif (Instrument Serif), the facts in Inter. Drawn when the
+ * site is built, from the brand files, the fonts and the colour tokens on disk
+ * (brand-art.ts); its one number, the industries, is counted from the
+ * registry.
  */
 import { ImageResponse } from "next/og";
 import { DOMAINS } from "@/registry";
@@ -32,7 +34,7 @@ export default function OpengraphImage() {
         backgroundColor: c("bg"),
         backgroundImage: `radial-gradient(circle at 88% 6%, ${c("accent-soft")}, transparent 58%)`,
         color: c("fg"),
-        fontFamily: "Geist",
+        fontFamily: "Inter",
       }}
     >
       {/* eslint-disable-next-line @next/next/no-img-element -- an image renderer, not a page */}
@@ -41,9 +43,10 @@ export default function OpengraphImage() {
         style={{
           display: "flex",
           flexDirection: "column",
-          fontSize: 76,
-          lineHeight: 1.06,
-          letterSpacing: "-0.035em",
+          fontFamily: "Instrument Serif",
+          fontSize: 88,
+          lineHeight: 1.02,
+          letterSpacing: "-0.02em",
         }}
       >
         <span>Analyst-grade dashboards,</span>
@@ -72,7 +75,15 @@ export default function OpengraphImage() {
     </div>,
     {
       ...size,
-      fonts: [{ name: "Geist", data: brandFont("Geist-Regular.ttf"), weight: 400, style: "normal" }],
+      fonts: [
+        { name: "Inter", data: brandFont("Inter-Regular.ttf"), weight: 400, style: "normal" },
+        {
+          name: "Instrument Serif",
+          data: brandFont("InstrumentSerif-Regular.ttf"),
+          weight: 400,
+          style: "normal",
+        },
+      ],
     },
   );
 }

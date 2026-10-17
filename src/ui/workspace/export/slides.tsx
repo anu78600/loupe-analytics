@@ -19,6 +19,12 @@
  * Slides are laid out at 1920 × 1080 and drawn at 2× (3840 × 2160), then
  * saved as numbered PNGs in a zip, or as one landscape PDF. Charts and
  * tables are scaled up on a slide so their labels read from across a room.
+ *
+ * Type follows the app's families: Inter for every word and figure (KPI
+ * values in .font-figures), Instrument Serif only for the slide's title, and
+ * small uppercase labels in the eyebrow's recipe. Nothing the slide writes is
+ * under 18 px (SLIDE_MIN_TEXT), and a presenting slide scales its charts and
+ * tables so their own labels reach it too (zoomFor).
  */
 import * as React from "react";
 import {
@@ -37,7 +43,15 @@ import { Sparkline } from "@/ui/charts/Sparkline";
 import { Wordmark } from "@/ui/brand/logo";
 import { formatKpi } from "@/ui/common/kpiFormat";
 import { downloadBlob } from "@/lib/utils";
-import { renderOffscreen, StaticChart, type ReportChart, type ReportInput } from "./report";
+import {
+  APP_MIN_TEXT,
+  CANVAS_EYEBROW,
+  renderOffscreen,
+  StaticChart,
+  Zoomed,
+  type ReportChart,
+  type ReportInput,
+} from "./report";
 import { slideFileName, type Slide } from "./slidePlan";
 
 /** Laid-out slide size; drawn at twice this. */
@@ -52,32 +66,27 @@ const CONTENT_H = SLIDE_H - 60 - 44 - 120 - 36 - 46;
 const CONTENT_W = SLIDE_W - 160;
 
 /**
- * How much a slide enlarges what it draws, so labels read from the back of a
- * room: a chart is laid out at 1/zoom of its space and scaled up, taking the
- * app's 11px axis labels to about 18px on a presenting slide. Tables start at
- * 13px and need less; the compact deck is read on a screen.
+ * The smallest text a slide writes, in laid-out pixels: a sixtieth of its
+ * height, which still reads on a projector from the back of a room.
+ */
+const SLIDE_MIN_TEXT = 18;
+
+/** The height of one line of slide text at SLIDE_MIN_TEXT (line height 1.5), for the table-fitting sums. */
+const MIN_LINE = Math.ceil(SLIDE_MIN_TEXT * 1.5);
+
+/**
+ * How much a slide enlarges what it draws: a chart or table is laid out at
+ * 1/zoom of its space and scaled up. On a presenting slide that takes the
+ * app's smallest labels (11 px axis labels, a table's "Showing" line) to
+ * SLIDE_MIN_TEXT. The compact deck's half-height rows can't: laid out that
+ * small, a donut's labels collide and a dozen bars lose their names (the
+ * eight-bar limit in slidePlan's needsFullHeight is measured at 1.3), so its
+ * charts keep the zoom they had (11 px labels at about 14 px). It is read on
+ * a screen, not across a room.
  */
 function zoomFor(chart: ReportChart, compact: boolean): number {
-  if (rendersWithECharts(chart.kind, chart.data)) return compact ? 1.3 : 1.6;
-  return compact ? 1.1 : 1.35;
-}
-
-/** Lays its child out at 1/zoom of the space it fills, then scales it up to fill it. */
-function Zoomed({ zoom, children }: { zoom: number; children: React.ReactNode }) {
-  return (
-    <div className="absolute inset-0 overflow-hidden">
-      <div
-        style={{
-          width: `${100 / zoom}%`,
-          height: `${100 / zoom}%`,
-          transform: `scale(${zoom})`,
-          transformOrigin: "0 0",
-        }}
-      >
-        {children}
-      </div>
-    </div>
-  );
+  if (!compact) return SLIDE_MIN_TEXT / APP_MIN_TEXT;
+  return rendersWithECharts(chart.kind, chart.data) ? 1.3 : 1.1;
 }
 
 /** The first sentence of an insight's explanation, where its numbers are. */
@@ -110,21 +119,21 @@ function SlideFrame({
     >
       <header className="flex items-end justify-between gap-10" style={{ height: 120 }}>
         <div className="min-w-0">
-          <p className="text-[15px] font-medium tracking-[0.18em] text-accent uppercase">{eyebrow}</p>
+          <p className={`text-[18px] text-accent ${CANVAS_EYEBROW}`}>{eyebrow}</p>
           <h2 className="mt-3 truncate font-display text-[50px] leading-[1.05] tracking-[-0.01em] text-fg">
             {title}
           </h2>
         </div>
         <div className="flex shrink-0 flex-col items-end gap-2">
           <Wordmark size="sm" />
-          <p className="text-[15px] text-fg-subtle">{input.title}</p>
+          <p className="text-[18px] text-fg-subtle">{input.title}</p>
         </div>
       </header>
       <div className="flex min-h-0 flex-col" style={{ marginTop: 36, height: CONTENT_H }}>
         {children}
       </div>
       <footer
-        className="mt-auto flex items-center justify-between gap-8 border-t border-border pt-4 text-[14px] text-fg-subtle"
+        className="mt-auto flex items-center justify-between gap-8 border-t border-border pt-4 text-[18px] text-fg-subtle"
         style={{ height: 46 }}
       >
         <span className="min-w-0 truncate">
@@ -162,26 +171,24 @@ function SlideChart({
   const zoom = zoomFor(chart, compact);
   // A chart fills whatever its takeaway leaves. A table shows as many rows as
   // fit: the card less its padding, label line, takeaway (one line or two, by
-  // its length at about 0.55em a character), note, and the table's header
-  // (37px) and "showing" line (32px), at 33px a row.
+  // its length at about 0.55em a character), note (its 12px gap and one line),
+  // and the table's header (37px) and "showing" line (32px), at 33px a row.
   const fontPx = compact ? 21 : 26;
   const lines = headline.length * fontPx * 0.55 > width - (compact ? 58 : 74) ? 2 : 1;
   const tableSpace =
     height -
     (compact ? 40 : 56) -
-    (compact ? 20 : 23) -
+    MIN_LINE -
     (8 + lines * fontPx * 1.3) -
     (compact ? 14 : 20) -
-    (note ? 34 : 0);
+    (note ? 12 + MIN_LINE + 1 : 0);
   const maxRows = Math.max(3, Math.floor((tableSpace / zoom - 37 - 32) / 33));
   return (
     <section
       className={`flex min-w-0 flex-1 flex-col rounded-[20px] border border-border bg-surface-1 ${compact ? "px-7 py-5" : "px-9 py-7"}`}
       style={{ height }}
     >
-      <p
-        className={`truncate font-medium tracking-[0.12em] text-fg-subtle uppercase ${compact ? "text-[13px]" : "text-[15px]"}`}
-      >
+      <p className={`truncate text-[18px] text-fg-subtle ${CANVAS_EYEBROW}`}>
         {chart.spec.title}
         {subtitle ? ` · ${subtitle}` : ""}
       </p>
@@ -204,7 +211,7 @@ function SlideChart({
           </Zoomed>
         )}
       </div>
-      {note ? <p className="truncate pt-3 text-[14px] text-fg-subtle">Note: {note}</p> : null}
+      {note ? <p className="truncate pt-3 text-[18px] text-fg-subtle">Note: {note}</p> : null}
     </section>
   );
 }
@@ -248,12 +255,12 @@ function SlideKpi({
   const grain = value ? GRAIN_WORD[value.sparkGrain] : undefined;
   return (
     <div className="flex min-h-0 flex-col rounded-[20px] border border-border bg-surface-1 px-7 py-6">
-      <p className="truncate text-[17px] text-fg-muted">{kpiLabel(meta)}</p>
-      <p className="mt-3 text-[50px] leading-none font-semibold tracking-[-0.025em] text-fg">
+      <p className="truncate text-[18px] text-fg-muted">{kpiLabel(meta)}</p>
+      <p className="font-figures mt-3 text-[50px] leading-none font-semibold tracking-[-0.025em] text-fg">
         {show(value?.value)}
       </p>
       {change !== null && change !== undefined ? (
-        <p className="mt-4 line-clamp-2 text-[16px] leading-snug">
+        <p className="mt-4 line-clamp-2 text-[18px] leading-snug">
           {/* Over all time the change is the latest month's, so the card names that month and its value first. */}
           {value?.currentLabel ? (
             <span className="text-fg-subtle">
@@ -274,7 +281,7 @@ function SlideKpi({
           </span>
         </p>
       ) : sayWhyNoChange && value?.comparisonLabel ? (
-        <p className="mt-4 line-clamp-2 text-[16px] text-fg-subtle">{value.comparisonLabel}</p>
+        <p className="mt-4 line-clamp-2 text-[18px] leading-snug text-fg-subtle">{value.comparisonLabel}</p>
       ) : null}
       {/* The KPI's own trend, as on the dashboard's card (a dashed end when the last period is still open). */}
       {spark.filter((v) => v !== null && Number.isFinite(v)).length > 1 ? (
@@ -287,7 +294,7 @@ function SlideKpi({
             strokeWidth={2.5}
           />
           {grain ? (
-            <p className="mt-2 text-[13px] text-fg-subtle">
+            <p className="mt-2 text-[18px] text-fg-subtle">
               {grain.charAt(0).toUpperCase()}
               {grain.slice(1)} trend
             </p>
@@ -357,7 +364,7 @@ function OverviewSlide({
           ))}
         </div>
         <section className="flex min-h-0 flex-col rounded-[20px] border border-border bg-surface-1 px-9 py-8">
-          <p className="text-[15px] font-medium tracking-[0.16em] text-fg-subtle uppercase">Key takeaways</p>
+          <p className={`text-[18px] text-fg-subtle ${CANVAS_EYEBROW}`}>Key takeaways</p>
           {takeaways.length ? (
             <ol className="mt-6 grid min-h-0 content-start gap-6 overflow-hidden">
               {takeaways.map((t, i) => {
@@ -366,15 +373,15 @@ function OverviewSlide({
                 const detail = firstSentence(t.body);
                 return (
                   <li key={t.id} className="flex gap-4">
-                    <span className="font-figures grid size-9 shrink-0 place-items-center rounded-full border border-border-accent bg-accent-soft text-[16px] text-accent">
+                    <span className="font-figures grid size-9 shrink-0 place-items-center rounded-full border border-border-accent bg-accent-soft text-[18px] font-medium text-accent">
                       {i + 1}
                     </span>
                     <div className="min-w-0">
                       <p className="line-clamp-2 text-[20px] leading-snug font-medium text-fg">{t.title}</p>
                       {detail ? (
-                        <p className="mt-1.5 line-clamp-2 text-[16px] leading-snug text-fg-muted">{detail}</p>
+                        <p className="mt-1.5 line-clamp-2 text-[18px] leading-snug text-fg-muted">{detail}</p>
                       ) : null}
-                      {at ? <p className="mt-1.5 text-[14px] text-fg-subtle">See slide {at}</p> : null}
+                      {at ? <p className="mt-1.5 text-[18px] text-fg-subtle">See slide {at}</p> : null}
                     </div>
                   </li>
                 );

@@ -42,7 +42,7 @@ function Timestamp({ iso }: { iso: string }) {
       }).format(date)
     : `${new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "UTC" }).format(date)} UTC`;
   return (
-    <time dateTime={iso} className="font-figures text-2xs text-fg-subtle" suppressHydrationWarning>
+    <time dateTime={iso} className="tabular text-xs text-fg-subtle" suppressHydrationWarning>
       {text}
     </time>
   );
@@ -50,25 +50,23 @@ function Timestamp({ iso }: { iso: string }) {
 
 function KindBadge({ kind }: { kind: Release["kind"] }) {
   return kind === "major" ? (
-    <span className="rounded-full border border-border-accent bg-accent-soft px-2 py-0.5 text-[10.5px] font-medium tracking-[0.08em] text-accent uppercase">
+    <span className="eyebrow rounded-full border border-border-accent bg-accent-soft px-2 py-0.5 text-accent">
       Major
     </span>
   ) : (
-    <span className="rounded-full border border-border-strong px-2 py-0.5 text-[10.5px] font-medium tracking-[0.08em] text-fg-muted uppercase">
-      Minor
-    </span>
+    <span className="eyebrow rounded-full border border-border-strong px-2 py-0.5 text-fg-muted">Minor</span>
   );
 }
 
 function Files({ files }: { files: string[] }) {
   return (
     <details className="group mt-3">
-      <summary className="flex w-fit cursor-pointer list-none items-center gap-1.5 rounded-[6px] text-2xs text-fg-subtle transition-colors hover:text-fg [&::-webkit-details-marker]:hidden">
+      <summary className="flex w-fit cursor-pointer list-none items-center gap-1.5 rounded-[6px] text-xs text-fg-subtle transition-colors hover:text-fg [&::-webkit-details-marker]:hidden">
         <ChevronRight className="size-3 transition-transform group-open:rotate-90" aria-hidden />
         <FileCode2 className="size-3" aria-hidden />
         {files.length} file{files.length === 1 ? "" : "s"} changed
       </summary>
-      <ul className="font-figures mt-2 grid gap-1 pl-5 text-[11.5px] text-fg-muted">
+      <ul className="mt-2 grid gap-1 pl-5 text-xs text-fg-muted">
         {files.map((f) => (
           <li key={f} className="break-all">
             {f}
@@ -91,14 +89,14 @@ function Entry({ release, compact }: { release: Release; compact: boolean }) {
           href={`#v${release.version}`}
           className={cn(
             "font-figures font-medium text-fg hover:text-accent",
-            compact ? "text-ui" : "text-[15px]",
+            compact ? "text-ui" : "text-md",
           )}
         >
           v{release.version}
         </a>
         <KindBadge kind={release.kind} />
         {release.tags.map((t) => (
-          <span key={t} className="text-2xs text-fg-subtle">
+          <span key={t} className="text-xs text-fg-subtle">
             {t}
           </span>
         ))}
@@ -108,18 +106,17 @@ function Entry({ release, compact }: { release: Release; compact: boolean }) {
       </div>
       <h3
         id={`v${release.version}-title`}
-        className={cn(
-          "mt-2 text-fg",
-          compact ? "text-[15px] font-medium" : "font-display text-[28px] leading-tight tracking-[-0.01em]",
-        )}
+        className={cn("mt-2 text-fg", compact ? "text-base font-semibold" : "font-display text-display-xs")}
       >
         {release.title}
       </h3>
-      <p className="mt-2 text-[14.5px] leading-relaxed text-fg-muted">{release.summary}</p>
+      <p className={cn("mt-2 leading-relaxed text-fg-muted", compact ? "text-md" : "text-base")}>
+        {release.summary}
+      </p>
       <ul className="mt-3 grid gap-1.5">
         {release.changes.map((c) => (
-          <li key={c} className="grid grid-cols-[12px_1fr] gap-2 text-ui leading-relaxed text-fg-muted">
-            <span aria-hidden className="mt-[9px] size-1 rounded-full bg-fg-subtle" />
+          <li key={c} className="grid grid-cols-[12px_1fr] gap-2 text-sm leading-relaxed text-fg-muted">
+            <span aria-hidden className="mt-[0.65em] size-1 rounded-full bg-fg-subtle" />
             {c}
           </li>
         ))}
@@ -194,7 +191,7 @@ export function ChangelogTimeline({ releases }: { releases: Release[] }) {
                 {head ? <Entry release={head} compact={false} /> : null}
                 {filter === "all" && minors.length ? (
                   <div className="mt-6 border-t border-border pt-5">
-                    <p className="text-2xs font-medium tracking-[0.12em] text-fg-subtle uppercase">
+                    <p className="eyebrow text-fg-subtle">
                       {minors.length} follow-up{minors.length === 1 ? "" : "s"} to version {major}
                     </p>
                     <ol className="mt-4 grid gap-6">
@@ -207,7 +204,7 @@ export function ChangelogTimeline({ releases }: { releases: Release[] }) {
                   </div>
                 ) : null}
                 {filter === "major" && minors.length ? (
-                  <p className="mt-4 text-2xs text-fg-subtle">
+                  <p className="mt-4 text-xs text-fg-subtle">
                     + {minors.length} minor follow-up{minors.length === 1 ? "" : "s"} (
                     {minors.map((m) => `v${m.version}`).join(", ")})
                   </p>

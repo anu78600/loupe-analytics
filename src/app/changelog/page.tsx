@@ -29,11 +29,11 @@ export default function ChangelogPage() {
       <main id="main" className="relative isolate">
         <div aria-hidden className="mesh absolute inset-x-0 top-0 -z-10 h-[420px] opacity-70" />
         <div className="mx-auto max-w-3xl px-4 pt-14 pb-24 sm:px-6 sm:pt-20">
-          <p className="text-2xs font-medium tracking-[0.14em] text-accent uppercase">Version log</p>
-          <h1 className="mt-3 font-display text-[44px] leading-[1.02] tracking-[-0.025em] text-fg sm:text-[60px]">
+          <p className="eyebrow text-accent">Version log</p>
+          <h1 className="mt-3 font-display text-display-md text-fg sm:text-display-lg">
             Every step, logged.
           </h1>
-          <p className="mt-5 text-[16px] leading-relaxed text-fg-muted">
+          <p className="mt-5 text-base leading-relaxed text-fg-muted">
             Loupe is built one step at a time, and each step gets a version number. The newest version is at
             the top. Each entry says what changed in plain language, then lists the files involved for
             developers.
@@ -41,22 +41,22 @@ export default function ChangelogPage() {
 
           <dl className="mt-8 grid gap-3 sm:grid-cols-3">
             <div className="rounded-card border border-border bg-surface-1 p-4">
-              <dt className="flex items-center gap-1.5 text-2xs text-fg-subtle">
+              <dt className="flex items-center gap-1.5 text-xs text-fg-subtle">
                 <GitCommitVertical className="size-3.5" aria-hidden /> Current version
               </dt>
-              <dd className="font-figures mt-1 text-[22px] text-fg">v{CURRENT_RELEASE.version}</dd>
+              <dd className="font-figures mt-1 text-2xl font-medium text-fg">v{CURRENT_RELEASE.version}</dd>
             </div>
             <div className="rounded-card border border-border bg-surface-1 p-4">
-              <dt className="flex items-center gap-1.5 text-2xs text-fg-subtle">
+              <dt className="flex items-center gap-1.5 text-xs text-fg-subtle">
                 <Milestone className="size-3.5" aria-hidden /> Major versions
               </dt>
-              <dd className="font-figures mt-1 text-[22px] text-fg">{majors}</dd>
+              <dd className="font-figures mt-1 text-2xl font-medium text-fg">{majors}</dd>
             </div>
             <div className="rounded-card border border-border bg-surface-1 p-4">
-              <dt className="flex items-center gap-1.5 text-2xs text-fg-subtle">
+              <dt className="flex items-center gap-1.5 text-xs text-fg-subtle">
                 <Wrench className="size-3.5" aria-hidden /> Minor versions
               </dt>
-              <dd className="font-figures mt-1 text-[22px] text-fg">{minors}</dd>
+              <dd className="font-figures mt-1 text-2xl font-medium text-fg">{minors}</dd>
             </div>
           </dl>
 
@@ -64,17 +64,17 @@ export default function ChangelogPage() {
             aria-labelledby="how-versions"
             className="mt-8 rounded-panel border border-border bg-surface-1 p-5"
           >
-            <h2 id="how-versions" className="text-[15px] font-medium text-fg">
+            <h2 id="how-versions" className="text-md font-medium text-fg">
               How to read the numbers
             </h2>
-            <ul className="mt-3 grid gap-2.5 text-ui leading-relaxed text-fg-muted">
+            <ul className="mt-3 grid gap-2.5 text-sm leading-relaxed text-fg-muted">
               <li>
-                <span className="font-figures text-fg">MAJOR</span> (the first number, as in{" "}
+                <span className="font-medium text-fg">MAJOR</span> (the first number, as in{" "}
                 <span className="font-figures text-fg">18.0</span>): a new capability, subsystem or page, such
                 as the dashboard or the Power BI export.
               </li>
               <li>
-                <span className="font-figures text-fg">MINOR</span> (the second number, as in{" "}
+                <span className="font-medium text-fg">MINOR</span> (the second number, as in{" "}
                 <span className="font-figures text-fg">18.1</span>): a refinement, fix or follow-up to that
                 major version. It starts again at 1 after each major.
               </li>
@@ -86,12 +86,12 @@ export default function ChangelogPage() {
               aria-labelledby="planned"
               className="mt-4 rounded-panel border border-dashed border-border-strong p-5"
             >
-              <h2 id="planned" className="text-[15px] font-medium text-fg">
+              <h2 id="planned" className="text-md font-medium text-fg">
                 Up next
               </h2>
               <ol className="mt-3 grid gap-2.5">
                 {PLANNED.map((p, i) => (
-                  <li key={p.title} className="grid grid-cols-[20px_1fr] gap-2 text-ui leading-relaxed">
+                  <li key={p.title} className="grid grid-cols-[1.5rem_1fr] gap-2 text-sm leading-relaxed">
                     <span className="font-figures text-fg-subtle">{i + 1}.</span>
                     <span>
                       <span className="text-fg">{p.title}.</span>{" "}

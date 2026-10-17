@@ -250,14 +250,14 @@ export function ExportStep() {
           <Eyebrow>Step {stepNumber("export")} · Export</Eyebrow>
           <h1 className="mt-2 font-display text-display-sm text-fg">Take it anywhere.</h1>
           {/* Said as it is: the shared files show the dashboard's selection, the rest every row. */}
-          <p className="mt-2 text-ui text-fg-muted">
+          <p className="mt-2 text-sm text-fg-muted">
             Slides and reports show the dashboard as you see it; Power BI, SQL and the data cover the whole
             file.
           </p>
         </div>
         <div className="flex min-w-0 flex-col items-start gap-1.5 sm:items-end">
           <FileIdentity summary={summary} size="sm" />
-          <span className="inline-flex items-center gap-1.5 text-2xs text-fg-subtle">
+          <span className="inline-flex items-center gap-1.5 text-xs text-fg-subtle">
             <ShieldCheck className="size-3.5 text-success" aria-hidden /> Made in this tab · nothing uploaded
           </span>
         </div>
@@ -303,7 +303,7 @@ function Section({
   return (
     <section aria-labelledby={id} className={className}>
       <div className="mb-3 flex items-center gap-3">
-        <h2 id={id} className="text-2xs font-medium tracking-[0.14em] text-fg-subtle uppercase">
+        <h2 id={id} className="eyebrow text-fg-subtle">
           {title}
         </h2>
         <span aria-hidden className="h-px flex-1 bg-border" />
@@ -313,10 +313,10 @@ function Section({
   );
 }
 
-/** The file type in a small pill ("PDF", "ZIP"), top right of a card. */
+/** The file type in a small pill ("PDF", "ZIP"), top right of a card: a label in the eyebrow style, not code. */
 function TypePill({ children }: { children: React.ReactNode }) {
   return (
-    <span className="shrink-0 rounded-full border border-border-strong px-2 py-0.5 font-mono text-[10.5px] tracking-[0.08em] whitespace-nowrap text-fg-subtle uppercase">
+    <span className="eyebrow shrink-0 rounded-full border border-border-strong px-2 py-0.5 whitespace-nowrap text-fg-subtle">
       {children}
     </span>
   );
@@ -379,8 +379,8 @@ function FeatureHead({
     <div className="relative grid grid-cols-[auto_1fr] items-start gap-x-3.5 gap-y-3 sm:grid-cols-[auto_1fr_auto]">
       <TileIcon icon={icon} large />
       <div className="col-span-2 row-start-2 min-w-0 sm:col-span-1 sm:col-start-2 sm:row-start-1">
-        <h3 className="text-[17px] font-medium tracking-[-0.01em] text-fg">{title}</h3>
-        <p className="mt-1 text-ui leading-relaxed text-fg-muted">{line}</p>
+        <h3 className="text-lg font-medium text-fg">{title}</h3>
+        <p className="mt-1 text-sm leading-relaxed text-fg-muted">{line}</p>
       </div>
       <div className="col-start-2 row-start-1 justify-self-end sm:col-start-3">
         <TypePill>{type}</TypePill>
@@ -411,7 +411,7 @@ function ColumnsSwitch({
       ? "Include the chart from your other columns"
       : `Include the ${count} charts from your other columns`;
   return (
-    <label className="flex items-center gap-2 text-2xs text-fg-muted">
+    <label className="flex items-center gap-2 text-xs text-fg-muted">
       <Switch checked={checked} onCheckedChange={onCheckedChange} aria-label={`${label} in the ${what}`} />
       {label}
     </label>
@@ -427,7 +427,7 @@ function ColumnsSwitch({
 function LeftOutNote({ charts, className }: { charts: LeftOutChart[]; className?: string }) {
   if (!charts.length) return null;
   return (
-    <div className={cn("text-2xs leading-relaxed text-fg-subtle", className)}>
+    <div className={cn("text-xs leading-relaxed text-fg-subtle", className)}>
       <p className="flex items-center gap-1.5 font-medium text-fg-muted">
         <TriangleAlert className="size-3.5 shrink-0 text-warning" aria-hidden />
         {leftOutLabel(charts.length)}
@@ -482,9 +482,9 @@ function Tile({
         <TileIcon icon={icon} />
         <TypePill>{type}</TypePill>
       </div>
-      <h3 className="relative mt-4 text-[15px] font-medium tracking-[-0.01em] text-fg">{title}</h3>
-      <p className="relative mt-1 text-ui leading-relaxed text-fg-muted">{line}</p>
-      <p className="tabular relative mt-3 text-2xs text-fg-subtle">{fact}</p>
+      <h3 className="relative mt-4 text-md font-medium text-fg">{title}</h3>
+      <p className="relative mt-1 text-sm leading-relaxed text-fg-muted">{line}</p>
+      <p className="tabular relative mt-3 text-xs text-fg-subtle">{fact}</p>
       {options ? <div className="relative mt-3">{options}</div> : null}
       {note ? <div className="relative mt-3">{note}</div> : null}
       <div className="relative mt-auto pt-5">
@@ -642,11 +642,11 @@ function OnePagePanel() {
         <MiniPage model={model} />
         <div className="min-w-0">
           <p className="truncate text-ui font-medium text-fg">{model.title}</p>
-          <p className="tabular mt-0.5 text-2xs text-fg-subtle">
+          <p className="tabular mt-0.5 text-xs text-fg-subtle">
             {model.periodLabel}
             {filters ? ` · ${filters} filter${filters === 1 ? "" : "s"}` : " · no filters"}
           </p>
-          <ol className="mt-3 grid gap-1 text-2xs text-fg-muted" aria-label="Charts on the page">
+          <ol className="mt-3 grid gap-1 text-xs text-fg-muted" aria-label="Charts on the page">
             {model.charts.map((c, i) => (
               <li key={c.spec.id} className="truncate">
                 <span className="tabular text-fg-subtle">{i + 1}.</span> {c.title}
@@ -655,7 +655,7 @@ function OnePagePanel() {
           </ol>
         </div>
       </div>
-      <p className="tabular relative mt-4 text-2xs text-fg-subtle">
+      <p className="tabular relative mt-4 text-xs text-fg-subtle">
         One image, 3840 × 2160 (4K), or a one-page landscape PDF, with the dashboard&apos;s current period and
         filters.
       </p>
@@ -708,7 +708,7 @@ function MiniSlide({ slide, n }: { slide: Slide; n: number }) {
           ))
         )}
       </div>
-      <span className="font-figures text-[10px] text-fg-subtle">{n}</span>
+      <span className="font-figures text-2xs text-fg-subtle">{n}</span>
     </li>
   );
 }
@@ -812,11 +812,11 @@ function SlidesPanel() {
           <MiniSlide key={i} slide={slide} n={i + 1} />
         ))}
       </ol>
-      <p className="relative mt-3 text-ui text-fg">
+      <p className="relative mt-3 text-sm text-fg">
         <span className="tabular font-medium">{slides.length} slides</span>
         <span className="text-fg-muted"> · {describeSlides(slides)}</span>
       </p>
-      <p className="tabular relative mt-0.5 text-2xs text-fg-subtle">
+      <p className="tabular relative mt-0.5 text-xs text-fg-subtle">
         Each image 3840 × 2160 (4K), numbered in order. Opens with the headline KPIs and key takeaways.
       </p>
       <LeftOutNote
@@ -1013,14 +1013,14 @@ function PowerBiPanel() {
 
       {manifest ? (
         <div className="relative mt-5 rounded-card border border-border bg-surface-2/60">
-          <p className="flex items-center gap-1.5 border-b border-border px-3.5 py-2 text-2xs text-fg-muted">
+          <p className="flex items-center gap-1.5 border-b border-border px-3.5 py-2 text-xs text-fg-muted">
             <CheckCircle2 className="size-3.5 text-success" aria-hidden /> Downloaded: {manifest.files.length}{" "}
             files, {formatBytes(manifest.totalBytes)} compressed
           </p>
           <ul className="grid gap-x-6 px-3.5 py-2 sm:grid-cols-2">
             {packageLines(manifest).map((f) => (
-              <li key={f.path} className="flex items-center justify-between gap-3 py-1 text-2xs">
-                <span className="font-figures truncate text-fg" title={f.path}>
+              <li key={f.path} className="flex items-center justify-between gap-3 py-1 text-xs">
+                <span className="truncate text-fg" title={f.path}>
                   {f.path}
                   {f.files > 1 ? <span className="text-fg-subtle"> · {f.files} files</span> : null}
                 </span>
@@ -1043,11 +1043,11 @@ function PowerBiPanel() {
       <ol className="relative mt-6 grid gap-3 sm:grid-cols-3" aria-label="How to use it">
         {PACKAGE_STEPS.map((step, i) => (
           <li key={step.title} className="rounded-[12px] border border-border bg-surface-2/60 p-3.5">
-            <span className="font-figures grid size-6 place-items-center rounded-full border border-border-accent bg-accent-soft text-2xs text-accent">
+            <span className="font-figures grid size-6 place-items-center rounded-full border border-border-accent bg-accent-soft text-2xs font-medium text-accent">
               {i + 1}
             </span>
             <p className="mt-2.5 text-ui font-medium text-fg">{step.title}</p>
-            <p className="mt-0.5 text-2xs leading-relaxed text-fg-subtle">{step.line}</p>
+            <p className="mt-0.5 text-xs leading-relaxed text-fg-subtle">{step.line}</p>
           </li>
         ))}
       </ol>
@@ -1057,7 +1057,7 @@ function PowerBiPanel() {
           {busy ? <Loader2 className="animate-spin" aria-hidden /> : <Download aria-hidden />} Download
           package
         </Button>
-        <p className="max-w-xs text-2xs leading-relaxed text-fg-subtle">
+        <p className="max-w-xs text-xs leading-relaxed text-fg-subtle">
           A project package, not a .pbix: only Power BI Desktop can write that file. Built from your columns;
           you&apos;re asked before anything is added.
         </p>
@@ -1088,7 +1088,7 @@ function FileRow({
         <Icon className="size-4 shrink-0 text-fg-subtle" aria-hidden />
         <div className="min-w-0">
           <p className="truncate text-ui text-fg">{title}</p>
-          <p className="tabular truncate text-2xs text-fg-subtle">{fact}</p>
+          <p className="tabular truncate text-xs text-fg-subtle">{fact}</p>
         </div>
       </div>
       <Button
@@ -1122,7 +1122,7 @@ function Panel({
       <div className="relative flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <TileIcon icon={icon} />
-          <h3 className="text-[15px] font-medium tracking-[-0.01em] text-fg">{title}</h3>
+          <h3 className="text-md font-medium text-fg">{title}</h3>
         </div>
         <TypePill>{type}</TypePill>
       </div>
@@ -1272,7 +1272,7 @@ function SqlPanel() {
       <div className="pt-3">
         {results ? (
           <details className="group/v">
-            <summary className="flex cursor-pointer list-none items-center gap-2 text-2xs text-fg-muted select-none">
+            <summary className="flex cursor-pointer list-none items-center gap-2 text-xs text-fg-muted select-none">
               {matched === results.length ? (
                 <CheckCircle2 className="size-4 text-success" aria-hidden />
               ) : (
@@ -1293,7 +1293,7 @@ function SqlPanel() {
               role="region"
               aria-label="Each KPI query's result"
             >
-              <table className="w-full text-2xs">
+              <table className="w-full text-xs">
                 <thead className="sticky top-0 bg-surface-1 text-left text-fg-subtle">
                   <tr>
                     <th className="py-1 font-medium">KPI</th>
@@ -1434,7 +1434,7 @@ function SettingsBar() {
         <TileIcon icon={Settings2} />
         <div className="min-w-0">
           <p className="text-ui font-medium text-fg">Reopen this dashboard later</p>
-          <p className="text-2xs text-fg-subtle">
+          <p className="text-xs text-fg-subtle">
             Save its settings, then load them with the same file. No data rows are inside.
           </p>
         </div>

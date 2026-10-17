@@ -33,7 +33,6 @@
     "echarts": "^6.1.0",
     "fflate": "^0.8.3",
     "framer-motion": "^14.2.0",
-    "geist": "^1.7.2",
     "html-to-image": "^1.11.13",
     "jspdf": "^4.2.1",
     "lucide-react": "^1.57.0",

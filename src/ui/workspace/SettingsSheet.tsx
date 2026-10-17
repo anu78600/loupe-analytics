@@ -61,7 +61,7 @@ export function SettingsSheet({
             <div className="flex items-center justify-between gap-3">
               <div>
                 <Label>Chart colours</Label>
-                <p className="mt-0.5 text-2xs text-fg-subtle">
+                <p className="mt-0.5 text-xs text-fg-subtle">
                   Presets, your own colours, or a gradient from one colour.
                 </p>
               </div>
@@ -88,7 +88,7 @@ export function SettingsSheet({
               ]}
             />
             {auto ? (
-              <p className="text-2xs text-fg-subtle">
+              <p className="text-xs text-fg-subtle">
                 Auto uses lakh/crore for rupee data and K/M/B otherwise.
               </p>
             ) : null}
@@ -127,7 +127,7 @@ export function SettingsSheet({
                 { value: "never", label: "Never add" },
               ]}
             />
-            <p className="text-2xs leading-relaxed text-fg-subtle">
+            <p className="text-sm leading-relaxed text-fg-subtle">
               The dashboard uses only the columns in your file. Unpivoting a wide layout and a few Power BI
               helpers would add one;{" "}
               {newColumns === "ask"
@@ -138,7 +138,7 @@ export function SettingsSheet({
           <Separator />
           <section className="grid gap-3">
             <Eyebrow>Privacy</Eyebrow>
-            <p className="flex gap-2 text-ui leading-relaxed text-fg-muted">
+            <p className="flex gap-2 text-sm leading-relaxed text-fg-muted">
               <ShieldCheck className="mt-0.5 size-4 shrink-0 text-success" aria-hidden />
               Files are parsed and analysed in a background thread of this tab. There is no server and no
               account. The page&apos;s Content-Security-Policy only allows network requests to the DuckDB
@@ -158,7 +158,7 @@ export function SettingsSheet({
                 aria-label="Enable AI layer"
               />
             </div>
-            <p className="text-ui leading-relaxed text-fg-muted">
+            <p className="text-sm leading-relaxed text-fg-muted">
               Adds a second opinion on the industry and an executive summary written from the computed
               insights. Everything else works without it. Each request shows you the exact payload first; it
               contains schema, aggregates and a few masked rows, never your dataset.
@@ -178,9 +178,9 @@ export function SettingsSheet({
                     value={ai.apiKey}
                     onChange={(e) => setAi({ apiKey: e.target.value.trim() })}
                   />
-                  <p className="flex items-center gap-1.5 text-2xs text-fg-subtle">
-                    <Lock className="size-3" aria-hidden /> Kept in memory for this tab only; never saved or
-                    sent anywhere except api.anthropic.com.
+                  <p className="flex items-start gap-1.5 text-xs text-fg-subtle">
+                    <Lock className="mt-0.5 size-3 shrink-0" aria-hidden /> Kept in memory for this tab only;
+                    never saved or sent anywhere except api.anthropic.com.
                   </p>
                 </div>
                 <div className="grid gap-1.5">
@@ -200,7 +200,7 @@ export function SettingsSheet({
                     </SelectContent>
                   </Select>
                 </div>
-                <p className="text-2xs text-fg-subtle">
+                <p className="text-xs leading-relaxed text-fg-subtle">
                   <Badge tone="outline">Refusal fallback on</Badge> Opus and Sonnet requests opt into
                   server-side refusal fallback, so a declined request can be completed by a fallback model
                   instead of failing.
@@ -220,7 +220,7 @@ export function SettingsSheet({
               </span>
               <span className="font-figures text-fg-subtle">v{version}</span>
             </Link>
-            <p className="text-2xs text-fg-subtle">
+            <p className="text-xs text-fg-subtle">
               Every step of building Loupe, as major and minor versions.
             </p>
           </section>

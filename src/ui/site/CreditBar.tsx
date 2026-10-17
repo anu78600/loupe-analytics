@@ -21,10 +21,10 @@ export function CreditBar() {
   const year = CURRENT_RELEASE.date.slice(0, 4);
   return (
     <aside aria-label="Credits" className="border-b border-border bg-bg-subtle">
-      <p className="mx-auto flex h-9 max-w-6xl items-center justify-center gap-x-2.5 px-4 text-2xs text-fg-subtle sm:px-6">
+      <p className="mx-auto flex h-9 max-w-6xl items-center justify-center gap-x-2.5 px-4 text-xs text-fg-subtle sm:px-6">
         <span className="hidden items-center gap-1.5 sm:inline-flex">
           <Sparkles className="size-3 text-accent" aria-hidden />
-          <span className="font-display text-[13px] text-accent italic">Crafted with curiosity</span>
+          <span className="text-sm text-accent">Crafted with curiosity</span>
         </span>
         <Dot className="hidden sm:block" />
         <span>

@@ -56,7 +56,7 @@ export function CodeBlock({ code, language, label }: { code: string; language: s
   return (
     <div className="relative overflow-hidden rounded-control border border-border bg-bg-subtle">
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-border px-3 py-1.5">
-        <span className="font-figures text-2xs tracking-[0.1em] text-fg-subtle uppercase">{language}</span>
+        <span className="eyebrow text-fg-subtle">{language}</span>
         <CodeLegend className="mr-auto ml-2 hidden sm:flex" />
         <Button
           size="xs"
@@ -76,7 +76,7 @@ export function CodeBlock({ code, language, label }: { code: string; language: s
       <pre
         tabIndex={0}
         aria-label={`${label} code`}
-        className="max-h-80 overflow-auto p-3 text-[11.5px] leading-relaxed text-fg focus-visible:outline-offset-[-2px]"
+        className="max-h-80 overflow-auto p-3 text-xs leading-relaxed text-fg focus-visible:outline-offset-[-2px]"
       >
         <HighlightedCode code={code} lang={languageOf(language)} />
       </pre>
@@ -163,25 +163,25 @@ export function KpiDetails({ kpiId }: { kpiId: string }) {
             </Badge>
           ) : null}
         </div>
-        <h2 className="mt-3 text-lg font-medium tracking-[-0.01em] text-fg">{meta.name}</h2>
-        <p className="mt-1 text-ui leading-relaxed text-fg-muted">{meta.definition}</p>
+        <h2 className="mt-3 text-lg font-semibold text-fg">{meta.name}</h2>
+        <p className="mt-1 text-sm leading-relaxed text-fg-muted">{meta.definition}</p>
         {meta.available && value ? (
           <div className="mt-4 flex flex-wrap items-end gap-3">
-            <p className="tabular text-[32px] leading-none font-semibold tracking-[-0.03em] text-fg">
+            <p className="font-figures text-4xl leading-none font-semibold text-fg">
               {formatValue(value.value, meta.format, fmt)}
             </p>
             {value.currentLabel ? (
-              <span className="text-2xs text-fg-muted">
+              <span className="text-xs text-fg-muted">
                 {value.currentLabel}:{" "}
                 <span className="tabular text-fg">{formatValue(value.current, meta.format, fmt)}</span>
               </span>
             ) : null}
             <DeltaChip meta={meta} value={value} />
-            <span className="text-2xs text-fg-subtle">{value.comparisonLabel}</span>
+            <span className="text-xs text-fg-subtle">{value.comparisonLabel}</span>
           </div>
         ) : null}
         {!meta.available ? (
-          <p className="mt-3 flex gap-2 rounded-control border border-warning/30 bg-warning-soft px-3 py-2 text-ui text-fg">
+          <p className="mt-3 flex gap-2 rounded-control border border-warning/30 bg-warning-soft px-3 py-2 text-sm text-fg">
             <TriangleAlert className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden />
             {meta.unavailableReason} {meta.substitute}
           </p>
@@ -214,7 +214,7 @@ export function KpiDetails({ kpiId }: { kpiId: string }) {
                   <li key={f.fieldId} className="flex items-center gap-1.5">
                     <span className="text-fg-muted">{f.label}</span>
                     <span className="text-fg-subtle">←</span>
-                    <span className="font-figures text-fg">{f.column}</span>
+                    <span className="font-data text-fg">{f.column}</span>
                   </li>
                 ))}
               </ul>
@@ -275,7 +275,7 @@ export function KpiDetails({ kpiId }: { kpiId: string }) {
                   setTarget(kpiId, meta.format === "percent" ? n / 100 : n);
                 }}
               />
-              <span className="text-2xs text-fg-subtle">Shown as progress on the card.</span>
+              <span className="text-xs text-fg-subtle">Shown as progress on the card.</span>
             </div>
           </Row>
           {meta.pitfalls.length ? (
@@ -309,11 +309,11 @@ export function KpiDetails({ kpiId }: { kpiId: string }) {
                   <tr key={t.key} className="border-b border-border last:border-0">
                     <th scope="row" className="py-2 pr-3 text-left font-normal text-fg-muted">
                       {t.label}
-                      <span className="block text-2xs text-fg-subtle">{t.note ?? t.period}</span>
+                      <span className="block text-xs text-fg-subtle">{t.note ?? t.period}</span>
                     </th>
                     <td
                       className={cn(
-                        "font-figures py-2 text-right",
+                        "tabular py-2 text-right",
                         t.value === null ? "text-fg-subtle" : "text-fg",
                       )}
                     >
@@ -328,7 +328,7 @@ export function KpiDetails({ kpiId }: { kpiId: string }) {
               </tbody>
             </table>
           )}
-          <p className="mt-3 text-2xs text-fg-subtle">
+          <p className="mt-3 text-xs text-fg-subtle">
             Relative to the end of the selected period. Ratios are recomputed for each window, never averaged.
           </p>
         </TabsContent>
@@ -347,7 +347,7 @@ export function KpiDetails({ kpiId }: { kpiId: string }) {
           {meta.dax ? (
             <CodeBlock code={`${meta.daxName} =\n${meta.dax}`} language="DAX · measure" label="DAX" />
           ) : null}
-          <p className="text-2xs text-fg-subtle">
+          <p className="text-xs leading-relaxed text-fg-subtle">
             {sqlForCard && !sqlForCard.filtered && filters.length
               ? "This KPI counts each entity once, by its first-ever date, which a filtered query can't reproduce exactly, so this query is over the whole file. The card uses the period and filters you chose."
               : "This query returns the number on the card: the same definition over the same rows (the period and filters you chose). The DAX is the Power BI measure, which your report's slicers filter. Export › SQL re-runs the KPIs on your data in DuckDB."}
@@ -361,8 +361,8 @@ export function KpiDetails({ kpiId }: { kpiId: string }) {
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="grid gap-1">
-      <p className="text-2xs font-medium tracking-[0.1em] text-fg-subtle uppercase">{label}</p>
-      <div className="text-ui leading-relaxed text-fg">{children}</div>
+      <p className="eyebrow text-fg-subtle">{label}</p>
+      <div className="text-sm leading-relaxed text-fg">{children}</div>
     </div>
   );
 }

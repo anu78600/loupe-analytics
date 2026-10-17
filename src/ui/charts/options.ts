@@ -158,7 +158,7 @@ function heading(text: string, t: ChartTokens, opts: { color?: unknown; note?: s
 
 /** Tooltip line: escaped label (with an optional colour key) on the left, escaped value on the right. */
 function row(label: string, value: string, t: ChartTokens, color?: unknown): string {
-  return `<div style="display:flex;justify-content:space-between;gap:18px;line-height:1.7"><span style="color:${t.muted}">${color !== undefined ? dot(color) : ""}${escapeHtml(label)}</span><span style="font-family:${t.fontMono};font-variant-numeric:tabular-nums;color:${t.fg}">${escapeHtml(value)}</span></div>`;
+  return `<div style="display:flex;justify-content:space-between;gap:18px;line-height:1.7"><span style="color:${t.muted}">${color !== undefined ? dot(color) : ""}${escapeHtml(label)}</span><span style="font-family:${t.fontFigures};font-variant-numeric:tabular-nums;color:${t.fg}">${escapeHtml(value)}</span></div>`;
 }
 
 function categoryAxis(t: ChartTokens, labels: string[], extra: Obj = {}): Obj {
@@ -201,7 +201,7 @@ function valueAxis(
     axisLabel: {
       color: t.label,
       fontSize: 11,
-      fontFamily: t.fontMono,
+      fontFamily: t.fontFigures,
       hideOverlap: true,
       formatter: ticks,
     },
@@ -226,7 +226,7 @@ function shareAxis(t: ChartTokens): Obj {
     axisLabel: {
       color: t.label,
       fontSize: 11,
-      fontFamily: t.fontMono,
+      fontFamily: t.fontFigures,
       formatter: (v: number) => `${Math.round(v * 100)}%`,
     },
   };
@@ -505,7 +505,7 @@ function markPoints(ctx: OptionContext, seriesIndex: number, isLine = false): Ob
       position: "top",
       distance: 8,
       color: ctx.tokens.muted,
-      fontSize: 10,
+      fontSize: 11,
       fontFamily: ctx.tokens.fontSans,
       backgroundColor: ctx.tokens.surface,
       borderColor: ctx.tokens.border,
@@ -634,7 +634,7 @@ function partialSegments(ctx: OptionContext, values: Obj[], color: string, kind:
         ...(idx === 0 ? { align: "left" } : {}),
         distance: 6,
         color: t.subtle,
-        fontSize: 10,
+        fontSize: 11,
         fontFamily: t.fontSans,
         formatter: partialText(data, idx),
       },
@@ -725,8 +725,8 @@ function cartesian(ctx: OptionContext): EChartsCoreOption {
     position: "top",
     distance: 6,
     color: t.muted,
-    fontSize: 10,
-    fontFamily: t.fontMono,
+    fontSize: 11,
+    fontFamily: t.fontFigures,
     formatter: (p: { value: number | Obj }) =>
       fv(typeof p.value === "number" ? p.value : ((p.value as Obj)?.value as number), format, fmt),
   });
@@ -760,7 +760,7 @@ function cartesian(ctx: OptionContext): EChartsCoreOption {
           symbol: "none",
           lineStyle: { color: t.subtle, width: 1, type: "solid" },
           // Inside the plot, above the line's end, so the narrow right margin doesn't cut it off.
-          label: { color: t.muted, fontSize: 10, formatter: "80%", position: "insideEndTop" },
+          label: { color: t.muted, fontSize: 11, formatter: "80%", position: "insideEndTop" },
           data: [{ yAxis: 0.8 }],
         },
       });
@@ -836,7 +836,7 @@ function cartesian(ctx: OptionContext): EChartsCoreOption {
             ...(idx === 0 ? { align: "left" } : {}),
             distance: 6,
             color: t.subtle,
-            fontSize: 10,
+            fontSize: 11,
             fontFamily: t.fontSans,
             formatter: partialText(data, idx),
           };
@@ -882,7 +882,7 @@ function cartesian(ctx: OptionContext): EChartsCoreOption {
                   show: true,
                   color: t.fg,
                   fontSize: 11,
-                  fontFamily: t.fontMono,
+                  fontFamily: t.fontFigures,
                   distance: 6,
                   formatter: (p: { value: number | Obj }) =>
                     fv(
@@ -920,7 +920,7 @@ function cartesian(ctx: OptionContext): EChartsCoreOption {
                 distance: 8,
                 color: t.muted,
                 fontSize: valueFont,
-                fontFamily: t.fontMono,
+                fontFamily: t.fontFigures,
                 formatter: (p: { value: number | Obj }) =>
                   fv(
                     typeof p.value === "number" ? p.value : ((p.value as Obj)?.value as number),
@@ -954,7 +954,7 @@ function cartesian(ctx: OptionContext): EChartsCoreOption {
                   distance: 6,
                   color: t.muted,
                   fontSize: valueFont,
-                  fontFamily: t.fontMono,
+                  fontFamily: t.fontFigures,
                   formatter: (p: { value: number | Obj }) =>
                     fv(
                       typeof p.value === "number" ? p.value : ((p.value as Obj)?.value as number),
@@ -1144,7 +1144,7 @@ function donut(ctx: OptionContext, pie = false): EChartsCoreOption {
                 style: {
                   text: "total",
                   fill: t.subtle,
-                  fontSize: 10.5,
+                  fontSize: 11,
                   fontFamily: t.fontSans,
                   textAlign: "center",
                   textVerticalAlign: "middle",
@@ -1393,7 +1393,7 @@ function seqVisualMap(
     // The scale's end values, so a colour reads as a number (ECharts prints none without them).
     text: [fv(max, format, fmt), fv(min, format, fmt)],
     textGap: 8,
-    textStyle: { color: t.label, fontSize: 10, fontFamily: t.fontMono },
+    textStyle: { color: t.label, fontSize: 11, fontFamily: t.fontFigures },
     formatter: (v: number) => fv(v, format, fmt),
     inRange: { color: t.seq.slice(1) },
   };
@@ -1462,8 +1462,8 @@ function heatmap(ctx: OptionContext): EChartsCoreOption {
         label: showLabels
           ? {
               show: true,
-              fontSize: 10,
-              fontFamily: t.fontMono,
+              fontSize: 11,
+              fontFamily: t.fontFigures,
               formatter: (p: { value: [number, number, number | string] }) =>
                 typeof p.value[2] === "number" ? fv(p.value[2], format, fmt) : "",
             }
@@ -1548,8 +1548,8 @@ function cohort(ctx: OptionContext): EChartsCoreOption {
         label: {
           // "100%" needs about 30px: narrower cells (a phone, a long history) keep only their colour.
           show: cellWidth(ctx, xs.length, ys) >= 30,
-          fontSize: 10,
-          fontFamily: t.fontMono,
+          fontSize: 11,
+          fontFamily: t.fontFigures,
           formatter: (p: { value: [number, number, number | string] }) =>
             typeof p.value[2] === "number" ? `${Math.round(p.value[2] * 100)}%` : "",
         },
@@ -1602,6 +1602,12 @@ function geoTiles(ctx: OptionContext): EChartsCoreOption {
       min = Math.min(min, v.value);
       max = Math.max(max, v.value);
     }
+  // A state's code needs a tile (less its 3 px border) at least as tall as an 11 px line and as wide
+  // as "MH". On a short card (the one-page dashboard) the tiles are smaller: the codes are left off and the
+  // tooltip still names each state.
+  const tileH = ctx.height ? (ctx.height - 44) / (maxRow + 1) : Infinity;
+  const tileW = ctx.width ? ctx.width / (maxCol + 1) : Infinity;
+  const showCodes = tileH >= 17 && tileW >= 22;
   const cells = states.map((s): GeoTileDatum => {
     const v = values.get(s.code);
     return {
@@ -1638,8 +1644,8 @@ function geoTiles(ctx: OptionContext): EChartsCoreOption {
         data: cells,
         itemStyle: { borderColor: t.surface, borderWidth: 3, borderRadius: 5 },
         label: {
-          show: true,
-          fontSize: 10,
+          show: showCodes,
+          fontSize: 11,
           fontWeight: 500,
           fontFamily: t.fontSans,
           formatter: (p: { data: { code: string } }) => p.data.code,
@@ -1687,7 +1693,7 @@ function scatter(ctx: OptionContext): EChartsCoreOption {
         show: pts.length <= 14,
         position: "right",
         color: t.muted,
-        fontSize: 10,
+        fontSize: 11,
         fontFamily: t.fontSans,
         formatter: (p: { name: string }) => (p.name.length > 18 ? `${p.name.slice(0, 17)}…` : p.name),
       },
@@ -1712,7 +1718,7 @@ function scatter(ctx: OptionContext): EChartsCoreOption {
       symbol: "none",
       lineStyle: { color: t.subtle, width: 1.5 },
       silent: true,
-      endLabel: { show: true, color: t.subtle, fontSize: 10, formatter: `R² ${tl.r2.toFixed(2)}` },
+      endLabel: { show: true, color: t.subtle, fontSize: 11, formatter: `R² ${tl.r2.toFixed(2)}` },
     });
   }
   return {
@@ -2168,7 +2174,7 @@ function sunburst(ctx: OptionContext): EChartsCoreOption {
         sort: undefined,
         nodeClick: false,
         itemStyle: { borderColor: t.surface, borderWidth: 2, borderRadius: 3 },
-        label: { fontSize: 10.5, fontFamily: t.fontSans, minAngle: 12, overflow: "truncate", width: 70 },
+        label: { fontSize: 11, fontFamily: t.fontSans, minAngle: 12, overflow: "truncate", width: 70 },
         levels: [{}, { r0: "16%", r: "56%" }, { r0: "56%", r: "94%", label: { minAngle: 9 } }],
         data: nodes,
       },
@@ -2309,8 +2315,8 @@ function calendar(ctx: OptionContext): EChartsCoreOption {
       splitLine: { show: false },
       itemStyle: { color: t.surface2, borderColor: t.surface, borderWidth: 2 },
       yearLabel: { show: years.length > 1, color: t.label, fontSize: 11, fontFamily: t.fontSans, margin: 22 },
-      monthLabel: { color: t.label, fontSize: 10, fontFamily: t.fontSans },
-      dayLabel: { firstDay: 1, nameMap: ["S", "M", "T", "W", "T", "F", "S"], color: t.label, fontSize: 9 },
+      monthLabel: { color: t.label, fontSize: 11, fontFamily: t.fontSans },
+      dayLabel: { firstDay: 1, nameMap: ["S", "M", "T", "W", "T", "F", "S"], color: t.label, fontSize: 10 },
     })),
     series: years.map((y, i) => ({
       type: "heatmap",

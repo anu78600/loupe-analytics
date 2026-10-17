@@ -48,15 +48,13 @@ function FloatingKpi({
         className="glass animate-[float-y_7s_ease-in-out_infinite] rounded-card border border-border-strong px-4 py-3 shadow-lift"
         style={{ animationDelay: `${delay}s` }}
       >
-        <p className="flex items-baseline justify-between gap-2 text-2xs font-medium tracking-[0.1em] text-fg-subtle uppercase">
+        <p className="eyebrow flex items-baseline justify-between gap-2 text-fg-subtle">
           <span className="min-w-0">{kpi.name}</span>
-          <span className="font-figures shrink-0 tracking-normal">{PRESET_SHORT[range]}</span>
+          <span className="shrink-0">{PRESET_SHORT[range]}</span>
         </p>
         <p className="mt-1.5 flex items-baseline justify-between gap-2">
-          <span className="font-figures text-[22px] leading-none font-medium tracking-[-0.02em] text-fg">
-            {kpi.display}
-          </span>
-          <span className={cn("font-figures inline-flex items-center gap-0.5 text-[11px] font-medium", tone)}>
+          <span className="font-figures text-xl leading-none font-medium text-fg">{kpi.display}</span>
+          <span className={cn("font-figures inline-flex items-center gap-0.5 text-xs font-medium", tone)}>
             <Icon className="size-3" />
             {kpi.deltaText}
           </span>

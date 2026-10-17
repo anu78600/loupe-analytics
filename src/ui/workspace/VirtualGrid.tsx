@@ -23,6 +23,7 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { AlertTriangle, Calendar, Clock, Copy, Eye, EyeOff, Hash, ToggleLeft, Type } from "lucide-react";
 import type { ColumnProfile } from "@/engine/profile/types";
 import { ROLE_LABEL } from "@/engine/profile/types";
+import { formatPlain } from "@/engine/core/format";
 import type { CellProblem, CheckedRow } from "@/engine/profile/dataCheck";
 import { engine } from "@/lib/engine-client";
 import { cn } from "@/lib/utils";
@@ -30,6 +31,8 @@ import { Tooltip } from "@/ui/primitives/tooltip";
 
 const PAGE = 200;
 const ROW_H = 32;
+/** Width of the row-number column: room for a seven-digit row number and the repeat marker. */
+const ROW_GUTTER = 80;
 const BLOCK = 1_000_000;
 
 const STORAGE_ICON = { number: Hash, date: Calendar, string: Type, boolean: ToggleLeft } as const;
@@ -52,6 +55,22 @@ const ROLE_TONE: Record<string, string> = {
   text: "text-fg-subtle",
   boolean: "text-chart-5",
 };
+
+/**
+ * Characters in the widest value a date or number column shows, written as
+ * the grid writes it (Session.cellText: ISO dates, numbers with separators).
+ * Tabular figures are wider than most letters, so these columns are sized to
+ * fit a whole value ("2024-10-01 12:43:12" loses its seconds otherwise); a
+ * text column keeps its header's width and truncates, with the full value in
+ * the cell's tooltip.
+ */
+function valueChars(c: ColumnProfile): number {
+  if (c.storage === "date") return c.role === "time" ? 8 : c.temporal?.hasTime ? 19 : 10;
+  if (c.storage !== "number" || !c.numeric) return 0;
+  const decimals = Math.max(0, ...c.examples.map((e) => e.split(".")[1]?.length ?? 0));
+  const ends = [c.numeric.min, c.numeric.max].map((v) => formatPlain(v, decimals, "INTL").length);
+  return Math.max(...ends, ...c.examples.map((e) => e.length));
+}
 
 /** Tint of a marked cell: warnings (couldn't be read, a broken rule, a missing value) and information. */
 function problemClass(p: CellProblem | undefined): string {
@@ -87,8 +106,8 @@ export function VirtualGrid({
   const blocks = Math.max(1, Math.ceil(total / BLOCK));
   const offset = Math.min(block, blocks - 1) * BLOCK;
   const rowCount = Math.max(0, Math.min(BLOCK, total - offset));
-  // Room for the name (plus the hide button when there is one) and for the role line under it
-  // ("Currency · non-additive"), so neither wraps.
+  // Room for the name (plus the hide button when there is one), for the role line under it
+  // ("Currency · non-additive"), so neither wraps, and for a date or number in full.
   const button = onToggleHidden ? 26 : 0;
   const widths = React.useMemo(
     () =>
@@ -96,12 +115,12 @@ export function VirtualGrid({
         const role =
           ROLE_LABEL[c.role].length +
           (c.additivity && c.additivity !== "additive" ? c.additivity.length + 3 : 0);
-        const wanted = Math.max(c.name.length * 7.4 + 54 + button, role * 6.4 + 46);
+        const wanted = Math.max(c.name.length * 7.4 + 54 + button, role * 6.4 + 46, valueChars(c) * 7.8 + 28);
         return Math.min(260 + button, Math.max(110 + button, wanted));
       }),
     [columns, button],
   );
-  const totalWidth = 72 + widths.reduce((a, b) => a + b, 0);
+  const totalWidth = ROW_GUTTER + widths.reduce((a, b) => a + b, 0);
 
   React.useEffect(() => {
     pages.current.clear();
@@ -143,7 +162,7 @@ export function VirtualGrid({
     // min-w-0: inside a grid or flex layout the table's full width must scroll here, not widen the page.
     <div className={cn("flex min-h-0 min-w-0 flex-col gap-2", className)}>
       {blocks > 1 ? (
-        <label className="flex items-center gap-2 text-2xs text-fg-muted">
+        <label className="flex items-center gap-2 text-xs text-fg-muted">
           Showing
           <select
             className="rounded-control border border-border bg-surface-2 px-2 py-1 text-ui text-fg"
@@ -170,7 +189,8 @@ export function VirtualGrid({
         <div style={{ width: totalWidth, minWidth: "100%" }}>
           <div className="sticky top-0 z-20 flex border-b border-border-strong bg-surface-2" role="row">
             <div
-              className="sticky left-0 z-10 w-[72px] shrink-0 border-r border-border bg-surface-2 px-3 py-2 text-2xs text-fg-subtle"
+              className="sticky left-0 z-10 shrink-0 border-r border-border bg-surface-2 px-3 py-2 text-xs font-medium text-fg-subtle"
+              style={{ width: ROW_GUTTER }}
               role="columnheader"
             >
               Row
@@ -222,13 +242,13 @@ export function VirtualGrid({
                     ) : null}
                   </div>
                   {off ? (
-                    <p className="mt-0.5 inline-flex items-center gap-1 text-2xs text-fg-muted">
+                    <p className="mt-0.5 inline-flex items-center gap-1 text-xs text-fg-muted">
                       <EyeOff className="size-3" aria-hidden />
                       Hidden · not used
                     </p>
                   ) : (
                     <Tooltip content={`${ROLE_LABEL[c.role]} · ${c.roleReason}`}>
-                      <p className="mt-0.5 inline-flex items-center gap-1 text-2xs text-fg-muted">
+                      <p className="mt-0.5 inline-flex items-center gap-1 text-xs text-fg-muted">
                         <Icon className={cn("size-3 shrink-0", ROLE_TONE[c.role])} aria-hidden />
                         {ROLE_LABEL[c.role]}
                         {c.additivity && c.additivity !== "additive" ? (
@@ -258,9 +278,10 @@ export function VirtualGrid({
                   <div
                     role="rowheader"
                     className={cn(
-                      "font-figures sticky left-0 z-[1] flex w-[72px] shrink-0 items-center gap-1 border-r border-border px-3 py-1.5 text-2xs",
+                      "font-figures sticky left-0 z-[1] flex shrink-0 items-center gap-1 border-r border-border px-3 py-1.5 text-xs",
                       dup !== undefined ? "bg-warning-soft text-warning" : "bg-surface-1 text-fg-subtle",
                     )}
+                    style={{ width: ROW_GUTTER }}
                     title={dup !== undefined ? `Same as row ${dup + 1} in every column.` : undefined}
                   >
                     {row ? row.index + 1 : offset + it.index + 1}
@@ -273,16 +294,19 @@ export function VirtualGrid({
                     const off = hidden?.has(c.name) ?? false;
                     // A hidden column is the user's reference only: dimmed, never marked.
                     const problem = off ? undefined : byColumn.get(j);
+                    // The user's values as written (.font-data: no ligatures, tabular numerals, an
+                    // unambiguous I and l), numbers to the right. A blank says "blank" in the quiet
+                    // colour rather than in italics: Inter's italic isn't shipped, and a slant the
+                    // browser makes up reads as a glitch.
                     return (
                       <div
                         key={c.name}
                         role="gridcell"
                         style={{ width: widths[j] }}
                         className={cn(
-                          "flex shrink-0 items-center gap-1 truncate border-r border-border px-3 py-1.5",
-                          c.storage === "number" ? "font-figures justify-end" : "",
+                          "font-data flex shrink-0 items-center gap-1 truncate border-r border-border px-3 py-1.5",
+                          c.storage === "number" ? "justify-end" : "",
                           v === null || off ? "text-fg-subtle" : "text-fg",
-                          v === null ? "italic" : "",
                           off ? "bg-surface-2" : problemClass(problem),
                         )}
                         title={problem ? problem.note : (v ?? undefined)}

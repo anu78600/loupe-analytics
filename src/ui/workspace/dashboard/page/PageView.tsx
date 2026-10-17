@@ -70,7 +70,7 @@ export function PageView() {
       <div className="no-print mb-3 flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-3">
           <ViewToggle />
-          <p className="hidden text-2xs text-fg-subtle md:block">
+          <p className="hidden text-xs text-fg-subtle md:block">
             {computing ? (
               <span className="inline-flex items-center gap-1.5">
                 <Loader2 className="size-3 animate-spin" aria-hidden /> Updating…

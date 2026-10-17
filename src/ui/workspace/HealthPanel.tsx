@@ -181,8 +181,9 @@ export function ParseReportPanel({
     <div className="grid gap-5">
       <dl className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
         {facts.map(([k, v]) => (
-          <div key={k} className="min-w-0">
-            <dt className="text-2xs tracking-[0.1em] text-fg-subtle uppercase">{k}</dt>
+          // The file's name gets two columns: it is the one fact long enough to be cut short.
+          <div key={k} className={cn("min-w-0", k === "File" && "col-span-2")}>
+            <dt className="eyebrow text-fg-subtle">{k}</dt>
             <dd className="truncate text-ui text-fg" title={v}>
               {v}
             </dd>
@@ -190,7 +191,7 @@ export function ParseReportPanel({
         ))}
       </dl>
       {report.sampling ? (
-        <p className="rounded-control border border-warning/30 bg-warning-soft px-3 py-2 text-ui text-fg">
+        <p className="rounded-control border border-warning/30 bg-warning-soft px-3 py-2 text-sm text-fg">
           Sampled: {formatCount(report.sampling.keptRows, locale)} of about{" "}
           {countOf(report.sampling.estimatedTotalRows, "row", locale)} (
           {report.sampling.strategy === "systematic" && report.sampling.every
@@ -208,7 +209,7 @@ export function ParseReportPanel({
                 <div className="min-w-0 flex-1">
                   <p className="text-ui text-fg">
                     <span className="font-medium">{d.column}</span> read as{" "}
-                    <span className="font-figures text-accent">{d.format}</span>
+                    <span className="font-medium text-accent">{d.format}</span>
                     {d.ambiguous ? (
                       <Badge tone="warning" className="ml-2">
                         assumed
@@ -244,7 +245,7 @@ export function ParseReportPanel({
           </ul>
         </div>
       ) : null}
-      {t ? <p className="font-figures text-2xs text-fg-subtle">Timings: {t}</p> : null}
+      {t ? <p className="text-xs text-fg-subtle">Timings: {t}</p> : null}
     </div>
   );
 }

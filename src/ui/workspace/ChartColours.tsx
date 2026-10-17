@@ -181,7 +181,8 @@ function Editor({ onClose }: { onClose: () => void }) {
           ariaLabel="How to choose colours"
           value={tab}
           onChange={setTab}
-          className="w-full [&>*]:flex-1"
+          // Each tab grows from its own label's width, so "From one colour" stays on one line on a phone.
+          className="w-full [&>*]:flex-auto [&>*]:whitespace-nowrap"
           options={[
             { value: "presets", label: "Presets" },
             { value: "custom", label: "Your colours" },
@@ -197,7 +198,7 @@ function Editor({ onClose }: { onClose: () => void }) {
         )}
         <section aria-labelledby="colours-preview" className="grid gap-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h3 id="colours-preview" className="text-ui font-medium text-fg">
+            <h3 id="colours-preview" className="text-sm font-medium text-fg">
               Preview
             </h3>
             <Segmented<ThemeMode>
@@ -295,7 +296,9 @@ function PresetPicker({
               <span className="text-ui font-medium text-fg">{p.name}</span>
               {used ? <Badge tone="accent">In use</Badge> : p.id === "loupe" ? <Badge>Default</Badge> : null}
             </span>
-            <span className="line-clamp-2 text-2xs leading-relaxed text-fg-muted">{p.description}</span>
+            <span className="line-clamp-2 text-xs leading-relaxed text-fg-muted" title={p.description}>
+              {p.description}
+            </span>
             <SwatchStrip colours={p[mode]} />
           </button>
         );
@@ -336,10 +339,10 @@ function CustomColours({
   return (
     <section aria-labelledby="your-colours" className="grid gap-3">
       <div>
-        <h3 id="your-colours" className="text-ui font-medium text-fg">
+        <h3 id="your-colours" className="text-sm font-medium text-fg">
           Your colours, in series order
         </h3>
-        <p className="mt-0.5 text-2xs leading-relaxed text-fg-muted">
+        <p className="mt-0.5 text-xs leading-relaxed text-fg-muted">
           Type or pick up to {SLOTS} colours, say from your brand guide. They are used exactly as given in the
           light theme; in the dark theme the same hues are adjusted in lightness so they stay readable.
         </p>
@@ -347,7 +350,7 @@ function CustomColours({
       <ol className="grid gap-2">
         {colours.map((c, i) => (
           <li key={i} className="flex items-center gap-2">
-            <span className="font-figures w-16 shrink-0 text-2xs text-fg-subtle">Series {i + 1}</span>
+            <span className="w-16 shrink-0 text-xs text-fg-subtle">Series {i + 1}</span>
             <ColourField
               value={normaliseHex(c) ?? "#000000"}
               onChange={(v) => onChange(colours.map((x, j) => (j === i ? v : x)))}
@@ -383,7 +386,7 @@ function CustomColours({
       </div>
       {filled.length ? (
         <div className="grid gap-1.5 rounded-control border border-border bg-surface-2 px-3 py-2.5">
-          <p className="text-2xs leading-relaxed text-fg-muted">
+          <p className="text-xs leading-relaxed text-fg-muted">
             {filled.length === 1 ? `Series ${SLOTS}` : `Series ${theme.given + 1}–${SLOTS}`} use matching
             colours Loupe picked to go with yours and stay distinct:
           </p>
@@ -410,10 +413,10 @@ function SingleColour({
   return (
     <section aria-labelledby="one-colour" className="grid gap-4">
       <div>
-        <h3 id="one-colour" className="text-ui font-medium text-fg">
+        <h3 id="one-colour" className="text-sm font-medium text-fg">
           Your colour
         </h3>
-        <p className="mt-0.5 text-2xs leading-relaxed text-fg-muted">
+        <p className="mt-0.5 text-xs leading-relaxed text-fg-muted">
           Pick one colour and Loupe designs the rest: its gradient for heatmaps and funnels, and the series
           colours in the style you choose.
         </p>
@@ -425,7 +428,7 @@ function SingleColour({
         large
       />
       <div className="grid gap-1.5">
-        <span className="text-2xs text-fg-subtle">Or start from</span>
+        <span className="text-xs text-fg-subtle">Or start from</span>
         <div className="flex flex-wrap gap-1.5">
           {SUGGESTED.map((c) => (
             <button
@@ -453,16 +456,16 @@ function SingleColour({
             { value: "matching", label: "Matching colours" },
           ]}
         />
-        <p className="text-2xs leading-relaxed text-fg-muted">
+        <p className="text-xs leading-relaxed text-fg-muted">
           {value.style === "shades"
             ? "Every series is a lighter or darker shade of your colour, ordered so neighbouring series stay far apart. Best when charts show up to four series."
             : "Your colour leads; the other series are hues chosen to go with it and stay distinct, even for colour-blind viewers."}
         </p>
       </div>
       <div className="grid gap-2 rounded-control border border-border bg-surface-2 px-3 py-2.5">
-        <span className="text-2xs text-fg-muted">Series colours</span>
+        <span className="text-xs text-fg-muted">Series colours</span>
         <SwatchStrip colours={theme[mode].series} />
-        <span className="mt-1 text-2xs text-fg-muted">Gradient, low to high</span>
+        <span className="mt-1 text-xs text-fg-muted">Gradient, low to high</span>
         <RampStrip colours={theme[mode].ramp} />
       </div>
     </section>
@@ -524,7 +527,7 @@ function ColourField({
         aria-invalid={!valid}
         spellCheck={false}
         maxLength={9}
-        className={cn("font-figures w-32 uppercase", !valid && "border-danger focus-visible:border-danger")}
+        className={cn("font-data w-32 uppercase", !valid && "border-danger focus-visible:border-danger")}
       />
       {Dropper ? (
         <Tooltip content="Pick a colour from anywhere on your screen, such as your logo">
@@ -589,7 +592,7 @@ function Preview({ colours, mode }: { colours: ThemeColours; mode: ThemeMode }) 
       <svg viewBox="0 0 120 64" className="h-16 w-full" role="img" aria-label={label}>
         {body}
       </svg>
-      <figcaption className="text-2xs text-fg-subtle">{title}</figcaption>
+      <figcaption className="text-xs text-fg-subtle">{title}</figcaption>
     </figure>
   );
   const bars = [0.45, 0.7, 0.55, 0.9, 0.62, 0.8];
@@ -755,7 +758,7 @@ function Readability({
   return (
     <section aria-labelledby="colours-check" className="grid gap-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 id="colours-check" className="text-ui font-medium text-fg">
+        <h3 id="colours-check" className="text-sm font-medium text-fg">
           Readability
         </h3>
         <div className="flex flex-wrap gap-1.5">
@@ -781,14 +784,14 @@ function Readability({
         })}
       </ul>
       {shades ? (
-        <p className="flex items-start gap-2 rounded-control border border-border bg-surface-2 px-3 py-2 text-2xs leading-relaxed text-fg-muted">
-          <Info className="mt-px size-3.5 shrink-0 text-info" aria-hidden />
+        <p className="flex items-start gap-2 rounded-control border border-border bg-surface-2 px-3 py-2 text-xs leading-relaxed text-fg-muted">
+          <Info className="mt-0.5 size-3.5 shrink-0 text-info" aria-hidden />
           Shades of one colour can only be so far apart: they read best on charts with up to four series. For
           more, choose “Matching colours”.
         </p>
       ) : null}
-      <p className="flex items-start gap-2 text-2xs leading-relaxed text-fg-subtle">
-        <Sparkles className="mt-px size-3.5 shrink-0" aria-hidden />
+      <p className="flex items-start gap-2 text-xs leading-relaxed text-fg-subtle">
+        <Sparkles className="mt-0.5 size-3.5 shrink-0" aria-hidden />
         Checked the way Loupe&apos;s own palette was: neighbouring series under simulated colour blindness
         (protanopia and deuteranopia), with normal vision, and against the {mode} background.
       </p>

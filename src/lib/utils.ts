@@ -16,7 +16,8 @@ import { extendTailwindMerge } from "tailwind-merge";
 const twMerge = extendTailwindMerge({
   extend: {
     theme: {
-      text: ["ui", "display-sm", "display", "display-lg"],
+      // T-shirt sizes (2xs, md…) are known to it already; the named ones are not.
+      text: ["ui", "display-xs", "display-sm", "display-md", "display", "display-lg", "display-xl"],
       radius: ["control", "card", "panel"],
       shadow: ["card", "pop", "lift"],
     },

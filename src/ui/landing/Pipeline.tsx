@@ -154,7 +154,7 @@ function DropVisual({ data }: { data: PipelineData }) {
           <FileSpreadsheet className="size-5 shrink-0 text-accent" aria-hidden />
           <span className="min-w-0">
             <span className="block truncate text-ui font-medium text-fg">{data.file.name}</span>
-            <span className="font-figures block text-2xs text-fg-subtle">
+            <span className="tabular block text-xs text-fg-subtle">
               {data.file.rows} rows · {data.file.columns} columns
             </span>
           </span>
@@ -169,7 +169,8 @@ function DropVisual({ data }: { data: PipelineData }) {
           />
         </div>
       </div>
-      {/* The file's real column names; the cells are placeholders that suggest rows, not values. */}
+      {/* The file's real column names; the cells are placeholders that suggest rows, not values. A
+          phone shows three columns, so each name is read whole rather than cut short. */}
       <motion.div
         className="mt-4 overflow-hidden rounded-card border border-border bg-surface-2/70"
         variants={{
@@ -177,9 +178,12 @@ function DropVisual({ data }: { data: PipelineData }) {
           show: { opacity: 1, y: 0, transition: { delay: 1.45, duration: 0.5, ease: EASE } },
         }}
       >
-        <div className="grid grid-cols-4 border-b border-border">
-          {cols.map((c) => (
-            <span key={c.name} className="font-figures truncate px-3 py-2 text-[11px] text-fg">
+        <div className="grid grid-cols-3 border-b border-border sm:grid-cols-4">
+          {cols.map((c, i) => (
+            <span
+              key={c.name}
+              className={cn("truncate px-3 py-2 text-xs font-medium text-fg", i === 3 && "max-sm:hidden")}
+            >
               {c.name}
             </span>
           ))}
@@ -187,14 +191,14 @@ function DropVisual({ data }: { data: PipelineData }) {
         {[0, 1, 2, 3].map((r) => (
           <motion.div
             key={r}
-            className="grid grid-cols-4"
+            className="grid grid-cols-3 sm:grid-cols-4"
             variants={{
               hidden: { opacity: 0, x: -10 },
               show: { opacity: 1, x: 0, transition: { delay: 1.65 + r * 0.1, duration: 0.4 } },
             }}
           >
             {cols.map((c, i) => (
-              <span key={c.name} className="px-3 py-2">
+              <span key={c.name} className={cn("px-3 py-2", i === 3 && "max-sm:hidden")}>
                 <span
                   className="block h-1.5 rounded-full bg-surface-3"
                   style={{ width: `${40 + ((r * 7 + i * 13) % 50)}%` }}
@@ -222,8 +226,8 @@ function DetectVisual({ data }: { data: PipelineData }) {
           <ConfidenceRing value={detection.confidence} size={118} label="match" />
         </div>
         <motion.div variants={RISE} className="min-w-0">
-          <p className="text-2xs font-medium tracking-[0.12em] text-fg-subtle uppercase">Detected</p>
-          <p className="font-display text-[28px] leading-tight text-fg sm:text-[34px]">{detection.domain}</p>
+          <p className="eyebrow text-fg-subtle">Detected</p>
+          <p className="font-display text-display-xs text-fg sm:text-display-sm">{detection.domain}</p>
           <p className="text-ui text-fg-muted">
             {detection.subDomain} · one row per {detection.grain}
           </p>
@@ -237,7 +241,7 @@ function DetectVisual({ data }: { data: PipelineData }) {
             className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1.5 text-ui"
           >
             <span className={i === 0 ? "text-fg" : "text-fg-muted"}>{c.name}</span>
-            <span className="font-figures text-2xs text-fg-muted">{c.confidence}%</span>
+            <span className="font-figures text-xs text-fg-muted">{c.confidence}%</span>
             <span className="col-span-2 h-1.5 overflow-hidden rounded-full bg-surface-3">
               <motion.span
                 className={cn(
@@ -281,7 +285,7 @@ function MapVisual({ data }: { data: PipelineData }) {
             <motion.span
               key={p.column}
               variants={RISE}
-              className="font-figures flex items-center truncate rounded-[9px] border border-border-strong bg-surface-2 px-3 text-[11.5px] text-fg"
+              className="flex items-center truncate rounded-[9px] border border-border-strong bg-surface-2 px-3 text-xs font-medium text-fg"
               style={{ height: ROW }}
             >
               {p.column}
@@ -318,7 +322,7 @@ function MapVisual({ data }: { data: PipelineData }) {
               <motion.span
                 key={p.field}
                 variants={RISE}
-                className="flex items-center justify-between gap-2 rounded-[9px] border border-border bg-surface-1 px-3 text-[11.5px] text-fg-muted"
+                className="flex items-center justify-between gap-2 rounded-[9px] border border-border bg-surface-1 px-3 text-xs text-fg-muted"
                 style={{ height: ROW }}
               >
                 <span className="truncate">{p.field}</span>
@@ -451,7 +455,7 @@ function Delta({ kpi }: { kpi: PreviewKpi }) {
   return (
     <span
       className={cn(
-        "font-figures inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10.5px] font-medium",
+        "font-figures inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-xs font-medium",
         tone,
       )}
     >
@@ -497,11 +501,9 @@ function PresentVisual({ data }: { data: PipelineData }) {
               i >= 2 && "max-sm:hidden",
             )}
           >
-            <p className="text-2xs font-medium tracking-[0.1em] text-fg-subtle uppercase">{k.name}</p>
+            <p className="eyebrow text-fg-subtle">{k.name}</p>
             <p className="mt-1 flex flex-wrap items-baseline justify-between gap-x-2 gap-y-1">
-              <span className="font-figures text-[20px] leading-none font-medium tracking-[-0.02em] text-fg">
-                {k.display}
-              </span>
+              <span className="font-figures text-xl leading-none font-medium text-fg">{k.display}</span>
               <Delta kpi={k} />
             </p>
           </motion.div>
@@ -512,7 +514,7 @@ function PresentVisual({ data }: { data: PipelineData }) {
         className="grid grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] gap-4 rounded-card border border-border bg-surface-2/80 p-3.5"
       >
         <figure className="min-w-0" aria-label={`${state.trend.title}, ${state.label}`}>
-          <figcaption className="truncate text-2xs text-fg-subtle">{state.trend.title}</figcaption>
+          <figcaption className="truncate text-xs text-fg-subtle">{state.trend.title}</figcaption>
           <svg viewBox={`0 -4 ${W} ${H + 8}`} className="mt-2 h-auto w-full overflow-visible" aria-hidden>
             <DrawOn box={[-4, -10, W + 8, H + 20]} transition={{ duration: 1.4, delay: 0.7, ease: EASE }}>
               <path
@@ -529,7 +531,7 @@ function PresentVisual({ data }: { data: PipelineData }) {
         </figure>
         <ul className="grid content-center gap-2" aria-label={`Net revenue by category, ${state.label}`}>
           {cats.map((c, i) => (
-            <li key={c.label} className="grid gap-1 text-[10.5px]">
+            <li key={c.label} className="grid gap-1 text-xs">
               {/* The name may wrap; the figure keeps its place at the end. */}
               <span className="flex items-baseline justify-between gap-2">
                 <span className="min-w-0 text-fg-muted">{c.label}</span>
@@ -664,7 +666,7 @@ export function Pipeline({ data }: { data: PipelineData }) {
                   <span className="font-figures text-2xs text-fg-subtle">0{i + 1}</span>
                   <span
                     className={cn(
-                      "text-[15px] font-medium transition-colors",
+                      "text-md font-medium transition-colors",
                       selected ? "text-fg" : "text-fg-muted",
                     )}
                   >
@@ -682,7 +684,7 @@ export function Pipeline({ data }: { data: PipelineData }) {
                   )}
                 >
                   <span className="overflow-hidden">
-                    <span className="block pt-1 text-ui text-fg-muted">{s.caption(data)}</span>
+                    <span className="block pt-1 text-sm text-fg-muted">{s.caption(data)}</span>
                   </span>
                 </span>
               </span>
@@ -740,7 +742,7 @@ export function Pipeline({ data }: { data: PipelineData }) {
             type="button"
             onClick={() => setPaused((p) => !p)}
             aria-pressed={paused}
-            className="absolute top-3 right-3 inline-flex items-center gap-1.5 rounded-full border border-border bg-surface-2/80 px-2.5 py-1 text-2xs text-fg-muted backdrop-blur transition-colors hover:text-fg"
+            className="absolute top-3 right-3 inline-flex items-center gap-1.5 rounded-full border border-border bg-surface-2/80 px-2.5 py-1 text-xs text-fg-muted backdrop-blur transition-colors hover:text-fg"
           >
             {paused ? <Play className="size-3" aria-hidden /> : <Pause className="size-3" aria-hidden />}
             {paused ? "Play" : "Pause"}

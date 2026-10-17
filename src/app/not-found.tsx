@@ -15,9 +15,9 @@ export default function NotFound() {
       <div aria-hidden className="mesh absolute inset-0 -z-10 opacity-70" />
       <div className="max-w-md text-center">
         <LoupeMark className="mx-auto size-12" />
-        <p className="font-figures mt-6 text-2xs tracking-[0.14em] text-fg-subtle uppercase">404</p>
-        <h1 className="mt-2 font-display text-[40px] leading-tight text-fg">Nothing to examine here.</h1>
-        <p className="mt-3 text-[15px] leading-relaxed text-fg-muted">
+        <p className="eyebrow mt-6 text-fg-subtle">404</p>
+        <h1 className="mt-2 font-display text-display-sm text-fg">Nothing to examine here.</h1>
+        <p className="mt-3 text-md leading-relaxed text-fg-muted">
           This page doesn&apos;t exist. Your data, as always, stayed in your browser.
         </p>
         <div className="mt-8 flex flex-wrap justify-center gap-3">

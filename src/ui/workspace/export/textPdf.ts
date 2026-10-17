@@ -4,9 +4,10 @@
  * images for visual fidelity; queries need to be copied, so these documents
  * are written as text with jsPDF instead.
  *
- * The app's own typeface is embedded (Geist and Geist Mono, SIL Open Font
- * Licence, served from /fonts on this site, so no font host is contacted):
- * jsPDF's built-in fonts can't draw ₹ or the minus sign the formatters use.
+ * The app's own typefaces are embedded (Inter for text, Geist Mono for code
+ * only, both SIL Open Font Licence, served from /fonts on this site, so no
+ * font host is contacted): jsPDF's built-in fonts can't draw ₹ or the minus
+ * sign the formatters use. jsPDF embeds only the glyphs a document uses.
  * Colours come from the light theme's tokens (tokens.css), read from the
  * page, so the PDFs match the app.
  *
@@ -88,8 +89,8 @@ function readPalette(): Palette {
 
 /** Font files are fetched from this site once per page load and kept as base64 for jsPDF. */
 const FONT_FILES = {
-  regular: "/fonts/Geist-Regular.ttf",
-  semibold: "/fonts/Geist-SemiBold.ttf",
+  regular: "/fonts/Inter-Regular.ttf",
+  semibold: "/fonts/Inter-SemiBold.ttf",
   mono: "/fonts/GeistMono-Regular.ttf",
 } as const;
 let fontCache: Promise<Record<keyof typeof FONT_FILES, string>> | null = null;
@@ -150,10 +151,10 @@ export class TextPdf {
   static async create(meta: TextPdfMeta): Promise<TextPdf> {
     const [{ jsPDF }, fonts] = await Promise.all([import("jspdf"), loadFonts()]);
     const pdf = new jsPDF({ unit: "mm", format: "a4", orientation: "portrait", compress: true });
-    pdf.addFileToVFS("Geist-Regular.ttf", fonts.regular);
-    pdf.addFont("Geist-Regular.ttf", "Geist", "normal");
-    pdf.addFileToVFS("Geist-SemiBold.ttf", fonts.semibold);
-    pdf.addFont("Geist-SemiBold.ttf", "Geist", "bold");
+    pdf.addFileToVFS("Inter-Regular.ttf", fonts.regular);
+    pdf.addFont("Inter-Regular.ttf", "Inter", "normal");
+    pdf.addFileToVFS("Inter-SemiBold.ttf", fonts.semibold);
+    pdf.addFont("Inter-SemiBold.ttf", "Inter", "bold");
     pdf.addFileToVFS("GeistMono-Regular.ttf", fonts.mono);
     pdf.addFont("GeistMono-Regular.ttf", "GeistMono", "normal");
     pdf.setProperties({
@@ -170,7 +171,7 @@ export class TextPdf {
 
   private font(kind: "regular" | "bold" | "mono", size: number, tone: Tone = "fg"): void {
     if (kind === "mono") this.pdf.setFont("GeistMono", "normal");
-    else this.pdf.setFont("Geist", kind === "bold" ? "bold" : "normal");
+    else this.pdf.setFont("Inter", kind === "bold" ? "bold" : "normal");
     this.pdf.setFontSize(size);
     this.pdf.setTextColor(...this.colour(tone));
   }
