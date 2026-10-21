@@ -32,6 +32,7 @@ import { bucketLabel, formatRange, type TimeGrain } from "@/engine/core/dates";
 import { formatCount } from "@/engine/core/format";
 import { friendly } from "@/engine/core/labels";
 import { isRowIndex } from "@/engine/profile/roles";
+import { positiveValue } from "@/engine/understand/outcome";
 
 export type TableShapeKind =
   "timeSeries" | "panel" | "survey" | "labelled" | "eventLog" | "lookup" | "list" | "scorecard";
@@ -326,14 +327,22 @@ const CLASS_WORDS = new Set([
   "category_label",
 ]);
 
-/** The share of yes in a yes/no column: true ÷ (true + false), or the mean of a 0/1 number column. */
+/**
+ * The share of yes in a yes/no column: true ÷ (true + false), the mean of a
+ * 0/1 number column, or for a two-value text column the share of the value
+ * read as yes (understand/outcome.ts positiveValue).
+ */
 function positiveShare(c: ColumnProfile): number | null {
   if (c.booleanStats) {
     const { trueCount: t, falseCount: f } = c.booleanStats;
     return t + f > 0 ? t / (t + f) : null;
   }
   if (c.numeric && c.numeric.min >= 0 && c.numeric.max <= 1) return c.numeric.mean;
-  return null;
+  const yes = positiveValue(c);
+  const values = c.categorical?.all ?? [];
+  const total = values.reduce((s, v) => s + v.count, 0);
+  if (yes === null || !total) return null;
+  return (values.find((v) => v.value === yes)?.count ?? 0) / total;
 }
 
 /** A column of only 0 and 1 kept as numbers ("target", "Outcome" of a practice table). */
@@ -452,6 +461,7 @@ const FILE_WORDS = new Set([
   "all",
   "combined",
   "merged",
+  "demo",
   "csv",
   "xlsx",
   "xls",
@@ -484,23 +494,58 @@ const FILE_WORDS = new Set([
  * left ("cleaned.xlsx", "data.csv").
  */
 function fileNoun(fileName: string | undefined, outcome: ColumnProfile): string | null {
-  if (!fileName) return null;
-  const stem = fileName.replace(/^.*[\\/]/, "").replace(/\.[a-z0-9]{1,5}$/i, "");
-  const outcomeWords = outcome.name
+  return fileName ? fileNounOf(fileName, outcome.name) : null;
+}
+
+/**
+ * Words of a measure or an outcome a file is often named after
+ * ("winequality-white", "house_prices"): they say what the rows are measured
+ * by, not what they are, so they are dropped from a name whatever the
+ * outcome, inside a run-together word too.
+ */
+const MEASURE_WORDS = [
+  "quality",
+  "qualities",
+  "rating",
+  "ratings",
+  "score",
+  "scores",
+  "grade",
+  "grades",
+  "price",
+  "prices",
+  "value",
+  "values",
+  "data",
+  "dataset",
+  "sample",
+  "samples",
+];
+
+/**
+ * fileNoun for any name (a file or a sheet) and the outcome's column name,
+ * which may be empty: "winequality-white" → "wine" (with or without an
+ * outcome: measure words such as quality are always dropped),
+ * "titanic.csv" → "titanic", "house_prices.csv" → "house".
+ */
+export function fileNounOf(name: string, outcomeName: string): string | null {
+  const stem = name.replace(/^.*[\\/]/, "").replace(/\.[a-z0-9]{1,5}$/i, "");
+  const outcomeWords = outcomeName
     .toLowerCase()
     .split(/[^a-z]+/)
     .filter((w) => w.length >= 3);
+  const strip = [...outcomeWords, ...MEASURE_WORDS];
   const words = stem
     .replace(/([a-z])([A-Z])/g, "$1 $2")
     .replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2")
     .toLowerCase()
     .split(/[^a-z0-9]+/)
     .flatMap((w) => {
-      // A run-together word holding the outcome's name ("winequality") keeps what is left of it.
-      const hit = outcomeWords.find((o) => w !== o && w.includes(o));
+      // A run-together word holding a measure or the outcome's name ("winequality") keeps what is left of it.
+      const hit = strip.find((o) => w !== o && (w.startsWith(o) || w.endsWith(o)));
       return hit ? w.split(hit) : [w];
     })
-    .filter((w) => w.length >= 3 && /^[a-z]+$/.test(w) && !FILE_WORDS.has(w) && !outcomeWords.includes(w));
+    .filter((w) => w.length >= 3 && /^[a-z]+$/.test(w) && !FILE_WORDS.has(w) && !strip.includes(w));
   const word = words[0];
   if (!word) return null;
   // Singular, as "One row per …" and the plural for counts expect: "wines" → "wine", "classes" → "class".
@@ -512,7 +557,25 @@ function fileNoun(fileName: string | undefined, outcome: ColumnProfile): string 
 
 // ---------------------------------------------------------------- periods and entities
 
-/** A whole-number year column standing in for a date ("Year" of 2010–2019): a panel's period. */
+/**
+ * Name words of a year that is an attribute of the row (the year a house was
+ * built, a car's model year, a birth year), not the period it was read in.
+ */
+const ATTRIBUTE_YEAR = new Set([
+  "built",
+  "model",
+  "remod",
+  "remodel",
+  "renovated",
+  "construction",
+  "manufactured",
+]);
+
+/**
+ * A whole-number year column standing in for a date ("Year" of 2010–2019): a
+ * panel's period. A year that is an attribute of each row ("YearBuilt",
+ * "Birth Year") is not a period.
+ */
 function yearColumn(columns: readonly ColumnProfile[]): ColumnProfile | null {
   return (
     columns.find(
@@ -523,7 +586,8 @@ function yearColumn(columns: readonly ColumnProfile[]): ColumnProfile | null {
         c.numeric.max <= 2200 &&
         c.distinct >= 2 &&
         c.nullPct < 0.05 &&
-        c.tokens.some((t) => t === "year" || t === "yr"),
+        c.tokens.some((t) => t === "year" || t === "yr") &&
+        !c.tokens.some((t) => ATTRIBUTE_YEAR.has(t) || ATTRIBUTE_DATE.has(t)),
     ) ?? null
   );
 }
@@ -560,7 +624,7 @@ function entityOf(profile: DatasetProfile, period: ColumnProfile): ColumnProfile
 }
 
 /** Name words of a date that marks an attribute of the row (a birthday, a start date), not when it happened. */
-const ATTRIBUTE_DATE = new Set([
+export const ATTRIBUTE_DATE: ReadonlySet<string> = new Set([
   "dob",
   "birth",
   "born",
@@ -620,6 +684,8 @@ export function nounOf(c: ColumnProfile): string {
 /** "country" → "countries", "box" → "boxes", "PU location" → "PU locations"; "1 country" stays singular. */
 export function pluralOf(noun: string, n = 2): string {
   if (n === 1) return noun;
+  // Words that are their own plural: "species", "series".
+  if (/(species|series)$/i.test(noun)) return noun;
   if (/[^aeiou]y$/i.test(noun)) return `${noun.slice(0, -1)}ies`;
   if (/(s|x|z|ch|sh)$/i.test(noun)) return `${noun}es`;
   return `${noun}s`;
@@ -705,7 +771,24 @@ function measuresOf(profile: DatasetProfile, exclude: ReadonlySet<string>): Colu
  * Classifies the table and words its description, from the profile alone;
  * `fileName`, when given, only names what a rated table's rows are ("wine").
  */
-export function describeTable(profile: DatasetProfile, fileName?: string): TableShape {
+/**
+ * The outcome the understanding chose (understand/understand.ts), which
+ * decides the labelled shape instead of the name rules: a yes/no, class or
+ * score outcome makes a labelled table around it, an amount in a table of
+ * cases makes none (and no year column becomes its period), and null means
+ * no outcome at all.
+ */
+export interface ShapeOutcome {
+  column: ColumnProfile;
+  type: "binary" | "class" | "ordinal" | "amount";
+}
+
+export function describeTable(
+  profile: DatasetProfile,
+  fileName?: string,
+  /** undefined: the outcome is read from the names (outcomeOf, ordinalOf); otherwise as given. */
+  chosen?: ShapeOutcome | null,
+): TableShape {
   const { columns, rowCount } = profile;
   const rows = count(rowCount);
   const date = profile.primaryDate
@@ -788,7 +871,16 @@ export function describeTable(profile: DatasetProfile, fileName?: string): Table
   }
 
   // A practice table: a yes/no or class outcome to predict.
-  const outcome = outcomeOf(columns);
+  const outcome: TableShape["outcome"] =
+    chosen === undefined
+      ? outcomeOf(columns)
+      : chosen && (chosen.type === "binary" || chosen.type === "class")
+        ? {
+            column: chosen.column,
+            kind: chosen.type,
+            positiveShare: chosen.type === "binary" ? positiveShare(chosen.column) : null,
+          }
+        : null;
   // The key: a unique identifier first, else a unique label (a name).
   const key =
     columns.find((c) => c.unique && c.nullPct === 0 && c.role === "identifier") ??
@@ -812,9 +904,14 @@ export function describeTable(profile: DatasetProfile, fileName?: string): Table
     });
   }
 
-  // A table of measurements rated on a short scale: a wine's quality, a student's grade.
-  const ordinal = ordinalOf(columns);
-  const readings = ordinal ? readingsOf(profile, ordinal) : null;
+  // A table of measurements rated on a short scale: a wine's quality, a student's grade. A score the
+  // understanding chose is the outcome whatever else the table holds; its features are then every measure.
+  const ordinal =
+    chosen === undefined ? ordinalOf(columns) : chosen?.type === "ordinal" ? chosen.column : null;
+  const readings = ordinal
+    ? (readingsOf(profile, ordinal) ??
+      (chosen?.type === "ordinal" ? measuresOf(profile, new Set([ordinal.name])) : null))
+    : null;
   if (ordinal?.numeric && readings) {
     const noun = fileNoun(fileName, ordinal);
     const name = friendly(ordinal.name);
@@ -853,7 +950,8 @@ export function describeTable(profile: DatasetProfile, fileName?: string): Table
   }
 
   // Time: a date that says when rows happened, or a whole-number year column when there is no date.
-  const year = date ? null : yearColumn(columns);
+  // A table of cases read around their result (a house's sale price) has no period.
+  const year = date || chosen?.type === "amount" ? null : yearColumn(columns);
   const period = dated ? date : year;
   if (period) {
     const cadence: TableShape["cadence"] = year ? "year" : cadenceOf(period);

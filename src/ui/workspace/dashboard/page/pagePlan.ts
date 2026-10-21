@@ -6,11 +6,15 @@
  * - a sidebar of slicers (the period and the main filters) that shows what is
  *   selected ("All", "Apparel", "3 selected");
  * - a banner naming the subject ("E-commerce performance dashboard") and what
- *   it covers ("Revenue | Orders | Profitability | Fulfilment");
+ *   it covers ("Revenue | Orders | Profitability | Fulfilment"); a dashboard
+ *   designed from the data (generic, or an industry that fits few columns)
+ *   is named from the data instead ("Wine quality analysis");
  * - six headline KPIs, each with an icon that says what kind of measure it is;
  * - five charts from the dashboard: the main trend across two thirds of the
  *   width, a share of the whole beside it, then three breakdowns, preferring
- *   the charts chosen for executives and charts about different things;
+ *   the charts chosen for executives and charts about different things. A
+ *   dashboard designed from the data follows its plan instead (the
+ *   highest-scored chart leads), keeping charts about different things;
  * - the key insights.
  *
  * Plain data and functions, so the page in the app (OnePage.tsx), its
@@ -107,17 +111,49 @@ function fitsPage(kind: ChartKind, data: ChartData): boolean {
 }
 
 /**
- * The page's charts, in dashboard order with the charts chosen for
- * executives first: the first chart over time leads; then the first share of
- * the whole; then up to three more, preferring charts about something not yet
- * shown. Hidden charts, empty ones, folded "other columns" charts and the
- * detail table are left out.
+ * Chart id → its score in the dashboard's plan (ContextResult.plan, built by
+ * engine/understand/plan.ts), for pickPageCharts. Undefined without a plan.
+ */
+export type PageRank = ReadonlyMap<string, number>;
+
+/**
+ * True when the dashboard is designed from the data rather than led by an industry's template:
+ * the general dashboard, or an industry that explains few of the columns (ContextResult.fit). Its
+ * page is then titled from the data and ranked by the plan.
+ */
+export function dataLed(ctx: { domain: { generic: boolean }; fit: { weak: boolean } }): boolean {
+  return ctx.domain.generic || ctx.fit.weak;
+}
+
+/** The charts' scores from the plan (its KPIs are left out); undefined when there is no plan. */
+export function planRank(
+  plan: ReadonlyArray<{ id: string; type: "kpi" | "chart"; score: number }> | undefined,
+): PageRank | undefined {
+  if (!plan?.length) return undefined;
+  return new Map(plan.filter((p) => p.type === "chart").map((p) => [p.id, p.score]));
+}
+
+/**
+ * The page's charts. Hidden charts, empty ones, folded "other columns"
+ * charts and the detail table are left out.
+ *
+ * Without a `rank` (an industry that fits strongly), in dashboard order with
+ * the charts chosen for executives first: the first chart over time leads;
+ * then the first share of the whole; then up to three more, preferring charts
+ * about something not yet shown.
+ *
+ * With a `rank` (a dashboard designed from the data: generic, or an industry
+ * that fits few of the columns), the plan decides: the highest-scored chart
+ * leads, and the rest follow by score, again preferring charts about
+ * something not yet shown. A chart the plan doesn't score (one the user
+ * built) comes after the scored ones, in dashboard order.
  */
 export function pickPageCharts(
   widgets: readonly PageWidget[],
   specs: readonly ChartSpec[],
   charts: Readonly<Record<string, ChartData | undefined>>,
   max = PAGE_CHARTS,
+  rank?: PageRank,
 ): PageChart[] {
   const byId = new Map(specs.map((s) => [s.id, s]));
   const candidates: Array<PageChart & { exec: boolean; order: number }> = [];
@@ -136,8 +172,14 @@ export function pickPageCharts(
       order,
     });
   });
-  // The executive choice first, each group in the user's order.
-  candidates.sort((a, b) => Number(b.exec) - Number(a.exec) || a.order - b.order);
+  // The plan's order when there is one (unscored charts last, in dashboard order); otherwise the
+  // executive choice first, each group in the user's order.
+  const score = (id: string) => rank?.get(id) ?? -1;
+  candidates.sort(
+    rank
+      ? (a, b) => score(b.spec.id) - score(a.spec.id) || a.order - b.order
+      : (a, b) => Number(b.exec) - Number(a.exec) || a.order - b.order,
+  );
 
   const picked: PageChart[] = [];
   const take = (c: PageChart | undefined) => {
@@ -150,8 +192,11 @@ export function pickPageCharts(
     title,
   });
   const pool = candidates.map(strip);
-  take(pool.find((c) => c.spec.x.kind === "time") ?? pool[0]);
-  take(pool.find((c) => !picked.includes(c) && PART_TO_WHOLE.has(c.kind)));
+  if (rank) take(pool[0]);
+  else {
+    take(pool.find((c) => c.spec.x.kind === "time") ?? pool[0]);
+    take(pool.find((c) => !picked.includes(c) && PART_TO_WHOLE.has(c.kind)));
+  }
   // Breakdowns about something new first, then any that remain.
   const seen = new Set(picked.map((c) => subjectOf(c.spec)));
   for (const c of pool) {
@@ -205,8 +250,18 @@ export function pageSubtitle(groups: readonly string[], fallback: string): strin
   return unique.length >= 2 ? unique.join(" | ") : fallback;
 }
 
-/** The page's title until the user names it: what an analyst would call the page. */
-export function defaultPageTitle(industry: string, opts: { generic: boolean; roster: boolean }): string {
+/**
+ * The page's title until the user names it: what an analyst would call the page. A dashboard
+ * designed from the data (generic, or an industry that fits few columns: `weak`) takes the title
+ * read from the data (`understood`, DataUnderstanding.title: "Wine quality analysis"); an industry
+ * that fits strongly keeps "{Industry} performance dashboard".
+ */
+export function defaultPageTitle(
+  industry: string,
+  opts: { generic: boolean; roster: boolean; weak?: boolean; understood?: string | null },
+): string {
+  const understood = opts.understood?.trim();
+  if ((opts.generic || opts.weak) && understood) return understood;
   if (opts.generic) return "Performance dashboard";
   return opts.roster ? `${industry} dashboard` : `${industry} performance dashboard`;
 }

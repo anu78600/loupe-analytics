@@ -366,19 +366,27 @@ describe("a labelled practice table", async () => {
     expect(ctx.domain.description).toBe("400 rows with a yes/no outcome (Survived: 40.0% yes)");
   });
 
+  // Version 49.0: the dashboard is read around the outcome, named after what it counts ("Survival
+  // rate", from Survived), with the rows named after what they are (passengers, from PassengerId).
   it("gives the outcome rate and averages the features", () => {
     const names = shownKpis(ctx).map((k) => k.name);
-    expect(names).toEqual(expect.arrayContaining(["Rows", "Survived rate", "Average Fare", "Average Age"]));
+    expect(names).toEqual(
+      expect.arrayContaining(["Passengers", "Survival rate", "Survived", "Average Fare", "Average Age"]),
+    );
     expect(names.some((n) => /^Total /.test(n))).toBe(false);
-    expect(v.get("Survived rate")).toBeCloseTo(160 / 400, 12);
+    expect(v.get("Survival rate")).toBeCloseTo(160 / 400, 12);
+    expect(v.get("Survived")).toBe(160);
   });
 
-  it("charts the rate by category and by band, and the features", () => {
+  it("charts the rate by category and by band, and the features for yes against no", () => {
     const byId = new Map(ctx.charts.map((c) => [c.id, c]));
-    expect(byId.get("g_by_sex")?.title).toBe("Survived rate by Sex");
-    expect(byId.get("g_outcome_bands")?.measures[0]?.label).toBe("Survived rate");
-    expect(byId.get("g_hist")?.kind).toBe("histogram");
-    expect(byId.get("g_scatter")?.kind).toBe("scatter");
+    const byCategory = ctx.charts.filter((c) => c.id.startsWith("g_by_"));
+    expect(byCategory.length).toBeGreaterThanOrEqual(1);
+    for (const c of byCategory) expect(c.title).toMatch(/^Survival rate by /);
+    expect(byId.get("g_outcome_bands")?.measures[0]?.label).toBe("Survival rate");
+    expect(ctx.charts.some((c) => c.id.startsWith("g_yesno_") && c.title.endsWith(" by Survived"))).toBe(
+      true,
+    );
   });
 
   it("reads a class outcome as each class's share", async () => {

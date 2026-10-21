@@ -62,7 +62,7 @@ import { withLearnedSynonyms, type LearnedSynonym } from "@/engine/detect/learne
 import { grainLabel } from "@/engine/profile/structure";
 import { friendly, friendlyStart } from "@/engine/core/labels";
 import { resolveKpis, selectKpis, type KpiResolutionMap, type KpiSelection } from "@/engine/kpi/resolve";
-import { columnExtras, isColumnId } from "@/engine/kpi/columnKpis";
+import { COLUMN_PREFIX, columnExtras, isColumnId } from "@/engine/kpi/columnKpis";
 import { isUserKpiId, userKpiExtras, type UserKpi } from "@/engine/kpi/userKpis";
 import { makeDaxContext, makeResolver, makeSqlContext, type CompileNames } from "@/engine/kpi/context";
 import {
@@ -101,6 +101,16 @@ import { pivotDataset, pivotPlan, pivotSummary, type PivotPlan } from "@/engine/
 import { DOMAINS, getDomain } from "@/registry";
 import type { DomainDef, FieldDef, KpiFormat, SubDomainDef, ValueClassDef } from "@/registry/schema";
 import type { DateCadence } from "@/engine/core/periods";
+import {
+  understandData,
+  understandDetailed,
+  type IndustryInput,
+  type UnderstandingDetail,
+} from "@/engine/understand/understand";
+import { planDashboard } from "@/engine/understand/plan";
+import { whatMoves } from "@/engine/understand/whatMoves";
+import { refineRoles } from "@/engine/understand/refine";
+import type { ColumnKind, DataUnderstanding, PlannedAnalysis } from "@/engine/understand/types";
 
 /** Headline facts about the loaded dataset, for the UI chrome. */
 export interface DatasetSummary {
@@ -149,6 +159,12 @@ export type LoadResult =
       timings: Record<string, number>;
       /** Columns that look replaced by a cleaned copy (profile/replaced.ts), offered in step 3 as columns to hide. */
       replaced: ReplacedColumn[];
+      /**
+       * What the table is about (understand/understand.ts), read from the profile as loaded, with
+       * the outcome Loupe chooses and detection's top industry: shown on Detect before anything is
+       * configured. Session.understand() reads it again after the user's corrections.
+       */
+      understanding: DataUnderstanding;
     }
   | { status: "needs-decision"; assessment: LargeFileAssessment }
   | { status: "needs-sheet"; sheets: string[] };
@@ -157,6 +173,30 @@ export type LoadResult =
 export interface RoleOverride {
   role: SemanticRole;
   additivity?: Additivity;
+  /**
+   * The kind the user chose with "Read as …" (understand/kinds.ts roleForKind), so a score and a
+   * measurement, which set the same role, read back as the one chosen. Optional: without it the
+   * kind is read from the role and the column's values.
+   */
+  kind?: ColumnKind;
+}
+
+/**
+ * What Session.understand() reads the table with: the user's corrections so far, before or after
+ * configure(). Every field is optional; none of them changes the session's state.
+ */
+export interface UnderstandRequest {
+  /** undefined: Loupe chooses the outcome; null: no outcome; a column name: that column. */
+  outcome?: string | null;
+  roleOverrides?: Record<string, RoleOverride>;
+  /** Columns hidden in step 3: never read. */
+  hiddenColumns?: string[];
+  /** The industry chosen on Detect, for the label and its fit; GENERIC_ID labels none. Default: detection's top candidate. */
+  domainId?: string;
+  /** How figures in the sentences are written (default INTL). */
+  numberLocale?: NumberLocale;
+  /** ISO 4217 code for money in the sentences; null or absent for the detected currency. */
+  currency?: string | null;
 }
 
 /** Everything configure() needs; the UI rebuilds it from the workspace store on every reconfigure. */
@@ -186,6 +226,12 @@ export interface ContextRequest {
    * column not in the analysis is left out, with its reason in the result.
    */
   customKpis?: UserKpi[];
+  /**
+   * The column the table is measured by (understand/understand.ts): undefined lets Loupe choose,
+   * null means none, a column name picks it. The data-led dashboard and its insights are built
+   * around it; a name that is not a usable column in the analysis is ignored (Loupe chooses).
+   */
+  outcome?: string | null;
   numberLocale: NumberLocale;
   /** ISO 4217 code chosen by the user, or null to use the currency detected in the profile. */
   currency: string | null;
@@ -326,6 +372,16 @@ export interface ContextResult {
    * mapped. The generic dashboard is built from every column, so it is never weak.
    */
   fit: ContextFit;
+  /**
+   * What the table is about, read after the role overrides, without the hidden columns, with the
+   * chosen industry and outcome: authoritative once configured.
+   */
+  understanding: DataUnderstanding;
+  /**
+   * Every chart and KPI of this result with its score and a one-sentence why
+   * (understand/plan.ts). `charts` come in plan order.
+   */
+  plan: PlannedAnalysis[];
 }
 
 /** ContextResult.fit: how many of the file's columns the chosen industry's fields fill. */
@@ -339,6 +395,10 @@ export interface ContextFit {
 export const WEAK_FIT_SHARE = 0.25;
 /** An industry with fewer core fields mapped than this fits weakly, whatever else it fills. */
 export const WEAK_FIT_CORE = 2;
+/** Below this detection confidence (%), an understanding names no industry unless one was chosen. */
+export const INDUSTRY_LABEL_MIN = 35;
+/** Id prefix of the "What moves …" fields, KPIs and charts added to a strong-fit industry (column extras). */
+export const WHAT_MOVES_PREFIX = `${COLUMN_PREFIX}wm_`;
 /**
  * A dashboard with fewer charts than this, its template's and its column charts together, gets the
  * generic charts for the columns its template doesn't read (genericFill).
@@ -601,6 +661,8 @@ interface ActiveContext {
   locale: NumberLocale;
   /** The request's KPI renames; insight text uses them like the KPI cards do. */
   kpiRenames: Record<string, string>;
+  /** The understanding with its outcome and every column measured against it, for the driver insights. */
+  detail: UnderstandingDetail;
 }
 
 /** The engine's single source of truth for one loaded dataset. See the file header for the call order. */
@@ -652,6 +714,8 @@ export class Session {
   /** The data check, tied to the dataset and checked columns it was built for. */
   private checker: { ds: Dataset; profile: DatasetProfile; check: DataCheck } | null = null;
   private ctx: ActiveContext | null = null;
+  /** Detection on loading (adopt), kept for the industry label of every later understanding. */
+  private detection: DetectionResult | null = null;
   /** Words the user taught (extra field synonyms), set with the file they came with; none for a demo. */
   private learned: readonly LearnedSynonym[] = [];
   // Results of the most recent dashboard computation. insights() reads these
@@ -777,7 +841,16 @@ export class Session {
     const t3 = performance.now();
     onProgress?.({ phase: "detecting", loadedBytes: 0, totalBytes: 0, rows: ds.rowCount });
     const detection = detectDomain(withLearnedSynonyms(DOMAIN_LIST(), this.learned), this.baseProfile);
+    this.detection = detection;
     timings.detect = Math.round(performance.now() - t3);
+    const t4 = performance.now();
+    // Read as the analysis will read it: a table of cases' small codes and counts read again (refine.ts).
+    const readable = this.analysisProfile(undefined, undefined).active;
+    const understanding = understandData(readable, ds, {
+      industry: this.industryInput(undefined, readable),
+      health: this.health,
+    });
+    timings.understand = Math.round(performance.now() - t4);
     const replaced = replacedColumns(ds, this.baseProfile, this.health);
     const domains = DOMAIN_LIST().map((d) => ({
       id: d.id,
@@ -797,7 +870,104 @@ export class Session {
       domains,
       timings,
       replaced,
+      understanding,
     };
+  }
+
+  /**
+   * The profile the analysis reads for a set of corrections, without
+   * touching the session: the role overrides applied to a copy of the
+   * detected profile, then, in a table of cases with no timeline, its small
+   * codes and counts read again (understand/refine.ts; never a column the
+   * user set) (`profile`, every column), then the hidden columns that exist
+   * in the file left out (`active`).
+   */
+  private analysisProfile(
+    roleOverrides: Record<string, RoleOverride> | undefined,
+    hiddenColumns: readonly string[] | undefined,
+  ): { profile: DatasetProfile; hidden: Set<string>; active: DatasetProfile } {
+    const ds = this.requireDs();
+    let profile = this.baseProfile as DatasetProfile;
+    if (roleOverrides && Object.keys(roleOverrides).length) {
+      profile = {
+        ...profile,
+        columns: profile.columns.map((c) => {
+          const o = roleOverrides[c.name];
+          return o ? applyRoleOverride(c, o.role, o.additivity) : c;
+        }),
+      };
+    }
+    profile = refineRoles(profile, new Set(Object.keys(roleOverrides ?? {})));
+    const hidden = new Set((hiddenColumns ?? []).filter((n) => ds.columns.some((c) => c.name === n)));
+    return { profile, hidden, active: withoutColumns(ds, profile, hidden) };
+  }
+
+  /**
+   * The industry an understanding is labelled with: the chosen domain (none
+   * for the generic one), else detection's top candidate when its confidence
+   * is at least 35. Its confidence comes from detection (0 for a domain
+   * detection didn't rank) and its fit from fitOf over the analysis profile,
+   * using `built` when configure() has already mapped it.
+   */
+  private industryInput(
+    domainId: string | undefined,
+    active: DatasetProfile,
+    built?: { domain: DomainDef; mapping: Mapping; fit: ContextFit },
+  ): IndustryInput | null {
+    if (domainId === GENERIC_ID) return null;
+    const top = this.detection?.candidates[0];
+    const id = domainId ?? (top && top.confidence >= INDUSTRY_LABEL_MIN ? top.domainId : undefined);
+    const registered = id ? getDomain(id) : undefined;
+    if (!id || !registered) return null;
+    const confidence = this.detection?.candidates.find((c) => c.domainId === id)?.confidence ?? 0;
+    let fit = built?.domain.id === id ? built.fit : undefined;
+    if (!fit) {
+      const domain = withLearnedSynonyms([registered], this.learned)[0] as DomainDef;
+      const mapping = buildMapping(domain, active, assignFields(domain, matchableColumns(active)), {});
+      fit = fitOf(domain, mapping, active);
+    }
+    // What one row is: the best sub-domain's grain when it is a plain noun ("order line", "employee"),
+    // else the industry's entity.
+    const grain = this.detection?.candidates.find((c) => c.domainId === id)?.grain ?? "";
+    const entity =
+      /^[a-z][a-z-]*( [a-z][a-z-]*)?$/i.test(grain) && grain !== "row" ? grain : registered.entity;
+    return {
+      label: { id, name: registered.name, confidence, fit: { ...fit } },
+      entity,
+    };
+  }
+
+  /** Kinds the user chose with "Read as …", carried by their role overrides. */
+  private static kindsOf(
+    roleOverrides: Record<string, RoleOverride> | undefined,
+  ): Record<string, ColumnKind> {
+    const out: Record<string, ColumnKind> = {};
+    for (const [column, o] of Object.entries(roleOverrides ?? {})) if (o.kind) out[column] = o.kind;
+    return out;
+  }
+
+  /**
+   * What the table is about for the user's corrections so far (the Detect
+   * step, before or after configure()): the role overrides applied, the
+   * hidden columns never read, the outcome they chose (or Loupe's) and the
+   * industry chosen (or detection's top one) as its label. Changes nothing in
+   * the session.
+   */
+  understand(req: UnderstandRequest = {}): DataUnderstanding {
+    const ds = this.requireDs();
+    const { active, hidden } = this.analysisProfile(req.roleOverrides, req.hiddenColumns);
+    const health = this.health as HealthReport;
+    return understandData(active, ds, {
+      outcome: req.outcome,
+      kinds: Session.kindsOf(req.roleOverrides),
+      industry: this.industryInput(req.domainId, active),
+      locale: req.numberLocale,
+      currency: req.currency ?? undefined,
+      // Problems in hidden columns are not the analysis's problems.
+      health: hidden.size
+        ? { ...health, issues: health.issues.filter((i) => !i.column || !hidden.has(i.column)) }
+        : health,
+    });
   }
 
   /**
@@ -893,40 +1063,59 @@ export class Session {
    */
   configure(req: ContextRequest): ContextResult {
     const ds = this.requireDs();
-    // Overrides apply to a copy; the detected profile stays untouched.
-    let profile = this.baseProfile as DatasetProfile;
-    if (req.roleOverrides && Object.keys(req.roleOverrides).length) {
-      profile = {
-        ...profile,
-        columns: profile.columns.map((c) => {
-          const o = req.roleOverrides?.[c.name];
-          return o ? applyRoleOverride(c, o.role, o.additivity) : c;
-        }),
-      };
-    }
+    // Overrides apply to a copy; the detected profile stays untouched. Hidden columns stay in the
+    // dataset but leave the profile the analysis is built from. A mapping override naming one is
+    // dropped by buildMapping (it only accepts columns of the profile it gets).
+    const scoped = this.analysisProfile(req.roleOverrides, req.hiddenColumns);
+    const profile = scoped.profile;
     this.profile = profile;
-    // Hidden columns stay in the dataset but leave the profile the analysis is built from. A mapping
-    // override naming one is dropped by buildMapping (it only accepts columns of the profile it gets).
-    this.hidden = new Set((req.hiddenColumns ?? []).filter((n) => ds.columns.some((c) => c.name === n)));
-    const active = withoutColumns(ds, profile, this.hidden);
+    this.hidden = scoped.hidden;
+    const active = scoped.active;
     this.active = active;
+    const generic = req.domainId === GENERIC_ID || !getDomain(req.domainId);
+    // With the words the user taught, so a learned header fills its field here as on Detect.
+    const industry = generic
+      ? null
+      : (withLearnedSynonyms([getDomain(req.domainId) as DomainDef], this.learned)[0] as DomainDef);
+    const industryMapping = industry
+      ? buildMapping(industry, active, assignFields(industry, matchableColumns(active)), {
+          fields: req.mappingOverrides,
+          classes: req.classOverrides,
+        })
+      : null;
+    // How well the industry fits, read before the column and user KPIs add identity fields of their own.
+    const industryFit = industry && industryMapping ? fitOf(industry, industryMapping, active) : null;
+    // What the table is about, with the user's outcome and the chosen industry as its label: the
+    // generic dashboard, the data-led charts and the plan are designed from it.
+    const detail = understandDetailed(active, ds, {
+      outcome: req.outcome,
+      kinds: Session.kindsOf(req.roleOverrides),
+      industry:
+        industry && industryMapping && industryFit
+          ? this.industryInput(industry.id, active, {
+              domain: industry,
+              mapping: industryMapping,
+              fit: industryFit,
+            })
+          : null,
+      locale: req.numberLocale,
+      currency: req.currency ?? undefined,
+      health: this.scope().health,
+    });
+    const understanding = detail.understanding;
+    const lead = { understanding, ranked: detail.ranked };
     let domain: DomainDef;
     let mapping: Mapping;
-    if (req.domainId === GENERIC_ID || !getDomain(req.domainId)) {
-      // The rows are read only to find which measures move together (its scatter chart).
-      const g = buildGenericDomain(active, ds);
+    if (industry && industryMapping) {
+      domain = industry;
+      mapping = industryMapping;
+    } else {
+      // Designed around the understanding's outcome when it has one; the rows are read for the drivers.
+      const g = buildGenericDomain(active, ds, lead);
       domain = g.domain;
       mapping = g.mapping;
-    } else {
-      // With the words the user taught, so a learned header fills its field here as on Detect.
-      domain = withLearnedSynonyms([getDomain(req.domainId) as DomainDef], this.learned)[0] as DomainDef;
-      mapping = buildMapping(domain, active, assignFields(domain, matchableColumns(active)), {
-        fields: req.mappingOverrides,
-        classes: req.classOverrides,
-      });
     }
-    // Read before the column and user KPIs add identity fields of their own.
-    const fit = fitOf(domain, mapping, active);
+    const fit = industryFit ?? fitOf(domain, mapping, active);
     // Sub-domain: requested, else best coverage with this mapping. Coverage is
     // the share of the sub-domain's signal fields that are mapped, weighted by
     // each field's registry weight and by how confidently it was matched.
@@ -1014,16 +1203,23 @@ export class Session {
     // measurements: no chart of its own, and no date or category for the column charts). The generic
     // dashboard of the columns its template doesn't read fills the gap, in the "From your other columns"
     // section (detect/generic.ts genericFill), and the column KPIs are then worked out around it, so no
-    // column gets two KPIs.
-    if (
+    // column gets two KPIs. An industry that fits weakly gets it too: the data-led charts lead its
+    // dashboard (the plan ranks them first), built around the outcome when the table has one.
+    const thin =
       domain.id !== GENERIC_ID &&
-      recommendCharts({ ...view, profile: active, subDomain: subDomainId }).specs.length < FILL_BELOW_CHARTS
-    ) {
-      const fill = genericFill({ ...template, profile: active, ds, subDomainId });
+      recommendCharts({ ...view, profile: active, subDomain: subDomainId }).specs.length < FILL_BELOW_CHARTS;
+    if (thin || (domain.id !== GENERIC_ID && fit.weak)) {
+      const fill = genericFill({ ...template, profile: active, ds, subDomainId, lead });
       if (fill.charts.length) {
         const filled = withExtras(template, fill);
         view = withExtras(filled, columnsOf(filled));
       }
+    }
+    // An industry that fits strongly leads with its template; when the table has an outcome with a
+    // driver strong enough that no template chart sets against it, "What moves …" follows.
+    if (domain.id !== GENERIC_ID && !fit.weak && !thin) {
+      const extra = this.whatMovesExtras(view, detail, active, subDomainId);
+      if (extra.charts.length) view = withExtras(view, extra);
     }
     ({ domain, mapping, res } = view);
     const selection = selectKpis(res);
@@ -1037,7 +1233,7 @@ export class Session {
     const skipped = recommended.skipped;
     // One name per KPI: a renamed KPI is called by its new name in every chart's measures (legends,
     // table headers, "Why this chart") and in a default title that starts with its old name.
-    const specs = recommended.specs.map((s) => {
+    const named = recommended.specs.map((s) => {
       const measures = s.measures.map((m) => ({
         ...m,
         label: displayName(req.kpiRenames ?? {}, m.id, m.label),
@@ -1050,6 +1246,21 @@ export class Session {
           : s.title;
       return { ...s, title, measures };
     });
+    // The plan (understand/plan.ts): every chart scored and ranked, and the charts in that order. A
+    // strong-fit industry keeps its template's order; otherwise the data-led charts lead.
+    const industryLeads = domain.id !== GENERIC_ID && !fit.weak;
+    const planned = planDashboard({
+      charts: named,
+      selection,
+      res,
+      mapping,
+      understanding,
+      industryLeads,
+      confidence: domain.id === GENERIC_ID ? 1 : (understanding.industry?.confidence ?? 0) / 100,
+      fromData: (id) => domain.id === GENERIC_ID || isColumnId(id),
+      kpiName: (id) => displayName(req.kpiRenames ?? {}, id, res.get(id)?.def.name ?? id),
+    });
+    const specs = planned.charts;
 
     const names = compileNames(ds, domain, req.kpiRenames);
     const resolver = makeResolver(ds, mapping, res);
@@ -1068,6 +1279,7 @@ export class Session {
       currency,
       locale: req.numberLocale,
       kpiRenames,
+      detail,
     };
     this.resetLastResults();
 
@@ -1187,6 +1399,88 @@ export class Session {
       currency,
       dimensions,
       fit,
+      understanding,
+      plan: planned.plan,
+    };
+  }
+
+  /**
+   * "What moves {outcome}" for an industry that fits strongly (understand/whatMoves.ts): when the
+   * table has a yes/no, class or score outcome, or an amount of cases with no timeline, the charts of
+   * its strongest drivers that no chart of the view already sets against the outcome (or a column that
+   * records it, such as an exit date beside an exit status). Its fields, KPIs and charts carry
+   * WHAT_MOVES_PREFIX ids (column extras: internal fields, hidden helper KPIs), and the charts follow
+   * the template's in the drivers section.
+   */
+  private whatMovesExtras(
+    view: { domain: DomainDef; mapping: Mapping; res: KpiResolutionMap },
+    detail: UnderstandingDetail,
+    active: DatasetProfile,
+    subDomainId: string,
+  ): Pick<GenericFill, "fields" | "kpis" | "charts" | "mapping"> {
+    const none = { fields: [], kpis: [], charts: [], mapping: {} };
+    const t = detail.target;
+    if (!t || (t.type === "amount" && !detail.entity)) return none;
+    const columnOfRef = (ref: string) => (ref.startsWith("col:") ? ref.slice(4) : view.mapping.fields[ref]);
+    // The outcome and the columns that record it.
+    const family = new Set([t.column.name, ...detail.copies.map((c) => c.column)]);
+    const shown = new Set<string>();
+    const specs = recommendCharts({ ...view, profile: active, subDomain: subDomainId }).specs;
+    for (const spec of specs) {
+      const measured = spec.measures.flatMap(
+        (m) => view.res.get(m.id)?.fieldsUsed.flatMap((f) => columnOfRef(f) ?? []) ?? [],
+      );
+      if (!measured.some((c) => family.has(c))) continue;
+      for (const c of specColumns(spec, columnOfRef)) if (!family.has(c)) shown.add(c);
+    }
+    const ids = new Map<string, string>();
+    const used = new Set<string>();
+    const field = (column: string) => {
+      let id = ids.get(column);
+      if (!id) {
+        const base = `${WHAT_MOVES_PREFIX}f_${
+          column
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, "_")
+            .replace(/^_+|_+$/g, "") || "col"
+        }`;
+        id = base;
+        for (let i = 2; used.has(id); i++) id = `${base}_${i}`;
+        used.add(id);
+        ids.set(column, id);
+      }
+      return id;
+    };
+    const columns = new Map(active.columns.map((c) => [c.name, c]));
+    const wm = whatMoves({
+      outcome: {
+        column: t.column,
+        type: t.type,
+        noun: t.noun,
+        positive: t.positive,
+        text: t.column.storage === "string",
+      },
+      drivers: detail.ranked,
+      columns,
+      field,
+      kpiPrefix: WHAT_MOVES_PREFIX,
+      chartPrefix: WHAT_MOVES_PREFIX,
+      shown,
+      subDomains: [subDomainId],
+      rowsWord: "rows",
+    });
+    if (!wm.charts.length) return none;
+    return {
+      fields: [...ids].map(([column, id]) => ({
+        id,
+        label: friendly(column),
+        roles: [columns.get(column)?.role ?? "dimension"],
+        synonyms: [],
+        weight: 1,
+      })),
+      kpis: wm.kpis,
+      charts: wm.charts,
+      mapping: Object.fromEntries([...ids].map(([column, id]) => [id, column])),
     };
   }
 
@@ -1437,6 +1731,16 @@ export class Session {
       chartData: this.lastCharts,
       fmt,
       roster: ctx.domain.subDomains.find((s) => s.id === ctx.subDomainId)?.timeModel === "roster",
+      // What moves the outcome, worked out on the rows of the last refresh (understand/drivers.ts).
+      outcome:
+        ctx.detail.target && this.active
+          ? {
+              profile: this.active,
+              target: ctx.detail.target,
+              kinds: ctx.detail.kinds,
+              rowsWord: ctx.detail.rowsWord,
+            }
+          : undefined,
     });
   }
 

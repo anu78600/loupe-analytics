@@ -33,6 +33,12 @@
  * it nothing, or the industry explains few of the file's columns
  * (ContextResult.fit), the ones made from the other columns fill it after the
  * industry's own; the full dashboard holds those in "From your other columns".
+ *
+ * A dashboard designed from the data (generic, or an industry that fits few
+ * columns) is titled from the data (ContextResult.understanding.title:
+ * "Wine quality analysis") and its charts follow the plan's ranking
+ * (ContextResult.plan): the most telling chart leads. An industry that fits
+ * strongly keeps its own title and order.
  */
 import * as React from "react";
 import {
@@ -95,12 +101,15 @@ import {
 import { DeltaChip, orderByGoal, sharedComparison } from "../KpiCards";
 import { renderOffscreen, StaticChart } from "../../export/report";
 import {
+  dataLed,
   defaultPageTitle,
   kpiIconName,
+  PAGE_CHARTS,
   pageKpiIds,
   pageSubtitle,
   pickPageCharts,
   placeCharts,
+  planRank,
   slicerValue,
   yearOf,
   yearRange,
@@ -209,7 +218,14 @@ export function pageModel(s: PageState, fmt: FormatOptions, title?: string | nul
   const shown = [...dims.slice(0, 4), ...dims.slice(4).filter((d) => filtered.has(d.column))];
   const inView = s.lastCompute?.rows;
   return {
-    title: title?.trim() || defaultPageTitle(ctx.domain.name, { generic: ctx.domain.generic, roster }),
+    title:
+      title?.trim() ||
+      defaultPageTitle(ctx.domain.name, {
+        generic: ctx.domain.generic,
+        roster,
+        weak: ctx.fit.weak,
+        understood: ctx.understanding?.title,
+      }),
     autoTitle: !title?.trim(),
     subtitle: pageSubtitle(
       kpis.map((k) => k.meta.group),
@@ -247,14 +263,17 @@ export function pageModel(s: PageState, fmt: FormatOptions, title?: string | nul
  * nothing, or the industry fits few of the columns (`fill`), the charts made for the other columns
  * join them: the full dashboard holds those in "From your other columns", which pickPageCharts
  * otherwise keeps off the page. Read as breakdowns, they are picked the same way, after the
- * industry's own charts chosen for executives.
+ * industry's own charts chosen for executives. A dashboard designed from the data (generic, or
+ * `fill`) picks by the plan's ranking instead, so its most telling chart leads.
  */
 function pageCharts(s: PageState, fill: boolean): PlacedChart[] {
+  const ctx = s.context;
   const specs = allSpecs(s);
-  const own = pickPageCharts(s.widgets, specs, s.charts);
+  const rank = ctx && dataLed(ctx) ? planRank(ctx.plan) : undefined;
+  const own = pickPageCharts(s.widgets, specs, s.charts, PAGE_CHARTS, rank);
   if (own.length && !fill) return placeCharts(own);
   const all = specs.map((x) => (x.section === "columns" ? { ...x, section: "breakdown" as const } : x));
-  return placeCharts(pickPageCharts(s.widgets, all, s.charts));
+  return placeCharts(pickPageCharts(s.widgets, all, s.charts, PAGE_CHARTS, rank));
 }
 
 /** The live page's model, rebuilt when anything it shows changes. */

@@ -77,7 +77,20 @@ import { averageOf, friendly, totalOf } from "@/engine/core/labels";
 import { COLUMN_GROUP, COLUMN_PREFIX, pairKpis, usablePairs } from "@/engine/kpi/columnKpis";
 import type { KpiResolutionMap } from "@/engine/kpi/resolve";
 import { withoutColumns } from "@/engine/profile/hidden";
-import { CADENCE_NOUN, describeTable, nounOf, pluralOf, type TableShape } from "./tableShape";
+import {
+  CADENCE_NOUN,
+  describeTable,
+  fileNounOf,
+  nounOf,
+  pluralOf,
+  type ShapeOutcome,
+  type TableShape,
+} from "./tableShape";
+import type { DataUnderstanding } from "@/engine/understand/types";
+import type { DriverDetail } from "@/engine/understand/drivers";
+import { outcomeNoun, positiveValue, timelineOf } from "@/engine/understand/outcome";
+import { whatMoves } from "@/engine/understand/whatMoves";
+import { CLEAR_LINK, MIN_STRENGTH, linkWords } from "@/engine/understand/drivers";
 
 export const GENERIC_ID = "generic";
 
@@ -331,6 +344,105 @@ function correlations(
 /** A correlation as analysts write it: two decimals and a true minus sign ("r = −0.31"). */
 const rText = (r: number) => `r = ${r.toFixed(2).replace("-", "−")}`;
 
+/**
+ * The sentence naming the strongest link among `among`, worded by strength
+ * (understand/drivers.ts linkWords): "Of the numbers, alcohol moves closely
+ * with quality (r = 0.65)." from 0.5, "moves with" from 0.3, and below that
+ * "has the strongest link with quality, a weak one (r = −0.17)".
+ */
+function linkSentence(
+  column: string,
+  outcome: string,
+  strength: number,
+  stat: string,
+  among: string,
+): string {
+  const words = linkWords(strength);
+  return words
+    ? `Of the ${among}, ${column} ${words} ${outcome} most (${stat}).`
+    : `Of the ${among}, ${column} has the strongest link with ${outcome}, a weak one (${stat}).`;
+}
+
+/** "r = 0.44", "η = 0.41", "V = 0.32": a driver's statistic as analysts write it. */
+const statText = (d: Pick<DriverDetail, "method" | "value">) =>
+  d.method === "correlation"
+    ? rText(d.value)
+    : `${d.method === "association" ? "V" : "η"} = ${d.value.toFixed(2)}`;
+
+/** "passengers" → "passenger", "houses" → "house": one row of a plural noun. */
+const nounOfPlural = (plural: string) =>
+  plural.endsWith("ies")
+    ? `${plural.slice(0, -3)}y`
+    : plural.replace(/(ches|shes|sses|xes)$/, (m) => m.slice(0, -2)).replace(/s$/, "");
+
+/** How a yes/no outcome is read: how "yes" is spelt, the filter that picks it, and its rate's and count's names. */
+interface YesFacts {
+  /** "Yes", "1", "TRUE", "Exited". */
+  label: string;
+  where: Predicate;
+  /** "Survival rate", "Churn rate", "Exit rate". */
+  rateName: string;
+  /** "Survived", "Exited", "Churn: Yes". */
+  countName: string;
+  /** Matched by value in a text column (not by truth). */
+  text: boolean;
+}
+
+/**
+ * The facts of a yes/no outcome column read through `field`: a two-value
+ * text column is matched on its "yes" value as written (understand/outcome
+ * positiveValue), a yes/no or 0/1 column on its truth. The rate is named
+ * after the event the outcome counts (outcomeNoun: survived → survival), the
+ * count after the column when it is a past participle ("Survived"), else
+ * after the value ("Exited"), else "{column}: {yes}".
+ */
+function yesOf(c: ColumnProfile, field: string, ds?: Dataset): YesFacts {
+  const col = ds ? columnByName(ds, c.name) : undefined;
+  const value = c.storage === "string" ? positiveValue(c) : null;
+  const label = col?.kind === "boolean" ? col.trueLabel : c.storage === "number" ? "1" : (value ?? "yes");
+  const where: Predicate = value !== null ? { field, in: [value] } : { field, isTrue: true };
+  const name = friendly(c.name);
+  const last = name.split(" ").pop() ?? name;
+  const countName =
+    /ed$/i.test(last) && !/^is\b/i.test(name)
+      ? capitalise(name)
+      : !/^(yes|y|true|t|1)$/i.test(label)
+        ? capitalise(label)
+        : `${capitalise(name)}: ${label}`;
+  return {
+    label,
+    where,
+    rateName: `${capitalise(outcomeNoun(c, "binary", label))} rate`,
+    countName,
+    text: value !== null,
+  };
+}
+
+/** The field ids an expression reads, following KPI refs through `lookup`. */
+function exprFields(
+  e: Expr,
+  lookup: (id: string) => Expr | undefined,
+  seen: Set<string> = new Set(),
+): Set<string> {
+  const out = new Set(fieldsOf(e));
+  for (const r of refsOf(e)) {
+    if (seen.has(r)) continue;
+    seen.add(r);
+    const inner = lookup(r);
+    if (inner) exprFields(inner, lookup, seen).forEach((f) => out.add(f));
+  }
+  return out;
+}
+
+/** The field ids a chart axis reads. */
+function axisFields(a: AxisDef): string[] {
+  if ("time" in a) return [a.time];
+  if ("field" in a) return [a.field];
+  if ("part" in a) return [a.of];
+  if ("bins" in a) return [...fieldsOf(a.bins)];
+  return [];
+}
+
 /** Name words of a score where a higher value is better (a wine's quality, a grade, a rating). */
 const BETTER_HIGHER = new Set(["quality", "grade", "rating", "score"]);
 
@@ -343,14 +455,58 @@ export interface GenericDomain {
 }
 
 /**
+ * What the understanding (understand/understand.ts) lends the generic
+ * dashboard: the outcome, what one row is, and every column measured
+ * against the outcome on the rows, strongest first (weak ones included).
+ */
+export interface GenericLead {
+  understanding: DataUnderstanding;
+  ranked: readonly DriverDetail[];
+}
+
+/** A noun read from a column or name that is a plain word or two ("passenger", "wine sample"). */
+const plainNoun = (s: string) => /^[a-z][a-z-]*( [a-z][a-z-]*)?$/i.test(s) && !/ per /.test(s);
+
+/**
  * Builds the fallback domain and its identity mapping from a dataset profile.
  * `ds`, when given, is read only to find the two measures that move together
  * most closely (the scatter chart); every other choice comes from the profile.
  * Pass the analysis profile, so a hidden column is never read.
+ *
+ * With `lead` (version 49.0), the dashboard is designed around the outcome
+ * the understanding chose: a yes/no outcome's rate by the categories that
+ * move it most, by bands of the strongest number and the numbers' averages
+ * for yes against no; a class outcome's mix and what sets the classes
+ * apart; a score's distribution and what moves with it (48.1); an amount in
+ * a table of cases (a house's sale price) averaged by the categories that
+ * move it, against the strongest number and as a distribution, never summed.
+ * Every feature is ranked by how strongly it moves the outcome, not by its
+ * place in the file. Other shapes keep their own dashboards and add the
+ * "What moves …" charts (understand/whatMoves.ts) when a driver is strong
+ * enough. Without `lead`, the outcome is read from the column names alone.
  */
-export function buildGenericDomain(profile: DatasetProfile, ds?: Dataset): GenericDomain {
-  // The file name only names what a rated table's rows are ("winequality-white.csv": wines).
-  const shape = describeTable(profile, ds?.source.fileName);
+export function buildGenericDomain(profile: DatasetProfile, ds?: Dataset, lead?: GenericLead): GenericDomain {
+  const u = lead?.understanding;
+  const outcomeColumn = u?.outcome ? profile.columns.find((c) => c.name === u.outcome?.column) : undefined;
+  const entityTable = timelineOf(profile) === null;
+  // The understanding's outcome decides the shape: a yes/no, class or score outcome makes a labelled
+  // table around it, an amount in a table of cases (no timeline) a table read around its result, and
+  // an amount in a table of transactions leaves the shape to the table.
+  const chosen: ShapeOutcome | null | undefined = lead
+    ? outcomeColumn && u?.outcome && (u.outcome.type !== "amount" || entityTable)
+      ? { column: outcomeColumn, type: u.outcome.type }
+      : null
+    : undefined;
+  // The file name only names what a rated table's rows are ("winequality-white.csv": wines); when it says
+  // nothing ("cleaned.xlsx"), the sheet may ("winequality-white").
+  const named =
+    ds && ds.source.sheet && fileNounOf(ds.source.fileName, "") === null
+      ? ds.source.sheet
+      : ds?.source.fileName;
+  const shape = describeTable(profile, named, chosen);
+  // An amount read as the result of each case: its own dashboard, unless the table is a survey or a scorecard.
+  const amountLed =
+    chosen?.type === "amount" && (shape.kind === "list" || shape.kind === "lookup") ? chosen.column : null;
   const used = new Set<string>();
   const idOf = new Map<string, string>();
   const fields: FieldDef[] = profile.columns.map((c) => {
@@ -374,6 +530,7 @@ export function buildGenericDomain(profile: DatasetProfile, ds?: Dataset): Gener
   // The outcome and the survey's questions have KPIs of their own; they are no plain measure or category.
   const special = new Set<string>([
     ...(shape.outcome ? [shape.outcome.column.name] : []),
+    ...(amountLed ? [amountLed.name] : []),
     ...shape.likert.map((q) => q.column.name),
     ...shape.ratings.map((q) => q.column.name),
   ]);
@@ -418,10 +575,41 @@ export function buildGenericDomain(profile: DatasetProfile, ds?: Dataset): Gener
   const ordinal =
     shape.kind === "labelled" && shape.outcome?.kind === "ordinal" ? shape.outcome.column : null;
   const rowNoun = ordinal ? shape.noun : null;
-  const linked = ordinal && ds ? correlations(ds, ordinal, shape.measures) : [];
+  const byName = new Map(profile.columns.map((c) => [c.name, c]));
+  // The understanding's drivers, strongest first, as columns of this profile (a hidden column is not in it).
+  const rankedAs = (as: DriverDetail["as"]) =>
+    (lead?.ranked ?? []).flatMap((d) => {
+      const c = byName.get(d.column);
+      return d.as === as && c && !special.has(c.name) ? [{ c, d }] : [];
+    });
+  const numericRanked = rankedAs("numeric");
+  const categoryRanked = rankedAs("category");
+  const linked = ordinal
+    ? lead
+      ? numericRanked.map(({ c, d }) => ({ c, r: d.value }))
+      : ds
+        ? correlations(ds, ordinal, shape.measures)
+        : []
+    : [];
+  // The outcome-led dashboards (a yes/no or class outcome, an amount of cases) read their features
+  // strongest first; the others keep the shape's order.
+  const binary = shape.kind === "labelled" && shape.outcome?.kind === "binary" ? shape.outcome.column : null;
+  const classes = shape.kind === "labelled" && shape.outcome?.kind === "class" ? shape.outcome.column : null;
+  const dataLed = Boolean(binary || classes || amountLed);
+  const pool = amountLed ? shape.measures.filter((c) => c !== amountLed) : shape.measures;
+  const strongest = numericRanked.map((x) => x.c).filter((c) => pool.includes(c));
   const features = ordinal
     ? [...linked.map((x) => x.c), ...shape.measures.filter((c) => !linked.some((x) => x.c === c))]
-    : shape.measures;
+    : dataLed
+      ? [...strongest, ...pool.filter((c) => !strongest.includes(c))]
+      : shape.measures;
+  // What a row is, when the understanding names it plainly ("passengers", "houses"), for outcome-led names.
+  const caseWord =
+    dataLed && u && u.subject.nounSource !== "default" && plainNoun(u.subject.noun) ? u.subject.plural : null;
+  const cases = caseWord ?? "rows";
+  const driverOf = (c: ColumnProfile) => lead?.ranked.find((d) => d.column === c.name);
+  // A yes/no outcome: how "yes" is spelt, the test that picks it, and the names of its rate and count.
+  const yes = binary ? yesOf(binary, fid(binary), ds) : null;
 
   const kpis: KpiDef[] = [];
   const has = (id: string) => kpis.some((k) => k.id === id);
@@ -463,7 +651,9 @@ export function buildGenericDomain(profile: DatasetProfile, ds?: Dataset): Gener
           ? "Events"
           : rowNoun
             ? capitalise(pluralOf(rowNoun))
-            : "Rows",
+            : caseWord
+              ? capitalise(caseWord)
+              : "Rows",
     definition:
       shape.kind === "survey"
         ? "Number of survey responses (rows) in the selection."
@@ -471,7 +661,9 @@ export function buildGenericDomain(profile: DatasetProfile, ds?: Dataset): Gener
           ? "Number of events (rows) in the selection."
           : rowNoun
             ? `Number of ${pluralOf(rowNoun)} (rows) in the selection.`
-            : "Number of rows in the selection.",
+            : caseWord
+              ? `Number of ${caseWord} (rows) in the selection.`
+              : "Number of rows in the selection.",
     formula: "Count of rows",
     format: "integer",
     direction: "neutral",
@@ -651,12 +843,14 @@ export function buildGenericDomain(profile: DatasetProfile, ds?: Dataset): Gener
     const o = shape.outcome.column;
     const O = fid(o);
     const L = label(o);
-    if (shape.outcome.kind === "binary") {
+    if (binary && yes) {
+      // How often the outcome is yes ("Survival rate"), and how many rows are ("Survived"). Text values
+      // are matched as the file spells them ("Exited"); a yes/no or 0/1 column by its truth.
       kpi({
         id: `rate_${O}`,
-        name: `${L} rate`,
-        definition: `Share of rows where ${L} is yes (true or 1), out of the rows with a value.`,
-        formula: `Rows where ${L} is yes ÷ rows with a value`,
+        name: yes.rateName,
+        definition: `Share of the ${cases} where ${L} is ${yes.label}, out of those with a value.`,
+        formula: `${capitalise(cases)} where ${L} is ${yes.label} ÷ ${cases} with a value`,
         format: "percent",
         direction: "neutral",
         tier: "hero",
@@ -665,22 +859,22 @@ export function buildGenericDomain(profile: DatasetProfile, ds?: Dataset): Gener
         expr: {
           op: "div",
           args: [
-            { agg: "count", where: { field: O, isTrue: true } },
+            { agg: "count", where: yes.where },
             { agg: "count", where: { field: O, notNull: true } },
           ],
         },
       });
       kpi({
         id: `yes_${O}`,
-        name: `${L}: yes`,
-        definition: `Number of rows where ${L} is yes (true or 1).`,
-        formula: `Count of rows where ${L} is yes`,
+        name: yes.countName,
+        definition: `Number of ${cases} where ${L} is ${yes.label}.`,
+        formula: `Count of ${cases} where ${L} is ${yes.label}`,
         format: "integer",
         direction: "neutral",
-        tier: "supporting",
+        tier: "hero",
         priority: 3,
         group: "Outcome",
-        expr: { agg: "count", where: { field: O, isTrue: true } },
+        expr: { agg: "count", where: yes.where },
       });
     } else if (shape.outcome.kind === "ordinal" && o.numeric) {
       // A score on a short scale: its average, and how many reach the top of the scale. The bar is named
@@ -746,8 +940,8 @@ export function buildGenericDomain(profile: DatasetProfile, ds?: Dataset): Gener
         formula: `Count of distinct ${L}`,
         format: "integer",
         direction: "neutral",
-        tier: "supporting",
-        priority: 3,
+        tier: lead ? "hero" : "supporting",
+        priority: lead ? 2 : 3,
         group: "Outcome",
         expr: { agg: "countDistinct", of: O },
       });
@@ -760,8 +954,8 @@ export function buildGenericDomain(profile: DatasetProfile, ds?: Dataset): Gener
           formula: `Rows where ${L} is "${v.value}" ÷ rows with a value`,
           format: "percent",
           direction: "neutral",
-          tier: i < 2 ? "hero" : "supporting",
-          priority: 2 + i,
+          tier: i < 2 && !lead ? "hero" : "supporting",
+          priority: lead ? 10 + i : 2 + i,
           group: "Outcome",
           expr: {
             op: "div",
@@ -777,12 +971,13 @@ export function buildGenericDomain(profile: DatasetProfile, ds?: Dataset): Gener
     // is a hero, the next three (charted by score) support it.
     features.slice(0, 12).forEach((c, i) => {
       const link = ordinal && i === 0 ? linked[0] : undefined;
+      const driver = !ordinal && i === 0 ? driverOf(c) : undefined;
       kpi({
         id: `avg_${fid(c)}`,
         name: averageOf(c.name),
         definition: ordinal
-          ? `Average ${label(c)} across the ${rowNoun ? pluralOf(rowNoun) : "rows"} in the selection. Each row is one ${rowNoun ?? "case"} measured, so a characteristic is averaged, not added up.${link ? ` Of the measured characteristics, ${label(c)} moves most closely with ${L} (${rText(link.r)}).` : ""}`
-          : `Average ${label(c)} across the rows in the selection. Each row is one case, so a feature is averaged, not added up.`,
+          ? `Average ${label(c)} across the ${rowNoun ? pluralOf(rowNoun) : "rows"} in the selection. Each row is one ${rowNoun ?? "case"} measured, so a characteristic is averaged, not added up.${link ? ` ${linkSentence(label(c), L, Math.abs(link.r), rText(link.r), "measured characteristics")}` : ""}`
+          : `Average ${label(c)} across the ${cases} in the selection. Each row is one case, so a feature is averaged, not added up.${driver ? ` ${linkSentence(label(c), L, driver.strength, statText(driver), "numbers")}` : ""}`,
         formula: `Average of ${label(c)}`,
         format: averageFormat(c),
         direction: "neutral",
@@ -792,12 +987,18 @@ export function buildGenericDomain(profile: DatasetProfile, ds?: Dataset): Gener
             : i < 4
               ? "supporting"
               : "detail"
-          : i < 2
-            ? "hero"
-            : i < 6
-              ? "supporting"
-              : "detail",
-        priority: ordinal && i === 0 ? 5 : 6 + i,
+          : lead
+            ? i === 0
+              ? "hero"
+              : i < 5
+                ? "supporting"
+                : "detail"
+            : i < 2
+              ? "hero"
+              : i < 6
+                ? "supporting"
+                : "detail",
+        priority: (ordinal || lead) && i === 0 ? 5 : 6 + i,
         group: "Features",
         expr: { agg: "avg", of: { field: fid(c) } },
         caveat: rateCaveat(c),
@@ -805,7 +1006,57 @@ export function buildGenericDomain(profile: DatasetProfile, ds?: Dataset): Gener
     });
   }
 
-  if (!timeShaped && shape.kind !== "labelled") {
+  if (amountLed) {
+    // A table of cases read around their result (a house's sale price, an employee's salary): each row
+    // is one case, so the result is averaged (and its median given), never added up, and so is every
+    // feature, strongest first.
+    const o = amountLed;
+    const O = fid(o);
+    const L = label(o);
+    const one = caseWord ? caseWord.replace(/s$/, "") : "case";
+    kpi({
+      id: `avg_${O}`,
+      name: averageOf(o.name),
+      definition: `Average ${L} of the ${cases} in the selection. Each row is one ${one}, so ${L} is averaged, never added up.`,
+      formula: `Average of ${L}`,
+      format: averageFormat(o),
+      direction: "neutral",
+      tier: "hero",
+      priority: 2,
+      group: "Outcome",
+      expr: { agg: "avg", of: { field: O } },
+    });
+    kpi({
+      id: `median_${O}`,
+      name: `Median ${L}`,
+      definition: `The middle ${L} of the ${cases} in the selection: half are above it and half below, so a few very large values don't pull it.`,
+      formula: `Median of ${L}`,
+      format: averageFormat(o),
+      direction: "neutral",
+      tier: "hero",
+      priority: 3,
+      group: "Outcome",
+      expr: { agg: "median", of: { field: O } },
+    });
+    features.slice(0, 12).forEach((c, i) => {
+      const driver = i === 0 ? driverOf(c) : undefined;
+      kpi({
+        id: `avg_${fid(c)}`,
+        name: averageOf(c.name),
+        definition: `Average ${label(c)} across the ${cases} in the selection. Each row is one ${one}, so a feature is averaged, not added up.${driver ? ` ${linkSentence(label(c), L, driver.strength, statText(driver), "numbers")}` : ""}`,
+        formula: `Average of ${label(c)}`,
+        format: averageFormat(c),
+        direction: "neutral",
+        tier: i === 0 ? "hero" : i < 5 ? "supporting" : "detail",
+        priority: i === 0 ? 5 : 6 + i,
+        group: "Features",
+        expr: { agg: "avg", of: { field: fid(c) } },
+        caveat: rateCaveat(c),
+      });
+    });
+  }
+
+  if (!timeShaped && shape.kind !== "labelled" && !amountLed) {
     // Lists, event logs, lookups, scorecards and a survey's other columns: totals of the measures
     // that add up, averages of the rest, distinct counts of repeating ids.
     ids.slice(0, 2).forEach((c, i) => {
@@ -968,415 +1219,770 @@ export function buildGenericDomain(profile: DatasetProfile, ds?: Dataset): Gener
   const levels = Boolean(scorecard) || !primaryAdds;
   const charts: ChartTemplate[] = [];
   const chart = (c: ChartTemplate) => charts.push(c);
-  // A trend needs a date that says when rows happened (never a birthday or a single day's stamp).
-  if (date && shape.kind !== "lookup" && (shape.timeline || scorecard)) {
-    chart({
-      id: "g_trend",
-      title: `${primaryName} over time`,
-      kind: levels ? "line" : primaryId === "records" ? "bar" : "area",
-      section: "trend",
-      x: { time: fid(date) },
-      measures: [primaryId],
-      reason: scorecard
-        ? `${primaryName} on each ${friendly(date.name)}: a line shows how the metric moves.`
-        : levels
-          ? `${primaryName} is an average or a rate, so a line shows how it moves; it is never summed over time.`
-          : `A date column (${friendly(date.name)}) and a measure that adds up: the trend over time.`,
-      alternatives: levels ? ["bar"] : ["line", "bar"],
-      size: { w: 8, h: 4 },
-      priority: 1,
-    });
-    const nextMeasure = shape.measures.find((c) => c !== first);
-    // A time series's second measure; rows over time say nothing when each period has one row.
-    const second = scorecard
-      ? kpis.find((k) => k.id.startsWith("metric_") && k.id !== primaryId)
-      : timeShaped
-        ? nextMeasure
-          ? (byId(`avg_${fid(nextMeasure)}`) ?? byId(`total_${fid(nextMeasure)}`))
-          : undefined
-        : (kpis.find((k) => k.id.startsWith("total_") && k.id !== primaryId) ??
-          (primaryId !== "records" ? byId("records") : undefined));
-    if (second)
+  if (dataLed) ledCharts();
+  else {
+    // A trend needs a date that says when rows happened (never a birthday or a single day's stamp).
+    if (date && shape.kind !== "lookup" && (shape.timeline || scorecard)) {
       chart({
-        id: "g_trend2",
-        title: `${second.name} over time`,
-        kind: second.id === "records" ? "bar" : "line",
+        id: "g_trend",
+        title: `${primaryName} over time`,
+        kind: levels ? "line" : primaryId === "records" ? "bar" : "area",
         section: "trend",
         x: { time: fid(date) },
-        measures: [second.id],
-        reason: "A second measure on its own axis (never a dual-axis chart).",
-        alternatives: ["line", "area", "bar"],
-        size: { w: 4, h: 4 },
-        priority: 2,
-      });
-    // A year or more of readings: the months of the year side by side show the seasonal pattern.
-    const span = date.temporal?.spanDays ?? 0;
-    const fine = shape.cadence === "day" || shape.cadence === "week" || shape.cadence === "month";
-    if (timeShaped && span >= 365 && fine)
-      chart({
-        id: "g_season",
-        title: `${primaryName} by month of year`,
-        kind: levels ? "line" : "bar",
-        section: "drivers",
-        x: { part: "month", of: fid(date) },
         measures: [primaryId],
-        reason: `Every year's ${levels ? "readings" : "figures"} together, January to December: the seasonal pattern.`,
-        alternatives: levels ? ["bar"] : ["line"],
-        size: { w: 6, h: 4 },
+        reason: scorecard
+          ? `${primaryName} on each ${friendly(date.name)}: a line shows how the metric moves.`
+          : levels
+            ? `${primaryName} is an average or a rate, so a line shows how it moves; it is never summed over time.`
+            : `A date column (${friendly(date.name)}) and a measure that adds up: the trend over time.`,
+        alternatives: levels ? ["bar"] : ["line", "bar"],
+        size: { w: 8, h: 4 },
         priority: 1,
       });
-    // Rows by weekday mean something for events and plain lists, not for readings, answers or metrics.
-    if (shape.kind === "eventLog" || shape.kind === "list")
+      const nextMeasure = shape.measures.find((c) => c !== first);
+      // A time series's second measure; rows over time say nothing when each period has one row.
+      const second = scorecard
+        ? kpis.find((k) => k.id.startsWith("metric_") && k.id !== primaryId)
+        : timeShaped
+          ? nextMeasure
+            ? (byId(`avg_${fid(nextMeasure)}`) ?? byId(`total_${fid(nextMeasure)}`))
+            : undefined
+          : (kpis.find((k) => k.id.startsWith("total_") && k.id !== primaryId) ??
+            (primaryId !== "records" ? byId("records") : undefined));
+      if (second)
+        chart({
+          id: "g_trend2",
+          title: `${second.name} over time`,
+          kind: second.id === "records" ? "bar" : "line",
+          section: "trend",
+          x: { time: fid(date) },
+          measures: [second.id],
+          reason: "A second measure on its own axis (never a dual-axis chart).",
+          alternatives: ["line", "area", "bar"],
+          size: { w: 4, h: 4 },
+          priority: 2,
+        });
+      // A year or more of readings: the months of the year side by side show the seasonal pattern.
+      const span = date.temporal?.spanDays ?? 0;
+      const fine = shape.cadence === "day" || shape.cadence === "week" || shape.cadence === "month";
+      if (timeShaped && span >= 365 && fine)
+        chart({
+          id: "g_season",
+          title: `${primaryName} by month of year`,
+          kind: levels ? "line" : "bar",
+          section: "drivers",
+          x: { part: "month", of: fid(date) },
+          measures: [primaryId],
+          reason: `Every year's ${levels ? "readings" : "figures"} together, January to December: the seasonal pattern.`,
+          alternatives: levels ? ["bar"] : ["line"],
+          size: { w: 6, h: 4 },
+          priority: 1,
+        });
+      // Rows by weekday mean something for events and plain lists, not for readings, answers or metrics.
+      if (shape.kind === "eventLog" || shape.kind === "list")
+        chart({
+          id: "g_weekday",
+          title: `${byId("records")?.name ?? "Rows"} by weekday`,
+          kind: "bar",
+          section: "drivers",
+          x: { part: "dow", of: fid(date) },
+          measures: ["records"],
+          reason: "Day-of-week pattern: columns in calendar order reveal weekly seasonality.",
+          alternatives: ["line"],
+          size: { w: 4, h: 4 },
+          priority: 5,
+        });
+    }
+    if (timeOfDay && !date?.temporal?.hasTime) {
       chart({
-        id: "g_weekday",
-        title: `${byId("records")?.name ?? "Rows"} by weekday`,
+        id: "g_hour",
+        title: `${byId("records")?.name ?? "Rows"} by hour of ${friendly(timeOfDay.name)}`,
         kind: "bar",
         section: "drivers",
-        x: { part: "dow", of: fid(date) },
+        x: { part: "hour", of: fid(timeOfDay) },
         measures: ["records"],
-        reason: "Day-of-week pattern: columns in calendar order reveal weekly seasonality.",
+        reason: `${friendly(timeOfDay.name)} holds times of day: columns by hour show when activity peaks.`,
         alternatives: ["line"],
         size: { w: 4, h: 4 },
-        priority: 5,
+        priority: 6,
       });
-  }
-  if (timeOfDay && !date?.temporal?.hasTime) {
-    chart({
-      id: "g_hour",
-      title: `${byId("records")?.name ?? "Rows"} by hour of ${friendly(timeOfDay.name)}`,
-      kind: "bar",
-      section: "drivers",
-      x: { part: "hour", of: fid(timeOfDay) },
-      measures: ["records"],
-      reason: `${friendly(timeOfDay.name)} holds times of day: columns by hour show when activity peaks.`,
-      alternatives: ["line"],
-      size: { w: 4, h: 4 },
-      priority: 6,
-    });
-  }
+    }
 
-  // Breakdowns: a time series or panel by its entity first (a panel on each entity's latest period),
-  // then the categories.
-  const breakdowns = [...(timeShaped && entity ? [entity] : []), ...dims];
-  breakdowns.slice(0, 3).forEach((d, i) => {
-    const latest = shape.kind === "panel" && d === entity && first ? byId(`latest_${fid(first)}`) : undefined;
-    const m = latest ?? primary;
-    const id = m?.id ?? "records";
-    const name = m?.name ?? "Rows";
-    const additive = adds(id);
-    // A class outcome is shown as each category's mix of classes.
-    if (shape.kind === "labelled" && shape.outcome?.kind === "class" && d !== entity) {
+    // Breakdowns: a time series or panel by its entity first (a panel on each entity's latest period),
+    // then the categories.
+    const breakdowns = [...(timeShaped && entity ? [entity] : []), ...dims];
+    breakdowns.slice(0, 3).forEach((d, i) => {
+      const latest =
+        shape.kind === "panel" && d === entity && first ? byId(`latest_${fid(first)}`) : undefined;
+      const m = latest ?? primary;
+      const id = m?.id ?? "records";
+      const name = m?.name ?? "Rows";
+      const additive = adds(id);
+      // A class outcome is shown as each category's mix of classes.
+      if (shape.kind === "labelled" && shape.outcome?.kind === "class" && d !== entity) {
+        chart({
+          id: `g_by_${fid(d)}`,
+          title: `${label(shape.outcome.column)} mix by ${label(d)}`,
+          kind: "stackedBar100",
+          section: "breakdown",
+          x: { field: fid(d) },
+          series: { field: fid(shape.outcome.column) },
+          measures: ["records"],
+          reason: `How the ${pluralOf(nounOf(shape.outcome.column))} split within each ${label(d)}: each column adds up to 100%.`,
+          alternatives: ["stackedBar", "heatmap"],
+          size: { w: 6, h: 5 },
+          priority: 1 + i,
+        });
+        return;
+      }
+      // IN/US states get a tile map; otherwise sorted bars, or a donut for a small (≤ 6 values) non-first
+      // dimension of a measure that adds up, never for an average, a rate or a scorecard metric.
+      const small = d.distinct <= 6 && additive && !scorecard;
+      const map =
+        d.geoLevel === "state" && (d.geoRegion === "IN" || d.geoRegion === "US") && additive && !scorecard;
       chart({
         id: `g_by_${fid(d)}`,
-        title: `${label(shape.outcome.column)} mix by ${label(d)}`,
-        kind: "stackedBar100",
+        title: `${name} by ${friendly(d.name)}`,
+        kind: map ? "geoTile" : small && i > 0 ? "donut" : "hbar",
         section: "breakdown",
         x: { field: fid(d) },
-        series: { field: fid(shape.outcome.column) },
-        measures: ["records"],
-        reason: `How the ${pluralOf(nounOf(shape.outcome.column))} split within each ${label(d)}: each column adds up to 100%.`,
-        alternatives: ["stackedBar", "heatmap"],
-        size: { w: 6, h: 5 },
+        measures: [id],
+        topN: 10,
+        others: additive,
+        // An average over a handful of rows is noise; those groups are set aside, as everywhere else.
+        ...(additive || d === entity ? {} : { minGroupRows: 5 }),
+        reason:
+          small && i > 0
+            ? `Part-to-whole with ${d.distinct} categories: a donut reads at a glance.`
+            : latest
+              ? `Each ${nounOf(d)} on its latest ${CADENCE_NOUN[shape.cadence ?? "day"]}: sorted bars${d.distinct > 10 ? ", the top 10" : ""}.`
+              : `A category (${friendly(d.name)}) and a measure: sorted bars${d.distinct > 10 ? (additive ? ", top 10 plus Others" : ", the top 10") : ""}.`,
+        alternatives: additive ? ["hbar", "bar", "treemap", "donut"] : ["hbar", "bar", "table"],
+        size: { w: i === 0 ? 6 : 4, h: 5 },
         priority: 1 + i,
       });
-      return;
-    }
-    // IN/US states get a tile map; otherwise sorted bars, or a donut for a small (≤ 6 values) non-first
-    // dimension of a measure that adds up, never for an average, a rate or a scorecard metric.
-    const small = d.distinct <= 6 && additive && !scorecard;
-    const map =
-      d.geoLevel === "state" && (d.geoRegion === "IN" || d.geoRegion === "US") && additive && !scorecard;
-    chart({
-      id: `g_by_${fid(d)}`,
-      title: `${name} by ${friendly(d.name)}`,
-      kind: map ? "geoTile" : small && i > 0 ? "donut" : "hbar",
-      section: "breakdown",
-      x: { field: fid(d) },
-      measures: [id],
-      topN: 10,
-      others: additive,
-      // An average over a handful of rows is noise; those groups are set aside, as everywhere else.
-      ...(additive || d === entity ? {} : { minGroupRows: 5 }),
-      reason:
-        small && i > 0
-          ? `Part-to-whole with ${d.distinct} categories: a donut reads at a glance.`
-          : latest
-            ? `Each ${nounOf(d)} on its latest ${CADENCE_NOUN[shape.cadence ?? "day"]}: sorted bars${d.distinct > 10 ? ", the top 10" : ""}.`
-            : `A category (${friendly(d.name)}) and a measure: sorted bars${d.distinct > 10 ? (additive ? ", top 10 plus Others" : ", the top 10") : ""}.`,
-      alternatives: additive ? ["hbar", "bar", "treemap", "donut"] : ["hbar", "bar", "table"],
-      size: { w: i === 0 ? 6 : 4, h: 5 },
-      priority: 1 + i,
     });
-  });
 
-  // A survey's answers, question by question.
-  shape.likert.slice(0, 3).forEach((q, i) =>
-    chart({
-      id: `g_answers_${fid(q.column)}`,
-      title: `Answers to ${label(q.column)}`,
-      kind: "hbar",
-      section: "breakdown",
-      x: { field: fid(q.column) },
-      measures: ["records"],
-      reason: `How the ${pluralOf("response")} spread across the ${q.levels.length} answers on the ${q.scale} scale.`,
-      alternatives: ["bar", "donut", "table"],
-      size: { w: 4, h: 4 },
-      priority: 4 + i,
-    }),
-  );
-  if (shape.kind === "labelled" && shape.outcome?.kind === "class") {
-    // Each class's average of the first features: what sets the classes apart.
-    const o = shape.outcome.column;
-    shape.measures.slice(0, 2).forEach((c, i) =>
+    // A survey's answers, question by question.
+    shape.likert.slice(0, 3).forEach((q, i) =>
       chart({
-        id: `g_class_${fid(c)}`,
-        title: `${averageOf(c.name)} by ${label(o)}`,
+        id: `g_answers_${fid(q.column)}`,
+        title: `Answers to ${label(q.column)}`,
         kind: "hbar",
         section: "breakdown",
-        x: { field: fid(o) },
-        measures: [ensureAverage(c)],
-        reason: `How ${label(c)} differs between the ${pluralOf(nounOf(o))}: sorted bars of each one's average.`,
-        alternatives: ["bar", "table"],
-        size: { w: 4, h: 4 },
-        priority: 5 + i,
-      }),
-    );
-    if (first && dims.length < 2)
-      chart({
-        id: "g_heatmap",
-        title: `${label(o)} × ${label(first)} band`,
-        kind: "heatmap",
-        section: "drivers",
-        x: { bins: { field: fid(first) }, count: 10, format: "number", label: `${label(first)} band` },
-        series: { field: fid(o) },
+        x: { field: fid(q.column) },
         measures: ["records"],
-        reason: `Where each ${nounOf(o)} sits on ${label(first)}: rows counted by class and band.`,
-        alternatives: ["stackedBar"],
-        size: { w: 8, h: 5 },
-        priority: 4,
-      });
-    chart({
-      id: "g_classes",
-      title: `${byId("records")?.name ?? "Rows"} by ${label(shape.outcome.column)}`,
-      kind: shape.outcome.column.distinct <= 6 ? "donut" : "hbar",
-      section: "breakdown",
-      x: { field: fid(shape.outcome.column) },
-      measures: ["records"],
-      reason: `How many rows carry each ${nounOf(shape.outcome.column)}: a balanced table has classes of similar size.`,
-      alternatives: ["hbar", "bar", "table"],
-      size: { w: 4, h: 4 },
-      priority: 0,
-    });
-  }
-  if (ordinal) {
-    // A rated table: how the scores spread, then what moves with the score. Every axis is the score
-    // itself, read in the scale's order (3, 4 … 9), and every measure is a count or an average.
-    const O = fid(ordinal);
-    const L = label(ordinal);
-    const each = rowNoun ? pluralOf(rowNoun) : "rows";
-    chart({
-      id: "g_outcome_dist",
-      title: `${byId("records")?.name ?? "Rows"} by ${L}`,
-      kind: "bar",
-      section: "breakdown",
-      x: { field: O },
-      measures: ["records"],
-      reason: `How many ${each} sit at each ${L} score, in the scale's order.`,
-      alternatives: ["line", "table"],
-      size: { w: 6, h: 4 },
-      priority: 0,
-    });
-    linked.slice(0, 3).forEach(({ c, r }, i) =>
-      chart({
-        id: `g_outcome_${fid(c)}`,
-        title: `${averageOf(c.name)} by ${L}`,
-        kind: "bar",
-        section: "drivers",
-        x: { field: O },
-        measures: [ensureAverage(c)],
-        minGroupRows: 5,
-        reason: `${i === 0 ? `Of the measured characteristics, ${label(c)} moves most closely with ${L}` : `${label(c)} is among the characteristics that move most closely with ${L}`} (${rText(r)} across the ${each}): its average at each ${L} score, in the scale's order. Scores held by fewer than 5 ${each} are set aside.`,
-        alternatives: ["line", "table"],
-        size: { w: 6, h: 4 },
-        priority: 1 + i,
+        reason: `How the ${pluralOf("response")} spread across the ${q.levels.length} answers on the ${q.scale} scale.`,
+        alternatives: ["bar", "donut", "table"],
+        size: { w: 4, h: 4 },
+        priority: 4 + i,
       }),
     );
-    const top = linked[0];
-    if (top) {
-      // One point per row when a key names each and there are few enough to read; otherwise one point
-      // per band of the characteristic, at its average characteristic and average score.
-      const key = shape.key && profile.rowCount <= 5000 ? shape.key : null;
+    if (shape.kind === "labelled" && shape.outcome?.kind === "class") {
+      // Each class's average of the first features: what sets the classes apart.
+      const o = shape.outcome.column;
+      shape.measures.slice(0, 2).forEach((c, i) =>
+        chart({
+          id: `g_class_${fid(c)}`,
+          title: `${averageOf(c.name)} by ${label(o)}`,
+          kind: "hbar",
+          section: "breakdown",
+          x: { field: fid(o) },
+          measures: [ensureAverage(c)],
+          reason: `How ${label(c)} differs between the ${pluralOf(nounOf(o))}: sorted bars of each one's average.`,
+          alternatives: ["bar", "table"],
+          size: { w: 4, h: 4 },
+          priority: 5 + i,
+        }),
+      );
+      if (first && dims.length < 2)
+        chart({
+          id: "g_heatmap",
+          title: `${label(o)} × ${label(first)} band`,
+          kind: "heatmap",
+          section: "drivers",
+          x: { bins: { field: fid(first) }, count: 10, format: "number", label: `${label(first)} band` },
+          series: { field: fid(o) },
+          measures: ["records"],
+          reason: `Where each ${nounOf(o)} sits on ${label(first)}: rows counted by class and band.`,
+          alternatives: ["stackedBar"],
+          size: { w: 8, h: 5 },
+          priority: 4,
+        });
       chart({
-        id: "g_outcome_scatter",
-        title: `${capitalise(label(top.c))} vs ${L}`,
-        kind: "scatter",
-        section: "drivers",
-        x: key
-          ? { field: fid(key) }
-          : { bins: { field: fid(top.c) }, count: 24, format: "number", label: `${label(top.c)} band` },
-        measures: [ensureAverage(top.c), `avg_${O}`],
-        reason: key
-          ? `Each point is one ${rowNoun ?? "row"}: its ${label(top.c)} against its ${L} (${rText(top.r)}); a trendline shows the link.`
-          : `Each point is a band of ${label(top.c)} values, at its average ${label(top.c)} and average ${L} (${rText(top.r)} across the ${each}); a trendline shows the link.`,
-        alternatives: ["table"],
-        size: { w: 6, h: 4 },
-        priority: 4,
-      });
-    }
-    const profiled = linked.slice(0, 4);
-    if (profiled.length >= 2)
-      chart({
-        id: "g_outcome_table",
-        title: `Measured characteristics by ${L}`,
-        kind: "table",
-        section: "detail",
-        x: { field: O },
-        measures: profiled.map(({ c }) => ensureAverage(c)),
-        others: false,
-        reason: `The average of the ${profiled.length} characteristics that move most closely with ${L}, at each ${L} score.`,
-        alternatives: ["bar"],
-        size: { w: 12, h: 5 },
+        id: "g_classes",
+        title: `${byId("records")?.name ?? "Rows"} by ${label(shape.outcome.column)}`,
+        kind: shape.outcome.column.distinct <= 6 ? "donut" : "hbar",
+        section: "breakdown",
+        x: { field: fid(shape.outcome.column) },
+        measures: ["records"],
+        reason: `How many rows carry each ${nounOf(shape.outcome.column)}: a balanced table has classes of similar size.`,
+        alternatives: ["hbar", "bar", "table"],
+        size: { w: 4, h: 4 },
         priority: 0,
       });
-  }
-
-  // The spread of the main measure (a survey's first rating). A rated table shows the spread of its
-  // scores instead (g_outcome_dist).
-  const rating = shape.kind === "survey" ? shape.ratings[0] : undefined;
-  const spread = shape.kind === "survey" ? rating?.column : (first ?? measures[0] ?? averages[0]);
-  if (spread && !ordinal) {
-    chart({
-      id: "g_hist",
-      title: `Distribution of ${label(spread)}`,
-      kind: "histogram",
-      section: "drivers",
-      x: {
-        bins: { field: fid(spread) },
-        // A rating gets one band per point of its scale.
-        count: rating ? Math.max(2, rating.max - rating.min) : 14,
-        format:
-          spread.role === "currency"
-            ? "currency"
-            : spread.role === "percentage" && spread.percentScale === 1
-              ? "percent"
-              : "number",
-        label: `${label(spread)} band`,
-      },
-      measures: ["records"],
-      reason: "One numeric column's spread: a histogram of value bands.",
-      alternatives: ["bar"],
-      size: { w: 6, h: 4 },
-      priority: 2,
-    });
-  }
-  // A practice table's outcome rate across the bands of its first feature.
-  if (shape.kind === "labelled" && shape.outcome?.kind === "binary" && first) {
-    const rate = `rate_${fid(shape.outcome.column)}`;
-    chart({
-      id: "g_outcome_bands",
-      title: `${byId(rate)?.name ?? "Outcome rate"} by ${label(first)} band`,
-      kind: "bar",
-      section: "drivers",
-      x: { bins: { field: fid(first) }, count: 10, format: "number", label: `${label(first)} band` },
-      measures: [rate],
-      reason: `How often ${label(shape.outcome.column)} is yes in each band of ${label(first)}.`,
-      alternatives: ["line"],
-      size: { w: 6, h: 4 },
-      priority: 3,
-    });
-  }
-
-  // The two measures that move together most closely, one point per entity, row or category.
-  const pointCol =
-    timeShaped && entity && entity.distinct >= 5
-      ? entity
-      : shape.key && profile.rowCount <= 5000
-        ? shape.key
-        : [...dims].filter((d) => d.distinct >= 5).sort((a, b) => b.distinct - a.distinct)[0];
-  // Continuous figures only (ten or more values): a 0/1 flag or a small code has no cloud to read. A
-  // survey's ratings count, being what it asked.
-  const continuous = shape.measures.filter((c) => c.distinct >= 10);
-  const candidates =
-    shape.kind === "survey" ? [...shape.ratings.map((r) => r.column), ...continuous] : continuous;
-  const pair = ds && pointCol && candidates.length >= 2 ? mostCorrelated(ds, candidates) : null;
-  if (pair && pointCol) {
-    const each = pointCol === shape.key ? `row (one ${nounOf(pointCol)})` : nounOf(pointCol);
-    chart({
-      id: "g_scatter",
-      title: `${label(pair.a)} vs ${label(pair.b)}${pointCol === shape.key ? "" : ` by ${label(pointCol)}`}`,
-      kind: "scatter",
-      section: "drivers",
-      x: { field: fid(pointCol) },
-      measures: [ensureAverage(pair.a), ensureAverage(pair.b)],
-      reason: `Of the numeric columns, ${label(pair.a)} and ${label(pair.b)} move together most closely across the rows (r = ${pair.r.toFixed(2)}). Each point is one ${each}; a trendline shows the link.`,
-      alternatives: ["table"],
-      size: { w: 6, h: 4 },
-      priority: 3,
-    });
-  }
-
-  // Where values concentrate: two categories, or a panel's entities across its years.
-  if (charts.some((c) => c.id === "g_heatmap")) {
-    // A class outcome's bands already have it.
-  } else if (dims.length >= 2) {
-    const [r, c] = [dims[0] as ColumnProfile, dims[1] as ColumnProfile];
-    if (r.distinct <= 12 && c.distinct <= 24)
+    }
+    if (ordinal) {
+      // A rated table: how the scores spread, then what moves with the score. Every axis is the score
+      // itself, read in the scale's order (3, 4 … 9), and every measure is a count or an average.
+      const O = fid(ordinal);
+      const L = label(ordinal);
+      const each = rowNoun ? pluralOf(rowNoun) : "rows";
       chart({
-        id: "g_heatmap",
-        title: `${primaryName}: ${friendly(r.name)} × ${friendly(c.name)}`,
-        kind: "heatmap",
-        section: "drivers",
-        x: { field: fid(c) },
-        series: { field: fid(r) },
-        measures: [primaryId],
-        reason: "Two categories and one measure: a heatmap shows where values concentrate.",
-        alternatives: ["stackedBar"],
-        size: { w: 8, h: 5 },
-        priority: 4,
+        id: "g_outcome_dist",
+        title: `${byId("records")?.name ?? "Rows"} by ${L}`,
+        kind: "bar",
+        section: "breakdown",
+        x: { field: O },
+        measures: ["records"],
+        reason: `How many ${each} sit at each ${L} score, in the scale's order.`,
+        alternatives: ["line", "table"],
+        size: { w: 6, h: 4 },
+        priority: 0,
       });
-  } else if (shape.kind === "panel" && entity && shape.period && entity.distinct <= 40 && first) {
-    const avg = byId(`avg_${fid(first)}`);
-    if (avg)
+      linked.slice(0, 3).forEach(({ c, r }, i) =>
+        chart({
+          id: `g_outcome_${fid(c)}`,
+          title: `${averageOf(c.name)} by ${L}`,
+          kind: "bar",
+          section: "drivers",
+          x: { field: O },
+          measures: [ensureAverage(c)],
+          minGroupRows: 5,
+          reason: `${i === 0 ? `Of the measured characteristics, ${label(c)} has the strongest link with ${L}` : `${label(c)} is among the characteristics with the strongest links to ${L}`} (${rText(r)} across the ${each}${Math.abs(r) < CLEAR_LINK ? ", a weak link" : ""}): its average at each ${L} score, in the scale's order. Scores held by fewer than 5 ${each} are set aside.`,
+          alternatives: ["line", "table"],
+          size: { w: 6, h: 4 },
+          priority: 1 + i,
+        }),
+      );
+      const top = linked[0];
+      if (top) {
+        // One point per row when a key names each and there are few enough to read; otherwise one point
+        // per band of the characteristic, at its average characteristic and average score.
+        const key = shape.key && profile.rowCount <= 5000 ? shape.key : null;
+        chart({
+          id: "g_outcome_scatter",
+          title: `${capitalise(label(top.c))} vs ${L}`,
+          kind: "scatter",
+          section: "drivers",
+          x: key
+            ? { field: fid(key) }
+            : { bins: { field: fid(top.c) }, count: 24, format: "number", label: `${label(top.c)} band` },
+          measures: [ensureAverage(top.c), `avg_${O}`],
+          reason: key
+            ? `Each point is one ${rowNoun ?? "row"}: its ${label(top.c)} against its ${L} (${rText(top.r)}); a trendline shows the link.`
+            : `Each point is a band of ${label(top.c)} values, at its average ${label(top.c)} and average ${L} (${rText(top.r)} across the ${each}); a trendline shows the link.`,
+          alternatives: ["table"],
+          size: { w: 6, h: 4 },
+          priority: 4,
+        });
+      }
+      const profiled = linked.slice(0, 4);
+      if (profiled.length >= 2)
+        chart({
+          id: "g_outcome_table",
+          title: `Measured characteristics by ${L}`,
+          kind: "table",
+          section: "detail",
+          x: { field: O },
+          measures: profiled.map(({ c }) => ensureAverage(c)),
+          others: false,
+          reason: `The average of the ${profiled.length} characteristics with the strongest links to ${L}, at each ${L} score.`,
+          alternatives: ["bar"],
+          size: { w: 12, h: 5 },
+          priority: 0,
+        });
+    }
+
+    // The spread of the main measure (a survey's first rating). A rated table shows the spread of its
+    // scores instead (g_outcome_dist).
+    const rating = shape.kind === "survey" ? shape.ratings[0] : undefined;
+    const spread = shape.kind === "survey" ? rating?.column : (first ?? measures[0] ?? averages[0]);
+    if (spread && !ordinal) {
       chart({
-        id: "g_heatmap",
-        title: `${avg.name}: ${label(entity)} × ${label(shape.period)}`,
-        kind: "heatmap",
+        id: "g_hist",
+        title: `Distribution of ${label(spread)}`,
+        kind: "histogram",
         section: "drivers",
-        x: { field: fid(shape.period) },
-        series: { field: fid(entity) },
-        measures: [avg.id],
-        reason: `Each ${nounOf(entity)} across the ${pluralOf(CADENCE_NOUN[shape.cadence ?? "year"])}: a heatmap shows who is high or low, and when.`,
+        x: {
+          bins: { field: fid(spread) },
+          // A rating gets one band per point of its scale.
+          count: rating ? Math.max(2, rating.max - rating.min) : 14,
+          format:
+            spread.role === "currency"
+              ? "currency"
+              : spread.role === "percentage" && spread.percentScale === 1
+                ? "percent"
+                : "number",
+          label: `${label(spread)} band`,
+        },
+        measures: ["records"],
+        reason: "One numeric column's spread: a histogram of value bands.",
+        alternatives: ["bar"],
+        size: { w: 6, h: 4 },
+        priority: 2,
+      });
+    }
+    // A practice table's outcome rate across the bands of its first feature.
+    if (shape.kind === "labelled" && shape.outcome?.kind === "binary" && first) {
+      const rate = `rate_${fid(shape.outcome.column)}`;
+      chart({
+        id: "g_outcome_bands",
+        title: `${byId(rate)?.name ?? "Outcome rate"} by ${label(first)} band`,
+        kind: "bar",
+        section: "drivers",
+        x: { bins: { field: fid(first) }, count: 10, format: "number", label: `${label(first)} band` },
+        measures: [rate],
+        reason: `How often ${label(shape.outcome.column)} is yes in each band of ${label(first)}.`,
+        alternatives: ["line"],
+        size: { w: 6, h: 4 },
+        priority: 3,
+      });
+    }
+
+    // The two measures that move together most closely, one point per entity, row or category.
+    const pointCol =
+      timeShaped && entity && entity.distinct >= 5
+        ? entity
+        : shape.key && profile.rowCount <= 5000
+          ? shape.key
+          : [...dims].filter((d) => d.distinct >= 5).sort((a, b) => b.distinct - a.distinct)[0];
+    // Continuous figures only (ten or more values): a 0/1 flag or a small code has no cloud to read. A
+    // survey's ratings count, being what it asked.
+    const continuous = shape.measures.filter((c) => c.distinct >= 10);
+    const candidates =
+      shape.kind === "survey" ? [...shape.ratings.map((r) => r.column), ...continuous] : continuous;
+    const pair = ds && pointCol && candidates.length >= 2 ? mostCorrelated(ds, candidates) : null;
+    if (pair && pointCol) {
+      const each = pointCol === shape.key ? `row (one ${nounOf(pointCol)})` : nounOf(pointCol);
+      chart({
+        id: "g_scatter",
+        title: `${label(pair.a)} vs ${label(pair.b)}${pointCol === shape.key ? "" : ` by ${label(pointCol)}`}`,
+        kind: "scatter",
+        section: "drivers",
+        x: { field: fid(pointCol) },
+        measures: [ensureAverage(pair.a), ensureAverage(pair.b)],
+        reason: `Of the numeric columns, ${label(pair.a)} and ${label(pair.b)} move together most closely across the rows (r = ${pair.r.toFixed(2)}). Each point is one ${each}; a trendline shows the link.`,
         alternatives: ["table"],
-        size: { w: 8, h: 5 },
-        priority: 4,
+        size: { w: 6, h: 4 },
+        priority: 3,
       });
-  }
-  const tableAxis = timeShaped && entity ? entity : dims[0];
-  if (tableAxis) {
-    chart({
-      id: "g_table",
-      title: `Detail by ${friendly(tableAxis.name)}`,
-      kind: "table",
-      section: "detail",
-      x: { field: fid(tableAxis) },
-      measures: kpis
-        .filter((k) => k.tier !== "detail")
-        .slice(0, 5)
-        .map((k) => k.id),
-      topN: 25,
-      others: false,
-      reason: "Several measures per category: a sortable table.",
-      alternatives: ["hbar"],
-      size: { w: 12, h: 6 },
-      priority: 1,
-    });
+    }
+
+    // Where values concentrate: two categories, or a panel's entities across its years.
+    if (charts.some((c) => c.id === "g_heatmap")) {
+      // A class outcome's bands already have it.
+    } else if (dims.length >= 2) {
+      const [r, c] = [dims[0] as ColumnProfile, dims[1] as ColumnProfile];
+      if (r.distinct <= 12 && c.distinct <= 24)
+        chart({
+          id: "g_heatmap",
+          title: `${primaryName}: ${friendly(r.name)} × ${friendly(c.name)}`,
+          kind: "heatmap",
+          section: "drivers",
+          x: { field: fid(c) },
+          series: { field: fid(r) },
+          measures: [primaryId],
+          reason: "Two categories and one measure: a heatmap shows where values concentrate.",
+          alternatives: ["stackedBar"],
+          size: { w: 8, h: 5 },
+          priority: 4,
+        });
+    } else if (shape.kind === "panel" && entity && shape.period && entity.distinct <= 40 && first) {
+      const avg = byId(`avg_${fid(first)}`);
+      if (avg)
+        chart({
+          id: "g_heatmap",
+          title: `${avg.name}: ${label(entity)} × ${label(shape.period)}`,
+          kind: "heatmap",
+          section: "drivers",
+          x: { field: fid(shape.period) },
+          series: { field: fid(entity) },
+          measures: [avg.id],
+          reason: `Each ${nounOf(entity)} across the ${pluralOf(CADENCE_NOUN[shape.cadence ?? "year"])}: a heatmap shows who is high or low, and when.`,
+          alternatives: ["table"],
+          size: { w: 8, h: 5 },
+          priority: 4,
+        });
+    }
+    const tableAxis = timeShaped && entity ? entity : dims[0];
+    if (tableAxis) {
+      chart({
+        id: "g_table",
+        title: `Detail by ${friendly(tableAxis.name)}`,
+        kind: "table",
+        section: "detail",
+        x: { field: fid(tableAxis) },
+        measures: kpis
+          .filter((k) => k.tier !== "detail")
+          .slice(0, 5)
+          .map((k) => k.id),
+        topN: 25,
+        others: false,
+        reason: "Several measures per category: a sortable table.",
+        alternatives: ["hbar"],
+        size: { w: 12, h: 6 },
+        priority: 1,
+      });
+    }
   }
 
+  /**
+   * The outcome-led charts (version 49.0): the outcome against the columns that move it most, strongest
+   * first, every axis read in its own order and nothing summed. Categories are the understanding's drivers
+   * of strength MIN_STRENGTH or more; when none is that strong, the strongest two all the same (a flat
+   * chart says the outcome doesn't differ); without the rows, the categories in order.
+   */
+  function ledCharts(): void {
+    const groupable = (c: ColumnProfile) =>
+      c.distinct >= 2 && c.distinct <= 30 && c.nullPct < 0.5 && !special.has(c.name);
+    const strongCats = categoryRanked
+      .filter(({ c, d }) => groupable(c) && d.strength >= MIN_STRENGTH)
+      .map((x) => x.c);
+    const anyCats = categoryRanked.filter(({ c }) => groupable(c)).map((x) => x.c);
+    const cats = (lead ? (strongCats.length ? strongCats : anyCats.slice(0, 2)) : dims).slice(0, 3);
+    const nums = features;
+    const why = (c: ColumnProfile, fallback: string) => driverOf(c)?.sentence ?? fallback;
+    const bins = (c: ColumnProfile, count = 10) => ({
+      bins: { field: fid(c) },
+      count,
+      format: "number" as const,
+      label: `${label(c)} band`,
+    });
+    const spread = (c: ColumnProfile, priority: number) =>
+      chart({
+        id: "g_hist",
+        title: `Distribution of ${label(c)}`,
+        kind: "histogram",
+        section: "drivers",
+        x: {
+          bins: { field: fid(c) },
+          count: 14,
+          format: c.role === "currency" ? "currency" : "number",
+          label: `${label(c)} band`,
+        },
+        measures: ["records"],
+        reason: `How ${label(c)} spreads across the ${cases}: a histogram of value bands.`,
+        alternatives: ["bar"],
+        size: { w: 6, h: 4 },
+        priority,
+      });
+    const records = byId("records")?.name ?? "Rows";
+
+    if (binary && yes) {
+      const O = fid(binary);
+      const L = label(binary);
+      const rate = `rate_${O}`;
+      if (date && shape.timeline)
+        chart({
+          id: "g_trend",
+          title: `${yes.rateName} over time`,
+          kind: "line",
+          section: "trend",
+          x: { time: fid(date) },
+          measures: [rate],
+          reason: `${yes.rateName} is a share, so a line shows how it moves; it is never added up over time.`,
+          alternatives: ["bar"],
+          size: { w: 8, h: 4 },
+          priority: 1,
+        });
+      cats.forEach((d, i) =>
+        chart({
+          id: `g_by_${fid(d)}`,
+          title: `${yes.rateName} by ${label(d)}`,
+          kind: "hbar",
+          section: "breakdown",
+          x: { field: fid(d) },
+          measures: [rate],
+          topN: 10,
+          others: false,
+          minGroupRows: 5,
+          reason: `${why(d, `How often ${L} is ${yes.label} in each ${label(d)} group, highest first.`)} Groups under 5 rows are set aside.`,
+          alternatives: ["bar", "table"],
+          size: { w: i === 0 ? 6 : 4, h: 5 },
+          priority: 1 + i,
+        }),
+      );
+      const n0 = nums[0];
+      if (n0)
+        chart({
+          id: "g_outcome_bands",
+          title: `${yes.rateName} by ${label(n0)} band`,
+          kind: "bar",
+          section: "drivers",
+          x: bins(n0),
+          measures: [rate],
+          reason: `${why(n0, `How often ${L} is ${yes.label} in each band of ${label(n0)}.`)} The bands read in order.`,
+          alternatives: ["line"],
+          size: { w: 6, h: 4 },
+          priority: 1,
+        });
+      // The averages for yes against no: the numbers that move the outcome (the strongest one when none does).
+      const moving = nums.filter((c) => (driverOf(c)?.strength ?? 0) >= MIN_STRENGTH);
+      const yesNo = !lead ? nums : moving.length ? moving : nums.slice(0, 1);
+      yesNo.slice(0, 2).forEach((c, i) =>
+        chart({
+          id: `g_yesno_${fid(c)}`,
+          title: `${averageOf(c.name)} by ${L}`,
+          kind: "bar",
+          section: "drivers",
+          x: { field: O },
+          measures: [ensureAverage(c)],
+          reason: why(c, `The average ${label(c)} where ${L} is ${yes.label}, against the rest.`),
+          alternatives: ["hbar", "table"],
+          size: { w: 4, h: 4 },
+          priority: 2 + i,
+        }),
+      );
+      const [a, b] = cats;
+      if (a && b && a.distinct <= 12 && b.distinct <= 24)
+        chart({
+          id: "g_heatmap",
+          title: `${yes.rateName}: ${label(a)} × ${label(b)}`,
+          kind: "heatmap",
+          section: "drivers",
+          x: { field: fid(b) },
+          series: { field: fid(a) },
+          measures: [rate],
+          reason: `The two categories that move ${L} most, together: where the rate is highest and lowest.`,
+          alternatives: ["table"],
+          size: { w: 8, h: 5 },
+          priority: 4,
+        });
+      if (cats[0])
+        chart({
+          id: "g_table",
+          title: `Detail by ${label(cats[0])}`,
+          kind: "table",
+          section: "detail",
+          x: { field: fid(cats[0]) },
+          measures: ["records", rate, ...nums.slice(0, 3).map((c) => ensureAverage(c))],
+          topN: 25,
+          others: false,
+          reason: `${records}, the ${yes.rateName.toLowerCase()} and the averages that move with it, for each ${label(cats[0])}.`,
+          alternatives: ["hbar"],
+          size: { w: 12, h: 6 },
+          priority: 1,
+        });
+      if (charts.length < 4 && n0) spread(n0, 5);
+      return;
+    }
+
+    if (classes) {
+      const O = fid(classes);
+      const L = label(classes);
+      const each = pluralOf(nounOf(classes));
+      chart({
+        id: "g_classes",
+        title: `${records} by ${L}`,
+        kind: classes.distinct <= 6 ? "donut" : "hbar",
+        section: "breakdown",
+        x: { field: O },
+        measures: ["records"],
+        reason: `How many ${cases} carry each ${nounOf(classes)}: a balanced table has classes of similar size.`,
+        alternatives: ["hbar", "bar", "table"],
+        size: { w: 4, h: 4 },
+        priority: 0,
+      });
+      nums.slice(0, 3).forEach((c, i) =>
+        chart({
+          id: `g_class_${fid(c)}`,
+          title: `${averageOf(c.name)} by ${L}`,
+          kind: "hbar",
+          section: "breakdown",
+          x: { field: O },
+          measures: [ensureAverage(c)],
+          reason: why(c, `How ${label(c)} differs between the ${each}: sorted bars of each one's average.`),
+          alternatives: ["bar", "table"],
+          size: { w: 4, h: 4 },
+          priority: 1 + i,
+        }),
+      );
+      const mixed = (lead ? strongCats : dims).slice(0, 2);
+      mixed.forEach((d, i) =>
+        chart({
+          id: `g_by_${fid(d)}`,
+          title: `${L} mix by ${label(d)}`,
+          kind: "stackedBar100",
+          section: "breakdown",
+          x: { field: fid(d) },
+          series: { field: O },
+          measures: ["records"],
+          reason: why(d, `How the ${each} split within each ${label(d)}: each column adds up to 100%.`),
+          alternatives: ["stackedBar", "heatmap"],
+          size: { w: 6, h: 5 },
+          priority: 4 + i,
+        }),
+      );
+      const n0 = nums[0];
+      if (n0 && mixed.length < 2)
+        chart({
+          id: "g_heatmap",
+          title: `${L} × ${label(n0)} band`,
+          kind: "heatmap",
+          section: "drivers",
+          x: bins(n0),
+          series: { field: O },
+          measures: ["records"],
+          reason: `Where each ${nounOf(classes)} sits on ${label(n0)}: rows counted by class and band.`,
+          alternatives: ["stackedBar"],
+          size: { w: 8, h: 5 },
+          priority: 4,
+        });
+      if (n0) spread(n0, 3);
+      const profiled = nums.slice(0, 4);
+      if (profiled.length >= 2)
+        chart({
+          id: "g_class_table",
+          title: `Averages by ${L}`,
+          kind: "table",
+          section: "detail",
+          x: { field: O },
+          measures: profiled.map((c) => ensureAverage(c)),
+          others: false,
+          reason: `The average of the ${profiled.length} numbers that set the ${each} apart most, for each ${nounOf(classes)}.`,
+          alternatives: ["bar"],
+          size: { w: 12, h: 5 },
+          priority: 0,
+        });
+      return;
+    }
+
+    if (amountLed) {
+      const o = amountLed;
+      const O = fid(o);
+      const L = label(o);
+      const avg = `avg_${O}`;
+      cats.forEach((d, i) =>
+        chart({
+          id: `g_by_${fid(d)}`,
+          title: `${averageOf(o.name)} by ${label(d)}`,
+          kind: "hbar",
+          section: "breakdown",
+          x: { field: fid(d) },
+          measures: [avg],
+          topN: 10,
+          others: false,
+          minGroupRows: 5,
+          reason: `${why(d, `The average ${L} in each ${label(d)} group, highest first.`)} Groups under 5 rows are set aside.`,
+          alternatives: ["bar", "table"],
+          size: { w: i === 0 ? 6 : 4, h: 5 },
+          priority: 1 + i,
+        }),
+      );
+      const [n0, n1] = nums;
+      if (n0) {
+        // One point per case when a key names each and there are few enough to read; otherwise one
+        // point per band of the number, at its average and the outcome's average.
+        const key = shape.key && profile.rowCount <= 5000 ? shape.key : null;
+        const d0 = driverOf(n0);
+        const stat = d0 ? ` (${statText(d0)})` : "";
+        chart({
+          id: "g_outcome_scatter",
+          title: `${capitalise(label(n0))} vs ${L}`,
+          kind: "scatter",
+          section: "drivers",
+          x: key ? { field: fid(key) } : bins(n0, 24),
+          measures: [ensureAverage(n0), avg],
+          reason: key
+            ? `Each point is one ${caseWord ? nounOfPlural(caseWord) : "row"}: its ${label(n0)} against its ${L}${stat}; a trendline shows the link.`
+            : `Each point is a band of ${label(n0)} values, at its average ${label(n0)} and average ${L}${stat}; a trendline shows the link.`,
+          alternatives: ["table"],
+          size: { w: 6, h: 4 },
+          priority: 1,
+        });
+      }
+      spread(o, 2);
+      if (n1)
+        chart({
+          id: "g_outcome_bands",
+          title: `${averageOf(o.name)} by ${label(n1)} band`,
+          kind: "bar",
+          section: "drivers",
+          x: bins(n1),
+          measures: [avg],
+          reason: `${why(n1, `The average ${L} in each band of ${label(n1)}.`)} The bands read in order.`,
+          alternatives: ["line"],
+          size: { w: 6, h: 4 },
+          priority: 3,
+        });
+      const [a, b] = cats;
+      if (a && b && a.distinct <= 12 && b.distinct <= 24)
+        chart({
+          id: "g_heatmap",
+          title: `${averageOf(o.name)}: ${label(a)} × ${label(b)}`,
+          kind: "heatmap",
+          section: "drivers",
+          x: { field: fid(b) },
+          series: { field: fid(a) },
+          measures: [avg],
+          reason: `The two categories that move ${L} most, together: where the average is highest and lowest.`,
+          alternatives: ["table"],
+          size: { w: 8, h: 5 },
+          priority: 4,
+        });
+      if (cats[0])
+        chart({
+          id: "g_table",
+          title: `Detail by ${label(cats[0])}`,
+          kind: "table",
+          section: "detail",
+          x: { field: fid(cats[0]) },
+          measures: ["records", avg, `median_${O}`, ...nums.slice(0, 2).map((c) => ensureAverage(c))],
+          topN: 25,
+          others: false,
+          reason: `${records}, the average and median ${L} and the averages that move with it, for each ${label(cats[0])}.`,
+          alternatives: ["hbar"],
+          size: { w: 12, h: 6 },
+          priority: 1,
+        });
+    }
+  }
+
+  // An outcome the shape's own charts are not built around (the money of a table of transactions, a
+  // survey's yes/no answer): the charts of what moves it, when a driver is strong enough.
+  if (lead && u?.outcome && outcomeColumn && !dataLed && !ordinal) {
+    const O = fid(outcomeColumn);
+    const lookupExpr = (id: string) => byId(id)?.variants[0]?.expr;
+    const readsOutcome = (id: string) => {
+      const e = lookupExpr(id);
+      return e ? exprFields(e, lookupExpr).has(O) : false;
+    };
+    const fieldColumn = new Map([...idOf].map(([column, id]) => [id, column]));
+    const shown = new Set<string>();
+    for (const c of charts)
+      if (c.measures.some(readsOutcome))
+        for (const a of [c.x, ...(c.series ? [c.series] : [])])
+          for (const f of axisFields(a)) shown.add(fieldColumn.get(f) ?? f);
+    const positive = u.outcome.type === "binary" ? yesOf(outcomeColumn, O, ds) : null;
+    const wm = whatMoves({
+      outcome: {
+        column: outcomeColumn,
+        type: u.outcome.type,
+        noun: outcomeNoun(outcomeColumn, u.outcome.type, positive?.label),
+        positive: positive?.label ?? "",
+        text: positive?.text ?? false,
+      },
+      drivers: lead.ranked,
+      columns: byName,
+      field: (column) => idOf.get(column) as string,
+      kpiPrefix: "wm_",
+      chartPrefix: "g_wm_",
+      shown,
+      rowsWord: "rows",
+    });
+    kpis.push(...wm.kpis);
+    charts.push(...wm.charts);
+  }
+
+  // A table of cases read around its result is described as the understanding reads it ("1,460
+  // houses, with 4 measures and 3 categories"), not by the list or period it might otherwise be.
+  const description = amountLed && u?.sentences[0] ? u.sentences[0].replace(/\.$/, "") : shape.description;
   const domain: DomainDef = {
     id: GENERIC_ID,
     name: "Generic (profile-driven)",
     tagline: "Any table: KPIs and charts built from the data's own structure",
-    description: shape.description,
+    description,
     icon: "table",
     // A rated table's rows are named after what they are ("wine"), as the exports name the table.
     entity: rowNoun ?? "row",
@@ -1388,7 +1994,7 @@ export function buildGenericDomain(profile: DatasetProfile, ds?: Dataset): Gener
       {
         id: "table",
         name: shape.label,
-        description: shape.description,
+        description,
         signals: fields.slice(0, 1).map((f) => f.id),
         grain: shape.grain ?? "row",
       },
@@ -1462,6 +2068,12 @@ export interface GenericFillInput {
   mapping: Mapping;
   res: KpiResolutionMap;
   subDomainId: string;
+  /**
+   * The understanding (version 49.0). When it has an outcome the generic dashboard is built around (a
+   * yes/no, class or score outcome, or an amount of cases), the fill is that dashboard over every column
+   * in use, so the data-led charts lead an industry that fits weakly.
+   */
+  lead?: GenericLead;
 }
 
 /** A row expression with every field id renamed. */
@@ -1516,12 +2128,16 @@ function renameAxis(a: AxisDef, f: (id: string) => string): AxisDef {
 
 /**
  * The generic dashboard's charts for the columns an industry's template
- * doesn't read, for a template that builds too few charts of its own (an
- * industry chosen for a file it hardly fits: Pharma on a table of wine
- * measurements). The columns that no available template KPI reads (the date
- * axis kept, as any chart may share it) are read as a table of their own
- * (buildGenericDomain): a rated table's score distribution and what moves
- * with the score, a time series's trend, a list's breakdowns. Its charts and
+ * doesn't read, for a template that builds too few charts of its own or fits
+ * the file weakly (an industry chosen for a file it hardly fits: Pharma on a
+ * table of wine measurements). The columns that no available template KPI
+ * reads (the date axis kept, as any chart may share it) are read as a table
+ * of their own (buildGenericDomain): a rated table's score distribution and
+ * what moves with the score, a time series's trend, a list's breakdowns.
+ * When the understanding (`lead`) has an outcome the generic dashboard is
+ * built around, every column in use is read instead, so the outcome and
+ * what moves it lead even where the template reads them too (the plan
+ * ranks the template's charts on the same columns lower). Its charts and
  * the KPIs they show join the industry's domain with FILL_PREFIX ids (column
  * extras, so they have the dashboard's "From your other columns" section and
  * never take a template KPI's slot) and fields mapped one to one to their
@@ -1529,7 +2145,7 @@ function renameAxis(a: AxisDef, f: (id: string) => string): AxisDef {
  * Empty when those columns make no chart.
  */
 export function genericFill(input: GenericFillInput): GenericFill {
-  const { profile, ds, domain, mapping, res, subDomainId } = input;
+  const { profile, ds, domain, mapping, res, subDomainId, lead } = input;
   const empty: GenericFill = { fields: [], kpis: [], charts: [], mapping: {} };
   const read = new Set<string>();
   for (const x of res.values()) {
@@ -1539,9 +2155,15 @@ export function genericFill(input: GenericFillInput): GenericFill {
       if (col && col !== profile.primaryDate) read.add(col);
     }
   }
-  const rest = withoutColumns(ds, profile, read);
+  const outcome = lead?.understanding.outcome;
+  const led =
+    outcome !== null &&
+    outcome !== undefined &&
+    (outcome.type !== "amount" || timelineOf(profile) === null) &&
+    profile.columns.some((c) => c.name === outcome.column);
+  const rest = led ? profile : withoutColumns(ds, profile, read);
   if (!rest.columns.length) return empty;
-  const g = buildGenericDomain(rest, ds);
+  const g = buildGenericDomain(rest, ds, lead);
   if (!g.domain.charts.length) return empty;
   // The KPIs the charts show and the table's own headline KPIs, and the ones those refer to.
   const byId = new Map(g.domain.kpis.map((k) => [k.id, k]));
@@ -1557,7 +2179,9 @@ export function genericFill(input: GenericFillInput): GenericFill {
   g.domain.kpis.filter((k) => k.tier === "hero" && k.group !== PAIR_GROUP).forEach((k) => need(k.id));
   const field = (id: string) => `${FILL_PREFIX}f_${id}`;
   const kpiId = (id: string) => `${FILL_PREFIX}${id}`;
-  const why = ` The ${domain.name} template doesn't use these columns, so Loupe reads them as a table of their own.`;
+  const why = led
+    ? ` The ${domain.name} template fits few of this file's columns, so Loupe also reads the table around ${friendly(outcome?.column ?? "")}.`
+    : ` The ${domain.name} template doesn't use these columns, so Loupe reads them as a table of their own.`;
   const used = new Set<string>();
   g.domain.charts.forEach((c) => {
     for (const a of [c.x, ...(c.series ? [c.series] : [])]) {

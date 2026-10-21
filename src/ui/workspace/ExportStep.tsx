@@ -216,6 +216,8 @@ export function buildConfig(): LoupeConfig | null {
     mappingOverrides: s.mappingOverrides,
     classOverrides: s.classOverrides,
     roleOverrides: s.roleOverrides,
+    // Only a choice the user made: without it, Loupe chooses the outcome again when the config is applied.
+    ...(s.outcome !== undefined ? { outcome: s.outcome } : {}),
     hiddenColumns: s.hiddenColumns,
     customKpis: s.customKpis,
     ...(s.kpiLayout ? { kpiLayout: s.kpiLayout } : {}),

@@ -31,6 +31,21 @@ const roleEnum = z.enum([
   "boolean",
 ]);
 
+// Mirrors ColumnKind in engine/understand/types: the kind a "Read as …" correction stands for.
+const kindEnum = z.enum([
+  "id",
+  "time",
+  "outcome",
+  "amount",
+  "measurement",
+  "rate",
+  "score",
+  "category",
+  "place",
+  "text",
+  "flag",
+]);
+
 /**
  * Mirrors the engine's Filter union (engine/query/filter), plus `sourceId` on
  * the click-to-filter (cross-filter) entry: the chart it came from, which
@@ -141,9 +156,16 @@ export const configSchema = z.object({
       z.object({
         role: roleEnum,
         additivity: z.enum(["additive", "semi-additive", "non-additive"]).optional(),
+        /** The kind chosen with "Read as …" on Detect (version 49.0); older configs have none. */
+        kind: kindEnum.optional(),
       }),
     )
     .default({}),
+  /**
+   * The column the table is measured by, chosen on Detect (version 49.0): a
+   * column name, or null for none. Absent: Loupe chooses, as for older configs.
+   */
+  outcome: z.string().nullable().optional(),
   kpiRenames: z.record(z.string(), z.string()).default({}),
   kpiTargets: z.record(z.string(), z.number()).default({}),
   dashboard: z.object({

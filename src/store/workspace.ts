@@ -36,6 +36,14 @@
  * override setters, setColumnsHidden) is recorded in that file's rule, in
  * the action itself. Demos neither learn nor apply anything, so they always
  * read the same way. Words taught in Check & map go with every file read.
+ *
+ * What the table is about (`understanding`, version 49.0) comes with the
+ * load. On Detect, before the analysis is built, a correction that changes
+ * that reading (the outcome, a column's kind, the hidden columns, the
+ * industry) never builds the analysis: the worker reads the table again
+ * (Session.understand) and the choice is built when the user moves on. Once
+ * built, those corrections rebuild the analysis like any other, and each
+ * configure's own understanding replaces the store's.
  */
 import { create } from "zustand";
 import { Comlink, engine, resetEngine } from "@/lib/engine-client";
@@ -52,7 +60,9 @@ import type {
   DomainListItem,
   LoadResult,
   QuestionAnswer,
+  RoleOverride,
 } from "@/engine/session";
+import type { ColumnKind, DataUnderstanding } from "@/engine/understand/types";
 import type { AskOrder, ChartAsk } from "@/engine/charts/ask";
 import type { KpiBatch } from "@/engine/kpi/compute";
 import type { ChartData, ChartKind, ChartSpec, LayoutMode } from "@/engine/charts/types";
@@ -206,7 +216,30 @@ interface WorkspaceState {
   // Overrides sent to the worker on every configure (see ContextRequest).
   mappingOverrides: Record<string, string | null>;
   classOverrides: Record<string, string[]>;
-  roleOverrides: Record<string, { role: SemanticRole; additivity?: Additivity }>;
+  /** Column → corrected role; a "Read as …" correction on Detect also carries the kind it stands for. */
+  roleOverrides: Record<string, RoleOverride>;
+  /**
+   * The column the table is measured by (Detect's outcome select): undefined
+   * lets Loupe choose, null means none, a column name is the user's choice.
+   * Sent with every configure and understand request, saved with a config,
+   * and cleared for a new file.
+   */
+  outcome: string | null | undefined;
+  /**
+   * What Loupe reads the table to be (engine/understand/types.ts), shown on
+   * Detect as "What this data is about": from the load, read again by the
+   * worker (Session.understand) when the outcome, a column's kind, the hidden
+   * columns or the industry change before the analysis is built, and the
+   * analysis's own (ContextResult.understanding) from each configure on.
+   */
+  understanding: DataUnderstanding | null;
+  /** True while the worker reads the table again for a correction made on Detect (Session.understand). */
+  understandingPending: boolean;
+  /**
+   * The outcome Loupe chose when the file loaded and its alternatives, so the
+   * outcome select keeps offering them after the user picks another column or none.
+   */
+  outcomeChoices: string[];
   kpiRenames: Record<string, string>;
   /** UI-only KPI targets; never sent to the engine. */
   kpiTargets: Record<string, number>;
@@ -350,9 +383,16 @@ interface WorkspaceState {
   confirmDomain: (domainId: string, subDomainId?: string | null, opts?: { goTo?: Step }) => Promise<void>;
   /**
    * The industry and data shape picked on Detect (null shape = Auto). Like
-   * any choice there, it is built when the user moves on, and learned then.
+   * any choice there, it is built when the user moves on, and learned then;
+   * the reading of the table is refreshed at once for its label.
    */
   chooseIndustry: (domainId: string, subDomainId: string | null) => void;
+  /**
+   * The outcome the table is measured by: undefined is Loupe's choice, null
+   * none, a column name the user's. Rebuilds the analysis when one exists;
+   * on Detect before that, reads the table again (built when the user moves on).
+   */
+  setOutcome: (outcome: string | null | undefined) => void;
   /** Refreshes only when `period` (the trend grain) is part of the patch. */
   setBusiness: (patch: Partial<BusinessContext>) => void;
   // setMappingOverride, setClassOverride, setRoleOverride, renameKpi and setSubDomain each trigger reconfigure().
@@ -360,11 +400,23 @@ interface WorkspaceState {
   /** Replaces every mapping override at once (the "Undo" of a mapping change) and reconfigures. */
   setMappingOverrides: (overrides: Record<string, string | null>) => void;
   setClassOverride: (key: string, values: string[]) => void;
-  /** null removes the override, restoring the detected role. */
-  setRoleOverride: (column: string, role: SemanticRole | null, additivity?: Additivity) => void;
   /**
-   * Hides columns from the analysis (or shows them again) and reconfigures.
-   * Filters on a newly hidden column are dropped, so no figure stays narrowed by it.
+   * null removes the override, restoring the detected role. `kind` is the
+   * kind a "Read as …" correction stands for (understand/kinds.ts
+   * roleForKind); a role set directly (Check & map) carries none. Before the
+   * analysis is built (Detect), the table is read again instead of built.
+   */
+  setRoleOverride: (
+    column: string,
+    role: SemanticRole | null,
+    additivity?: Additivity,
+    kind?: ColumnKind,
+  ) => void;
+  /**
+   * Hides columns from the analysis (or shows them again) and reconfigures
+   * (before the analysis is built, reads the table again instead). Filters
+   * on a newly hidden column are dropped, so no figure stays narrowed by it,
+   * and a hidden column chosen as the outcome goes back to Loupe's choice.
    */
   setColumnsHidden: (columns: string[], hidden: boolean) => void;
   dismissReplaced: () => void;
@@ -387,7 +439,8 @@ interface WorkspaceState {
    * Re-runs configure in the worker with the current overrides, keeping the
    * layout of known charts, and answers the asked questions again under the
    * new definitions. An industry chosen on Detect but not built yet goes
-   * through confirmDomain instead.
+   * through confirmDomain instead. Before any analysis is built it only reads
+   * the table again (the Detect step builds on Next).
    */
   reconfigure: () => Promise<void>;
   setMode: (mode: LayoutMode) => void;
@@ -474,6 +527,10 @@ function initialData(): WorkspaceData {
     mappingOverrides: {},
     classOverrides: {},
     roleOverrides: {},
+    outcome: undefined,
+    understanding: null,
+    understandingPending: false,
+    outcomeChoices: [],
     kpiRenames: {},
     kpiTargets: {},
     hiddenColumns: [],
@@ -553,6 +610,16 @@ let insightsLoad: Promise<void> | null = null;
 let insightsSeq = 0;
 /** Token of the newest re-answering of the questions; an older one stops. */
 let answerSeq = 0;
+/**
+ * Bumped whenever the store's understanding is replaced (a load, a configure, a new reading): a
+ * reading asked for before that describes older choices and is dropped when it arrives.
+ */
+let understandSeq = 0;
+
+/** The outcome Loupe chose and its alternatives, best first: what the outcome select always offers. */
+function outcomeChoicesOf(u: DataUnderstanding | null | undefined): string[] {
+  return u?.outcome ? [u.outcome.column, ...u.outcome.alternatives] : [];
+}
 
 /**
  * IANA time zones of the places that write dates month first: the United
@@ -668,6 +735,28 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
     insightsSeq++;
     insightsLoad = null;
     answerSeq++;
+    understandSeq++;
+  };
+
+  // Reads the table again for the choices made so far on Detect, before the analysis is built: the
+  // outcome, the kinds and roles set, the hidden columns and the industry (for its label). A reading
+  // that arrives after a newer one (or after a configure, a load) is dropped.
+  const refreshUnderstanding = async (): Promise<void> => {
+    const s = get();
+    if (!s.summary) return;
+    const token = ++understandSeq;
+    set({ understandingPending: true });
+    try {
+      const understanding = await engine().understand({
+        outcome: s.outcome,
+        roleOverrides: s.roleOverrides,
+        hiddenColumns: s.hiddenColumns,
+        domainId: s.domainId ?? undefined,
+      });
+      if (token === understandSeq) set({ understanding, understandingPending: false });
+    } catch (e) {
+      if (token === understandSeq) set({ understandingPending: false, error: toError(e) });
+    }
   };
 
   // Records a correction in the loaded file's rule (store/learned.ts): the rule found when it loaded,
@@ -774,6 +863,11 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
       mappingOverrides: choices.mappingOverrides,
       classOverrides: choices.classOverrides,
       roleOverrides: choices.roleOverrides,
+      // A new file: Loupe chooses its outcome, and the reading is the one it came with.
+      outcome: undefined,
+      understanding: res.understanding ?? null,
+      understandingPending: false,
+      outcomeChoices: outcomeChoicesOf(res.understanding),
       kpiRenames: {},
       kpiTargets: {},
       hiddenColumns: choices.hiddenColumns,
@@ -803,6 +897,9 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
       highlight: null,
       step: "detect",
     });
+    // The reading that came with the load knows nothing of a learned rule's industry, roles or
+    // hidden columns: read the table again with them.
+    if (learned?.applied) void refreshUnderstanding();
   };
 
   // Adopts a re-read of the same file (a day/month order fixed): the data, its profile and
@@ -826,6 +923,9 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
       domains: res.domains,
       timings: res.timings,
       replaced: res.replaced,
+      understanding: res.understanding ?? null,
+      understandingPending: false,
+      outcomeChoices: outcomeChoicesOf(res.understanding),
       // Results computed from the old reading of the dates go.
       charts: {},
       kpiBatch: null,
@@ -836,6 +936,8 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
     });
     if (!before.context || !before.domainId) {
       set({ loading: null });
+      // Not built yet: the new reading of the table follows the choices made on Detect.
+      void refreshUnderstanding();
       return;
     }
     // The worker dropped its analysis with the old copy of the data: build it again, same choices.
@@ -985,14 +1087,20 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
         kpiRenames: s.kpiRenames,
         hiddenColumns: s.hiddenColumns,
         customKpis: s.customKpis,
+        outcome: s.outcome,
         numberLocale: settings.numberLocale,
         currency: settings.currencyOverride,
       });
       const specs = [...context.charts, ...s.customCharts];
+      // A reading asked for before this configure describes older choices.
+      understandSeq++;
       // Reconfiguring keeps the user's layout; the first configure after a
-      // load starts from the specs' default sizes.
+      // load starts from the specs' default sizes. The charts come in the plan's order.
       set({
         context,
+        // The analysis's own reading of the table is authoritative from here on.
+        understanding: context.understanding ?? null,
+        understandingPending: false,
         // The health of the columns in use: problems in hidden columns no longer count.
         health: context.health,
         configuring: false,
@@ -1181,7 +1289,16 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
       }
     },
 
-    chooseIndustry: (domainId, subDomainId) => set({ domainId, subDomainId, industryChosen: true }),
+    chooseIndustry: (domainId, subDomainId) => {
+      set({ domainId, subDomainId, industryChosen: true });
+      // Built when the user moves on; the reading of the table names the chosen industry at once.
+      void refreshUnderstanding();
+    },
+
+    setOutcome: (outcome) => {
+      set({ outcome });
+      void get().reconfigure();
+    },
 
     setBusiness: (patch) => {
       set((s) => ({ business: { ...s.business, ...patch } }));
@@ -1226,11 +1343,11 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
       void get().reconfigure();
     },
 
-    setRoleOverride: (column, role, additivity) => {
+    setRoleOverride: (column, role, additivity, kind) => {
       set((s) => {
         const next = { ...s.roleOverrides };
         if (role === null) delete next[column];
-        else next[column] = { role, additivity };
+        else next[column] = { role, additivity, ...(kind ? { kind } : {}) };
         return { roleOverrides: next };
       });
       teach((r) =>
@@ -1249,6 +1366,8 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
           // A filter on a column that is now hidden would still narrow every figure, so it goes too.
           dimFilters: s.dimFilters.filter((f) => !gone.has(f.column)),
           crossFilter: s.crossFilter && gone.has(s.crossFilter.column) ? null : s.crossFilter,
+          // Nothing is computed from a hidden column, so it can't be the outcome: Loupe chooses again.
+          outcome: typeof s.outcome === "string" && gone.has(s.outcome) ? undefined : s.outcome,
         };
       });
       teach((r) => teachHidden(r, columns, hidden));
@@ -1266,8 +1385,9 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
         ...undoApplied(choicesOf(s), l.applied, detectedChoice(s.detection)),
         learned: { ...l, applied: null },
       });
-      // Built at once when an analysis exists; on Detect before that, the choice is built on Next as usual.
-      if (s.context) void get().reconfigure();
+      // Built at once when an analysis exists; on Detect before that, the choice is built on Next as
+      // usual (reconfigure only reads the table again).
+      void get().reconfigure();
     },
 
     forgetLearned: () => {
@@ -1322,7 +1442,14 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
 
     reconfigure: async () => {
       const s = get();
-      if (!s.domainId || !s.summary) return;
+      if (!s.summary) return;
+      // Nothing built yet (Detect): a correction is never built behind the user's back. The reading
+      // of the table follows it, and the choice is built when the user moves on.
+      if (!s.context) {
+        await refreshUnderstanding();
+        return;
+      }
+      if (!s.domainId) return;
       // An industry chosen on Detect but not built yet is built the way confirming builds it (from
       // its recommendation), never slipped in by an unrelated change such as the currency.
       if (s.context && s.domainId !== s.context.domain.id) {
@@ -1741,6 +1868,8 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
         mappingOverrides: cfg.mappingOverrides,
         classOverrides: cfg.classOverrides,
         roleOverrides: cfg.roleOverrides,
+        // A config saved before the outcome could be chosen has none: Loupe chooses, as it did then.
+        outcome: cfg.outcome,
         kpiRenames: cfg.kpiRenames,
         kpiTargets: cfg.kpiTargets,
         hiddenColumns: cfg.hiddenColumns,

@@ -7,7 +7,9 @@
  * Generators: trends (the selected period against its comparison period, and
  * the latest complete month against a year earlier), a Simpson's-paradox mix
  * check, segment gaps for rates and ratios, anomalies (robust z-score with
- * MAD), driver bands (from computed bin charts), concentration (top 20%
+ * MAD), driver bands (from computed bin charts), what moves the outcome (the
+ * strongest number and the strongest category, worked out on the selected
+ * rows by understand/drivers.ts; version 49.0), concentration (top 20%
  * share), seasonality (weekday, month of year) and caveats. Each runs inside
  * `safely`, so a failing generator yields nothing instead of breaking the
  * others. All of them read the selection only: an empty one has no insights,
@@ -73,13 +75,22 @@ import { formatDelta, formatPointDelta, formatValue, type FormatOptions } from "
 import { linearRegression, median, robustSigma } from "@/engine/core/stats";
 import { formatTogether } from "@/engine/core/together";
 import type { Expr, Predicate } from "@/engine/query/expr";
-import { fieldsOf, isAdditiveExpr } from "@/engine/query/expr";
+import { fieldsOf, isAdditiveExpr, refsOf as refsOfExpr } from "@/engine/query/expr";
 import { selectRowsCached, type Filter } from "@/engine/query/filter";
 import { kpiOrUndefined, type Resolver } from "@/engine/query/evaluate";
 import { runQuery, type ResultGroup } from "@/engine/query/run";
 import { dateBounds, evaluateMany, type KpiBatch } from "@/engine/kpi/compute";
 import type { ChartData, ChartSpec } from "@/engine/charts/types";
 import type { KpiFormat } from "@/registry/schema";
+import type { DatasetProfile } from "@/engine/profile/types";
+import type { ColumnKind } from "@/engine/understand/types";
+import {
+  CLEAR_LINK,
+  MIN_STRENGTH,
+  rankDrivers,
+  type DriverDetail,
+  type OutcomeTarget,
+} from "@/engine/understand/drivers";
 
 export type InsightKind =
   "trend" | "anomaly" | "concentration" | "seasonality" | "segment" | "driver" | "mix" | "caveat";
@@ -154,6 +165,18 @@ export interface InsightInput {
   /** Already computed chart data, keyed by spec id (driver insights read bin charts from it). */
   chartData: Map<string, ChartData>;
   fmt: FormatOptions;
+  /**
+   * The table's outcome (understand/understand.ts), so what moves it can be
+   * worked out on the selected rows: the analysis profile, the outcome read
+   * from its rows, each column's kind and what the rows are called. Absent
+   * when the table has none.
+   */
+  outcome?: {
+    profile: DatasetProfile;
+    target: OutcomeTarget;
+    kinds: ReadonlyMap<string, ColumnKind>;
+    rowsWord: string;
+  };
 }
 
 // ---------------------------------------------------------------- scoring
@@ -1320,6 +1343,114 @@ function driverInsights(input: InsightInput): Insight[] {
   return out;
 }
 
+// ---------------------------------------------------------------- what moves the outcome
+
+/** Fewer selected rows than this say too little about what moves the outcome. */
+const MIN_DRIVER_ROWS = 30;
+
+/** The columns a measure reads, following its KPI refs through the resolver. */
+function measureColumns(
+  input: Pick<InsightInput, "resolver">,
+  id: string,
+  out = new Set<string>(),
+): Set<string> {
+  const seen = new Set<string>();
+  const visit = (k: string) => {
+    if (seen.has(k)) return;
+    seen.add(k);
+    const e = kpiOrUndefined(input.resolver, k);
+    if (!e) return;
+    for (const f of fieldsOf(e))
+      try {
+        out.add(input.resolver.column(f).name);
+      } catch {
+        // An unmapped field reads no column.
+      }
+    for (const r of refsOfExpr(e)) visit(r);
+  };
+  visit(id);
+  return out;
+}
+
+/** The columns a chart reads: its axes and, through the resolver, its measures' fields. */
+function chartColumns(input: Pick<InsightInput, "resolver">, spec: ChartSpec): Set<string> {
+  const out = new Set<string>();
+  for (const a of [spec.x, spec.series]) {
+    if (!a) continue;
+    if (a.kind === "time" || a.kind === "column" || a.kind === "part") out.add(a.column);
+    if (a.kind === "bins")
+      for (const f of fieldsOf(a.expr))
+        try {
+          out.add(input.resolver.column(f).name);
+        } catch {
+          // An unmapped bin field reads no column.
+        }
+  }
+  for (const m of spec.measures) measureColumns(input, m.id, out);
+  return out;
+}
+
+/**
+ * What moves the outcome on the selected rows: the strongest number and the
+ * strongest category (strength 0.1 or more), each with its sentence and the
+ * chart that sets it against the outcome, when one exists (the chart's
+ * measure of the outcome is the insight's metric). Under filters it is
+ * worked out on the filtered rows only (understand/drivers.ts with the
+ * selection), and skipped below MIN_DRIVER_ROWS rows; groups of fewer than
+ * five rows are never compared. The money of a table of transactions gets
+ * none: its own KPIs compare it (segment gaps, concentration).
+ */
+function outcomeDriverInsights(input: InsightInput, selected: Int32Array): Insight[] {
+  const o = input.outcome;
+  // The money of a table of transactions is compared by its own KPIs (segment gaps, concentration):
+  // an average per row by category would mix how many lines a group has with how big each is.
+  if (!o || o.target.transactional || selected.length < MIN_DRIVER_ROWS) return [];
+  const filtered = selected.length < input.ds.rowCount;
+  const { ranked } = rankDrivers(o.profile, input.ds, o.target, {
+    kinds: o.kinds,
+    rows: filtered ? selected : null,
+    locale: input.fmt.locale,
+    currency: input.fmt.currency,
+    rowsWord: o.rowsWord,
+  });
+  const strongest = (as: DriverDetail["as"]) => ranked.find((d) => d.as === as && d.strength >= MIN_STRENGTH);
+  const outcome = o.target.column.name;
+  const noun = o.target.noun.charAt(0).toUpperCase() + o.target.noun.slice(1);
+  return [strongest("numeric"), strongest("category")]
+    .filter((d): d is DriverDetail => d !== undefined)
+    .map((d) => {
+      const certainty: Certainty = d.n >= 300 ? "high" : d.n >= 100 ? "medium" : "low";
+      const spec = input.specs.find((s) => {
+        const cols = chartColumns(input, s);
+        return cols.has(d.column) && cols.has(outcome);
+      });
+      // The chart's measure that reads the outcome is the insight's metric.
+      const metric =
+        spec?.measures.find((m) => measureColumns(input, m.id).has(outcome)) ?? spec?.measures[0];
+      const D = d.column.replace(/[_\s]+/g, " ").trim();
+      const title =
+        o.target.type === "class"
+          ? `${D} sets the ${o.target.label} apart`
+          : d.as === "numeric"
+            ? `${noun} ${d.direction === "down" ? "falls" : "rises"} as ${D} rises`
+            : `${noun} differs ${d.strength >= CLEAR_LINK ? "most " : ""}by ${D}`;
+      const rows = formatValue(d.n, "integer", input.fmt);
+      return {
+        id: `outcome-${d.as}-${d.column}`,
+        kind: "driver" as const,
+        title,
+        body: `${d.sentence} This is a link across the rows, not proof of cause; test it before acting on it.`,
+        tone: "neutral" as const,
+        impact: impactScore(RELEVANCE.driver, 1, strength(d.strength, 0.3), certainty),
+        confidence: certainty,
+        ...(spec && metric ? { chartId: spec.id, metricId: metric.id } : {}),
+        basis: filtered
+          ? `Worked out on the ${rows} rows that pass the filters, with every figure recomputed on them.`
+          : `Worked out on all ${rows} rows with both values.`,
+      };
+    });
+}
+
 // ---------------------------------------------------------------- mix shift (Simpson's paradox check)
 
 /**
@@ -1493,7 +1624,28 @@ export function generateInsights(input: InsightInput): Insight[] {
     ...safely(() => concentrationInsights(input)),
     ...(timeBased ? safely(() => seasonalityInsights(input)) : []),
     ...safely(() => driverInsights(input)),
+    ...safely(() => outcomeDriverInsights(input, selected)),
     ...safely(() => caveatInsights(input, selected)),
   ];
-  return all.sort((a, b) => b.impact - a.impact).slice(0, 14);
+  // A band chart's driver insight says less than the outcome's own driver insight on the same chart;
+  // a segment gap of the outcome's own rate or average by a column already says what its category driver
+  // insight would.
+  const outcomeCharts = new Set(
+    all.filter((i) => i.id.startsWith("outcome-") && i.chartId).map((i) => i.chartId),
+  );
+  const outcome = input.outcome?.target.column.name;
+  const gapBy = (column: string) =>
+    all.some(
+      (i) =>
+        i.kind === "segment" &&
+        i.id.endsWith(`-${column}`) &&
+        i.metricId !== undefined &&
+        outcome !== undefined &&
+        measureColumns(input, i.metricId).has(outcome),
+    );
+  return all
+    .filter((i) => !(i.id.startsWith("driver-") && i.chartId && outcomeCharts.has(i.chartId)))
+    .filter((i) => !(i.id.startsWith("outcome-category-") && gapBy(i.id.slice("outcome-category-".length))))
+    .sort((a, b) => b.impact - a.impact)
+    .slice(0, 14);
 }

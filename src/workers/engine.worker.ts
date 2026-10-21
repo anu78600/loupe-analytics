@@ -19,6 +19,7 @@ import {
   type ContextRequest,
   type DashboardRequest,
   type QuestionRequest,
+  type UnderstandRequest,
 } from "@/engine/session";
 import type { IngestOptions } from "@/engine/core/types";
 import type { LearnedSynonym } from "@/engine/detect/learned";
@@ -56,6 +57,9 @@ const api = {
   pivot: () => session.pivot(),
 
   configure: (req: ContextRequest) => session.configure(req),
+
+  /** What the table is about for the user's corrections so far (Detect), before or after configure. */
+  understand: (req: UnderstandRequest) => session.understand(req),
 
   /** Marks a dashboard request as the newest; older in-flight requests stop at the next chart. */
   begin(id: number) {

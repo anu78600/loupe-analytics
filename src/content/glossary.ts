@@ -887,7 +887,33 @@ export const GLOSSARY: GlossarySection[] = [
         level: "intermediate",
         short: "Two measures moving together: as one rises, the other tends to rise, or to fall.",
         body: "Correlation is not causation: both may follow something else, such as the season. Test before treating one as the cause of the other.",
-        related: ["r-squared", "trend-line"],
+        related: ["r-squared", "trend-line", "driver"],
+      },
+      {
+        id: "outcome",
+        term: "Outcome",
+        aka: ["Target column"],
+        level: "beginner",
+        short:
+          "The column a table is measured by: a wine’s quality, whether a customer churned, a house’s price.",
+        body: "The other columns are read for how they relate to it. An outcome can be yes/no (churned), a score on a short scale (quality 3–9), one of a few classes (a species) or an amount (a price).",
+        example:
+          "In a table of passengers, Survived is the outcome; age, sex and class are what might explain it.",
+        inLoupe:
+          "Loupe picks the outcome from the columns and rows, and says why, under What this data is about on the Detect step. You can choose another column or none, and the dashboard is designed around your choice.",
+        related: ["driver", "correlation"],
+      },
+      {
+        id: "driver",
+        term: "Driver",
+        aka: ["What moves the outcome"],
+        level: "intermediate",
+        short: "A column that moves with the outcome: as it changes, the outcome tends to change too.",
+        body: "Strength runs from 0 (no link) to 1. For a number it is the correlation r; for a category it is how much of the outcome’s spread lies between its groups (the correlation ratio η). A driver is a link in this data, not proof of cause.",
+        example: "Wines with more alcohol tend to be rated higher, so alcohol is a driver of quality.",
+        inLoupe:
+          "The strongest drivers are listed on the Detect step, get their own charts (What moves the outcome) and become insights, each with the figures it rests on.",
+        related: ["outcome", "correlation", "r-squared"],
       },
       {
         id: "r-squared",

@@ -117,11 +117,12 @@ function FullDashboard() {
   const columnTiles = kpiLayoutOf({ context, kpiLayout, extraKpis }).columns;
   const specs = allSpecs({ context, customCharts });
   const subName = context.domain.subDomains.find((s) => s.id === context.subDomainId)?.name;
-  // Charts of the dashboard's own in this mode (trend, breakdowns, drivers). Without any (an industry
-  // that explains few of the columns), the charts for the other columns lead, unfolded.
-  const ownCharts = specs.some(
-    (x) => x.section !== "columns" && x.section !== "detail" && x.modes.includes(mode),
-  );
+  // Charts of the dashboard's own in this mode (trend, breakdowns, drivers). Without any, or with an
+  // industry that explains few of the columns (context.fit.weak, where the data-led charts are planned
+  // first), the charts for the other columns lead, unfolded.
+  const ownCharts =
+    !context.fit.weak &&
+    specs.some((x) => x.section !== "columns" && x.section !== "detail" && x.modes.includes(mode));
 
   return (
     // overflow-x: clip, so nothing inside can make the page scroll sideways and push the rail off the

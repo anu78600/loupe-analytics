@@ -1,11 +1,17 @@
 "use client";
 
 /**
- * Step 2, Detect. Shows what kind of data was uploaded (the top industries
- * with confidence, the evidence of which column matched which field, the
- * structure) and every column header in the file with the kind of values it
- * holds and what is in it. BusinessForm lets the user set industry, data
- * shape (sub-domain), business model, goal, reporting period and currency:
+ * Step 2, Detect. Leads with what the data is about (AboutData, version
+ * 49.0): the dashboard's title as an analyst would name it, what one row is,
+ * the outcome the table is measured by and what moves it, the columns by
+ * kind with "Read as …", the data issues and the industry as a label. The
+ * industry choice follows it: the top industries with confidence and the
+ * evidence of which column matched which field (the table's structure is in
+ * the reading, so the card no longer repeats it), then every column header
+ * in the file with the kind of values it holds, how Loupe reads it (the
+ * same kinds as the chips above) and what is in it. BusinessForm lets the
+ * user set industry, data shape (sub-domain), business model, goal,
+ * reporting period and currency:
  * the user's choice always overrides detection, and the card beside the form
  * describes that choice, not the best match. A changed choice is built when
  * the user moves on (Next, Skip, or any later step). "Next: check your data"
@@ -91,6 +97,8 @@ import { DateOrderSwitch } from "./HealthPanel";
 import { LearnedNotice } from "./LearnedNotice";
 import { WorkbookModelNotice } from "./WorkbookModelNotice";
 import { lowFitOf, lowFitWords, type LowFit } from "./industryFit";
+import { AboutData } from "./understanding/AboutData";
+import { KIND_LABEL } from "@/engine/understand/kinds";
 
 const MODELS = ["D2C brand", "Marketplace seller", "B2B", "Subscription", "Retail / offline", "Other"];
 const GOALS = [
@@ -109,6 +117,8 @@ export function DetectStep() {
   const unpivot = useWorkspace((s) => s.unpivot);
   const pivot = useWorkspace((s) => s.pivot);
   const loading = useWorkspace((s) => s.loading);
+  // With a reading of the table, its panel says what one row is and counts the rows and columns.
+  const understood = useWorkspace((s) => s.understanding !== null);
   const locale = useSettings((s) => s.numberLocale);
   const consent = useColumnConsent();
   // While the worker plans the pivot, so a second click doesn't open a second dialog.
@@ -210,10 +220,12 @@ export function DetectStep() {
           <h1 className="mt-2 font-display text-display-sm text-fg">What kind of data is this?</h1>
           <FileIdentity summary={summary} className="mt-2" />
         </div>
-        <p className="text-ui text-fg-muted">
-          {countOf(summary.rowCount, "row", locale)} · {countOf(summary.columnCount, "column", locale)} ·{" "}
-          {grain}
-        </p>
+        {understood ? null : (
+          <p className="text-ui text-fg-muted">
+            {countOf(summary.rowCount, "row", locale)} · {countOf(summary.columnCount, "column", locale)} ·{" "}
+            {grain}
+          </p>
+        )}
       </div>
       <LearnedNotice className="mb-5" />
       <WorkbookModelNotice className="mb-5" />
@@ -301,6 +313,8 @@ export function DetectStep() {
         </div>
       ) : null}
       {consent.dialog}
+      {/* What the data is about leads; the industry, a label on that reading, is chosen below it. */}
+      <AboutData className="mb-5" />
       <div className="grid gap-5 lg:grid-cols-12">
         <DetectionCard />
         <BusinessForm />
@@ -316,13 +330,17 @@ export function DetectStep() {
  * the best match says so; a lower-ranked candidate is "Your choice" with its
  * own evidence; an industry outside the top matches, or Generic, gets a card
  * of its own instead of the best match's evidence. Top matches lists only
- * industries that matched something; when none did, it says so.
+ * industries that matched something; when none did, it says so. The table's
+ * structure (what one row is, its dates, its kinds of column) is in the
+ * reading above it (AboutData), so the card keeps to the industry; without
+ * a reading it lists the structure as before.
  */
 function DetectionCard() {
   const detection = useWorkspace((s) => s.detection);
   const domains = useWorkspace((s) => s.domains);
   const domainId = useWorkspace((s) => s.domainId);
   const chooseIndustry = useWorkspace((s) => s.chooseIndustry);
+  const understood = useWorkspace((s) => s.understanding !== null);
   const top = detection?.candidates[0];
   if (!detection || !top) return null;
   const shown = detection.candidates.find((c) => c.domainId === domainId);
@@ -353,57 +371,68 @@ function DetectionCard() {
           <ChoiceDetail domain={domains.find((d) => d.id === domainId)} top={top} />
         )}
 
-        <div className="mt-6 grid gap-5 border-t border-border-subtle pt-5 md:grid-cols-2">
-          <div>
-            <p className="eyebrow mb-2 text-fg-subtle">Top matches</p>
-            {/* Only industries that matched something: ranking ones that match nothing would name
-                arbitrary industries as matches. */}
-            {matches.length ? null : (
-              <p className="text-ui text-fg-muted">None: no industry&apos;s fields match these columns.</p>
+        {/* With a reading above and no industry matching anything, the list would only repeat the
+            confirm notice, so it is left out. */}
+        {understood && !matches.length ? null : (
+          <div
+            className={cn(
+              "mt-6 grid gap-5 border-t border-border-subtle pt-5",
+              !understood && "md:grid-cols-2",
             )}
-            <ul className="grid gap-2">
-              {matches.map((c) => (
-                <li key={c.domainId}>
-                  <button
-                    type="button"
-                    aria-pressed={c.domainId === domainId}
-                    onClick={() => chooseIndustry(c.domainId, c.subDomain.id)}
-                    className={cn(
-                      "w-full rounded-control border px-3 py-2 text-left transition-colors",
-                      c.domainId === domainId
-                        ? "border-border-accent bg-surface-selected"
-                        : "border-border hover:border-border-hover hover:bg-surface-hover",
-                    )}
-                  >
-                    <div className="flex items-center justify-between text-ui">
-                      <span className="text-fg">{c.name}</span>
-                      <span className="font-figures text-fg-muted">{c.confidence}%</span>
-                    </div>
-                    <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-surface-3">
-                      <motion.div
-                        className="h-full rounded-full bg-accent"
-                        initial={{ width: 0 }}
-                        animate={{ width: `${c.confidence}%` }}
-                        transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
-                      />
-                    </div>
-                  </button>
-                </li>
-              ))}
-            </ul>
+          >
+            <div>
+              <p className="eyebrow mb-2 text-fg-subtle">Top matches</p>
+              {/* Only industries that matched something: ranking ones that match nothing would name
+                arbitrary industries as matches. */}
+              {matches.length ? null : (
+                <p className="text-ui text-fg-muted">None: no industry&apos;s fields match these columns.</p>
+              )}
+              <ul className="grid gap-2">
+                {matches.map((c) => (
+                  <li key={c.domainId}>
+                    <button
+                      type="button"
+                      aria-pressed={c.domainId === domainId}
+                      onClick={() => chooseIndustry(c.domainId, c.subDomain.id)}
+                      className={cn(
+                        "w-full rounded-control border px-3 py-2 text-left transition-colors",
+                        c.domainId === domainId
+                          ? "border-border-accent bg-surface-selected"
+                          : "border-border hover:border-border-hover hover:bg-surface-hover",
+                      )}
+                    >
+                      <div className="flex items-center justify-between text-ui">
+                        <span className="text-fg">{c.name}</span>
+                        <span className="font-figures text-fg-muted">{c.confidence}%</span>
+                      </div>
+                      <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-surface-3">
+                        <motion.div
+                          className="h-full rounded-full bg-accent"
+                          initial={{ width: 0 }}
+                          animate={{ width: `${c.confidence}%` }}
+                          transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
+                        />
+                      </div>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            {understood ? null : (
+              <div>
+                <p className="eyebrow mb-2 text-fg-subtle">Structure</p>
+                <ul className="grid gap-1.5 text-ui text-fg-muted">
+                  {detection.structural.map((s) => (
+                    <li key={s} className="flex gap-2">
+                      <Columns3 className="mt-0.5 size-3.5 shrink-0 text-fg-subtle" aria-hidden />
+                      {s}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
-          <div>
-            <p className="eyebrow mb-2 text-fg-subtle">Structure</p>
-            <ul className="grid gap-1.5 text-ui text-fg-muted">
-              {detection.structural.map((s) => (
-                <li key={s} className="flex gap-2">
-                  <Columns3 className="mt-0.5 size-3.5 shrink-0 text-fg-subtle" aria-hidden />
-                  {s}
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
+        )}
       </div>
     </Card>
   );
@@ -417,6 +446,8 @@ function DetectionCard() {
  */
 function ChoiceDetail({ domain, top }: { domain: DomainListItem | undefined; top: DomainCandidate }) {
   const profile = useWorkspace((s) => s.profile);
+  // The reading above (AboutData) already says what the table holds in sentences: only its shape here.
+  const understood = useWorkspace((s) => s.understanding !== null);
   const generic = !domain;
   const noFit = generic && top.confidence < 35;
   // With nothing matched at all, no industry is "closest".
@@ -425,11 +456,12 @@ function ChoiceDetail({ domain, top }: { domain: DomainListItem | undefined; top
   const table = generic && profile ? describeTable(profile) : null;
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <span className="grid size-8 place-items-center rounded-control border border-border-accent bg-accent-soft">
           <DomainIcon name={domain?.icon ?? "table"} className="size-4 text-accent" />
         </span>
         <Badge tone="accent">{noFit ? "No industry fits" : "Your choice"}</Badge>
+        {table && understood ? <Badge tone="neutral">{table.label}</Badge> : null}
       </div>
       <h2 className="font-display text-display-sm text-fg">{domain?.name ?? "Generic"}</h2>
       <p className="max-w-xl text-sm text-fg-muted">
@@ -441,16 +473,15 @@ function ChoiceDetail({ domain, top }: { domain: DomainListItem | undefined; top
               : "Not among the top matches for this file. Check & map shows which of its fields were found; KPIs that need a missing field will say so instead of guessing."
           }
         >
+          {/* The badge and the confirm notice already say no industry fits: this line says what follows. */}
           {generic
-            ? noFit
-              ? closest
-                ? `No industry fits (closest: ${top.name}, ${top.confidence}%).`
-                : "No industry fits these columns."
-              : "Built from the table's shape, no industry assumed."
+            ? noFit && closest
+              ? `Closest: ${top.name}, ${top.confidence}%. Built from your columns instead.`
+              : "Built from your columns, no industry's KPIs assumed."
             : "Not a top match; missing fields will say so."}
         </Brief>
       </p>
-      {table ? (
+      {table && !understood ? (
         <p className="max-w-xl text-sm text-fg">
           <span className="eyebrow mr-2 text-fg-subtle">{table.label}</span>
           {table.description}
@@ -805,12 +836,19 @@ function LowFitWarning({
 
 const KIND_ICON = { number: Hash, date: Calendar, string: Type, boolean: ToggleLeft } as const;
 
-/** Every column header of the file, with the kind of values it holds and what is in it (step 2). */
+/**
+ * Every column header of the file, with the kind of values it holds, how Loupe reads it and what is
+ * in it (step 2). "Read as" names the same kinds as the chips in AboutData, with Loupe's reason on
+ * hover or focus; a column hidden from the analysis says so; without a reading, the profiled role.
+ */
 function ColumnsInFile() {
   const profile = useWorkspace((s) => s.profile);
+  const understanding = useWorkspace((s) => s.understanding);
+  const hidden = useWorkspace((s) => s.hiddenColumns);
   // Subscribed, so the summaries follow a change of the number format.
   const locale = useSettings((s) => s.numberLocale);
   if (!profile) return null;
+  const read = new Map(understanding?.columns.map((c) => [c.name, c]) ?? []);
   return (
     <Card className="mt-5 overflow-hidden">
       <div className="flex flex-wrap items-end justify-between gap-2 px-6 pt-5 pb-3">
@@ -854,6 +892,14 @@ function ColumnsInFile() {
           <tbody>
             {profile.columns.map((c, i) => {
               const Icon = c.role === "time" ? Clock : KIND_ICON[c.storage];
+              const reading = read.get(c.name);
+              const off = !reading && hidden.includes(c.name);
+              const label = reading ? KIND_LABEL[reading.kind] : off ? "Hidden" : ROLE_LABEL[c.role];
+              const why = reading
+                ? reading.why
+                : off
+                  ? "Hidden: kept in your file, but nothing computes from it."
+                  : c.roleReason;
               return (
                 <tr key={c.name} className="hover:bg-surface-hover">
                   <td className="font-figures border-b border-border-subtle px-4 py-2 text-xs text-fg-subtle">
@@ -866,13 +912,16 @@ function ColumnsInFile() {
                     </span>
                   </td>
                   <td className="border-b border-border-subtle px-4 py-2">
-                    <Tooltip content={c.roleReason}>
+                    <Tooltip content={why}>
                       {/* Focusable, so the reason opens from the keyboard too. */}
                       <span
                         tabIndex={0}
-                        className="cursor-default rounded-xs text-fg focus-visible:focus-ring"
+                        className={cn(
+                          "cursor-default rounded-xs focus-visible:focus-ring",
+                          off ? "text-fg-subtle" : "text-fg",
+                        )}
                       >
-                        {ROLE_LABEL[c.role]}
+                        {label}
                       </span>
                     </Tooltip>
                   </td>
