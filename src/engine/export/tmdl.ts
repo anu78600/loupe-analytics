@@ -27,6 +27,7 @@ import { friendlyStart } from "@/engine/core/labels";
 import { buildMeasures, DATE_TABLE, dateRelColumn, dateTableDax, escapeFormatLiteral } from "./daxFile";
 import type { ExportContext } from "./context";
 import { lineageTag } from "./names";
+import { describeModel, modelSheetCount } from "@/engine/core/model";
 import { datePartColumnsFor } from "./readme";
 
 const TAB = "\t";
@@ -177,7 +178,17 @@ export function generateTmdl(ctx: ExportContext, symbol: string, modelName: stri
   ].join("\n");
 
   // ---------------- fact table
+  const model = ds.source.model;
   const lines: string[] = [
+    // A workbook read as joined sheets is exported as that one joined table; its description says so.
+    ...(model
+      ? [
+          description(
+            `Joined in Loupe from ${modelSheetCount(model)} sheets of ${ds.source.fileName}: ${describeModel(model)}. Every ${model.fact} row is kept once.`,
+            0,
+          ),
+        ]
+      : []),
     `table ${tmdlName(table)}`,
     `${TAB}lineageTag: ${lineageTag(`${modelName}:${table}`)}`,
     "",

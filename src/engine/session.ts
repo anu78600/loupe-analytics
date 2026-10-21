@@ -28,6 +28,7 @@ import { generateCodeHtml } from "@/engine/export/codeHtml";
 import { prettySql } from "@/engine/compile/sqlFormat";
 import { exportKind } from "@/engine/core/booleans";
 import type { Dataset, IngestOptions, LargeFileAssessment, ParseReport } from "@/engine/core/types";
+import type { WorkbookModel } from "@/engine/core/model";
 import {
   formatDay,
   isoDate,
@@ -37,7 +38,7 @@ import {
   type TimeGrain,
 } from "@/engine/core/dates";
 import { currencySymbol, formatPlain, type FormatOptions, type NumberLocale } from "@/engine/core/format";
-import { ingestFile, workbookSheets, type IngestProgress } from "@/engine/parse";
+import { ingestFile, ingestWorkbookModel, workbookSheets, type IngestProgress } from "@/engine/parse";
 import { fileKindFromName } from "@/engine/parse";
 import { profileDataset } from "@/engine/profile/profile";
 import { assessHealth, type HealthReport } from "@/engine/profile/quality";
@@ -114,8 +115,10 @@ export interface DatasetSummary {
   columnCount: number;
   /** Size of the source file in bytes; 0 for generated demo data. */
   sizeBytes: number;
-  /** Workbooks only: the sheet that was read, shown next to the file name. */
+  /** Workbooks only: the sheet that was read, shown next to the file name (the main one when sheets were joined). */
   sheet?: string;
+  /** Workbooks read as a data model only: the sheets joined and on which keys. */
+  model?: WorkbookModel;
 }
 
 /** One entry of the domain picker (every registry domain, not just detected ones). */
@@ -536,6 +539,7 @@ function summarize(ds: Dataset): DatasetSummary {
     columnCount: ds.columns.length,
     sizeBytes: ds.source.sizeBytes,
     ...(ds.source.sheet ? { sheet: ds.source.sheet } : {}),
+    ...(ds.source.model ? { model: ds.source.model } : {}),
   };
 }
 
@@ -560,6 +564,33 @@ interface ActiveContext {
 }
 
 /** The engine's single source of truth for one loaded dataset. See the file header for the call order. */
+/**
+ * A lookup sheet's figures (a product's Unit Cost, a store's floor area) are
+ * attributes of that product or store, repeated on every main-sheet row that
+ * names it, so adding them up over the joined rows counts each one once per
+ * order. They are kept, but read as non-additive: averaged, never summed,
+ * and the reason says why.
+ */
+function lookupFiguresNotSummed(profile: DatasetProfile, model: WorkbookModel | undefined): DatasetProfile {
+  if (!model?.joins.length) return profile;
+  const fromLookup = new Map<string, string>();
+  for (const j of model.joins) for (const c of j.columns) fromLookup.set(c, j.sheet);
+  return {
+    ...profile,
+    columns: profile.columns.map((c) => {
+      const sheet = fromLookup.get(c.name);
+      if (!sheet || (c.role !== "measure" && c.role !== "currency") || c.additivity === "non-additive")
+        return c;
+      return {
+        ...c,
+        additivity: "non-additive" as const,
+        defaultAgg: "avg" as const,
+        roleReason: `${c.roleReason} It comes from the ${sheet} sheet and repeats on every row that names the same ${sheet} entry, so it is averaged, never summed.`,
+      };
+    }),
+  };
+}
+
 export class Session {
   private ds: Dataset | null = null;
   private report: ParseReport | null = null;
@@ -627,12 +658,23 @@ export class Session {
     onProgress?: (p: IngestProgress) => void,
     learned: readonly LearnedSynonym[] = [],
   ): Promise<LoadResult> {
-    // Ask before guessing: a multi-sheet workbook needs an explicit sheet choice.
+    const t0 = performance.now();
+    // A multi-sheet workbook whose sheets relate (Orders beside Customers and Products) is read as
+    // one joined table; otherwise ask before guessing which sheet to read.
     if (fileKindFromName(fileName) === "workbook" && !opts.sheet) {
       const sheets = await workbookSheets(file);
-      if (sheets.length > 1) return { status: "needs-sheet", sheets };
+      if (sheets.length > 1) {
+        const model = await ingestWorkbookModel(file, fileName, sheets, opts, onProgress);
+        if (!model) return { status: "needs-sheet", sheets };
+        this.learned = [...learned];
+        return this.adopt(
+          model.dataset,
+          model.report,
+          { parse: Math.round(performance.now() - t0) },
+          onProgress,
+        );
+      }
     }
-    const t0 = performance.now();
     const out = await ingestFile(file, fileName, opts, onProgress);
     if (out.status === "needs-decision") return out;
     this.learned = [...learned];
@@ -682,7 +724,7 @@ export class Session {
     this.resetLastResults();
     const t1 = performance.now();
     onProgress?.({ phase: "profiling", loadedBytes: 0, totalBytes: 0, rows: ds.rowCount });
-    this.baseProfile = profileDataset(ds);
+    this.baseProfile = lookupFiguresNotSummed(profileDataset(ds), ds.source.model);
     this.profile = this.baseProfile;
     // A new dataset starts with every column in use.
     this.active = this.baseProfile;

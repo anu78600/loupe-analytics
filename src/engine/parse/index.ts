@@ -7,10 +7,12 @@
  * return "needs-decision" for very large inputs; workbooks and JSON are read
  * whole into memory, so they have hard size caps instead.
  */
-import type { IngestOptions } from "@/engine/core/types";
+import type { Dataset, IngestOptions, ParseReport } from "@/engine/core/types";
 import { ingestDelimited, type IngestOutcome, type IngestProgress } from "./csv";
 import { ingestWorkbook, listDataSheets, listSheets } from "./excel";
 import { ingestJson } from "./json";
+import { MAX_MODEL_SHEETS } from "./limits";
+import { joinSheets, modelReport, relateSheets, type SheetTable } from "./relate";
 import { binaryKind, binaryMessage } from "./sniff";
 
 export type { IngestOutcome, IngestProgress } from "./csv";
@@ -108,4 +110,81 @@ export async function ingestFile(
  */
 export async function workbookSheets(file: Blob): Promise<string[]> {
   return listDataSheets(await file.arrayBuffer());
+}
+
+/**
+ * The options one sheet of a joined workbook is read with. A day/month order
+ * the user fixed is keyed by the joined table's column name: "Customers ·
+ * Signup date" applies to that sheet's "Signup date", a plain name to any
+ * sheet's column of that name.
+ */
+function sheetOptions(opts: IngestOptions, sheet: string): IngestOptions {
+  const overrides = opts.dateOrderOverrides;
+  if (!overrides) return { ...opts, sheet };
+  const prefix = `${sheet} · `;
+  const own: Record<string, "DMY" | "MDY"> = {};
+  for (const [name, order] of Object.entries(overrides)) {
+    if (name.startsWith(prefix)) own[name.slice(prefix.length)] = order;
+    else if (!name.includes(" · ")) own[name] ??= order;
+  }
+  return { ...opts, sheet, dateOrderOverrides: own };
+}
+
+/**
+ * Reads a workbook whose sheets relate (an Orders sheet with Customers and
+ * Products beside it) as one table: every sheet in `sheets` is parsed,
+ * parse/relate.ts finds the keys, and the lookups are left-joined onto the
+ * main sheet. Returns null, having adopted nothing, when no sheet joins onto
+ * another, when there are too many sheets to read them all
+ * (MAX_MODEL_SHEETS) or the workbook is over the size cap: the session then
+ * offers the sheet picker as before. A sheet that can't be read is left out
+ * with its reason.
+ */
+export async function ingestWorkbookModel(
+  file: Blob,
+  fileName: string,
+  sheets: readonly string[],
+  opts: IngestOptions,
+  onProgress?: (p: IngestProgress) => void,
+): Promise<{ dataset: Dataset; report: ParseReport } | null> {
+  if (sheets.length < 2 || sheets.length > MAX_MODEL_SHEETS || file.size > MAX_WORKBOOK_BYTES) return null;
+  const started = performance.now();
+  const buf = await file.arrayBuffer();
+  const tables: SheetTable[] = [];
+  const reports = new Map<string, ParseReport>();
+  const unreadable: Array<{ sheet: string; reason: string }> = [];
+  const total = buf.byteLength;
+  for (const [i, sheet] of sheets.entries()) {
+    // Progress over the whole workbook: sheet i covers the i-th share of the bar.
+    const progress = onProgress
+      ? (p: IngestProgress) =>
+          onProgress({
+            ...p,
+            phase: p.phase === "finalizing" ? "parsing" : p.phase,
+            loadedBytes: Math.round(
+              ((i + p.loadedBytes / Math.max(1, p.totalBytes)) / sheets.length) * total,
+            ),
+            totalBytes: total,
+          })
+      : undefined;
+    try {
+      const res = await ingestWorkbook(buf, fileName, sheetOptions(opts, sheet), progress);
+      tables.push({ sheet, ds: res.dataset });
+      reports.set(sheet, res.report);
+    } catch (e) {
+      const message = (e as Error).message.replace(/\.$/, "");
+      unreadable.push({ sheet, reason: message.charAt(0).toLowerCase() + message.slice(1) });
+    }
+  }
+  onProgress?.({ phase: "joining", loadedBytes: total, totalBytes: total, rows: 0 });
+  const plan = relateSheets(tables);
+  if (!plan) return null;
+  // Sheets that couldn't be read are left out too, in workbook order with the others.
+  const order = new Map(sheets.map((s, i) => [s, i]));
+  plan.left = [...plan.left, ...unreadable].sort(
+    (a, b) => (order.get(a.sheet) ?? 0) - (order.get(b.sheet) ?? 0),
+  );
+  const { dataset, model, renames } = joinSheets(tables, plan);
+  const report = modelReport(dataset, model, renames, reports, Math.round(performance.now() - started));
+  return { dataset, report };
 }

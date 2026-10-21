@@ -1073,7 +1073,7 @@ export const GLOSSARY: GlossarySection[] = [
         aka: ["Excel workbook"],
         level: "beginner",
         short: "An Excel file, which can hold several sheets.",
-        body: "Loupe reads one sheet at a time and asks which one when there are several.",
+        body: "When the sheets relate (an Orders sheet with Customers and Products sheets keyed by Customer ID and Product ID), Loupe joins them into one table and says on which keys. Otherwise it reads one sheet at a time and asks which one.",
         related: ["csv"],
       },
       {

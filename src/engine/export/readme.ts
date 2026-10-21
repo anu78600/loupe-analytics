@@ -33,6 +33,7 @@ import type { ChartKind } from "@/registry/schema";
 import type { ChartMeasure, ChartSpec } from "@/engine/charts/types";
 import { DATE_TABLE, dateRelColumn } from "./daxFile";
 import type { ExportContext } from "./context";
+import { describeModel, modelSheetCount, unmatchedNotes } from "@/engine/core/model";
 
 /** Closest built-in (or named AppSource) Power BI visual for each Loupe chart kind. */
 const PBI_VISUAL: Record<ChartKind, string> = {
@@ -404,6 +405,31 @@ export function generateReadme(ctx: ExportContext, specs: ChartSpec[], symbol: s
     out.push(
       `You hid ${list} in Loupe. ${one ? "It stays" : "They stay"} in \`data.csv\` and the table as your reference, but no measure reads ${one ? "it" : "them"}, and the model marks ${one ? "it" : "them"} hidden so ${one ? "it stays" : "they stay"} out of the report's field list.`,
     );
+    out.push("");
+  }
+  const model = ds.source.model;
+  if (model) {
+    // The package holds the joined table only: say so, and say from what, so nobody looks for the sheets.
+    const sheets = modelSheetCount(model);
+    out.push(`## Joined from ${sheets} sheets`);
+    out.push("");
+    // A real renamed column, when there is one, shows how a taken name was handled.
+    const renamed = model.joins.flatMap((j) => j.columns).find((c) => c.includes(" · "));
+    out.push(
+      `\`data.csv\` is one table that Loupe joined from the sheets of ${ds.source.fileName}: ${describeModel(model)}. Every ${model.fact} row is in it once, in order, with each lookup sheet's columns beside it (a left join on the keys named)${renamed ? `. A lookup column whose name was already taken carries its sheet's name: \`${names.columns.get(renamed) ?? renamed}\` is "${renamed}" in Loupe` : ""}.`,
+    );
+    out.push("");
+    out.push(
+      `The package holds this joined table only, not the separate sheets, so the model is one table${ctx.dateColumn ? " (plus the Date table)" : ""} with no relationships between sheets. Every measure and the SQL read the joined columns directly.`,
+    );
+    const notes = [
+      ...unmatchedNotes(model),
+      ...model.left.map((l) => `Not joined: ${l.sheet}, because ${l.reason}.`),
+    ];
+    if (notes.length) {
+      out.push("");
+      for (const n of notes) out.push(`- ${n}`);
+    }
     out.push("");
   }
   if (ctx.reportTheme) {

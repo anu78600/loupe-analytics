@@ -77,6 +77,7 @@ import { ROLE_LABEL } from "@/engine/profile/types";
 import { AiDomainCheck } from "./AiSummary";
 import { DateOrderSwitch } from "./HealthPanel";
 import { LearnedNotice } from "./LearnedNotice";
+import { WorkbookModelNotice } from "./WorkbookModelNotice";
 
 const MODELS = ["D2C brand", "Marketplace seller", "B2B", "Subscription", "Retail / offline", "Other"];
 const GOALS = [
@@ -202,6 +203,7 @@ export function DetectStep() {
         </p>
       </div>
       <LearnedNotice className="mb-5" />
+      <WorkbookModelNotice className="mb-5" />
       {sampling ? (
         <div
           role="note"

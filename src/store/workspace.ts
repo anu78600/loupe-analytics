@@ -304,6 +304,12 @@ interface WorkspaceState {
    */
   setDateOrder: (column: string, order: "DMY" | "MDY") => Promise<void>;
   chooseSheet: (sheet: string) => Promise<void>;
+  /**
+   * For a workbook read as joined sheets: opens the sheet picker for the
+   * same file, so the user can analyse one sheet instead. The joined table
+   * stays until a sheet is chosen.
+   */
+  pickOneSheet: () => Promise<void>;
   /** Loads the pending large file with the chosen sampling options; null cancels. */
   resolveLargeFile: (opts: IngestOptions | null) => Promise<void>;
   /** Replaces the dataset with its long (unpivoted) form; overrides and layout reset. */
@@ -569,6 +575,7 @@ const PHASE_TITLE: Record<string, string> = {
   reading: "Reading file",
   parsing: "Parsing rows",
   finalizing: "Finalising columns",
+  joining: "Joining related sheets",
   profiling: "Profiling columns",
   detecting: "Detecting the industry",
   generating: "Generating demo data",
@@ -860,7 +867,9 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
             ? `${rows} rows · types, roles, keys and hierarchies`
             : p.phase === "detecting"
               ? "Scoring 16 industries against your columns"
-              : undefined;
+              : p.phase === "joining"
+                ? "Matching keys between the sheets"
+                : undefined;
       set({
         loading: {
           phase: p.phase,
@@ -1050,6 +1059,17 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
       if (!file) return;
       set({ sheets: null });
       await readFile(file, { sheet }, "new");
+    },
+
+    pickOneSheet: async () => {
+      const file = get().lastFile;
+      if (!file) return;
+      try {
+        const sheets = await engine().listSheets(file);
+        set({ sheets, pendingFile: file });
+      } catch (e) {
+        set({ error: toError(e) });
+      }
     },
 
     resolveLargeFile: async (opts) => {

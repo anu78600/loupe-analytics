@@ -13,6 +13,7 @@
  * Produced by the parsers (src/engine/parse) and the demo generators
  * (src/engine/samples); everything downstream reads this shape.
  */
+import type { WorkbookModel } from "./model";
 
 export type StorageType = "number" | "date" | "string" | "boolean";
 
@@ -116,8 +117,13 @@ export interface DatasetSource {
   fileName: string;
   kind: FileKind;
   sizeBytes: number;
-  /** Workbooks only: the sheet that was read. */
+  /** Workbooks only: the sheet that was read (the main sheet when several were joined). */
   sheet?: string;
+  /**
+   * Workbooks read as a data model only: the lookup sheets joined onto
+   * `sheet`, on which keys (parse/relate.ts). The table is the joined one.
+   */
+  model?: WorkbookModel;
   /** Demo datasets only: the catalogue id (see src/engine/samples/catalog.ts). */
   sampleId?: string;
   isDemo: boolean;

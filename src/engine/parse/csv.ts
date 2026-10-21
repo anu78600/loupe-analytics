@@ -38,8 +38,11 @@ import {
 export { LARGE_BYTE_LIMIT, LARGE_ROW_LIMIT };
 
 export interface IngestProgress {
-  /** "profiling" and "detecting" are reported later by the session, not by the parsers. */
-  phase: "reading" | "parsing" | "finalizing" | "profiling" | "detecting";
+  /**
+   * "joining" is a workbook's sheets being related and joined (parse/relate.ts);
+   * "profiling" and "detecting" are reported later by the session, not by the parsers.
+   */
+  phase: "reading" | "parsing" | "finalizing" | "joining" | "profiling" | "detecting";
   /** Approximate for workbooks (estimated from the row position). */
   loadedBytes: number;
   totalBytes: number;

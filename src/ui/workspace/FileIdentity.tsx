@@ -4,9 +4,12 @@
  * upload is never mistaken for the demo. Shown in the workspace top bar and
  * in the Detect, Check & map and Dashboard headers.
  *
- * The name truncates to fit; the full name and sheet are in its tooltip.
+ * The name truncates to fit; the full name and sheet are in its tooltip. A
+ * workbook read as joined sheets shows "Orders + 2 sheets", with the joins
+ * in the tooltip.
  */
 import { FileSpreadsheet } from "lucide-react";
+import { describeModel, modelLabel } from "@/engine/core/model";
 import type { DatasetSummary } from "@/engine/session";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/ui/primitives/badge";
@@ -17,13 +20,18 @@ export function FileIdentity({
   badge = true,
   className,
 }: {
-  summary: Pick<DatasetSummary, "fileName" | "isDemo" | "sheet">;
+  summary: Pick<DatasetSummary, "fileName" | "isDemo" | "sheet" | "model">;
   size?: "sm" | "md";
   /** Whether to show the "Your file" / "Demo data" label. */
   badge?: boolean;
   className?: string;
 }) {
-  const full = summary.sheet ? `${summary.fileName} · sheet "${summary.sheet}"` : summary.fileName;
+  const full = summary.model
+    ? `${summary.fileName} · ${describeModel(summary.model)}`
+    : summary.sheet
+      ? `${summary.fileName} · sheet "${summary.sheet}"`
+      : summary.fileName;
+  const sheet = summary.model ? modelLabel(summary.model) : summary.sheet;
   return (
     <span className={cn("inline-flex max-w-full min-w-0 items-center gap-2", className)}>
       <FileSpreadsheet
@@ -35,7 +43,7 @@ export function FileIdentity({
         title={full}
       >
         {summary.fileName}
-        {summary.sheet ? <span className="font-normal text-fg-subtle"> · {summary.sheet}</span> : null}
+        {sheet ? <span className="font-normal text-fg-subtle"> · {sheet}</span> : null}
       </span>
       {badge ? (
         <Badge tone={summary.isDemo ? "accent" : "success"} className="shrink-0">

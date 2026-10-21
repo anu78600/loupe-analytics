@@ -41,6 +41,39 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "46.0",
+    kind: "major",
+    date: "2026-10-21T09:54:19Z",
+    title: "Workbooks with several sheets, joined into one table",
+    summary:
+      "An Excel workbook laid out like a small data model (Orders plus Customers, Products and Stores sheets) is now analysed as one table. Loupe finds the keys between the sheets, joins the lookup sheets onto the main one, and says exactly what it did; you can still choose a single sheet.",
+    changes: [
+      "Keys are found even when they're spelled differently (“Customer ID”, “CustomerID”, “cust_id”), and a bare “ID” on a Stores sheet matches “Store ID”. One more level is joined too (Orders → Products → Categories).",
+      "A sheet is joined only when its key is unique and never blank, and at least 90% of the main sheet's keys are found in it. Otherwise it is left out, and the reason is given in words.",
+      "Every row of the main sheet is kept exactly once and in order, and its own columns are untouched. A clashing column name is prefixed with its sheet (“Customers · Region”), and rows whose key isn't found are counted.",
+      "Detect shows what was joined (“Orders joined with Customers (on Customer ID) and Products (on Product ID)…”), with “Use one sheet instead” to go back to the sheet picker. Workbooks whose sheets don't relate work exactly as before.",
+      "A lookup sheet's own figures, such as a product's unit cost, repeat on every order of that product, so they are averaged, never summed.",
+      "The CSV, the SQL table and the Power BI package hold the joined table, and the Power BI README says which sheets it was joined from and on which keys. It isn't presented as a model of separate tables.",
+    ],
+    tags: ["Feature", "Data", "Tests"],
+    files: [
+      "src/engine/parse/relate.ts",
+      "src/engine/core/model.ts",
+      "src/engine/parse/index.ts",
+      "src/engine/parse/limits.ts",
+      "src/engine/session.ts",
+      "src/engine/export/readme.ts",
+      "src/engine/export/tmdl.ts",
+      "src/engine/export/sqlFile.ts",
+      "src/store/workspace.ts",
+      "src/ui/workspace/WorkbookModelNotice.tsx",
+      "src/ui/workspace/DetectStep.tsx",
+      "src/ui/workspace/UploadStep.tsx",
+      "src/content/glossary.ts",
+      "tests/workbook-model.test.ts",
+    ],
+  },
+  {
     version: "45.0",
     kind: "major",
     date: "2026-10-21T08:06:11Z",
@@ -2663,13 +2696,7 @@ export const RELEASES: Release[] = [
  * Shown on /changelog under "Up next" so the owner can see what is coming.
  * Remove an item when its version ships.
  */
-export const PLANNED: Array<{ title: string; detail: string }> = [
-  {
-    title: "Workbooks with several tables",
-    detail:
-      "Excel files with orders, customers and products on separate sheets: the keys between them found and the tables joined, and a star model in the Power BI export.",
-  },
-];
+export const PLANNED: Array<{ title: string; detail: string }> = [];
 
 /** The newest release; shown in the footer and settings. */
 export const CURRENT_RELEASE: Release = RELEASES[0] as Release;

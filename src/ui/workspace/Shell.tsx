@@ -22,6 +22,7 @@ import { Tooltip } from "@/ui/primitives/tooltip";
 import { ThemeToggle } from "@/ui/common/theme-toggle";
 import { countOf } from "@/ui/common/words";
 import { SAMPLES } from "@/engine/samples/catalog";
+import { describeModel, modelLabel } from "@/engine/core/model";
 import { askConfirm } from "./confirm";
 
 /** Whether a step can be opened: Upload always; Detect and Check & map with data; the rest once an industry is chosen. */
@@ -196,14 +197,17 @@ export function WorkspaceTopBar({
           // which is clipped, so the summary never runs into the steps.
           <div
             className="hidden h-6 min-w-0 flex-1 basis-0 flex-wrap items-center gap-x-2.5 overflow-hidden lg:flex"
-            title={`${summary.fileName}${summary.sheet ? ` · sheet "${summary.sheet}"` : ""} · ${countOf(summary.rowCount, "row", locale)}${sampled ? " (a sample of the file)" : ""}${summary.isDemo ? " · demo data" : ""}`}
+            title={`${summary.fileName}${summary.model ? ` · ${describeModel(summary.model)}` : summary.sheet ? ` · sheet "${summary.sheet}"` : ""} · ${countOf(summary.rowCount, "row", locale)}${sampled ? " (a sample of the file)" : ""}${summary.isDemo ? " · demo data" : ""}`}
           >
             <span className="inline-flex h-6 max-w-[280px] min-w-0 items-center gap-2">
               <Database className="size-3.5 shrink-0 text-fg-subtle" aria-hidden />
               <span className="truncate text-ui font-medium text-fg">
                 {summary.fileName}
-                {summary.sheet ? (
-                  <span className="font-normal text-fg-subtle"> · {summary.sheet}</span>
+                {summary.model || summary.sheet ? (
+                  <span className="font-normal text-fg-subtle">
+                    {" "}
+                    · {summary.model ? modelLabel(summary.model) : summary.sheet}
+                  </span>
                 ) : null}
               </span>
             </span>

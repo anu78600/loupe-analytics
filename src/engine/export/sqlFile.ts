@@ -30,6 +30,7 @@ import { prettySql } from "@/engine/compile/sqlFormat";
 import { isAdditiveExpr } from "@/engine/query/expr";
 import { makeSqlContext } from "@/engine/kpi/context";
 import { exportKpiIds, type ExportContext } from "./context";
+import { describeModel, modelSheetCount } from "@/engine/core/model";
 
 /** Prefixes every line with "-- " (blank lines become a bare "--"). */
 const comment = (text: string): string =>
@@ -322,6 +323,12 @@ export function generateSqlFile(ctx: ExportContext): string {
       comment(
         [
           `${domain.name}${ctx.subDomain ? ` › ${ctx.subDomain.name}` : ""} · ${ds.rowCount.toLocaleString("en-US")} rows · generated ${ctx.generatedAt}`,
+          // A workbook read as joined sheets: the table is the joined one, and from what.
+          ...(ds.source.model
+            ? [
+                `One table joined in Loupe from ${modelSheetCount(ds.source.model)} sheets: ${describeModel(ds.source.model)}.`,
+              ]
+            : []),
           "",
           "How to use",
           `  1. Run section 1 to create the table, then load data.csv into it (commands below it).`,

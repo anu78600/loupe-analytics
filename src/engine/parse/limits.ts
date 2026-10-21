@@ -11,3 +11,9 @@ export const LARGE_ROW_LIMIT = 2_100_000;
 export const LARGE_BYTE_LIMIT = 700 * 1024 * 1024;
 /** Rows the "first rows" option of large-file mode keeps, and about what the recommended sample keeps. */
 export const FIRST_ROWS_LIMIT = 1_000_000;
+/**
+ * Sheets with data a workbook may have and still be read as one joined model
+ * (parse/relate.ts); every sheet is parsed to find the keys, so a workbook
+ * with more goes straight to the sheet picker.
+ */
+export const MAX_MODEL_SHEETS = 12;

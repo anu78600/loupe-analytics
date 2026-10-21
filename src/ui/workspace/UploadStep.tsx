@@ -3,7 +3,8 @@
 /**
  * Step 1, Upload: drop zone and file picker (CSV, TSV, TXT, PSV, TAB, XLSX,
  * XLSM, XLSB, XLS, ODS, JSON, NDJSON), demo datasets, loading progress, the
- * sheet picker for multi-sheet workbooks (empty sheets are not offered), the
+ * sheet picker for multi-sheet workbooks whose sheets don't join on shared
+ * keys (related sheets are joined instead; empty sheets are not offered), the
  * large-file dialog (systematic sample, first rows or a column subset) and an
  * inline error banner. Parsing happens in the worker; nothing is uploaded.
  * One file is read at a time: dropping several says which one was opened.
@@ -25,7 +26,7 @@ import { useSettings } from "@/store/settings";
 import { SAMPLES } from "@/engine/samples/catalog";
 import { formatBytes, formatCount } from "@/engine/core/format";
 import type { LargeFileAssessment } from "@/engine/core/types";
-import { FIRST_ROWS_LIMIT, LARGE_ROW_LIMIT } from "@/engine/parse/limits";
+import { FIRST_ROWS_LIMIT, LARGE_ROW_LIMIT, MAX_MODEL_SHEETS } from "@/engine/parse/limits";
 import { cn } from "@/lib/utils";
 import { countOf, ordinal } from "@/ui/common/words";
 import { openDemo } from "./Shell";
@@ -209,7 +210,7 @@ function Dropzone() {
             {[
               "Auto delimiter & encoding",
               "DD/MM vs MM/DD resolved",
-              "Multi-sheet Excel",
+              "Related sheets joined",
               "₹ lakh/crore aware",
             ].map((t) => (
               <Badge key={t} tone="outline">
@@ -341,6 +342,8 @@ function SheetPicker() {
   const sheets = useWorkspace((s) => s.sheets);
   const file = useWorkspace((s) => s.pendingFile);
   const choose = useWorkspace((s) => s.chooseSheet);
+  // Opened from "Use one sheet instead": the same workbook is open as joined sheets.
+  const joined = useWorkspace((s) => Boolean(s.summary?.model) && s.pendingFile === s.lastFile);
   return (
     <Dialog
       open={Boolean(sheets)}
@@ -350,7 +353,11 @@ function SheetPicker() {
         <DialogHeader>
           <DialogTitle>Choose a sheet</DialogTitle>
           <DialogDescription>
-            {file?.name} has {sheets?.length} sheets. Loupe analyses one table at a time.
+            {joined
+              ? `Analyse one sheet of ${file?.name} on its own instead of the joined sheets. Cancel keeps the joined table.`
+              : (sheets?.length ?? 0) > MAX_MODEL_SHEETS
+                ? `${file?.name} has ${sheets?.length} sheets. Loupe analyses one table at a time.`
+                : `${file?.name} has ${sheets?.length} sheets, and none of them looks up another by a shared key, so Loupe analyses one table at a time.`}
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-2">
