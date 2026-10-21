@@ -8,7 +8,10 @@
  * layer (API key kept in memory only, model choice) and a link to the
  * version log. Each explanation is one short line, or an ⓘ beside its
  * label, with the full text behind hover, a long press or the ⓘ
- * (ui/primitives/reveal.tsx).
+ * (ui/primitives/reveal.tsx). Opened from the top bar or the command palette,
+ * it gives focus back to where it was when it closes, also after it hands
+ * over to Chart colours (the Sheet primitive's focus return, useDialogFocus
+ * in ui/primitives/dialog.tsx).
  */
 import * as React from "react";
 import Link from "next/link";
@@ -197,7 +200,8 @@ export function SettingsSheet({
               </Brief>
             </p>
             {ai.enabled ? (
-              <div className="grid gap-3 rounded-card border border-border bg-surface-2 p-4">
+              // Inside the sheet, a group sits on the overlay plane with a border only (docs/DESIGN.md).
+              <div className="grid gap-3 rounded-card border border-border p-4">
                 <div className="grid gap-1.5">
                   <Label htmlFor="ai-key" className="flex items-center gap-1.5">
                     <KeyRound className="size-3.5" aria-hidden /> Anthropic API key
@@ -258,7 +262,7 @@ export function SettingsSheet({
             </div>
             <Link
               href="/changelog"
-              className="flex items-center justify-between gap-3 rounded-card border border-border bg-surface-2 px-4 py-3 text-ui transition-colors hover:border-border-accent"
+              className="flex items-center justify-between gap-3 rounded-card border border-border px-4 py-3 text-ui transition-colors hover:border-border-hover hover:bg-surface-hover active:bg-surface-active"
             >
               <span className="flex items-center gap-2 text-fg">
                 <History className="size-4 text-fg-subtle" aria-hidden /> Version log

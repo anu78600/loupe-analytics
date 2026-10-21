@@ -3,42 +3,69 @@
 
 /*
  * Tailwind v4 is configured in CSS: this @theme block is the Tailwind config.
- * It maps the semantic tokens in styles/tokens.css onto utility names, so
- * components write `bg-surface-1 text-fg border-border`, never raw colours.
+ * It maps the semantic tokens (styles/tokens.css: theme-dark.css and
+ * theme-light.css) onto utility names, so components write
+ * `bg-surface-1 text-fg border-border`, never raw colours, and never the
+ * --base-* primitives underneath. It also holds the non-colour scales: type,
+ * radius, motion, the disabled opacity and the focus ring.
  */
 
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
 @theme inline {
-  /* Colour roles */
+  /* Colour roles. Planes: canvas, sunken, three raised surfaces and the overlay plane (menus,
+     popovers, tooltips, dialogs, sheets), plus the state layers laid over any of them. */
   --color-bg: var(--bg);
   --color-bg-subtle: var(--bg-subtle);
   --color-surface-1: var(--surface-1);
   --color-surface-2: var(--surface-2);
   --color-surface-3: var(--surface-3);
+  --color-surface-overlay: var(--surface-overlay);
+  --color-surface-hover: var(--surface-hover);
+  --color-surface-active: var(--surface-active);
+  --color-surface-selected: var(--surface-selected);
+  /* Controls: a raised key (segmented control, secondary button) and the well a key sits in. */
+  --color-surface-raised-control: var(--surface-raised-control);
+  --color-surface-inset: var(--surface-inset);
   --color-surface-glass: var(--surface-glass);
   --color-overlay: var(--overlay);
+  --color-border-subtle: var(--border-subtle);
   --color-border: var(--border);
   --color-border-strong: var(--border-strong);
+  --color-border-hover: var(--border-hover);
   --color-border-accent: var(--border-accent);
   --color-fg: var(--fg);
   --color-fg-muted: var(--fg-muted);
   --color-fg-subtle: var(--fg-subtle);
+  --color-fg-disabled: var(--fg-disabled);
   --color-fg-inverse: var(--fg-inverse);
   --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-active: var(--accent-active);
   --color-accent-strong: var(--accent-strong);
   --color-accent-deep: var(--accent-deep);
+  --color-accent-text: var(--accent-text);
   --color-accent-fg: var(--accent-fg);
   --color-accent-soft: var(--accent-soft);
   --color-accent-ring: var(--accent-ring);
+  /* The focus colour: ring-focus, outline-focus. */
+  --color-focus: var(--focus);
   --color-success: var(--success);
+  --color-success-text: var(--success-text);
   --color-success-soft: var(--success-soft);
+  --color-success-border: var(--success-border);
   --color-warning: var(--warning);
+  --color-warning-text: var(--warning-text);
   --color-warning-soft: var(--warning-soft);
+  --color-warning-border: var(--warning-border);
   --color-danger: var(--danger);
+  --color-danger-text: var(--danger-text);
   --color-danger-soft: var(--danger-soft);
+  --color-danger-border: var(--danger-border);
   --color-info: var(--info);
+  --color-info-text: var(--info-text);
   --color-info-soft: var(--info-soft);
+  --color-info-border: var(--info-border);
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);
@@ -47,6 +74,8 @@
   --color-chart-6: var(--chart-6);
   --color-chart-7: var(--chart-7);
   --color-chart-8: var(--chart-8);
+  /* The opacity of the chart marks a selection leaves out (opacity-chart-dim). */
+  --opacity-chart-dim: var(--chart-dim);
 
   /* Type. The whole system is written down in docs/DESIGN.md ("Type"); tests/typography.test.ts
      keeps components on it. Three families, each with one job:
@@ -124,17 +153,36 @@
   --text-display-xl--line-height: 0.98;
   --text-display-xl--letter-spacing: -0.03em;
 
-  /* Shape */
-  --radius-control: 10px;
-  --radius-card: 14px;
-  --radius-panel: 20px;
+  /* Shape: one closed radius scale. Nested corners are concentric: an inner radius is the outer
+     one minus the padding between them, and a child is never rounder than its parent.
+     xs 4 (chips inside controls, checkboxes) · sm 6 (small buttons, tags) · control 8 (buttons,
+     inputs, menu items) · card 12 (cards, menus) · panel 16 (panels, dialogs). */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-control: 8px;
+  --radius-card: 12px;
+  --radius-panel: 16px;
 
-  /* Depth */
+  /* Depth: three shadows, each with its plane (card on surface-1, pop on the overlay plane, lift
+     for dialogs and sheets), designed per theme in theme-light.css and theme-dark.css. */
   --shadow-card: var(--shadow-card);
   --shadow-pop: var(--shadow-pop);
   --shadow-lift: var(--shadow-lift);
+  /* The focus ring (shadow-focus, or the focus-ring utility below): a 2 px gap in the page colour,
+     then 2 px of --focus, so it stays visible on any fill, the accent's included. */
+  --shadow-focus: 0 0 0 2px var(--bg), 0 0 0 4px var(--focus);
 
-  /* Motion */
+  /* State: one disabled opacity (opacity-disabled) for what a colour token can't dim (whole
+     controls, images, charts). Disabled text uses --fg-disabled. */
+  --opacity-disabled: 0.45;
+
+  /* Motion. Interface changes are quick: duration-fast 120 ms (hover, press), duration-base 180 ms
+     (menus, tooltips, tabs), duration-slow 240 ms (dialogs, sheets, panels). Charts keep their own,
+     longer drawing time (duration-chart, as ECharts' first draw in ui/charts/options.ts). */
+  --transition-duration-fast: 120ms;
+  --transition-duration-base: 180ms;
+  --transition-duration-slow: 240ms;
+  --transition-duration-chart: 520ms;
   --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-in-out-soft: cubic-bezier(0.65, 0, 0.35, 1);
 
@@ -428,8 +476,10 @@
     color: var(--fg);
   }
 
+  /* Keyboard focus, wherever a control doesn't draw its own ring: solid --focus (≥ 3:1 on every
+     plane in both themes), 2 px out from the edge. */
   :focus-visible {
-    outline: 2px solid var(--accent);
+    outline: 2px solid var(--focus);
     outline-offset: 2px;
     border-radius: 6px;
   }
@@ -454,6 +504,19 @@
     scrollbar-width: thin;
     scrollbar-color: var(--border-strong) transparent;
   }
+}
+
+/*
+ * The focus ring as a utility, for controls that draw their own (write it as focus-visible:focus-ring):
+ * a 2 px gap in the page colour, then 2 px of --focus, as a box-shadow so it follows the radius.
+ * The transparent outline is still drawn in forced-colours mode, where box-shadows are not.
+ */
+@utility focus-ring {
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+  box-shadow:
+    0 0 0 2px var(--bg),
+    0 0 0 4px var(--focus);
 }
 
 @layer utilities {

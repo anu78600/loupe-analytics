@@ -1,6 +1,10 @@
 "use client";
 
-/** Small primitives: separator, skeleton, keyboard key, progress bar, checkbox, accordion and eyebrow label. */
+/**
+ * Small primitives: separator, skeleton, keyboard key, progress bar, checkbox, accordion and eyebrow
+ * label. Radii come from the scale (xs for keys and checkboxes, control for skeleton blocks), a
+ * separator is a divider (--border-subtle), and disabled controls take the one disabled opacity.
+ */
 import * as React from "react";
 import {
   Checkbox as CheckboxPrimitive,
@@ -21,7 +25,7 @@ export function Separator({
     <SeparatorPrimitive.Root
       orientation={orientation}
       className={cn(
-        "shrink-0 bg-border",
+        "shrink-0 bg-border-subtle",
         orientation === "horizontal" ? "h-px w-full" : "h-full w-px",
         className,
       )}
@@ -31,14 +35,14 @@ export function Separator({
 
 /** Loading placeholder; the shimmer comes from the global `.skeleton` class. Hidden from assistive tech. */
 export function Skeleton({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div aria-hidden className={cn("skeleton rounded-[8px]", className)} {...props} />;
+  return <div aria-hidden className={cn("skeleton rounded-control", className)} {...props} />;
 }
 
 export function Kbd({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
     <kbd
       className={cn(
-        "inline-flex h-5 min-w-5 items-center justify-center rounded-[5px] border border-border-strong bg-surface-2 px-1 text-2xs font-medium text-fg-muted",
+        "inline-flex h-5 min-w-5 items-center justify-center rounded-xs border border-border-strong bg-surface-2 px-1 text-2xs font-medium text-fg-muted",
         className,
       )}
     >
@@ -60,7 +64,7 @@ export function Progress({ value, className, label }: { value: number; className
       className={cn("relative h-1 w-full overflow-hidden rounded-full bg-surface-3", className)}
     >
       <div
-        className="h-full rounded-full bg-accent transition-[width] duration-300 ease-[var(--ease-out-quint)]"
+        className="h-full rounded-full bg-accent transition-[width] duration-slow ease-out-quint"
         style={{ width: `${v}%` }}
       />
     </div>
@@ -78,7 +82,7 @@ export const Checkbox = React.forwardRef<
   <CheckboxPrimitive.Root
     ref={ref}
     className={cn(
-      "peer grid size-4 shrink-0 place-items-center rounded-[5px] border border-border-strong bg-surface-2 transition-colors disabled:opacity-50 data-[state=checked]:border-accent data-[state=checked]:bg-accent data-[state=indeterminate]:border-accent data-[state=indeterminate]:bg-accent",
+      "peer grid size-4 shrink-0 place-items-center rounded-xs border border-border-strong bg-surface-2 transition-colors duration-fast hover:border-border-hover focus-visible:focus-ring disabled:cursor-not-allowed disabled:opacity-disabled data-[state=checked]:border-accent data-[state=checked]:bg-accent data-[state=indeterminate]:border-accent data-[state=indeterminate]:bg-accent",
       className,
     )}
     {...props}
@@ -109,14 +113,14 @@ export function AccordionTrigger({
     <AccordionPrimitive.Header className="flex">
       <AccordionPrimitive.Trigger
         className={cn(
-          "group flex flex-1 items-center justify-between gap-6 py-5 text-left text-md font-medium text-fg transition-colors hover:text-accent",
+          "group flex flex-1 items-center justify-between gap-6 rounded-sm py-5 text-left text-md font-medium text-fg transition-colors duration-fast hover:text-accent-text focus-visible:focus-ring",
           className,
         )}
         {...props}
       >
         {children}
         <ChevronDown
-          className="size-4 shrink-0 text-fg-subtle transition-transform duration-300 ease-[var(--ease-out-quint)] group-data-[state=open]:rotate-180"
+          className="size-4 shrink-0 text-fg-subtle transition-transform duration-slow ease-out-quint group-data-[state=open]:rotate-180"
           aria-hidden
         />
       </AccordionPrimitive.Trigger>
@@ -135,7 +139,7 @@ export function AccordionContent({
 }: React.ComponentProps<typeof AccordionPrimitive.Content>) {
   return (
     <AccordionPrimitive.Content
-      className="overflow-hidden text-sm text-fg-muted data-[state=closed]:animate-[accordion-up_220ms_var(--ease-out-quint)] data-[state=open]:animate-[accordion-down_260ms_var(--ease-out-quint)]"
+      className="overflow-hidden text-sm text-fg-muted data-[state=closed]:animate-[accordion-up_180ms_var(--ease-out-quint)] data-[state=open]:animate-[accordion-down_240ms_var(--ease-out-quint)]"
       {...props}
     >
       <div className={cn("pb-5 leading-relaxed", className)}>{children}</div>

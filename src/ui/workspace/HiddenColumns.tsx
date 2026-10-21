@@ -133,8 +133,9 @@ export function HiddenColumns() {
                   <button
                     type="button"
                     onClick={() => setHidden([c], false)}
-                    aria-label={`Use ${c} in the analysis again`}
-                    className="rounded-full px-2 py-0.5 text-accent transition-colors hover:bg-surface-3 focus-visible:ring-2 focus-visible:ring-accent-ring focus-visible:outline-none"
+                    // The name starts with the visible word (WCAG 2.5.3 label in name).
+                    aria-label={`Show ${c}: use it in the analysis again`}
+                    className="rounded-full px-2 py-0.5 text-accent-text transition-colors hover:bg-surface-hover focus-visible:focus-ring active:bg-surface-active"
                   >
                     Show
                   </button>

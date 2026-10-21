@@ -1,42 +1,65 @@
 /**
- * Button with design-token variants and sizes (sm, md and icon use the 10px
- * control radius). Primary is the brass gradient with a soft glow and a sheen
- * that sweeps across on hover or keyboard focus (the `sheen` utility in
- * globals.css). `asChild` renders the child element instead (e.g. a link)
- * via Radix Slot; buttonVariants gives other elements the same look.
+ * Button with design-token variants and sizes. Primary is the brass gradient
+ * with a soft glow and a sheen that sweeps across on hover or keyboard focus
+ * (the `sheen` utility in globals.css). `asChild` renders the child element
+ * instead (e.g. a link) via Radix Slot; buttonVariants gives other elements
+ * the same look.
+ *
+ * States follow the token system (docs/DESIGN.md): hover and press are state
+ * layers (--surface-hover, --surface-active) laid over the fill rather than
+ * swapped for another surface, so they read the same on any plane in either
+ * theme; borders step up to --border-hover; keyboard focus is the focus-ring
+ * utility (a 2px ring with a 2px gap); disabled is the one disabled opacity.
+ * Radii come from the scale: sm (6px) for the small sizes, control (8px) for
+ * the standard ones, card (12px) for the large call to action.
  */
 import * as React from "react";
 import { Slot } from "radix-ui";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
+/**
+ * The hover and pressed state layers drawn over a filled button's own colour (a translucent
+ * gradient image sits above background-color), so a filled button lightens on graphite and
+ * darkens on paper by the same step whatever surface it sits on.
+ */
+const STATE_LAYERS =
+  "hover:[background-image:linear-gradient(var(--surface-hover),var(--surface-hover))] active:[background-image:linear-gradient(var(--surface-active),var(--surface-active))]";
+
 const buttonVariants = cva(
   [
     "relative inline-flex shrink-0 select-none items-center justify-center gap-2 whitespace-nowrap font-medium",
-    "transition-[background-color,border-color,color,box-shadow,transform,filter] duration-200 ease-[var(--ease-out-quint)]",
-    "disabled:pointer-events-none disabled:opacity-45 active:translate-y-px",
+    "transition-[background-color,border-color,color,box-shadow,transform,filter] duration-fast ease-out-quint",
+    "focus-visible:focus-ring disabled:pointer-events-none disabled:opacity-disabled active:translate-y-px",
     "[&_svg]:pointer-events-none [&_svg]:shrink-0",
   ],
   {
     variants: {
       variant: {
+        // The brass gradient: a lit top edge (--sheen), a tight shadow and a glow in the accent.
+        // Hover brightens it on graphite (light ink on brass) and deepens it on paper (white on
+        // bronze), so the label always gains contrast.
         primary:
-          "sheen bg-accent bg-[image:var(--accent-gradient)] text-accent-fg shadow-[0_1px_0_0_rgb(255_255_255/0.28)_inset,0_1px_2px_rgb(0_0_0/0.3),0_8px_22px_-10px_var(--glow-accent)] hover:brightness-105 hover:shadow-[0_1px_0_0_rgb(255_255_255/0.28)_inset,0_0_0_1px_var(--accent-ring),0_12px_32px_-10px_var(--glow-accent)]",
-        secondary:
-          "border border-border-strong bg-surface-2 text-fg hover:border-border-accent hover:bg-surface-3",
-        ghost: "text-fg-muted hover:bg-surface-2 hover:text-fg",
+          "sheen bg-accent bg-[image:var(--accent-gradient)] text-accent-fg shadow-[inset_0_1px_0_0_var(--sheen),0_1px_2px_-1px_var(--glow-accent),0_8px_22px_-10px_var(--glow-accent)] hover:brightness-95 hover:shadow-[inset_0_1px_0_0_var(--sheen),0_0_0_1px_var(--border-accent),0_12px_32px_-10px_var(--glow-accent)] dark:hover:brightness-105",
+        // A raised key (--surface-raised-control): white on paper; on graphite a translucent white
+        // step, so it stands lighter than whatever it sits on (the canvas, a card, or a sheet on the
+        // overlay plane, where a solid fill would look sunken).
+        secondary: `border border-border-strong bg-surface-raised-control text-fg hover:border-border-hover ${STATE_LAYERS}`,
+        ghost: "text-fg-muted hover:bg-surface-hover hover:text-fg active:bg-surface-active",
         outline:
-          "border border-border-strong bg-transparent text-fg hover:border-border-accent hover:bg-accent-soft",
-        danger: "bg-danger text-white hover:opacity-90",
-        link: "h-auto px-0 text-accent underline-offset-4 hover:underline",
+          "border border-border-strong bg-transparent text-fg hover:border-border-hover hover:bg-surface-hover active:bg-surface-active",
+        // Ink that reads on the danger fill in both themes: dark ink on graphite's lighter red,
+        // light ink on paper's deeper red.
+        danger: `bg-danger text-fg-inverse ${STATE_LAYERS}`,
+        link: "h-auto px-0 text-accent-text underline-offset-4 hover:underline",
       },
       size: {
-        xs: "h-7 rounded-[8px] px-2.5 text-xs [&_svg]:size-3.5",
+        xs: "h-7 rounded-sm px-2.5 text-xs [&_svg]:size-3.5",
         sm: "h-8 rounded-control px-3 text-ui [&_svg]:size-4",
         md: "h-10 rounded-control px-4 text-sm [&_svg]:size-4",
-        lg: "h-12 rounded-[12px] px-6 text-md [&_svg]:size-[18px]",
+        lg: "h-12 rounded-card px-6 text-md [&_svg]:size-[18px]",
         icon: "size-9 rounded-control [&_svg]:size-4",
-        "icon-sm": "size-7 rounded-[8px] [&_svg]:size-3.5",
+        "icon-sm": "size-7 rounded-sm [&_svg]:size-3.5",
       },
     },
     defaultVariants: { variant: "secondary", size: "md" },

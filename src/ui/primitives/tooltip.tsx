@@ -3,6 +3,9 @@
 /**
  * One-component tooltip over Radix Tooltip. Needs a TooltipProvider ancestor
  * (mounted once in ui/common/providers, which also sets the default delays).
+ * It sits on the overlay plane (--surface-overlay, pop shadow) at the control
+ * radius. Only the first tooltip of a run fades in (Radix's "delayed-open");
+ * moving on to a neighbour's shows it at once, with no delay and no motion.
  */
 import * as React from "react";
 import { Tooltip as TooltipPrimitive } from "radix-ui";
@@ -40,8 +43,8 @@ export function Tooltip({
           sideOffset={6}
           collisionPadding={12}
           className={cn(
-            "z-[60] max-w-72 rounded-[8px] border border-border-strong bg-surface-2 px-2.5 py-1.5 text-xs text-fg shadow-pop",
-            "data-[state=delayed-open]:animate-[fade-up_140ms_var(--ease-out-quint)]",
+            "z-[60] max-w-72 rounded-control border border-border bg-surface-overlay px-2.5 py-1.5 text-xs text-fg shadow-pop",
+            "transition-opacity duration-fast ease-out-quint data-[state=delayed-open]:starting:opacity-0",
             className,
           )}
         >

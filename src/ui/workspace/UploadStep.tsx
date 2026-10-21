@@ -120,7 +120,7 @@ function ErrorBanner({ message }: { message: string }) {
   return (
     <div
       role="alert"
-      className="mb-5 flex items-start gap-3 rounded-card border border-danger/30 bg-danger-soft px-4 py-3"
+      className="mb-5 flex items-start gap-3 rounded-card border border-danger-border bg-danger-soft px-4 py-3"
     >
       <AlertTriangle className="mt-0.5 size-4 shrink-0 text-danger" aria-hidden />
       <div>
@@ -173,10 +173,10 @@ function Dropzone() {
           take(e.dataTransfer.files);
         }}
         className={cn(
-          "group relative overflow-hidden rounded-panel border bg-surface-1 transition-[border-color,box-shadow,transform] duration-300 ease-[var(--ease-out-quint)]",
+          "group relative overflow-hidden rounded-panel border bg-surface-1 transition-[border-color,box-shadow,transform] duration-slow ease-[var(--ease-out-quint)]",
           over
             ? "scale-[1.006] border-accent shadow-[0_0_0_6px_var(--accent-soft),var(--shadow-lift)]"
-            : "border-border-strong shadow-card hover:border-border-accent",
+            : "border-border-strong shadow-card hover:border-border-hover",
         )}
       >
         <div
@@ -269,12 +269,12 @@ function SampleGrid() {
           <button
             type="button"
             onClick={() => void loadSample(flagship.id)}
-            className="group relative overflow-hidden rounded-card border border-border-accent bg-surface-1 p-5 text-left shadow-card transition-[transform,border-color] duration-300 hover:-translate-y-0.5 hover:border-accent md:row-span-2"
+            className="group relative overflow-hidden rounded-card border border-border-accent bg-surface-1 p-5 text-left shadow-card transition-[transform,border-color] duration-slow hover:-translate-y-0.5 hover:border-accent md:row-span-2"
           >
             <div aria-hidden className="mesh absolute inset-0 opacity-70" />
             <div className="relative">
               <div className="flex items-center gap-2">
-                <span className="grid size-9 place-items-center rounded-[10px] border border-border-accent bg-accent-soft">
+                <span className="grid size-9 place-items-center rounded-control border border-border-accent bg-accent-soft">
                   <ShoppingBag className="size-4 text-accent" aria-hidden />
                 </span>
                 <Badge tone="accent">
@@ -283,7 +283,7 @@ function SampleGrid() {
               </div>
               <p className="mt-5 font-display text-display-xs text-fg">{flagship.name}</p>
               <p className="mt-2 text-sm leading-relaxed text-fg-muted">{flagship.description}</p>
-              <p className="mt-5 inline-flex items-center gap-1.5 text-ui font-medium text-accent">
+              <p className="mt-5 inline-flex items-center gap-1.5 text-ui font-medium text-accent-text">
                 Open the demo{" "}
                 <ArrowRight
                   className="size-3.5 transition-transform group-hover:translate-x-0.5"
@@ -299,7 +299,7 @@ function SampleGrid() {
             key={s.id}
             type="button"
             onClick={() => void loadSample(s.id)}
-            className="group rounded-card border border-border bg-surface-1 p-4 text-left shadow-card transition-[transform,border-color] duration-300 hover:-translate-y-0.5 hover:border-border-accent"
+            className="group rounded-card border border-border bg-surface-1 p-4 text-left shadow-card transition-[transform,border-color] duration-slow hover:-translate-y-0.5 hover:border-border-hover"
           >
             <div className="flex items-center justify-between gap-2">
               <p className="text-sm font-medium text-fg">{s.name}</p>
@@ -394,7 +394,7 @@ function SheetPicker() {
               key={s}
               type="button"
               onClick={() => void choose(s)}
-              className="flex items-center justify-between rounded-control border border-border bg-surface-2 px-3 py-2.5 text-left text-sm text-fg transition-colors hover:border-border-accent"
+              className="flex items-center justify-between rounded-control border border-border px-3 py-2.5 text-left text-sm text-fg transition-colors hover:border-border-hover hover:bg-surface-hover active:bg-surface-active"
             >
               <span className="flex items-center gap-2">
                 <FileSpreadsheet className="size-4 text-fg-subtle" aria-hidden />
@@ -465,8 +465,8 @@ function LargeFileDialogBody({ a }: { a: LargeFileAssessment }) {
               className={cn(
                 "rounded-control border p-3 text-left transition-colors",
                 mode === o.id
-                  ? "border-accent bg-accent-soft"
-                  : "border-border bg-surface-2 hover:border-border-accent",
+                  ? "border-accent bg-surface-selected"
+                  : "border-border hover:border-border-hover hover:bg-surface-hover",
               )}
             >
               <p className="text-sm font-medium text-fg">{o.title}</p>
@@ -479,7 +479,7 @@ function LargeFileDialogBody({ a }: { a: LargeFileAssessment }) {
             {a.columns.map((c) => (
               <label
                 key={c}
-                className="flex items-center gap-2 rounded-[6px] px-1.5 py-1 text-ui text-fg hover:bg-surface-2"
+                className="flex items-center gap-2 rounded-xs px-1.5 py-1 text-ui text-fg hover:bg-surface-hover"
               >
                 <Checkbox
                   checked={cols.includes(c)}

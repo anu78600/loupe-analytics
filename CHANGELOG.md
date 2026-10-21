@@ -5,6 +5,23 @@ Every step of building Loupe, newest first. Generated from `src/content/changelo
 - **MAJOR** (`x.0`): a new capability, subsystem or page.
 - **MINOR** (`x.y`): a refinement, fix or follow-up to that major version.
 
+## 48.0 · Two themes, each designed on its own
+
+*Major · 2026-10-21 15:07 UTC · Design, Security, Tests, Docs*
+
+Light and dark are now two separately designed themes, built the way the best SaaS products build theirs: raw colour ramps, then each theme's own roles, then the components. Light is paper, ink and hairlines; dark shows depth with light rather than shadow. Every text level and the focus ring are tested for contrast in both.
+
+- Light theme: a warm paper background, white raised cards with a hairline ring and a soft layered shadow, darker recessed areas, near-black text, and three clearly separate text levels (muted and subtle used to look almost the same).
+- Dark theme: near-black, never pure black. Each raised level is lighter, and menus, popovers and dialogs are the lightest plane, with a subtle top highlight, so they clearly sit above the page. Grey text was rebalanced so it reads as strongly as it measures, accents used as text are softer, and status colours sit on dark, quiet tints.
+- Every overlay (menus, selects, popovers, tooltips, toasts, dialogs, sheets and the command palette) now sits on its own plane, and cards inside it are flat with a border.
+- One focus ring everywhere: solid, with a small gap so it stays visible on brass. In the light theme it was too faint before (1.95:1, now 4.7:1). Closing a dialog or sheet returns focus to the button that opened it.
+- Quieter, more precise shape and motion. Corners follow one scale (8 px controls, 12 px cards, 16 px panels; it was 10/14/20 plus 14 hand-written sizes). Interface motion runs 120–240 ms (it was 200–400 ms), and keyboard choices don't animate.
+- Hover, pressed, selected and disabled states look the same everywhere, and text on coloured chips uses its own darker or lighter shade (a green chip in light was just under 4.5:1).
+- The one-page dashboard's KPI tiles are neutral cards with a small tinted icon, instead of a different colour each. The faintest heatmap and tile-map cells are now visible in both themes.
+- A new test reads both themes and checks every text level, the focus ring, accent and status text on every surface, and dark surfaces getting lighter at each level, using both WCAG and APCA contrast. The chart palettes keep their colour-blind validation.
+
+Files: `src/styles/primitives.css`, `src/styles/theme-light.css`, `src/styles/theme-dark.css`, `src/styles/tokens.css`, `src/app/globals.css`, `src/ui/primitives/`, `src/ui/charts/`, `src/ui/workspace/`, `src/ui/site/`, `src/ui/landing/`, `src/lib/utils.ts`, `src/app/brand-art.ts`, `tests/theme-contrast.test.ts`, `tests/theme-utilities.test.ts`, `docs/DESIGN.md`, `CLAUDE.md`
+
 ## 47.0 · Less text on screen, the full text one gesture away
 
 *Major · 2026-10-21 10:36 UTC · Design, Feature*

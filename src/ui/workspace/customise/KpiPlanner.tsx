@@ -23,6 +23,10 @@
  * Little text on screen: what each list is for, a KPI's definition and
  * formula, and the builder's explanation sit behind an ⓘ or a short line
  * (ui/primitives/reveal.tsx); on a phone a KPI's formula line is behind its ⓘ.
+ *
+ * The builder and the delete question give focus back to the button that
+ * opened them, or to "Build" when that button went with the KPI (the Dialog
+ * primitive's `returnFocus`).
  */
 import * as React from "react";
 import { toast } from "sonner";
@@ -103,6 +107,8 @@ export function KpiPlanner() {
   const [deleting, setDeleting] = React.useState<{ id: string; name: string; charts: ChartSpec[] } | null>(
     null,
   );
+  // Where focus goes when a dialog's opener was deleted (an edited KPI moved, a deleted one's row).
+  const buildButton = React.useRef<HTMLButtonElement>(null);
 
   // Every available KPI's value under the dashboard's filters, for the lists below.
   React.useEffect(() => {
@@ -207,7 +213,7 @@ export function KpiPlanner() {
                 })}
               </ol>
             ) : (
-              <p className="rounded-control border border-dashed border-border px-3 py-4 text-center text-xs text-fg-subtle">
+              <p className="rounded-control border border-dashed border-border-strong px-3 py-4 text-center text-xs text-fg-subtle">
                 <Brief
                   full="Nothing here. Add KPIs from the list on the right."
                   label="How to fill this list"
@@ -233,7 +239,12 @@ export function KpiPlanner() {
                 </Brief>
               </p>
             </div>
-            <Button variant="primary" size="sm" onClick={() => setBuilder({ open: true, kpi: null })}>
+            <Button
+              ref={buildButton}
+              variant="primary"
+              size="sm"
+              onClick={() => setBuilder({ open: true, kpi: null })}
+            >
               <Plus aria-hidden /> Build
             </Button>
           </div>
@@ -331,7 +342,7 @@ export function KpiPlanner() {
           </Card>
         ) : null}
         {context.customKpiIssues.length ? (
-          <Card className="border-warning p-4">
+          <Card className="border-warning-border p-4">
             <p className="flex items-center gap-1.5 text-ui font-medium text-fg">
               <Sparkles className="size-4 text-warning" aria-hidden /> Your KPIs that can&apos;t be computed
               now
@@ -358,8 +369,9 @@ export function KpiPlanner() {
         open={builder.open}
         editing={builder.kpi}
         onOpenChange={(open) => setBuilder((b) => ({ ...b, open }))}
+        returnTo={buildButton}
       />
-      <DeleteKpiDialog deleting={deleting} onClose={() => setDeleting(null)} />
+      <DeleteKpiDialog deleting={deleting} onClose={() => setDeleting(null)} returnTo={buildButton} />
     </div>
   );
 }
@@ -373,9 +385,12 @@ export function KpiPlanner() {
 function DeleteKpiDialog({
   deleting,
   onClose,
+  returnTo,
 }: {
   deleting: { id: string; name: string; charts: ChartSpec[] } | null;
   onClose: () => void;
+  /** Takes focus on close when the KPI's own button went with it. */
+  returnTo: React.RefObject<HTMLElement | null>;
 }) {
   const widgets = useWorkspace((s) => s.widgets);
   const removeCustomKpi = useWorkspace((s) => s.removeCustomKpi);
@@ -402,7 +417,8 @@ function DeleteKpiDialog({
         if (!open) onClose();
       }}
     >
-      <DialogContent>
+      {/* Starts on Cancel, its first control, so Enter never deletes by accident. */}
+      <DialogContent returnFocus={returnTo}>
         <DialogHeader>
           <DialogTitle>Delete “{deleting?.name}”?</DialogTitle>
           <DialogDescription>
@@ -410,7 +426,7 @@ function DeleteKpiDialog({
             {n === 1 ? "that chart" : "they"} can&apos;t be drawn.
           </DialogDescription>
         </DialogHeader>
-        <ul className="grid gap-1 rounded-control border border-border bg-surface-2 px-3 py-2 text-ui text-fg">
+        <ul className="grid gap-1 rounded-control border border-border px-3 py-2 text-ui text-fg">
           {titles.map((t, i) => (
             <li key={charts[i]?.id ?? t} className="truncate">
               {t}

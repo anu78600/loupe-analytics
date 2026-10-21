@@ -19,8 +19,11 @@ import { contrast, deltaE, oklch } from "./colour";
 export type ThemeMode = "light" | "dark";
 export type CheckState = "pass" | "warn" | "fail";
 
-/** The chart background each mode's palette is checked against (--surface-1 in tokens.css). */
-export const SURFACE: Record<ThemeMode, string> = { light: "#ffffff", dark: "#121418" };
+/**
+ * The chart background each mode's palette is checked against: --surface-1 of
+ * styles/theme-light.css and theme-dark.css (tests/chart-themes.test.ts keeps them equal).
+ */
+export const SURFACE: Record<ThemeMode, string> = { light: "#ffffff", dark: "#151311" };
 /** OKLCH lightness band per mode for series colours. */
 export const BAND: Record<ThemeMode, [number, number]> = { light: [0.43, 0.77], dark: [0.48, 0.67] };
 export const CHROMA_FLOOR = 0.1;

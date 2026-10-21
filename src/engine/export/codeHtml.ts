@@ -18,8 +18,11 @@
  * hosts), light or dark with the reader's system setting. Its type follows
  * the app's rules with the reader's system faces: a sans for words and
  * figures (tabular numerals), a monospace for code only, notes in grey
- * rather than italic, as in the app. Its colours repeat
- * the --code-* tokens of tokens.css, since a downloaded file can't read them.
+ * rather than italic, as in the app. Its colours repeat the app's two themes
+ * (styles/theme-light.css and theme-dark.css, resolved to hex), since a
+ * downloaded file can't read them: the canvas, the card, the code well
+ * (--bg-subtle), the three text levels, the hairline (--border), accent words
+ * in --accent-text, and the --code-* colours.
  */
 import { formatValue } from "@/engine/core/format";
 import { tokenize, type CodeLanguage, type TokenKind } from "@/engine/compile/codeTokens";
@@ -59,9 +62,9 @@ const slug = (s: string): string =>
     .replace(/^-|-$/g, "");
 
 const STYLE = `
-:root{color-scheme:light dark;--bg:#f7f6f2;--card:#ffffff;--code:#f1efea;--fg:#121417;--muted:#575d66;--subtle:#636a73;--line:rgba(18,20,23,.1);--accent:#816226;
+:root{color-scheme:light dark;--bg:#f7f6f2;--card:#ffffff;--code:#f1efeb;--fg:#1b1815;--muted:#504c47;--subtle:#6b6761;--line:rgba(27,24,21,.085);--accent:#634817;
 --k:#2c56c9;--f:#7535b0;--n:#835600;--s:#1a7239;--d:#a84d05;--c:#636a73}
-@media (prefers-color-scheme:dark){:root{--bg:#0b0c0e;--card:#121418;--code:#0e0f12;--fg:#edeef0;--muted:#9ba1a9;--subtle:#828a96;--line:rgba(255,255,255,.08);--accent:#d6b47a;
+@media (prefers-color-scheme:dark){:root{--bg:#0e0d0b;--card:#151311;--code:#080706;--fg:#f0eeeb;--muted:#c0bdb9;--subtle:#a19e9a;--line:rgba(255,255,255,.085);--accent:#dec8a0;
 --k:#7aa2f7;--f:#bb9af7;--n:#e3b766;--s:#79cf95;--d:#f2a06a;--c:#828a96}}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}

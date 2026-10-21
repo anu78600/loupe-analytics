@@ -36,7 +36,8 @@ function FloatingKpi({
   delay: number;
 }) {
   const Icon = kpi.change === "up" ? ArrowUpRight : kpi.change === "down" ? ArrowDownRight : Minus;
-  const tone = kpi.tone === "good" ? "text-success" : kpi.tone === "bad" ? "text-danger" : "text-fg-muted";
+  const tone =
+    kpi.tone === "good" ? "text-success-text" : kpi.tone === "bad" ? "text-danger-text" : "text-fg-muted";
   return (
     <motion.div
       aria-hidden

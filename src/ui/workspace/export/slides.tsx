@@ -119,7 +119,7 @@ function SlideFrame({
     >
       <header className="flex items-end justify-between gap-10" style={{ height: 120 }}>
         <div className="min-w-0">
-          <p className={`text-[18px] text-accent ${CANVAS_EYEBROW}`}>{eyebrow}</p>
+          <p className={`text-[18px] text-accent-text ${CANVAS_EYEBROW}`}>{eyebrow}</p>
           <h2 className="mt-3 truncate font-display text-[50px] leading-[1.05] tracking-[-0.01em] text-fg">
             {title}
           </h2>
@@ -185,7 +185,7 @@ function SlideChart({
   const maxRows = Math.max(3, Math.floor((tableSpace / zoom - 37 - 32) / 33));
   return (
     <section
-      className={`flex min-w-0 flex-1 flex-col rounded-[20px] border border-border bg-surface-1 ${compact ? "px-7 py-5" : "px-9 py-7"}`}
+      className={`flex min-w-0 flex-1 flex-col rounded-panel border border-border bg-surface-1 ${compact ? "px-7 py-5" : "px-9 py-7"}`}
       style={{ height }}
     >
       <p className={`truncate text-[18px] text-fg-subtle ${CANVAS_EYEBROW}`}>
@@ -254,7 +254,7 @@ function SlideKpi({
   const spark = value?.spark.map((p) => p.v) ?? [];
   const grain = value ? GRAIN_WORD[value.sparkGrain] : undefined;
   return (
-    <div className="flex min-h-0 flex-col rounded-[20px] border border-border bg-surface-1 px-7 py-6">
+    <div className="flex min-h-0 flex-col rounded-panel border border-border bg-surface-1 px-7 py-6">
       <p className="truncate text-[18px] text-fg-muted">{kpiLabel(meta)}</p>
       <p className="font-figures mt-3 text-[50px] leading-none font-semibold tracking-[-0.025em] text-fg">
         {show(value?.value)}
@@ -268,7 +268,7 @@ function SlideKpi({
             </span>
           ) : null}
           <span
-            className={`font-medium ${good === null ? "text-fg-muted" : good ? "text-success" : "text-danger"}`}
+            className={`font-medium ${good === null ? "text-fg-muted" : good ? "text-success-text" : "text-danger-text"}`}
           >
             {pct ? formatPointDelta(change, fmt.locale) : formatDelta(change, fmt.locale)}
           </span>{" "}
@@ -363,7 +363,7 @@ function OverviewSlide({
             />
           ))}
         </div>
-        <section className="flex min-h-0 flex-col rounded-[20px] border border-border bg-surface-1 px-9 py-8">
+        <section className="flex min-h-0 flex-col rounded-panel border border-border bg-surface-1 px-9 py-8">
           <p className={`text-[18px] text-fg-subtle ${CANVAS_EYEBROW}`}>Key takeaways</p>
           {takeaways.length ? (
             <ol className="mt-6 grid min-h-0 content-start gap-6 overflow-hidden">
@@ -373,7 +373,7 @@ function OverviewSlide({
                 const detail = firstSentence(t.body);
                 return (
                   <li key={t.id} className="flex gap-4">
-                    <span className="font-figures grid size-9 shrink-0 place-items-center rounded-full border border-border-accent bg-accent-soft text-[18px] font-medium text-accent">
+                    <span className="font-figures grid size-9 shrink-0 place-items-center rounded-full border border-border-accent bg-accent-soft text-[18px] font-medium text-accent-text">
                       {i + 1}
                     </span>
                     <div className="min-w-0">

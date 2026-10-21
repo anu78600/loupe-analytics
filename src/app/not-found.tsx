@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { LoupeMark } from "@/ui/brand/logo";
+import { buttonVariants } from "@/ui/primitives/button";
 
 export const metadata: Metadata = {
   title: "Page not found",
@@ -21,16 +22,10 @@ export default function NotFound() {
           This page doesn&apos;t exist. Your data, as always, stayed in your browser.
         </p>
         <div className="mt-8 flex flex-wrap justify-center gap-3">
-          <Link
-            href="/app"
-            className="inline-flex items-center gap-2 rounded-control bg-accent px-4 py-2.5 text-sm font-medium text-accent-fg hover:bg-accent-strong"
-          >
-            Open the workspace <ArrowRight className="size-4" aria-hidden />
+          <Link href="/app" className={buttonVariants({ variant: "primary" })}>
+            Open the workspace <ArrowRight aria-hidden />
           </Link>
-          <Link
-            href="/"
-            className="inline-flex items-center rounded-control border border-border-strong px-4 py-2.5 text-sm text-fg hover:border-border-accent"
-          >
+          <Link href="/" className={buttonVariants({ variant: "secondary" })}>
             Home
           </Link>
         </div>

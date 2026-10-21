@@ -50,7 +50,7 @@ function Timestamp({ iso }: { iso: string }) {
 
 function KindBadge({ kind }: { kind: Release["kind"] }) {
   return kind === "major" ? (
-    <span className="eyebrow rounded-full border border-border-accent bg-accent-soft px-2 py-0.5 text-accent">
+    <span className="eyebrow rounded-full border border-border-accent bg-accent-soft px-2 py-0.5 text-accent-text">
       Major
     </span>
   ) : (
@@ -61,7 +61,7 @@ function KindBadge({ kind }: { kind: Release["kind"] }) {
 function Files({ files }: { files: string[] }) {
   return (
     <details className="group mt-3">
-      <summary className="flex w-fit cursor-pointer list-none items-center gap-1.5 rounded-[6px] text-xs text-fg-subtle transition-colors hover:text-fg [&::-webkit-details-marker]:hidden">
+      <summary className="flex w-fit cursor-pointer list-none items-center gap-1.5 rounded-xs text-xs text-fg-subtle transition-colors duration-fast hover:text-fg [&::-webkit-details-marker]:hidden">
         <ChevronRight className="size-3 transition-transform group-open:rotate-90" aria-hidden />
         <FileCode2 className="size-3" aria-hidden />
         {files.length} file{files.length === 1 ? "" : "s"} changed
@@ -88,7 +88,7 @@ function Entry({ release, compact }: { release: Release; compact: boolean }) {
         <a
           href={`#v${release.version}`}
           className={cn(
-            "font-figures font-medium text-fg hover:text-accent",
+            "font-figures rounded-xs font-medium text-fg transition-colors duration-fast hover:text-accent-text",
             compact ? "text-ui" : "text-md",
           )}
         >
@@ -148,10 +148,11 @@ export function ChangelogTimeline({ releases }: { releases: Release[] }) {
 
   return (
     <div>
+      {/* The same track and raised key as the Segmented control (ui/primitives/segmented.tsx). */}
       <div
         role="group"
         aria-label="Show"
-        className="inline-flex items-center rounded-control border border-border bg-surface-1 p-1"
+        className="inline-flex items-center gap-0.5 rounded-control border border-border bg-surface-inset p-0.5"
       >
         {(
           [
@@ -165,8 +166,10 @@ export function ChangelogTimeline({ releases }: { releases: Release[] }) {
             aria-pressed={filter === o.id}
             onClick={() => setFilter(o.id)}
             className={cn(
-              "rounded-[8px] px-3 py-1.5 text-ui transition-colors",
-              filter === o.id ? "bg-surface-3 text-fg" : "text-fg-muted hover:text-fg",
+              "rounded-sm border px-3 py-1 text-ui font-medium transition-colors duration-fast focus-visible:focus-ring",
+              filter === o.id
+                ? "border-border-strong bg-surface-raised-control text-fg shadow-card"
+                : "border-transparent text-fg-muted hover:bg-surface-hover hover:text-fg",
             )}
           >
             {o.label}
@@ -190,13 +193,13 @@ export function ChangelogTimeline({ releases }: { releases: Release[] }) {
               <div className="rounded-panel border border-border bg-surface-1 p-5 shadow-card sm:p-6">
                 {head ? <Entry release={head} compact={false} /> : null}
                 {filter === "all" && minors.length ? (
-                  <div className="mt-6 border-t border-border pt-5">
+                  <div className="mt-6 border-t border-border-subtle pt-5">
                     <p className="eyebrow text-fg-subtle">
                       {minors.length} follow-up{minors.length === 1 ? "" : "s"} to version {major}
                     </p>
                     <ol className="mt-4 grid gap-6">
                       {minors.map((m) => (
-                        <li key={m.version} className="relative border-l border-border pl-4">
+                        <li key={m.version} className="relative border-l border-border-subtle pl-4">
                           <Entry release={m} compact />
                         </li>
                       ))}

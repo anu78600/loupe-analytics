@@ -15,6 +15,11 @@
  * columns used) sit behind an ⓘ, what each section is for is behind the ⓘ
  * beside its title, and long reasons are clamped, with the full text behind
  * hover, a long press or the ⓘ (ui/primitives/reveal.tsx).
+ *
+ * The phone's Filters sheet opens from its own trigger. The inspector and the
+ * data-health dialog open from state; the primitives give focus back to
+ * whatever opened them (a KPI card, a chart's menu). The health report opens
+ * on itself rather than on its first ⓘ (the Dialog primitive's `initialFocus`).
  */
 import { FileIdentity } from "../FileIdentity";
 import * as React from "react";
@@ -38,7 +43,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/ui/primitives/button";
 import { Badge } from "@/ui/primitives/badge";
 import { Segmented } from "@/ui/primitives/segmented";
-import { Sheet, SheetContent } from "@/ui/primitives/sheet";
+import { Sheet, SheetContent, SheetTrigger } from "@/ui/primitives/sheet";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/ui/primitives/dialog";
 import { Brief, ClampText, InfoTip } from "@/ui/primitives/reveal";
 
@@ -112,8 +117,9 @@ function FullDashboard() {
     // left edge (clip, unlike hidden, keeps the rail's sticky position working).
     <div className="mx-auto grid w-full max-w-[1760px] gap-6 overflow-x-clip px-4 py-6 md:px-6 lg:grid-cols-[256px_minmax(0,1fr)]">
       <aside className="no-print hidden min-w-0 lg:block" aria-label="Dataset and filters">
-        {/* Never scrolls sideways: everything in the rail fits its width. */}
-        <div className="sticky top-20 max-h-[calc(100dvh-6rem)] overflow-x-hidden overflow-y-auto pr-1">
+        {/* Never scrolls sideways: everything in the rail fits its width. The padding (pulled back
+            on the left) keeps room for a control's focus ring, which the scroll box would clip. */}
+        <div className="sticky top-20 -ml-1.5 max-h-[calc(100dvh-6rem)] overflow-x-hidden overflow-y-auto py-1 pr-1 pl-1.5">
           <FilterRail onOpenHealth={() => setHealthOpen(true)} />
         </div>
       </aside>
@@ -190,9 +196,19 @@ function FullDashboard() {
           </div>
           <div className="no-print flex flex-wrap items-center gap-2">
             <ViewToggle />
-            <Button variant="secondary" size="sm" className="lg:hidden" onClick={() => setFiltersOpen(true)}>
-              <SlidersHorizontal aria-hidden /> Filters
-            </Button>
+            {/* The sheet's own trigger, so focus comes back to this button when it closes. */}
+            <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
+              <SheetTrigger asChild>
+                <Button variant="secondary" size="sm" className="lg:hidden">
+                  <SlidersHorizontal aria-hidden /> Filters
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="left" title="Filters">
+                <div className="p-5">
+                  <FilterRail inSheet onOpenHealth={() => setHealthOpen(true)} />
+                </div>
+              </SheetContent>
+            </Sheet>
             <Segmented<LayoutMode>
               ariaLabel="Layout mode"
               size="sm"
@@ -245,7 +261,7 @@ function FullDashboard() {
                   </h2>
                   <InfoTip label={`About ${sec.title}`}>{sec.blurb}</InfoTip>
                 </span>
-                <span aria-hidden className="h-px flex-1 bg-border" />
+                <span aria-hidden className="h-px flex-1 bg-border-subtle" />
                 {foldable ? (
                   <Button
                     size="xs"
@@ -280,13 +296,6 @@ function FullDashboard() {
         <NotShown />
       </div>
 
-      <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
-        <SheetContent side="left" title="Filters">
-          <div className="p-5">
-            <FilterRail onOpenHealth={() => setHealthOpen(true)} />
-          </div>
-        </SheetContent>
-      </Sheet>
       <Sheet
         open={inspectorOpen}
         onOpenChange={(o) => {
@@ -301,7 +310,8 @@ function FullDashboard() {
         </SheetContent>
       </Sheet>
       <Dialog open={healthOpen} onOpenChange={setHealthOpen}>
-        <DialogContent className="max-w-3xl">
+        {/* The health report is read rather than filled in: it opens on itself, not on its first ⓘ. */}
+        <DialogContent className="max-w-3xl" initialFocus="content">
           <DialogHeader>
             <DialogTitle>Data health</DialogTitle>
             <DialogDescription>Light trust checks run on every load, even for clean data.</DialogDescription>
@@ -326,10 +336,13 @@ function NotShown() {
   const total = unavailable.length + context.skippedCharts.length + hidden.length;
   if (!total) return null;
   return (
-    <section className="no-print mt-10 rounded-card border border-border bg-surface-1">
+    <section className="no-print mt-10 rounded-card border border-border bg-surface-1 shadow-card">
       <button
         type="button"
-        className="flex w-full items-center justify-between gap-3 px-5 py-3.5 text-left"
+        className={cn(
+          "flex w-full items-center justify-between gap-3 px-5 py-3.5 text-left transition-colors duration-fast hover:bg-surface-hover",
+          open ? "rounded-t-card" : "rounded-card",
+        )}
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
       >
@@ -346,7 +359,7 @@ function NotShown() {
         />
       </button>
       {open ? (
-        <div className="grid gap-5 border-t border-border px-5 py-4 md:grid-cols-2">
+        <div className="grid gap-5 border-t border-border-subtle px-5 py-4 md:grid-cols-2">
           {unavailable.length ? (
             <div>
               <p className="eyebrow mb-2 text-fg-subtle">KPIs</p>
@@ -400,7 +413,7 @@ function NotShown() {
         </div>
       ) : null}
       {!open ? null : (
-        <p className="border-t border-border px-5 py-2.5 text-xs text-fg-subtle">
+        <p className="border-t border-border-subtle px-5 py-2.5 text-xs text-fg-subtle">
           <Badge tone="outline">Honest by design</Badge>{" "}
           <Brief
             label="Why these aren't shown"

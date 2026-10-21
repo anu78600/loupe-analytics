@@ -136,7 +136,7 @@ function ChartInspector({ id }: { id: string }) {
         ) : null}
       </dl>
       {data?.notes.length ? (
-        <ul className="grid gap-1 rounded-control border border-border bg-surface-2 p-3 text-xs leading-relaxed text-fg-muted">
+        <ul className="grid gap-1 rounded-control border border-border p-3 text-xs leading-relaxed text-fg-muted">
           {data.notes.map((n) => (
             <li key={n}>
               <ClampText lines={2}>{n}</ClampText>
@@ -144,7 +144,7 @@ function ChartInspector({ id }: { id: string }) {
           ))}
         </ul>
       ) : null}
-      <div className="border-t border-border pt-4">
+      <div className="border-t border-border-subtle pt-4">
         <p className="mb-3 text-sm font-medium text-fg">
           {spec.source === "custom" ? "Edit this chart" : "Customise a copy"}
         </p>
@@ -429,7 +429,7 @@ function ChartBuilder({ base }: { base?: ChartSpec }) {
         {measure === "__agg__" &&
         agg === "sum" &&
         ["rate", "percentage"].includes(columns.find((c) => c.name === aggCol)?.role ?? "") ? (
-          <p className="text-xs text-warning">
+          <p className="text-xs text-warning-text">
             <Brief
               label="Why summing a rate is wrong"
               full="Summing a rate column is almost always wrong; prefer Average, or a KPI built from its parts."

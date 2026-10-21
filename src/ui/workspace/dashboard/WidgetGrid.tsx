@@ -13,6 +13,10 @@
  * the space left at the end of a row is shared out, so rows always fill the
  * width with no holes. Cards on a row share its tallest height, so their
  * edges line up. On a narrow screen every chart takes the full width.
+ *
+ * The move handle floats over the card's edge, so it sits on the overlay
+ * plane (the closest one) with the overlay's shadow; the resize handle is a
+ * plain icon button in the card's corner, its radius concentric with it.
  */
 import * as React from "react";
 import {
@@ -131,7 +135,7 @@ function SortableWidget({
         {...attributes}
         {...listeners}
         aria-label={`Move ${spec.title}`}
-        className="no-print absolute top-3.5 -left-2.5 z-20 hidden h-7 w-5 cursor-grab place-items-center rounded-[6px] border border-border-strong bg-surface-2 text-fg-subtle opacity-0 shadow-card transition-opacity group-hover/widget:opacity-100 hover:text-fg focus-visible:opacity-100 active:cursor-grabbing md:grid"
+        className="no-print absolute top-3.5 -left-2.5 z-20 hidden h-7 w-5 cursor-grab place-items-center rounded-sm border border-border-strong bg-surface-overlay text-fg-subtle opacity-0 shadow-pop transition-opacity duration-fast group-hover/widget:opacity-100 hover:text-fg focus-visible:opacity-100 active:cursor-grabbing md:grid"
       >
         <GripVertical className="size-3.5" aria-hidden />
       </button>
@@ -140,13 +144,13 @@ function SortableWidget({
         onPointerDown={onResizeStart}
         onKeyDown={onResizeKey}
         aria-label={`Resize ${spec.title}: use arrow keys`}
-        className="no-print absolute right-1 bottom-1 z-20 hidden size-6 cursor-nwse-resize place-items-center rounded-[6px] text-fg-subtle opacity-0 transition-opacity group-hover/widget:opacity-100 hover:bg-surface-3 hover:text-fg focus-visible:opacity-100 md:grid"
+        className="no-print absolute right-1 bottom-1 z-20 hidden size-6 cursor-nwse-resize place-items-center rounded-control text-fg-subtle opacity-0 transition-opacity duration-fast group-hover/widget:opacity-100 hover:bg-surface-hover hover:text-fg focus-visible:opacity-100 active:bg-surface-active md:grid"
       >
         <MoveDiagonal2 className="size-3.5" aria-hidden />
       </button>
       {preview ? (
         <div className="pointer-events-none absolute inset-0 rounded-card border-2 border-dashed border-accent bg-accent-soft">
-          <span className="font-figures absolute top-3 right-3 rounded-[6px] bg-surface-2 px-1.5 py-0.5 text-2xs text-fg">
+          <span className="font-figures absolute top-3 right-3 rounded-xs bg-surface-overlay px-1.5 py-0.5 text-2xs text-fg shadow-pop">
             {preview.w} × {preview.h}
           </span>
         </div>

@@ -15,8 +15,9 @@
  * colours keep the light ones' hues, moved in lightness to suit the dark
  * background (generate.ts forDark).
  *
- * The built-in "Loupe" preset is tokens.css itself: choosing it removes any
- * override, so the default never drifts from the stylesheet.
+ * The built-in "Loupe" preset is the stylesheet itself (styles/theme-light.css
+ * and theme-dark.css): choosing it removes any override, so the default never
+ * drifts from the stylesheet.
  */
 import { normaliseHex } from "./colour";
 import { forDark, matchingFrom, rampFrom, shadesFrom, SLOTS } from "./generate";
@@ -43,7 +44,7 @@ export interface ThemePreset {
  * The presets, series 1 → 8 per theme. Each was designed with the generators
  * (seed hues, the order with the widest margins, improve() and forDark()),
  * then fixed here so a preset never changes under the user. "loupe" mirrors
- * tokens.css --chart-1…8.
+ * --chart-1…8 of styles/theme-light.css and theme-dark.css.
  */
 export const PRESETS: ThemePreset[] = [
   {
@@ -97,10 +98,10 @@ export const PRESETS: ThemePreset[] = [
   },
 ];
 
-/** tokens.css --seq-1…8, the built-in brass gradient. */
+/** --seq-1…8 of styles/theme-light.css and theme-dark.css, the built-in brass gradient. */
 const LOUPE_RAMP: Record<ThemeMode, string[]> = {
-  light: ["#fbf1e0", "#f0dcbb", "#dfc293", "#cba66d", "#b38a48", "#9b6e1d", "#835405", "#6a4000"],
-  dark: ["#3a2a10", "#4f3912", "#6c4c10", "#866222", "#a17833", "#bd8f44", "#d9a755", "#f6c16b"],
+  light: ["#e1cda9", "#d2b689", "#c3a068", "#b48a4a", "#a3742e", "#906018", "#7c4e06", "#663d00"],
+  dark: ["#4e3b1f", "#654c28", "#7c5f31", "#95723b", "#ad8646", "#c79b52", "#e0b060", "#f9c76f"],
 };
 
 export interface ThemeColours {
@@ -215,7 +216,7 @@ export function sameChoice(a: ChartThemeChoice, b: ChartThemeChoice): boolean {
   return JSON.stringify(sanitiseChoice(a)) === JSON.stringify(sanitiseChoice(b));
 }
 
-/** CSS custom properties for one theme's colours (the names tokens.css defines). */
+/** CSS custom properties for one theme's colours (the names the theme stylesheets define). */
 function declarations(c: ThemeColours): string {
   return [
     ...c.series.map((v, i) => `--chart-${i + 1}:${v}`),
@@ -225,11 +226,12 @@ function declarations(c: ThemeColours): string {
 }
 
 /**
- * The stylesheet that applies a theme: tokens.css's chart colours redefined
- * for the dark theme (the default) and the light one, wherever either is
- * set: on <html> or on an element that forces a theme, such as the light
- * report rendered for a PDF. The selectors carry one more attribute than
- * tokens.css's, so they win whatever the order of the stylesheets, and only
+ * The stylesheet that applies a theme: the chart colours of the theme
+ * stylesheets (styles/theme-dark.css, theme-light.css) redefined for the
+ * dark theme (the default) and the light one, wherever either is set: on
+ * <html> or on an element that forces a theme, such as the light report
+ * rendered for a PDF. The selectors carry one more attribute than the theme
+ * stylesheets', so they win whatever the order of the stylesheets, and only
  * apply while <html> carries data-chart-theme. Empty for the built-in palette.
  */
 export function themeCss(theme: ResolvedTheme): string {

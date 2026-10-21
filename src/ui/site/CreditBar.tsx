@@ -24,7 +24,7 @@ export function CreditBar() {
       <p className="mx-auto flex h-9 max-w-6xl items-center justify-center gap-x-2.5 px-4 text-xs text-fg-subtle sm:px-6">
         <span className="hidden items-center gap-1.5 sm:inline-flex">
           <Sparkles className="size-3 text-accent" aria-hidden />
-          <span className="text-sm text-accent">Crafted with curiosity</span>
+          <span className="text-sm text-accent-text">Crafted with curiosity</span>
         </span>
         <Dot className="hidden sm:block" />
         <span>

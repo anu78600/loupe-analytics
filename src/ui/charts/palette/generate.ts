@@ -32,15 +32,16 @@ import {
 /** Series colours per theme: charts assign them in order and never cycle (a ninth series folds into "Others"). */
 export const SLOTS = 8;
 
-// The built-in brass ramp's shape (tokens.css --seq-1…8, measured in OKLCH): lightness per step
-// and chroma as a share of the ramp's strongest chroma. Step 1 sits next to the background.
+// The built-in brass ramp's shape (--seq-1…8 in styles/theme-light.css and theme-dark.css,
+// measured in OKLCH): lightness per step and chroma as a share of the ramp's strongest chroma.
+// Step 1 sits next to the background, far enough from it to show (≥ 1.5:1 on the card).
 const RAMP_L: Record<ThemeMode, number[]> = {
-  light: [0.961, 0.902, 0.828, 0.746, 0.659, 0.571, 0.487, 0.412],
-  dark: [0.297, 0.361, 0.441, 0.521, 0.6, 0.679, 0.759, 0.841],
+  light: [0.856, 0.79, 0.725, 0.66, 0.594, 0.529, 0.465, 0.4],
+  dark: [0.366, 0.435, 0.505, 0.575, 0.644, 0.716, 0.785, 0.856],
 };
 const RAMP_C: Record<ThemeMode, number[]> = {
-  light: [0.21, 0.41, 0.58, 0.72, 0.82, 0.9, 0.86, 0.75],
-  dark: [0.38, 0.52, 0.7, 0.77, 0.83, 0.9, 0.97, 1],
+  light: [0.51, 0.65, 0.81, 0.93, 1, 1, 0.95, 0.84],
+  dark: [0.42, 0.51, 0.61, 0.7, 0.79, 0.87, 0.94, 1],
 };
 
 /**

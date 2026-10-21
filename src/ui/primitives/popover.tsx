@@ -1,6 +1,10 @@
 "use client";
 
-/** Styled Radix Popover: a portalled, collision-aware card-radius (14px) panel; 288px wide unless overridden. */
+/**
+ * Styled Radix Popover: a portalled, collision-aware panel on the overlay
+ * plane (--surface-overlay, pop shadow) at the card radius; 288px wide unless
+ * overridden. It grows out of its trigger from 96 % over 120 ms.
+ */
 import * as React from "react";
 import { Popover as PopoverPrimitive } from "radix-ui";
 import { cn } from "@/lib/utils";
@@ -21,8 +25,8 @@ export const PopoverContent = React.forwardRef<
       sideOffset={sideOffset}
       collisionPadding={12}
       className={cn(
-        "z-50 w-72 rounded-[14px] border border-border-strong bg-surface-2 p-4 text-fg shadow-pop outline-none",
-        "data-[state=open]:animate-[fade-up_180ms_var(--ease-out-quint)]",
+        "z-50 w-72 rounded-card border border-border bg-surface-overlay p-4 text-fg shadow-pop outline-none",
+        "origin-(--radix-popover-content-transform-origin) scale-100 transition-[opacity,scale] duration-fast ease-out-quint starting:scale-96 starting:opacity-0",
         className,
       )}
       {...props}

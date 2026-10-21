@@ -70,7 +70,7 @@ export function CodeBlock({ code, language, label }: { code: string; language: s
   const [copied, setCopied] = React.useState(false);
   return (
     <div className="relative overflow-hidden rounded-control border border-border bg-bg-subtle">
-      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-border px-3 py-1.5">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-border-subtle px-3 py-1.5">
         <span className="eyebrow text-fg-subtle">{language}</span>
         <CodeLegend className="mr-auto ml-2 hidden sm:flex" />
         <Button
@@ -88,10 +88,11 @@ export function CodeBlock({ code, language, label }: { code: string; language: s
           {copied ? <Check aria-hidden /> : <Copy aria-hidden />} {copied ? "Copied" : "Copy"}
         </Button>
       </div>
+      {/* The focus ring is drawn inside: the rounded box around the code clips anything outside it. */}
       <pre
         tabIndex={0}
         aria-label={`${label} code`}
-        className="max-h-80 overflow-auto p-3 text-xs leading-relaxed text-fg focus-visible:outline-offset-[-2px]"
+        className="max-h-80 overflow-auto p-3 text-xs leading-relaxed text-fg focus-visible:-outline-offset-2"
       >
         <HighlightedCode code={code} lang={languageOf(language)} />
       </pre>
@@ -196,7 +197,7 @@ export function KpiDetails({ kpiId }: { kpiId: string }) {
           </div>
         ) : null}
         {!meta.available ? (
-          <p className="mt-3 flex gap-2 rounded-control border border-warning/30 bg-warning-soft px-3 py-2 text-sm text-fg">
+          <p className="mt-3 flex gap-2 rounded-control border border-warning-border bg-warning-soft px-3 py-2 text-sm text-fg">
             <TriangleAlert className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden />
             {meta.unavailableReason} {meta.substitute}
           </p>
@@ -219,7 +220,9 @@ export function KpiDetails({ kpiId }: { kpiId: string }) {
           {meta.variantLabel ? (
             <Row label="Method used">
               {meta.variantLabel}
-              {meta.caveat ? <span className="mt-1 block text-warning">Caveat: {meta.caveat}</span> : null}
+              {meta.caveat ? (
+                <span className="mt-1 block text-warning-text">Caveat: {meta.caveat}</span>
+              ) : null}
             </Row>
           ) : null}
           {meta.fieldsUsed.length ? (
@@ -333,7 +336,7 @@ export function KpiDetails({ kpiId }: { kpiId: string }) {
             <table className="w-full text-ui">
               <tbody>
                 {tiValues?.map((t) => (
-                  <tr key={t.key} className="border-b border-border last:border-0">
+                  <tr key={t.key} className="border-b border-border-subtle last:border-0">
                     <th scope="row" className="py-2 pr-3 text-left font-normal text-fg-muted">
                       {t.label}
                       <span className="block text-xs text-fg-subtle">{t.note ?? t.period}</span>

@@ -27,7 +27,7 @@ export function LearnedNotice({ className }: { className?: string }) {
     <div
       role="status"
       className={cn(
-        "flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-card border border-info/30 bg-info-soft px-4 py-3",
+        "flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-card border border-info-border bg-info-soft px-4 py-3",
         className,
       )}
     >

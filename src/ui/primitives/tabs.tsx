@@ -3,9 +3,10 @@
 /**
  * Underline-style tabs (Radix): the active trigger gets a brass underline
  * that overlaps the list's bottom border. Keyboard focus is always visible:
- * a ring inside the trigger (so a list that scrolls sideways never clips it)
- * and around the panel, which Radix puts in the tab order so a panel without
- * controls can still be reached.
+ * the focus colour drawn inside the trigger (an inset ring, so a list that
+ * scrolls sideways never clips it), and the focus ring around the panel,
+ * which Radix puts in the tab order so a panel without controls can still be
+ * reached.
  */
 import * as React from "react";
 import { Tabs as TabsPrimitive } from "radix-ui";
@@ -32,7 +33,7 @@ export const TabsTrigger = React.forwardRef<
   <TabsPrimitive.Trigger
     ref={ref}
     className={cn(
-      "relative -mb-px inline-flex h-9 items-center gap-1.5 rounded-t-[6px] border-b-2 border-transparent px-3 text-ui font-medium text-fg-muted transition-colors outline-none hover:text-fg focus-visible:ring-2 focus-visible:ring-accent-ring focus-visible:ring-inset data-[state=active]:border-accent data-[state=active]:text-fg [&_svg]:size-3.5",
+      "relative -mb-px inline-flex h-9 items-center gap-1.5 rounded-t-sm border-b-2 border-transparent px-3 text-ui font-medium text-fg-muted transition-colors duration-fast outline-none hover:text-fg focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-inset data-[state=active]:border-accent data-[state=active]:text-fg [&_svg]:size-3.5",
       className,
     )}
     {...props}
@@ -46,10 +47,7 @@ export const TabsContent = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <TabsPrimitive.Content
     ref={ref}
-    className={cn(
-      "rounded-card outline-none focus-visible:ring-2 focus-visible:ring-accent-ring focus-visible:ring-offset-4 focus-visible:ring-offset-bg",
-      className,
-    )}
+    className={cn("rounded-card outline-none focus-visible:focus-ring", className)}
     {...props}
   />
 ));

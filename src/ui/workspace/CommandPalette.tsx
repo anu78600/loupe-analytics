@@ -7,7 +7,10 @@
  * the step bar (a step that needs data or an industry first is shown, but
  * cannot be chosen), and a demo asks before it replaces the user's own file.
  * PaletteBody subscribes to the workspace store only while the palette is
- * open, so it costs nothing when closed.
+ * open, so it costs nothing when closed. It opens and closes without
+ * animation (a keyboard action), and closing gives focus back to where it
+ * was: it draws its own Radix dialog, with the dialog primitive's focus
+ * handlers (useDialogFocus in ui/primitives/dialog.tsx).
  */
 import * as React from "react";
 import { Command } from "cmdk";
@@ -30,11 +33,12 @@ import { SAMPLES } from "@/engine/samples/catalog";
 import { allSpecs, STEPS, useWorkspace } from "@/store/workspace";
 import { useSettings } from "@/store/settings";
 import { cn } from "@/lib/utils";
+import { useDialogFocus } from "@/ui/primitives/dialog";
 import { useChartColoursPanel } from "./ChartColours";
 import { openDemo, stepEnabled } from "./Shell";
 
 const itemClass =
-  "flex cursor-default select-none items-center gap-2.5 rounded-[8px] px-2.5 py-2 text-ui text-fg outline-none data-[selected=true]:bg-surface-3 [&_svg]:size-4 [&_svg]:text-fg-subtle";
+  "flex cursor-default select-none items-center gap-2.5 rounded-control px-2.5 py-2 text-ui text-fg outline-none data-[selected=true]:bg-surface-hover [&_svg]:size-4 [&_svg]:text-fg-subtle";
 const groupHeading =
   "[&_[cmdk-group-heading]]:px-2.5 [&_[cmdk-group-heading]]:pb-1 [&_[cmdk-group-heading]]:pt-2.5";
 
@@ -56,11 +60,15 @@ export function CommandPalette({
   onOpenChange: (o: boolean) => void;
   onOpenSettings: () => void;
 }) {
+  const focus = useDialogFocus();
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className="fixed inset-0 z-[70] bg-overlay backdrop-blur-[2px]" />
-        <DialogPrimitive.Content className="fixed top-[14vh] left-1/2 z-[70] w-[calc(100vw-32px)] max-w-xl -translate-x-1/2 overflow-hidden rounded-panel border border-border-strong bg-surface-1 shadow-lift outline-none">
+        <DialogPrimitive.Content
+          {...focus}
+          className="fixed top-[14vh] left-1/2 z-[70] w-[calc(100vw-32px)] max-w-xl -translate-x-1/2 overflow-hidden rounded-panel border border-border bg-surface-overlay shadow-lift outline-none"
+        >
           <DialogPrimitive.Title className="sr-only">Command palette</DialogPrimitive.Title>
           <DialogPrimitive.Description className="sr-only">
             Search actions, charts and KPIs
@@ -88,8 +96,8 @@ function PaletteBody({ onClose, onOpenSettings }: { onClose: () => void; onOpenS
     <Command label="Command palette" className="flex max-h-[60vh] flex-col">
       <div className="flex items-center gap-2 border-b border-border px-4">
         <Search className="size-4 text-fg-subtle" aria-hidden />
+        {/* Radix focuses it on open (no autoFocus, which would move focus before the dialog reads its opener). */}
         <Command.Input
-          autoFocus
           placeholder="Search actions, charts, KPIs…"
           className="h-12 flex-1 bg-transparent text-sm text-fg outline-none placeholder:text-fg-subtle"
         />
@@ -104,7 +112,7 @@ function PaletteBody({ onClose, onOpenSettings }: { onClose: () => void; onOpenS
                 key={s.id}
                 value={`go ${s.label}`}
                 disabled={!enabled}
-                className={cn(itemClass, "data-[disabled=true]:opacity-45")}
+                className={cn(itemClass, "data-[disabled=true]:opacity-disabled")}
                 onSelect={() => run(() => ws.setStep(s.id))}
               >
                 <LayoutGrid aria-hidden /> {s.label}

@@ -212,7 +212,7 @@ export function DetectStep() {
       {sampling ? (
         <div
           role="note"
-          className="mb-5 flex items-start gap-2.5 rounded-card border border-warning/30 bg-warning-soft px-4 py-3"
+          className="mb-5 flex items-start gap-2.5 rounded-card border border-warning-border bg-warning-soft px-4 py-3"
         >
           <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden />
           <p className="text-sm text-fg">
@@ -234,7 +234,7 @@ export function DetectStep() {
       {unproven.length ? (
         <div
           role="note"
-          className="mb-5 grid gap-2 rounded-card border border-info/30 bg-info-soft px-4 py-3"
+          className="mb-5 grid gap-2 rounded-card border border-info-border bg-info-soft px-4 py-3"
         >
           {unproven.map((d) => (
             <div key={d.column} className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
@@ -258,7 +258,7 @@ export function DetectStep() {
         </div>
       ) : null}
       {profile.wide ? (
-        <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-card border border-info/30 bg-info-soft px-4 py-3">
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-card border border-info-border bg-info-soft px-4 py-3">
           <p className="text-sm text-fg">
             <span className="font-medium">Wide format detected.</span>{" "}
             <Brief label="About the wide format" full={profile.wide.suggestion}>
@@ -273,7 +273,7 @@ export function DetectStep() {
       {tall ? (
         <div
           role="note"
-          className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-card border border-info/30 bg-info-soft px-4 py-3"
+          className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-card border border-info-border bg-info-soft px-4 py-3"
         >
           {/* Grows beside the button on wide screens; below 16rem of room the button wraps underneath. */}
           <p className="min-w-[16rem] flex-1 text-sm text-fg">
@@ -324,7 +324,7 @@ function DetectionCard() {
         {detection.needsConfirmation ? (
           <div
             role="status"
-            className="mb-5 flex items-start gap-2.5 rounded-control border border-warning/30 bg-warning-soft px-3 py-2.5"
+            className="mb-5 flex items-start gap-2.5 rounded-control border border-warning-border bg-warning-soft px-3 py-2.5"
           >
             <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden />
             <p className="text-sm text-fg">
@@ -343,7 +343,7 @@ function DetectionCard() {
           <ChoiceDetail domain={domains.find((d) => d.id === domainId)} top={top} />
         )}
 
-        <div className="mt-6 grid gap-5 border-t border-border pt-5 md:grid-cols-2">
+        <div className="mt-6 grid gap-5 border-t border-border-subtle pt-5 md:grid-cols-2">
           <div>
             <p className="eyebrow mb-2 text-fg-subtle">Top matches</p>
             <ul className="grid gap-2">
@@ -356,8 +356,8 @@ function DetectionCard() {
                     className={cn(
                       "w-full rounded-control border px-3 py-2 text-left transition-colors",
                       c.domainId === domainId
-                        ? "border-border-accent bg-accent-soft"
-                        : "border-border hover:border-border-strong",
+                        ? "border-border-accent bg-surface-selected"
+                        : "border-border hover:border-border-hover hover:bg-surface-hover",
                     )}
                   >
                     <div className="flex items-center justify-between text-ui">
@@ -409,7 +409,7 @@ function ChoiceDetail({ domain, top }: { domain: DomainListItem | undefined; top
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center gap-2">
-        <span className="grid size-8 place-items-center rounded-[9px] border border-border-accent bg-accent-soft">
+        <span className="grid size-8 place-items-center rounded-control border border-border-accent bg-accent-soft">
           <DomainIcon name={domain?.icon ?? "table"} className="size-4 text-accent" />
         </span>
         <Badge tone="accent">{noFit ? "No industry fits" : "Your choice"}</Badge>
@@ -451,7 +451,7 @@ function CandidateDetail({ candidate: shown, best }: { candidate: DomainCandidat
         <ConfidenceRing value={shown.confidence} />
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <span className="grid size-8 place-items-center rounded-[9px] border border-border-accent bg-accent-soft">
+            <span className="grid size-8 place-items-center rounded-control border border-border-accent bg-accent-soft">
               <DomainIcon name={meta?.icon ?? "table"} className="size-4 text-accent" />
             </span>
             <Badge tone="accent">{best ? "Best match" : "Your choice"}</Badge>
@@ -483,7 +483,7 @@ function CandidateDetail({ candidate: shown, best }: { candidate: DomainCandidat
                 {/* Focusable, so the tooltip opens from the keyboard too. */}
                 <span
                   tabIndex={0}
-                  className="inline-flex h-7 items-center gap-1.5 rounded-full border border-border-strong bg-surface-2 pr-3 pl-2.5 text-xs outline-none focus-visible:ring-2 focus-visible:ring-accent-ring"
+                  className="inline-flex h-7 items-center gap-1.5 rounded-full border border-border-strong bg-surface-2 pr-3 pl-2.5 text-xs focus-visible:focus-ring"
                 >
                   <span
                     className={cn(
@@ -754,7 +754,7 @@ function ColumnsInFile() {
       </div>
       {/* A named, focusable region: the table scrolls sideways on narrow screens, and keyboards can scroll it too. */}
       <div
-        className="overflow-x-auto outline-none focus-visible:ring-2 focus-visible:ring-accent-ring focus-visible:ring-inset"
+        className="overflow-x-auto outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-inset"
         tabIndex={0}
         role="region"
         aria-label="Columns in your file"
@@ -773,28 +773,28 @@ function ColumnsInFile() {
             {profile.columns.map((c, i) => {
               const Icon = c.role === "time" ? Clock : KIND_ICON[c.storage];
               return (
-                <tr key={c.name} className="hover:bg-surface-2/60">
-                  <td className="font-figures border-b border-border px-4 py-2 text-xs text-fg-subtle">
+                <tr key={c.name} className="hover:bg-surface-hover">
+                  <td className="font-figures border-b border-border-subtle px-4 py-2 text-xs text-fg-subtle">
                     {i + 1}
                   </td>
-                  <td className="border-b border-border px-4 py-2 font-medium text-fg">{c.name}</td>
-                  <td className="border-b border-border px-4 py-2 text-fg-muted">
+                  <td className="border-b border-border-subtle px-4 py-2 font-medium text-fg">{c.name}</td>
+                  <td className="border-b border-border-subtle px-4 py-2 text-fg-muted">
                     <span className="inline-flex items-center gap-1.5">
                       <Icon className="size-3.5 text-fg-subtle" aria-hidden /> {kindLabel(c)}
                     </span>
                   </td>
-                  <td className="border-b border-border px-4 py-2">
+                  <td className="border-b border-border-subtle px-4 py-2">
                     <Tooltip content={c.roleReason}>
                       {/* Focusable, so the reason opens from the keyboard too. */}
                       <span
                         tabIndex={0}
-                        className="cursor-default rounded-[4px] text-fg outline-none focus-visible:ring-2 focus-visible:ring-accent-ring"
+                        className="cursor-default rounded-xs text-fg focus-visible:focus-ring"
                       >
                         {ROLE_LABEL[c.role]}
                       </span>
                     </Tooltip>
                   </td>
-                  <td className="font-data max-w-[420px] border-b border-border px-4 py-2 text-xs leading-relaxed text-fg-muted">
+                  <td className="font-data max-w-[420px] border-b border-border-subtle px-4 py-2 text-xs leading-relaxed text-fg-muted">
                     <ClampText lines={2}>{dataSummary(c, locale)}</ClampText>
                   </td>
                 </tr>

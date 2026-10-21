@@ -255,7 +255,7 @@ function ChartBlock({
   const notes = chart.data.notes.length && !chart.data.empty ? chart.data.notes.join(" ") : "";
   return (
     <section
-      className="flex min-h-0 flex-col overflow-hidden rounded-[14px] border border-border bg-surface-1 p-6"
+      className="flex min-h-0 flex-col overflow-hidden rounded-card border border-border bg-surface-1 p-6"
       style={{ breakInside: "avoid" }}
     >
       {figure ? <p className={`text-[12px] text-fg-subtle ${CANVAS_EYEBROW}`}>Figure {figure}</p> : null}
@@ -298,14 +298,14 @@ function KpiTile({ meta, value, fmt }: { meta: KpiMeta; value: KpiValue | undefi
       ? null
       : change > 0 === (meta.direction === "higher");
   return (
-    <div className="rounded-[14px] border border-border bg-surface-1 p-5">
+    <div className="rounded-card border border-border bg-surface-1 p-5">
       <p className="text-[14px] text-fg-muted">{kpiLabel(meta)}</p>
       <p className="font-figures mt-2 text-[34px] leading-none font-semibold tracking-[-0.02em] text-fg">
         {formatKpi(value?.value, meta.format, fmt)}
       </p>
       {change !== null && change !== undefined ? (
         <p
-          className={`mt-3 text-[13px] font-medium ${good === null ? "text-fg-muted" : good ? "text-success" : "text-danger"}`}
+          className={`mt-3 text-[13px] font-medium ${good === null ? "text-fg-muted" : good ? "text-success-text" : "text-danger-text"}`}
         >
           {value?.currentLabel ? (
             <span className="font-normal text-fg-muted">
@@ -387,7 +387,7 @@ export function ReportDocument({ input }: { input: ReportInput }) {
         <p className={`text-[13px] text-fg-subtle ${CANVAS_EYEBROW}`}>Performance report</p>
         <h1 className="mt-3 font-display text-[60px] leading-[1.02] text-fg">{input.title}</h1>
         <p className="mt-3 text-[18px] text-fg-muted">{input.subtitle}</p>
-        <dl className="mt-7 grid grid-cols-3 gap-x-6 gap-y-4 rounded-[14px] border border-border bg-surface-1 p-5">
+        <dl className="mt-7 grid grid-cols-3 gap-x-6 gap-y-4 rounded-card border border-border bg-surface-1 p-5">
           {facts.map(([k, v]) => (
             <div key={k} className="min-w-0">
               <dt className={`text-[12px] text-fg-subtle ${CANVAS_EYEBROW}`}>{k}</dt>

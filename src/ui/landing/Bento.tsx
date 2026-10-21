@@ -80,7 +80,7 @@ function Tile({
       <Spotlight className="flex h-full min-w-0 flex-col gap-5 overflow-hidden rounded-panel border border-border bg-surface-1 p-6 shadow-card">
         <div>
           <div className="flex items-center gap-2.5">
-            <span className="grid size-8 place-items-center rounded-[9px] border border-border-accent bg-accent-soft text-accent">
+            <span className="grid size-8 place-items-center rounded-control border border-border-accent bg-accent-soft text-accent">
               <Icon className="size-4" aria-hidden />
             </span>
             <h3 className="text-md font-medium text-fg">{title}</h3>
@@ -119,8 +119,10 @@ function CodeTile({ kpi }: { kpi: LandingData["showcase"]["kpi"] }) {
                 aria-pressed={lang === l}
                 onClick={() => setChosen(l)}
                 className={cn(
-                  "eyebrow rounded-[7px] px-2 py-0.5 transition-colors",
-                  lang === l ? "bg-accent-soft text-accent" : "text-fg-subtle hover:text-fg",
+                  "eyebrow rounded-sm px-2 py-0.5 transition-colors duration-fast focus-visible:focus-ring",
+                  lang === l
+                    ? "bg-surface-selected text-accent-text"
+                    : "text-fg-subtle hover:bg-surface-hover hover:text-fg",
                 )}
               >
                 {l === "sql" ? "SQL" : "DAX"}
@@ -136,7 +138,7 @@ function CodeTile({ kpi }: { kpi: LandingData["showcase"]["kpi"] }) {
         <pre
           tabIndex={0}
           aria-label={`${kpi.name} in ${lang === "sql" ? "SQL" : "DAX"}`}
-          className="h-[208px] overflow-auto p-3 text-xs leading-relaxed [overflow-wrap:anywhere] whitespace-pre-wrap text-fg-muted focus-visible:outline-offset-[-2px]"
+          className="h-[208px] overflow-auto p-3 text-xs leading-relaxed [overflow-wrap:anywhere] whitespace-pre-wrap text-fg-muted outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-inset"
         >
           <code>
             <Typewriter
@@ -241,11 +243,7 @@ function Legend({ parts }: { parts: Part[] }) {
     <ul className="grid content-center gap-1.5 text-xs">
       {parts.map((p, i) => (
         <li key={p.label} className="flex min-w-0 items-center gap-2">
-          <span
-            className="size-2 shrink-0 rounded-[3px]"
-            style={{ background: colourOf(p, i) }}
-            aria-hidden
-          />
+          <span className="size-2 shrink-0 rounded-full" style={{ background: colourOf(p, i) }} aria-hidden />
           <span className="truncate text-fg-muted">{p.label}</span>
           <span className="font-figures ml-auto shrink-0 text-fg">{Math.round(p.share * 100)}%</span>
         </li>
@@ -262,9 +260,9 @@ function MorphBars({ parts }: { parts: Part[] }) {
       {named.map((p, i) => (
         <li key={p.label} className="grid grid-cols-[6.5rem_minmax(0,1fr)_auto] items-center gap-2 text-xs">
           <span className="truncate text-fg-muted">{p.label}</span>
-          <span className="h-2.5 overflow-hidden rounded-r-[4px]">
+          <span className="h-2.5 overflow-hidden rounded-r-xs">
             <motion.span
-              className="block h-full origin-left rounded-r-[4px] bg-[var(--chart-1)]"
+              className="block h-full origin-left rounded-r-xs bg-[var(--chart-1)]"
               style={{ width: `${(p.share / top) * 100}%` }}
               initial={{ scaleX: 0 }}
               animate={{ scaleX: 1 }}
@@ -329,7 +327,7 @@ function MorphTreemap({ parts }: { parts: Part[] }) {
           return (
             <motion.span
               key={p.label}
-              className="absolute rounded-[4px]"
+              className="absolute rounded-xs"
               style={{
                 left: `calc(${b.x}% + 1px)`,
                 top: `calc(${b.y}% + 1px)`,
@@ -360,7 +358,7 @@ function MorphTile({ state }: { state: PreviewState }) {
     <div ref={ref} className="mt-auto grid gap-3">
       <div className="flex items-center justify-between gap-2 text-xs">
         <span className="text-fg-subtle">Net revenue by category · {state.label}</span>
-        <span className="shrink-0 rounded-full border border-border-accent bg-accent-soft px-2 py-0.5 text-accent">
+        <span className="shrink-0 rounded-full border border-border-accent bg-accent-soft px-2 py-0.5 text-accent-text">
           {form}
         </span>
       </div>
@@ -549,7 +547,7 @@ function ExportTile() {
         aria-hidden
         className="absolute size-40 rounded-full bg-[radial-gradient(circle,var(--glow-accent),transparent_70%)] blur-xl"
       />
-      <span className="relative z-10 grid size-16 place-items-center rounded-[18px] border border-border-accent bg-surface-2 text-accent shadow-pop">
+      <span className="relative z-10 grid size-16 place-items-center rounded-panel border border-border-accent bg-surface-2 text-accent shadow-pop">
         <Package className="size-7" aria-hidden />
       </span>
       <ul key={`${tick}-${live}`} className="absolute inset-0" aria-label="Export formats">
@@ -600,9 +598,9 @@ function AskTile({ state }: { state: PreviewState }) {
         {cats.map((c, i) => (
           <li key={c.label} className="grid grid-cols-[7rem_minmax(0,1fr)_auto] items-center gap-2 text-xs">
             <span className="truncate text-fg-muted">{c.label}</span>
-            <span className="h-2.5 overflow-hidden rounded-r-[4px]">
+            <span className="h-2.5 overflow-hidden rounded-r-xs">
               <motion.span
-                className="block h-full origin-left rounded-r-[4px] bg-[var(--chart-1)]"
+                className="block h-full origin-left rounded-r-xs bg-[var(--chart-1)]"
                 style={{ width: `${(c.share / top) * 100}%` }}
                 initial={{ scaleX: live ? 0 : 1 }}
                 animate={{ scaleX: 1 }}

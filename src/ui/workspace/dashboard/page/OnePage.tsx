@@ -9,7 +9,8 @@
  * - A banner with the page's title, what it covers, and the period and what
  *   the changes compare with.
  * - Six headline KPIs, each with an icon for its kind of measure, its value
- *   and its change.
+ *   and its change. The tiles are plain cards like the rest of the page; only
+ *   each icon's chip carries a soft tint of a chart colour.
  * - Five charts from the dashboard (pagePlan.ts picks and places them), each
  *   led by its takeaway.
  * - The key insights.
@@ -279,7 +280,10 @@ const KPI_ICONS: Record<KpiIconName, LucideIcon> = {
   count: Hash,
 };
 
-/** A tint of one of the chart colours, mixed into the card surface (tokens only). */
+/**
+ * A tint of one of the chart colours, mixed into the card surface (tokens
+ * only): the banner's wash and the KPI icons' chips.
+ */
 const tint = (i: number, pct: number) =>
   `color-mix(in oklab, var(--chart-${(i % 8) + 1}) ${pct}%, var(--surface-1))`;
 
@@ -305,14 +309,15 @@ function KpiTile({
   // so "R$607.07" or "CHF 1.2M" fits a sixth of the page as "₹607.07" does.
   const fit = Math.min(1, 6.5 / Math.max(6.5, shown.length));
   return (
+    // A neutral card, as every other card on the page: a tint per tile read as six colour codes that
+    // meant nothing. The icon's chip keeps a soft tint, enough to tell the tiles apart at a glance.
     <div
-      className="flex min-w-0 items-stretch gap-[0.55cqw] rounded-[12px] border border-border p-[max(8px,0.75cqw)]"
-      style={{ background: tint(index, 7) }}
+      className="flex min-w-0 items-stretch gap-[0.55cqw] rounded-card border border-border bg-surface-1 p-[max(8px,0.75cqw)] shadow-card"
       title={`${meta.name}: ${formatValue(v, meta.format, fmt)}`}
     >
       <span
-        className="grid size-[clamp(24px,2.2cqw,36px)] shrink-0 place-items-center self-start rounded-[9px]"
-        style={{ background: tint(index, 20), color: `var(--chart-${(index % 8) + 1})` }}
+        className="grid size-[clamp(24px,2.2cqw,36px)] shrink-0 place-items-center self-start rounded-sm"
+        style={{ background: tint(index, 14), color: `var(--chart-${(index % 8) + 1})` }}
       >
         <Icon className="size-[55%]" aria-hidden />
       </span>
@@ -342,15 +347,31 @@ function KpiTile({
   );
 }
 
-/** A slicer as a report page draws one: its name above a box holding the selection. */
-function SlicerBox({ label, value, open }: { label: string; value: string; open?: boolean }) {
+/**
+ * A slicer as a report page draws one: its name above a box holding the
+ * selection. `filtered` (a dimension narrowed to some values) takes the
+ * selected tint, as the dashboard's filter rail does; the period always has a
+ * value, so it keeps the plain box with its accent edge.
+ */
+function SlicerBox({
+  label,
+  value,
+  open,
+  filtered,
+}: {
+  label: string;
+  value: string;
+  open?: boolean;
+  filtered?: boolean;
+}) {
   return (
     <span className="block min-w-0 text-left">
       <span className="eyebrow block truncate text-fg-subtle">{label}</span>
       <span
         className={cn(
-          "mt-[3px] flex h-[clamp(26px,2.3cqw,34px)] min-w-0 items-center justify-between gap-2 rounded-[8px] border bg-surface-1 px-[9px] text-[clamp(11px,0.9cqw,14px)]",
+          "mt-[3px] flex h-[clamp(26px,2.3cqw,34px)] min-w-0 items-center justify-between gap-2 rounded-control border px-[9px] text-[clamp(11px,0.9cqw,14px)]",
           value === "All" ? "border-border text-fg-muted" : "border-border-accent text-fg",
+          filtered ? "bg-surface-selected" : "bg-surface-1",
           open && "border-accent",
         )}
       >
@@ -372,14 +393,12 @@ function PeriodSlicer({ label }: { label: string }) {
   const latest = new Date(bounds.max).getUTCFullYear();
   const year = preset === "custom" ? yearOf(custom) : null;
   const current = year ? `year:${year}` : preset === "custom" ? "custom" : `preset:${preset}`;
+  // The slicers' buttons are named by their own words ("Period Last 12 months"): a label that
+  // differed from the words on screen failed WCAG 2.5.3 (label in name).
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          className="block w-full rounded-[8px] text-left"
-          aria-label={`Period: ${label}`}
-        >
+        <button type="button" className="block w-full rounded-control text-left">
           <SlicerBox label="Period" value={label} open={open} />
         </button>
       </DropdownMenuTrigger>
@@ -454,12 +473,8 @@ function DimSlicer({ column, label }: { column: string; label: string }) {
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <button
-          type="button"
-          className="block w-full rounded-[8px] text-left"
-          aria-label={`${label}: ${slicerValue(selected)}`}
-        >
-          <SlicerBox label={label} value={slicerValue(selected)} open={open} />
+        <button type="button" className="block w-full rounded-control text-left">
+          <SlicerBox label={label} value={slicerValue(selected)} open={open} filtered={selected.length > 0} />
         </button>
       </PopoverTrigger>
       <PopoverContent
@@ -469,7 +484,7 @@ function DimSlicer({ column, label }: { column: string; label: string }) {
         className="w-72 p-0"
         aria-label={`Filter by ${label}`}
       >
-        <div className="flex items-center gap-2 border-b border-border px-3 py-2">
+        <div className="flex items-center gap-2 border-b border-border-subtle px-3 py-2">
           <Search className="size-3.5 text-fg-subtle" aria-hidden />
           <input
             value={q}
@@ -483,7 +498,7 @@ function DimSlicer({ column, label }: { column: string; label: string }) {
           <button
             type="button"
             onClick={() => setFilter(column, [])}
-            className="flex w-full items-center gap-2 rounded-[7px] px-2 py-1.5 text-left text-ui text-fg hover:bg-surface-3"
+            className="flex w-full items-center gap-2 rounded-control px-2 py-1.5 text-left text-ui text-fg hover:bg-surface-hover active:bg-surface-active"
           >
             <Check className={cn("size-3.5", selected.length ? "invisible" : "text-accent")} aria-hidden />
             All
@@ -493,7 +508,7 @@ function DimSlicer({ column, label }: { column: string; label: string }) {
             return (
               <label
                 key={v.value}
-                className="flex cursor-pointer items-center gap-2 rounded-[7px] px-2 py-1.5 text-ui text-fg hover:bg-surface-3"
+                className="flex cursor-pointer items-center gap-2 rounded-control px-2 py-1.5 text-ui text-fg hover:bg-surface-hover active:bg-surface-active"
               >
                 <Checkbox
                   checked={on}
@@ -528,12 +543,12 @@ function Sidebar({ model, live }: { model: PageModel; live: boolean }) {
     <aside
       aria-label="Page filters"
       className={cn(
-        "flex min-w-0 flex-col gap-[max(8px,0.8cqw)] rounded-[14px] border border-border bg-surface-1 p-[max(10px,0.9cqw)]",
+        "flex min-w-0 flex-col gap-[max(8px,0.8cqw)] rounded-card border border-border bg-surface-1 p-[max(10px,0.9cqw)] shadow-card",
         live ? "lg:min-h-0" : "min-h-0",
       )}
     >
       <div className="flex min-w-0 items-center gap-2">
-        <span className="grid size-[clamp(26px,2.3cqw,34px)] shrink-0 place-items-center rounded-[9px] border border-border-accent bg-accent-soft">
+        <span className="grid size-[clamp(26px,2.3cqw,34px)] shrink-0 place-items-center rounded-sm border border-border-accent bg-accent-soft">
           <DomainIcon name={model.industry.icon} className="size-[55%] text-accent" />
         </span>
         <div className="min-w-0">
@@ -553,7 +568,12 @@ function Sidebar({ model, live }: { model: PageModel; live: boolean }) {
           live ? (
             <DimSlicer key={s.column} column={s.column} label={s.label} />
           ) : (
-            <SlicerBox key={s.column} label={s.label} value={slicerValue(s.values)} />
+            <SlicerBox
+              key={s.column}
+              label={s.label}
+              value={slicerValue(s.values)}
+              filtered={s.values.length > 0}
+            />
           ),
         )}
       </div>
@@ -569,7 +589,7 @@ function Sidebar({ model, live }: { model: PageModel; live: boolean }) {
       {/* Where the numbers come from, as a report page's footnote. */}
       <div
         className={cn(
-          "mt-auto min-w-0 border-t border-border pt-[0.6cqw] text-[clamp(11px,0.88cqw,13px)] leading-snug text-fg-subtle",
+          "mt-auto min-w-0 border-t border-border-subtle pt-[0.6cqw] text-[clamp(11px,0.88cqw,13px)] leading-snug text-fg-subtle",
           live && "hidden lg:block",
         )}
       >
@@ -602,7 +622,7 @@ function Banner({
   const [editing, setEditing] = React.useState(false);
   return (
     <header
-      className="relative flex min-w-0 flex-wrap items-center justify-between gap-x-6 gap-y-2 overflow-hidden rounded-[14px] border border-border px-[max(14px,1.4cqw)] py-[max(10px,0.9cqw)]"
+      className="relative flex min-w-0 flex-wrap items-center justify-between gap-x-6 gap-y-2 overflow-hidden rounded-card border border-border px-[max(14px,1.4cqw)] py-[max(10px,0.9cqw)] shadow-card"
       style={{ background: `linear-gradient(105deg, ${tint(0, 16)} 0%, var(--surface-1) 64%)` }}
     >
       {/* The industry's icon as a faint watermark off the banner's right edge, as a report page's banner picture. */}
@@ -629,14 +649,14 @@ function Banner({
               if (e.key === "Enter") e.currentTarget.blur();
               if (e.key === "Escape") setEditing(false);
             }}
-            className="w-full rounded-[8px] border border-border-accent bg-surface-1 px-2 font-display text-display-xs leading-tight text-fg outline-none @[90rem]:text-display-sm"
+            className="w-full rounded-control border border-border-accent bg-surface-1 px-2 font-display text-display-xs leading-tight text-fg outline-none @[90rem]:text-display-sm"
           />
         ) : onRename ? (
           <button
             type="button"
             onClick={() => setEditing(true)}
             title="Rename this page"
-            className="block max-w-full rounded-[8px] text-left font-display text-display-xs leading-tight text-fg hover:text-accent lg:truncate @[90rem]:text-display-sm"
+            className="block max-w-full rounded-control text-left font-display text-display-xs leading-tight text-fg transition-colors duration-fast hover:text-accent-text lg:truncate @[90rem]:text-display-sm"
           >
             {model.title}
           </button>
@@ -695,7 +715,7 @@ function PageChartCard({ chart, live, fmt }: { chart: PlacedChart; live: boolean
   return (
     <section
       className={cn(
-        "flex min-h-0 min-w-0 flex-col rounded-[14px] border border-border bg-surface-1 p-[max(10px,0.85cqw)]",
+        "flex min-h-0 min-w-0 flex-col rounded-card border border-border bg-surface-1 p-[max(10px,0.85cqw)] shadow-card",
         live
           ? "h-[320px] lg:[grid-column:span_var(--span)/span_var(--span)] lg:[grid-row:span_var(--rows)/span_var(--rows)] lg:h-auto"
           : "[grid-column:span_var(--span)/span_var(--span)] [grid-row:span_var(--rows)/span_var(--rows)]",
@@ -800,11 +820,11 @@ function InsightStrip({ insights, live }: { insights: Insight[]; live: boolean }
     <section
       aria-label="Key insights"
       className={cn(
-        "grid min-w-0 gap-[max(8px,0.8cqw)] rounded-[14px] border border-border bg-surface-1 p-[max(10px,0.85cqw)]",
+        "grid min-w-0 gap-[max(8px,0.8cqw)] rounded-card border border-border bg-surface-1 p-[max(10px,0.85cqw)] shadow-card",
         live ? "lg:grid-cols-[auto_repeat(3,minmax(0,1fr))]" : "grid-cols-[auto_repeat(3,minmax(0,1fr))]",
       )}
     >
-      <p className="eyebrow flex items-center gap-1.5 self-center text-accent">
+      <p className="eyebrow flex items-center gap-1.5 self-center text-accent-text">
         <Lightbulb className="size-[1.3em]" aria-hidden />
         Key insights
       </p>
@@ -816,7 +836,9 @@ function InsightStrip({ insights, live }: { insights: Insight[]; live: boolean }
               key={ins.id}
               className={cn(
                 "flex min-w-0 gap-[0.6cqw]",
-                live ? "lg:border-l lg:border-border lg:pl-[0.9cqw]" : "border-l border-border pl-[0.9cqw]",
+                live
+                  ? "lg:border-l lg:border-border-subtle lg:pl-[0.9cqw]"
+                  : "border-l border-border-subtle pl-[0.9cqw]",
               )}
             >
               <Icon

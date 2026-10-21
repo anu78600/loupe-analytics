@@ -9,17 +9,31 @@ import { extendTailwindMerge } from "tailwind-merge";
 
 /**
  * tailwind-merge configured with the design system's custom scales
- * (globals.css @theme). Without this it treats `text-ui` as a colour, so
- * `cn("text-ui", "text-fg-muted")` silently dropped the font size, and it
- * could not resolve conflicts between `rounded-card` and `rounded-[8px]`.
+ * (globals.css @theme), so a later class wins over an earlier one of the same
+ * kind. Without this it treats `text-ui` as a colour, so
+ * `cn("text-ui", "text-fg-muted")` silently dropped the font size; it could
+ * not resolve `rounded-card` against `rounded-[8px]`; and it kept both of
+ * `duration-fast duration-slow` or `opacity-disabled opacity-50`, leaving the
+ * stylesheet's order to decide. tests/theme-utilities.test.ts reads @theme
+ * and fails for any name added there but not here.
  */
 const twMerge = extendTailwindMerge({
   extend: {
     theme: {
       // T-shirt sizes (2xs, md…) are known to it already; the named ones are not.
       text: ["ui", "display-xs", "display-sm", "display-md", "display", "display-lg", "display-xl"],
-      radius: ["control", "card", "panel"],
-      shadow: ["card", "pop", "lift"],
+      // The radius scale: xs 4, sm 6, control 8, card 12, panel 16 (xs and sm are t-shirt sizes it knows).
+      radius: ["xs", "sm", "control", "card", "panel"],
+      // Card, pop and lift per plane, and the focus ring as a shadow (shadow-focus, not a shadow colour).
+      shadow: ["card", "pop", "lift", "focus"],
+      ease: ["out-quint", "in-out-soft"],
+      animate: ["shimmer", "fade-up", "pulse-soft"],
+    },
+    classGroups: {
+      // Named steps, not numbers: interface motion 120 / 180 / 240 ms, and chart drawing.
+      duration: [{ duration: ["fast", "base", "slow", "chart"] }],
+      // The one disabled opacity, and the opacity of chart marks a selection leaves out.
+      opacity: [{ opacity: ["disabled", "chart-dim"] }],
     },
   },
 });

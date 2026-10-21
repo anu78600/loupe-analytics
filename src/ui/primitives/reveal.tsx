@@ -6,6 +6,15 @@
  * - on a phone or tablet, on a tap of the ⓘ button or a long press on the
  *   short text itself (touch has no hover).
  *
+ * Inside a dialog or a sheet, keyboard focus alone never opens one: a dialog
+ * moves focus as it opens, and a popover opened by it would pause the
+ * dialog's focus trap, so Tab could leave the dialog. There Enter or Space
+ * opens it, as a click does, and Tab from an open ⓘ closes it and moves on
+ * within the dialog.
+ *
+ * The full text sits on the overlay plane like every popover (--surface-overlay,
+ * the pop shadow, the control radius) and grows out of its trigger over 120 ms.
+ *
  * Three pieces share one behaviour (useReveal over a Radix Popover, so
  * Escape, outside clicks and focus return work everywhere):
  * - InfoTip: a small ⓘ button that holds the full text;
@@ -22,6 +31,36 @@ import { cn } from "@/lib/utils";
 const LONG_PRESS_MS = 450;
 const HOVER_OPEN_MS = 180;
 const HOVER_CLOSE_MS = 140;
+
+/** Inside a dialog, a sheet or another popover (all role="dialog"), focus alone opens nothing. */
+const IN_DIALOG = '[role="dialog"], [role="alertdialog"]';
+
+/**
+ * Whether keyboard focus on `el` should open its full text: only a :focus-visible focus (not a
+ * click, not the focus a closing popover hands back), and never inside a dialog (see the header).
+ */
+function opensOnFocus(el: HTMLElement): boolean {
+  return el.matches(":focus-visible") && !el.closest(IN_DIALOG);
+}
+
+/** The modal dialog or sheet around `el`: a role="dialog" that isn't itself a popover. */
+function modalAround(el: HTMLElement): Element | null {
+  const dialog = el.closest(IN_DIALOG);
+  return dialog && !dialog.closest("[data-radix-popper-content-wrapper]") ? dialog : null;
+}
+
+/** The controls Tab stops at inside `root`, in document order: shown, enabled, tabindex ≥ 0. */
+function tabStops(root: Element): HTMLElement[] {
+  return Array.from(
+    root.querySelectorAll<HTMLElement>("a[href], button, input, select, textarea, summary, [tabindex]"),
+  ).filter(
+    (el) =>
+      el.tabIndex >= 0 &&
+      !el.hasAttribute("disabled") &&
+      !(el instanceof HTMLInputElement && el.type === "hidden") &&
+      el.getClientRects().length > 0,
+  );
+}
 
 /**
  * Open state plus the handlers that open it on mouse hover, keyboard focus,
@@ -77,17 +116,35 @@ function useReveal() {
     },
   };
   /**
-   * The ⓘ button: keyboard focus opens it (only :focus-visible, so a dialog
-   * moving focus doesn't), blur closes it, and a click or tap always opens it.
+   * The ⓘ button: keyboard focus opens it (opensOnFocus: never inside a
+   * dialog), blur closes it, and a click or tap always opens it.
    * The click skips Radix's own toggle, which would otherwise shut a popover
    * that hover or focus had just opened, so a tap on Android showed nothing.
+   * Inside a dialog, Tab from an open ⓘ is handled here: the open popover has
+   * paused the dialog's focus trap, so the browser's own Tab could leave the
+   * dialog. It closes, and focus moves to the dialog's next control (wrapping,
+   * as the trap does) once the popover is gone.
    */
   const trigger = {
     ...hover,
     onFocus: (e: React.FocusEvent<HTMLElement>) => {
-      if (e.currentTarget.matches(":focus-visible")) setOpen(true);
+      if (opensOnFocus(e.currentTarget)) setOpen(true);
     },
     onBlur: () => setOpen(false),
+    onKeyDown: (e: React.KeyboardEvent<HTMLElement>) => {
+      if (e.key !== "Tab" || !open) return;
+      const dialog = modalAround(e.currentTarget);
+      if (!dialog) return;
+      e.preventDefault();
+      const from = e.currentTarget;
+      const step = e.shiftKey ? -1 : 1;
+      setOpen(false);
+      window.setTimeout(() => {
+        const stops = tabStops(dialog);
+        const at = stops.indexOf(from);
+        stops[(at + step + stops.length) % stops.length]?.focus();
+      }, 0);
+    },
     onClick: (e: React.MouseEvent) => {
       e.preventDefault();
       clear();
@@ -122,8 +179,8 @@ function RevealContent({
         onPointerEnter={onPointerEnter}
         onPointerLeave={onPointerLeave}
         className={cn(
-          "z-[60] max-w-[min(20rem,calc(100vw-24px))] rounded-[10px] border border-border-strong bg-surface-2 px-3 py-2 text-xs text-fg shadow-pop",
-          "data-[state=open]:animate-[fade-up_140ms_var(--ease-out-quint)]",
+          "z-[60] max-w-[min(20rem,calc(100vw-24px))] rounded-control border border-border bg-surface-overlay px-3 py-2 text-xs text-fg shadow-pop",
+          "origin-(--radix-popover-content-transform-origin) scale-100 transition-[opacity,scale] duration-fast ease-out-quint starting:scale-96 starting:opacity-0",
           className,
         )}
       >
@@ -154,7 +211,7 @@ export function InfoTip({
         aria-label={label}
         {...r.trigger}
         className={cn(
-          "-m-1 inline-grid size-6 shrink-0 place-items-center rounded-full align-middle text-fg-subtle transition-colors hover:text-fg data-[state=open]:text-accent",
+          "-m-1 inline-grid size-6 shrink-0 place-items-center rounded-full align-middle text-fg-subtle transition-colors duration-fast hover:text-fg focus-visible:focus-ring data-[state=open]:text-accent",
           className,
         )}
       >
@@ -201,7 +258,7 @@ export function Brief({
             type="button"
             aria-label={label ?? "Read more"}
             {...r.trigger}
-            className="-m-1 inline-grid size-6 place-items-center rounded-full align-middle text-fg-subtle transition-colors hover:text-fg data-[state=open]:text-accent"
+            className="-m-1 inline-grid size-6 place-items-center rounded-full align-middle text-fg-subtle transition-colors duration-fast hover:text-fg focus-visible:focus-ring data-[state=open]:text-accent"
           >
             <Info className="size-3.5" aria-hidden />
           </PopoverPrimitive.Trigger>
@@ -253,13 +310,13 @@ export function ClampText({
           tabIndex={cut ? 0 : undefined}
           {...(cut ? { ...r.hover, ...r.press } : {})}
           onFocus={(e) => {
-            if (cut && e.currentTarget.matches(":focus-visible")) r.setOpen(true);
+            if (cut && opensOnFocus(e.currentTarget)) r.setOpen(true);
           }}
           onBlur={() => r.setOpen(false)}
           className={cn(
             clampClass,
             cut &&
-              "cursor-help rounded-[4px] [-webkit-touch-callout:none] [@media(pointer:coarse)]:select-none",
+              "cursor-help rounded-xs [-webkit-touch-callout:none] focus-visible:focus-ring [@media(pointer:coarse)]:select-none",
             className,
           )}
         >

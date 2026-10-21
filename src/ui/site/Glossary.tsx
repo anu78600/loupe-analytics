@@ -91,7 +91,7 @@ function TermCard({
     <div
       id={`term-${term.id}`}
       tabIndex={-1}
-      className="group scroll-mt-36 rounded-card border border-border bg-surface-1 p-4 outline-none focus-visible:ring-2 focus-visible:ring-accent-ring"
+      className="group scroll-mt-36 rounded-card border border-border bg-surface-1 p-4 outline-none focus-visible:focus-ring"
     >
       <dt className="flex flex-wrap items-center gap-x-2 gap-y-1">
         <span className="text-base font-semibold text-fg">{term.term}</span>
@@ -100,7 +100,7 @@ function TermCard({
         <a
           href={`#term-${term.id}`}
           aria-label={`Link to ${term.term}`}
-          className="ml-auto rounded-[6px] p-1 text-fg-subtle opacity-0 transition-opacity group-hover:opacity-100 hover:text-fg focus-visible:opacity-100"
+          className="ml-auto rounded-sm p-1 text-fg-subtle opacity-0 transition-opacity duration-fast group-hover:opacity-100 hover:text-fg focus-visible:opacity-100 focus-visible:focus-ring"
         >
           <Hash className="size-3.5" aria-hidden />
         </a>
@@ -111,7 +111,7 @@ function TermCard({
       <dd className="mt-2 text-sm leading-relaxed text-fg">{term.short}</dd>
       <dd className="mt-1.5 text-sm leading-relaxed text-fg-muted">{term.body}</dd>
       {term.example ? (
-        <dd className="mt-2.5 rounded-[9px] border border-border bg-surface-2 px-3 py-2 text-sm leading-relaxed text-fg-muted">
+        <dd className="mt-2.5 rounded-control border border-border bg-surface-2 px-3 py-2 text-sm leading-relaxed text-fg-muted">
           <span className="font-medium text-fg">Example. </span>
           {term.example}
         </dd>
@@ -133,7 +133,7 @@ function TermCard({
               key={id}
               type="button"
               onClick={() => onJump(id)}
-              className="rounded-full border border-border px-2 py-0.5 text-fg-muted transition-colors hover:border-border-accent hover:text-fg"
+              className="rounded-full border border-border px-2 py-0.5 text-fg-muted transition-colors duration-fast hover:border-border-hover hover:bg-surface-hover hover:text-fg focus-visible:focus-ring"
             >
               {names.get(id) ?? id}
             </button>
@@ -148,7 +148,7 @@ function ChartCard({ chart, group }: { chart: GlossaryChart; group?: string }) {
   const Icon = CHART_ICON[chart.kind as ChartKind];
   return (
     <div className="flex gap-3 rounded-card border border-border bg-surface-1 p-4">
-      <span className="grid size-9 shrink-0 place-items-center rounded-[9px] border border-border-accent bg-accent-soft text-accent">
+      <span className="grid size-9 shrink-0 place-items-center rounded-control border border-border-accent bg-accent-soft text-accent">
         {Icon ? <Icon className="size-4" aria-hidden /> : null}
       </span>
       <div className="min-w-0">
@@ -192,7 +192,7 @@ function KpiCard({ kpi, industry }: { kpi: GlossaryKpi; industry?: string }) {
             </span>
           ) : null}
           {kpi.headline ? (
-            <span className="rounded-full border border-border-accent bg-accent-soft px-2 py-0.5 text-xs font-medium text-fg">
+            <span className="rounded-full border border-border-accent bg-accent-soft px-2 py-0.5 text-xs font-medium text-accent-text">
               Headline KPI
             </span>
           ) : null}
@@ -205,7 +205,7 @@ function KpiCard({ kpi, industry }: { kpi: GlossaryKpi; industry?: string }) {
       <p className="mt-2 text-sm leading-relaxed text-fg">{kpi.definition}</p>
       {/* Each term and its description sit directly in the list, as screen readers expect of a <dl>. */}
       <dl className="mt-3 grid gap-2 text-xs leading-relaxed text-fg-subtle">
-        <div className="rounded-[9px] border border-border bg-surface-2 px-3 py-2">
+        <div className="rounded-control border border-border bg-surface-2 px-3 py-2">
           <dt className="font-medium text-fg-muted">Formula</dt>
           <dd className="mt-0.5 text-sm text-fg">{kpi.formula}</dd>
         </div>
@@ -250,7 +250,7 @@ function IndustryPanel({ industry }: { industry: GlossaryIndustry }) {
     <div id={`industry-${industry.id}`} className="scroll-mt-36">
       <div className="rounded-panel border border-border bg-surface-1 p-5 sm:p-6">
         <div className="flex items-start gap-3">
-          <span className="grid size-11 shrink-0 place-items-center rounded-[12px] border border-border-accent bg-accent-soft">
+          <span className="grid size-11 shrink-0 place-items-center rounded-card border border-border-accent bg-accent-soft">
             <DomainIcon name={industry.icon} className="size-5 text-accent" />
           </span>
           <div className="min-w-0">
@@ -291,7 +291,7 @@ function IndustryPanel({ industry }: { industry: GlossaryIndustry }) {
             <a
               key={g.name}
               href={`#group-${industry.id}-${slug(g.name)}`}
-              className="rounded-full border border-border px-2.5 py-1 text-xs text-fg-muted transition-colors hover:border-border-accent hover:text-fg"
+              className="rounded-full border border-border px-2.5 py-1 text-xs text-fg-muted transition-colors duration-fast hover:border-border-hover hover:bg-surface-hover hover:text-fg"
             >
               {g.name} <span className="font-figures text-fg-subtle">{g.kpis.length}</span>
             </a>
@@ -487,9 +487,9 @@ export function Glossary({
               <a
                 href={`#${s.id}`}
                 onClick={() => setQuery("")}
-                className="group flex items-start gap-2.5 rounded-[10px] border border-border px-3 py-2 transition-colors hover:border-border-accent hover:bg-surface-1 lg:border-transparent"
+                className="group flex items-start gap-2.5 rounded-control border border-border px-3 py-2 transition-colors duration-fast hover:border-border-hover hover:bg-surface-hover lg:border-transparent"
               >
-                <span className="font-figures mt-0.5 grid size-5 shrink-0 place-items-center rounded-full border border-border-strong text-2xs text-fg-muted group-hover:border-accent group-hover:text-accent">
+                <span className="font-figures mt-0.5 grid size-5 shrink-0 place-items-center rounded-full border border-border-strong text-2xs text-fg-muted group-hover:border-accent group-hover:text-accent-text">
                   {i + 1}
                 </span>
                 <span className="min-w-0">
@@ -520,7 +520,7 @@ export function Glossary({
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder={`Search ${steps.reduce((a, s) => a + s.count, 0)} terms, charts and KPIs`}
-              className="h-10 w-full rounded-control border border-border bg-surface-1 pr-16 pl-9 text-ui text-fg outline-none placeholder:text-fg-subtle focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent-ring [&::-webkit-search-cancel-button]:hidden"
+              className="h-10 w-full rounded-control border border-border-strong bg-surface-1 pr-16 pl-9 text-ui text-fg transition-[border-color,box-shadow] duration-fast outline-none placeholder:text-fg-subtle hover:border-border-hover focus-visible:focus-ring [&::-webkit-search-cancel-button]:hidden"
             />
             {query ? (
               <button
@@ -530,12 +530,12 @@ export function Glossary({
                   searchRef.current?.focus();
                 }}
                 aria-label="Clear the search"
-                className="absolute top-1/2 right-2 grid size-7 -translate-y-1/2 place-items-center rounded-[7px] text-fg-subtle hover:bg-surface-3 hover:text-fg"
+                className="absolute top-1/2 right-2 grid size-7 -translate-y-1/2 place-items-center rounded-xs text-fg-subtle transition-colors duration-fast hover:bg-surface-hover hover:text-fg focus-visible:focus-ring active:bg-surface-active"
               >
                 <X className="size-4" aria-hidden />
               </button>
             ) : (
-              <kbd className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 rounded-[5px] border border-border px-1.5 font-sans text-2xs text-fg-subtle">
+              <kbd className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 rounded-xs border border-border px-1.5 font-sans text-2xs text-fg-subtle">
                 /
               </kbd>
             )}
@@ -548,10 +548,10 @@ export function Glossary({
                 aria-pressed={level === l}
                 onClick={() => setLevel(l)}
                 className={cn(
-                  "rounded-full border px-3 py-1.5 text-xs transition-colors",
+                  "rounded-full border px-3 py-1.5 text-xs transition-colors duration-fast focus-visible:focus-ring",
                   level === l
-                    ? "border-border-accent bg-accent-soft text-fg"
-                    : "border-border text-fg-muted hover:border-border-strong hover:text-fg",
+                    ? "border-border-accent bg-surface-selected text-accent-text"
+                    : "border-border text-fg-muted hover:border-border-hover hover:bg-surface-hover hover:text-fg",
                 )}
               >
                 {l === "all" ? "All levels" : LEVELS[l].label}
@@ -624,7 +624,7 @@ export function Glossary({
               return (
                 <section key={s.id} id={s.id} aria-labelledby={`h-${s.id}`} className="mb-16 scroll-mt-36">
                   <div className="flex items-baseline gap-3">
-                    <span className="font-figures text-sm font-medium text-accent">
+                    <span className="font-figures text-sm font-medium text-accent-text">
                       {String(n + 1).padStart(2, "0")}
                     </span>
                     <h2 id={`h-${s.id}`} className="font-display text-display-xs text-fg sm:text-display-sm">
@@ -668,7 +668,7 @@ export function Glossary({
 
             <section id="industries" aria-labelledby="h-industries" className="scroll-mt-36">
               <div className="flex items-baseline gap-3">
-                <span className="font-figures text-sm font-medium text-accent">
+                <span className="font-figures text-sm font-medium text-accent-text">
                   {String(sections.length + 1).padStart(2, "0")}
                 </span>
                 <h2 id="h-industries" className="font-display text-display-xs text-fg sm:text-display-sm">
@@ -694,10 +694,10 @@ export function Glossary({
                       onClick={() => pickIndustry(i.id)}
                       onKeyDown={(e) => onTabKey(e, n)}
                       className={cn(
-                        "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs transition-colors",
+                        "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs transition-colors duration-fast focus-visible:focus-ring",
                         on
-                          ? "border-border-accent bg-accent-soft text-fg"
-                          : "border-border text-fg-muted hover:border-border-strong hover:text-fg",
+                          ? "border-border-accent bg-surface-selected text-accent-text"
+                          : "border-border text-fg-muted hover:border-border-hover hover:bg-surface-hover hover:text-fg",
                       )}
                     >
                       <DomainIcon
@@ -705,7 +705,9 @@ export function Glossary({
                         className={cn("size-3.5", on ? "text-accent" : "text-fg-subtle")}
                       />
                       {i.name}
-                      <span className="font-figures text-fg-muted">{i.kpiCount}</span>
+                      <span className={cn("font-figures", on ? "text-accent-text" : "text-fg-muted")}>
+                        {i.kpiCount}
+                      </span>
                     </button>
                   );
                 })}

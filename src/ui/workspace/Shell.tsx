@@ -119,14 +119,14 @@ export function Stepper() {
                 title={s.label}
                 onClick={() => setStep(s.id)}
                 className={cn(
-                  "relative inline-flex h-8 items-center gap-1.5 rounded-[9px] px-2 text-ui font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 max-sm:px-1.5",
+                  "relative inline-flex h-8 items-center gap-1.5 rounded-control px-2 text-ui font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-disabled max-sm:px-1.5",
                   active ? "text-fg" : "text-fg-muted hover:text-fg",
                 )}
               >
                 {active ? (
                   <motion.span
                     layoutId="step-pill"
-                    className="absolute inset-0 rounded-[9px] border border-border-strong bg-surface-2"
+                    className="absolute inset-0 rounded-control border border-border-accent bg-surface-selected"
                     transition={{ type: "spring", stiffness: 500, damping: 40 }}
                   />
                 ) : null}
@@ -181,7 +181,7 @@ export function WorkspaceTopBar({
   return (
     <header className="no-print sticky top-0 z-40 border-b border-border bg-bg/85 backdrop-blur-xl">
       <div className="mx-auto flex h-14 max-w-[1680px] items-center gap-3 px-4 md:px-6">
-        <Link href="/" className="shrink-0 rounded-[8px]" aria-label="Loupe home">
+        <Link href="/" className="shrink-0 rounded-control" aria-label="Loupe home">
           <span className="sm:hidden">
             <LoupeMark className="size-6" />
           </span>
@@ -189,7 +189,7 @@ export function WorkspaceTopBar({
             <Wordmark size="sm" />
           </span>
         </Link>
-        <span aria-hidden className="hidden h-5 w-px shrink-0 bg-border-strong md:block" />
+        <span aria-hidden className="hidden h-5 w-px shrink-0 bg-border md:block" />
         {summary ? (
           // Takes whatever room the steps leave. The file's real name comes first and always shows
           // (it truncates); "Your file" or "Demo data" and the row count follow when there's room.

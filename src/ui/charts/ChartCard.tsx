@@ -348,7 +348,7 @@ export function ChartCard({
       id={`chart-${spec.id}`}
       aria-labelledby={`chart-title-${spec.id}`}
       className={cn(
-        "group/card relative flex h-full min-h-0 flex-col rounded-card border bg-surface-1 shadow-card transition-[border-color,box-shadow] duration-300",
+        "group/card relative flex h-full min-h-0 flex-col rounded-card border bg-surface-1 shadow-card transition-[border-color,box-shadow] duration-base",
         selected ? "border-border-accent" : "border-border",
         highlight && "border-accent shadow-[0_0_0_4px_var(--accent-soft)]",
       )}
@@ -568,7 +568,7 @@ export function ChartCard({
         ) : null}
       </div>
       {notes.length && data && !data.empty ? (
-        <footer className="border-t border-border px-4 py-1.5">
+        <footer className="border-t border-border-subtle px-4 py-1.5">
           {/* The first note on one line (in full on hover, focus or a long press); any others are
               behind the ⓘ beside it. */}
           <div className="flex items-center gap-1.5">

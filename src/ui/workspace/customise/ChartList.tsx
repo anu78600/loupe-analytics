@@ -19,6 +19,9 @@
  * Text is kept short: what a chart type suits is behind the ⓘ beside the
  * title (the type itself is in its menu), and notes are one line with the
  * full text behind hover, a long press or the ⓘ (ui/primitives/reveal.tsx).
+ *
+ * A chart switched off keeps its row, drawn flat with a dashed edge, so it
+ * reads as off in both themes without looking disabled.
  */
 import * as React from "react";
 import { toast } from "sonner";
@@ -111,7 +114,7 @@ export function ChartList({ onEdit, onCreate }: { onEdit: (spec: ChartSpec) => v
       {broken ? (
         <p
           role="status"
-          className="flex items-start gap-2 rounded-control border border-warning bg-warning-soft px-3 py-2.5 text-ui leading-relaxed text-fg"
+          className="flex items-start gap-2 rounded-control border border-warning-border bg-warning-soft px-3 py-2.5 text-ui leading-relaxed text-fg"
         >
           <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden />
           {/* Kept in view, shortened: the full sentence is behind it. */}
@@ -220,8 +223,9 @@ function ChartRow({
     <li
       className={cn(
         "grid gap-2 rounded-control border bg-surface-1 px-3 py-2.5 lg:grid-cols-[auto_minmax(0,1fr)_auto] lg:items-center",
-        problem ? "border-warning" : "border-border",
-        w.hidden && "bg-surface-2/60",
+        // Off: flat, with a dashed edge a step stronger so the dashes show on graphite too.
+        problem ? "border-warning-border" : w.hidden ? "border-border-strong" : "border-border",
+        w.hidden && "border-dashed bg-transparent",
       )}
     >
       <div className="flex items-center gap-2.5">
@@ -248,7 +252,7 @@ function ChartRow({
               if (e.key === "Enter") e.currentTarget.blur();
             }}
             className={cn(
-              "h-8 min-w-0 border-transparent bg-transparent px-1.5 text-ui font-medium hover:border-border-strong",
+              "h-8 min-w-0 border-transparent bg-transparent px-1.5 text-ui font-medium hover:border-border-hover",
               w.hidden && "text-fg-subtle",
             )}
           />

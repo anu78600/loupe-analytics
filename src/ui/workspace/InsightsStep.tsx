@@ -61,11 +61,15 @@ const KIND: Record<InsightKind, { label: string; icon: LucideIcon }> = {
   caveat: { label: INSIGHT_KIND_LABEL.caveat, icon: AlertTriangle },
 };
 
-const TONE: Record<Insight["tone"], { label: string; className: string; icon: LucideIcon }> = {
-  positive: { label: "Positive", className: "text-success bg-success-soft", icon: ArrowUpRight },
-  negative: { label: "Negative", className: "text-danger bg-danger-soft", icon: ArrowDownRight },
-  neutral: { label: "Note", className: "text-fg-muted bg-surface-3", icon: CircleDot },
-  warning: { label: "Watch", className: "text-warning bg-warning-soft", icon: AlertTriangle },
+/** Each tone's icon chip (the icon in its fill colour on the tint) and the badge that names it. */
+const TONE: Record<
+  Insight["tone"],
+  { label: string; chip: string; badge: "success" | "danger" | "neutral" | "warning"; icon: LucideIcon }
+> = {
+  positive: { label: "Positive", chip: "text-success bg-success-soft", badge: "success", icon: ArrowUpRight },
+  negative: { label: "Negative", chip: "text-danger bg-danger-soft", badge: "danger", icon: ArrowDownRight },
+  neutral: { label: "Note", chip: "text-fg-muted bg-surface-3", badge: "neutral", icon: CircleDot },
+  warning: { label: "Watch", chip: "text-warning bg-warning-soft", badge: "warning", icon: AlertTriangle },
 };
 
 /** The selected period in words: "the last 12 months (1 Oct 2025 – 30 Sep 2026)", "all your data". */
@@ -155,8 +159,8 @@ export function InsightsStep() {
               className={cn(
                 "h-7 rounded-full border px-3 text-xs font-medium transition-colors",
                 kind === k
-                  ? "border-border-accent bg-accent-soft text-fg"
-                  : "border-border text-fg-muted hover:text-fg",
+                  ? "border-border-accent bg-surface-selected text-fg"
+                  : "border-border text-fg-muted hover:border-border-hover hover:bg-surface-hover hover:text-fg",
               )}
             >
               {k === "all" ? `All · ${insights?.length ?? 0}` : KIND[k].label}
@@ -183,7 +187,7 @@ export function InsightsStep() {
         </div>
       ) : shown.length ? (
         <ol
-          className={cn("grid gap-3 transition-opacity", updating ? "opacity-60" : "")}
+          className={cn("grid gap-3 transition-opacity", updating ? "opacity-disabled" : "")}
           aria-busy={updating}
         >
           {shown.map((i) => (
@@ -218,7 +222,7 @@ function InsightCard({ insight, rank }: { insight: Insight; rank: number }) {
     >
       <Card className="flex gap-4 p-5">
         <div className="flex flex-col items-center gap-2">
-          <span className={cn("grid size-9 place-items-center rounded-[10px]", tone.className)}>
+          <span className={cn("grid size-9 place-items-center rounded-control", tone.chip)}>
             <k.icon className="size-4" aria-hidden />
           </span>
           <span className="font-figures text-2xs text-fg-subtle" aria-label={`Rank ${rank}`}>
@@ -228,7 +232,7 @@ function InsightCard({ insight, rank }: { insight: Insight; rank: number }) {
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-1.5">
             <Badge tone="outline">{k.label}</Badge>
-            <Badge className={tone.className}>
+            <Badge tone={tone.badge}>
               <tone.icon aria-hidden />
               {tone.label}
             </Badge>

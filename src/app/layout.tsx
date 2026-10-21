@@ -107,9 +107,11 @@ export const metadata: Metadata = {
   twitter: { card: "summary_large_image" },
 };
 
+// The browser chrome takes each theme's canvas (--bg in styles/theme-dark.css and theme-light.css):
+// a literal, because the meta tag is written before any stylesheet loads.
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: dark)", color: "#0b0c0e" },
+    { media: "(prefers-color-scheme: dark)", color: "#0e0d0b" },
     { media: "(prefers-color-scheme: light)", color: "#f7f6f2" },
   ],
   width: "device-width",

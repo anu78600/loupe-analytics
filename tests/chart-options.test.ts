@@ -9,8 +9,6 @@
  * names never split letter by letter, and cell values left off cells too
  * small for them.
  */
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   buildOption,
@@ -22,6 +20,7 @@ import {
 } from "@/ui/charts/options";
 import { INK_DARK, inkOn, readChartTokens } from "@/ui/charts/tokens";
 import type { ChartData, ChartKind, ChartSpec } from "@/engine/charts/types";
+import { MODES, themeTokens } from "./helpers/theme";
 
 type Obj = Record<string, unknown>;
 const TOKENS = readChartTokens();
@@ -44,10 +43,15 @@ const hex = (r: number, g: number, b: number) =>
   `#${[r, g, b].map((c) => c.toString(16).padStart(2, "0")).join("")}`;
 
 describe("label ink inside fills", () => {
-  // Every fill a label can sit on: categorical, sequential and diverging tokens of both themes.
-  const css = readFileSync(join(__dirname, "..", "src", "styles", "tokens.css"), "utf8");
-  const tokenFills = [...css.matchAll(/--(?:chart-\d|chart-other|seq-\d|div-\d):\s*(#[0-9a-f]{6})/gi)].map(
-    (m) => (m[1] as string).toLowerCase(),
+  // Every fill a label can sit on: categorical, sequential and diverging tokens of both themes,
+  // resolved as the browser computes them.
+  const tokenFills = MODES.flatMap((mode) =>
+    Object.entries(themeTokens(mode))
+      .filter(
+        ([name, value]) =>
+          /^(chart-\d|chart-other|seq-\d|div-\d)$/.test(name) && /^#[0-9a-f]{6}$/i.test(value),
+      )
+      .map(([, value]) => value.toLowerCase()),
   );
   const greys = Array.from({ length: 256 }, (_, v) => hex(v, v, v));
   const grid: string[] = [];

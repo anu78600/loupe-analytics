@@ -155,7 +155,7 @@ export function Workspace({ version }: { version: string }) {
       </main>
       {loading && step !== "upload" ? (
         <div role="status" aria-live="polite" className="fixed inset-x-0 top-14 z-50 flex justify-center">
-          <div className="mt-3 flex items-center gap-2.5 rounded-full border border-border-strong bg-surface-2 px-4 py-2 text-ui text-fg shadow-pop">
+          <div className="mt-3 flex items-center gap-2.5 rounded-full border border-border bg-surface-overlay px-4 py-2 text-ui text-fg shadow-pop">
             <span className="size-2 animate-pulse rounded-full bg-accent" aria-hidden />
             {loading.title}
           </div>

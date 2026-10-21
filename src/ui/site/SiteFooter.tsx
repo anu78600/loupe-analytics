@@ -62,7 +62,7 @@ export function SiteFooter() {
               <SectionLink
                 key={l.href}
                 href={l.href}
-                className="w-fit text-ui text-fg-muted transition-colors hover:text-fg"
+                className="w-fit text-ui text-fg-muted transition-colors duration-fast hover:text-fg"
               >
                 {l.label}
               </SectionLink>
@@ -84,7 +84,7 @@ export function SiteFooter() {
           <Link
             href="/changelog"
             title={version}
-            className="max-w-full truncate rounded-full border border-border px-2.5 py-1 transition-colors hover:border-border-accent hover:text-fg"
+            className="max-w-full truncate rounded-full border border-border px-2.5 py-1 transition-colors duration-fast hover:border-border-hover hover:text-fg"
           >
             {version}
           </Link>

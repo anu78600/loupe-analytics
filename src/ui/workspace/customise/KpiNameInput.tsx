@@ -69,7 +69,7 @@ export function KpiNameInput({
             e.currentTarget.blur();
           }
         }}
-        className="peer [field-sizing:content] h-7 w-auto max-w-full min-w-[8ch] truncate border-transparent bg-transparent pr-6 pl-1 text-ui font-medium hover:border-border-strong"
+        className="peer [field-sizing:content] h-7 w-auto max-w-full min-w-[8ch] truncate border-transparent bg-transparent pr-6 pl-1 text-ui font-medium hover:border-border-hover"
       />
       <Pencil
         aria-hidden

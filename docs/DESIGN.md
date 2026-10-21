@@ -2,19 +2,71 @@
 
 **Quiet luxury meets precision instrument.** Graphite surfaces, one brass accent, an editorial serif for headlines, a precise grotesque (Inter) for everything else, and tabular figures for every number. The data is the colour; the chrome stays out of the way.
 
-## Tokens (`src/styles/tokens.css`)
+## Tokens: two themes, each designed on its own
 
-Components use semantic tokens only (`bg-surface-1`, `text-fg-muted`, `border-border`, `var(--chart-1)`). Raw colours never appear in components. `globals.css` maps the tokens to Tailwind utilities in `@theme`.
+Colour is built in three tiers, the way Figma variables, GitHub Primer and Vercel's Geist are:
 
-| Role                              | Dark (default)                                | Light                                         |
-| --------------------------------- | --------------------------------------------- | --------------------------------------------- |
-| Background                        | `#0b0c0e`                                     | `#f7f6f2` (warm paper)                        |
-| Surface                           | `#121418`                                     | `#ffffff`                                     |
-| Text / muted / subtle             | `#edeef0` / `#9ba1a9` / `#7d838c`             | `#121417` / `#575d66` / `#61676f`             |
-| Accent (brass / bronze)           | `#d6b47a`                                     | `#816226`                                     |
-| Success / warning / danger / info | `#3fb68b` / `#e8833a` / `#f06a6d` / `#6c9ef8` | `#16774d` / `#a94e08` / `#b93127` / `#2f6fdb` |
+1. **Primitives** (`src/styles/primitives.css`). Raw ramps of 12 steps per family, named `--base-{family}-{step}`, generated in OKLCH and written as hex. The families are a warm neutral, brass, blue, green, red and amber. Light and dark have separate ramps (`-dark-`), because a dark theme is designed, not inverted. Steps keep Radix's meaning: 1–2 backgrounds, 3–5 interactive fills, 6–8 borders, 9–10 solids, 11–12 text. Components never use primitives.
+2. **Semantic roles**, one file per theme: `src/styles/theme-light.css` and `src/styles/theme-dark.css`. Both have the same names, with values chosen for that theme:
+   - surfaces: `--bg`, `--bg-subtle` (sunken), `--surface-1…3`, `--surface-overlay`, the hover, active and selected states, and two for controls: `--surface-raised-control` (a raised key: the segmented control's choice, the secondary button) and `--surface-inset` (the well a key sits in, the segmented track);
+   - text: `--fg`, `--fg-muted`, `--fg-subtle`, `--fg-disabled`;
+   - borders: `--border-subtle`, `--border`, `--border-strong`, `--border-hover`;
+   - accent: `--accent`, hover, active, `--accent-text`, `--accent-soft`, `--focus`;
+   - status: base, `-text`, `-soft` and `-border` for success, warning, danger and info;
+   - charts and shadows.
+3. **Utilities** (`src/app/globals.css` `@theme`). These map the roles onto Tailwind names (`bg-surface-overlay`, `text-fg-muted`, `ring-focus`). `src/styles/tokens.css` is only the entry point that imports the three files.
 
-Text contrast on the background is 16.9 / 7.5 / 5.1 in dark and 17.1 / 6.1 / 5.3 in light. Accent and status colours keep at least 4.5:1 even on their own tinted chips. The landing page and version log pass an automated WCAG 2.1 AA audit (axe-core) in both themes with no violations. Status colours are reserved for state, always shown with an icon or label, and never used for data series.
+**Light theme.** Paper, ink and a hairline:
+
+| Element                          | Treatment                                                                                                                |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Canvas                           | Warm paper `#f7f6f2`                                                                                                     |
+| Sunken areas (wells, side areas) | `#f1efeb`                                                                                                                |
+| Raised cards                     | White, with a hairline ring and a soft two-layer shadow                                                                  |
+| Overlays                         | White, with a deeper layered shadow                                                                                      |
+| Text                             | Near-black `#1b1815`, muted `#504c47`, subtle `#6b6761`, kept at least 7 OKLCH L apart so the three levels read as three |
+| Accent                           | Bronze `#816226`, with a darker `--accent-text` for words                                                                |
+| States                           | The ink at 6 % on hover and 10 % pressed; selected is the bronze at 11 %, a step stronger and warm                       |
+| Controls                         | A raised key in white; its track the ink at 6.5 %, a well about 4 L below whatever plane holds it                        |
+| Focus                            | Solid ring with a 2 px gap                                                                                               |
+
+**Dark theme.** Depth by light, not by shadow:
+
+| Element       | Treatment                                                                                                                       |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| Canvas        | Near-black `#0e0d0b`, never pure black                                                                                          |
+| Sunken areas  | `#080706`                                                                                                                       |
+| Raised levels | Each one lighter: surface 1–3 `#151311`, `#1b1a18`, `#22201e`                                                                   |
+| Overlays      | The lightest plane, `#292724`, so menus and popovers clearly sit above the page                                                 |
+| Raised edges  | A white inset top highlight (5–7%) over deeper shadows                                                                          |
+| Borders       | White at 6–20%                                                                                                                  |
+| Text          | Never pure white: `#f0eeeb`, `#c0bdb9`, `#a19e9a`, balanced by APCA as well as WCAG, because WCAG 2 overstates contrast on dark |
+| Accent text   | Lighter and lower in chroma                                                                                                     |
+| Status tints  | Very dark, low-chroma                                                                                                           |
+| Controls      | Relative to their plane: a raised key a 6 % white step above it, its track a 25 % black step into it                            |
+
+**Inside overlays.** A dialog, sheet, popover or menu is the top plane, so nothing inside it rises above it. Cards and groups inside one (the Settings groups, the dataset card in the phone's Filters sheet, the list in a question) sit on the overlay plane with their border alone: no fill and no card shadow. A darker fill there reads as a hole, and in dark a lighter one would be a plane the system doesn't have. Controls keep their own surfaces (a field its fill, a segmented track its well, a button its key); code keeps its well (`--bg-subtle`, which the code colours are checked against); and a chart keeps `--surface-1`, the surface its palettes are validated against. A part shown both on the page and in a sheet says which it is in (`FilterRail`'s `inSheet`).
+
+**Shared scales:**
+
+| Scale      | Values                                                                                          |
+| ---------- | ----------------------------------------------------------------------------------------------- |
+| Radius     | 4 / 6 / 8 (controls) / 12 (cards) / 16 (panels); an inner radius is the outer minus the padding |
+| Motion     | 120 / 180 / 240 ms for the interface, with chart drawing timed separately                       |
+| Disabled   | One opacity                                                                                     |
+| Focus ring | `0 0 0 2px var(--bg), 0 0 0 4px var(--focus)`                                                   |
+
+**Proof.** `tests/theme-contrast.test.ts` reads both themes and fails if any of these slips:
+
+| Check                                 | Requirement                                                                              |
+| ------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Text on every surface                 | ≥ 12:1 / Lc 90 (primary), ≥ 7:1 / Lc 60 (muted), ≥ 4.5:1 / Lc 45 (subtle)                |
+| Focus ring                            | ≥ 3:1                                                                                    |
+| Accent and status text on their tints | ≥ 4.5:1                                                                                  |
+| Hover, pressed and selected           | Each visible on every plane (≥ 3 L), stronger in that order; text stays readable on them |
+| Controls                              | The track below its plane, the key ≥ 4 L out of it, labels ≥ 7:1                         |
+| Dark surfaces                         | Get lighter at each level                                                                |
+| Low end of the sequential ramps       | Visible against cards                                                                    |
 
 ### Chart palettes
 
@@ -73,9 +125,20 @@ Rules:
 
 ## Space, shape, depth and motion
 
-- 4/8 px spacing grid. Radii: 10 px (controls), 14 px (cards), 20 px (panels).
-- Three shadows (card, pop, lift), with a 1 px inner highlight in dark mode.
-- Motion uses an out-quint ease (`cubic-bezier(0.22, 1, 0.36, 1)`), 200–400 ms for UI and up to about 1.3 s for chart drawing. Everything respects `prefers-reduced-motion` (Framer Motion `MotionConfig reducedMotion="user"` plus a CSS override).
+- 4/8 px spacing grid. Radii come from the scale:
+
+  | Name      | Size  | Used for |
+  | --------- | ----- | -------- |
+  | `xs`      | 4 px  |          |
+  | `sm`      | 6 px  |          |
+  | `control` | 8 px  | Controls |
+  | `card`    | 12 px | Cards    |
+  | `panel`   | 16 px | Panels   |
+
+  Inner corners nest: an inner radius is the outer radius minus the padding.
+
+- Three shadows (card, pop, lift), each designed per theme. Light uses a hairline ring and soft layered shadows. Dark uses deeper shadows with a white inset top highlight.
+- Motion uses an out-quint ease (`cubic-bezier(0.22, 1, 0.36, 1)`): `duration-fast` 120 ms, `base` 180 ms and `slow` 240 ms for the interface. Charts take up to about 1.3 s to draw. Keyboard choices and frequent actions don't animate. Everything respects `prefers-reduced-motion` (Framer Motion `MotionConfig reducedMotion="user"` plus a CSS override).
 - Atmosphere is restricted to the landing hero: a soft brass/blue mesh and fine film grain. No glassmorphism beyond the sticky headers.
 
 ## Charts

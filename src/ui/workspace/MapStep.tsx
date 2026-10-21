@@ -322,7 +322,7 @@ export function MapStep() {
  * opens a dialog), so what is read out is what is shown.
  */
 const CHIP =
-  "inline-flex items-center gap-1.5 rounded-control border border-border bg-surface-1 px-3 py-1.5 text-left text-ui transition-colors hover:border-border-accent focus-visible:ring-2 focus-visible:ring-accent-ring focus-visible:outline-none data-[state=open]:border-border-accent";
+  "inline-flex items-center gap-1.5 rounded-control border border-border bg-surface-1 px-3 py-1.5 text-left text-ui transition-colors hover:border-border-hover focus-visible:focus-ring data-[state=open]:border-border-hover";
 
 /**
  * A chip's breakdown panel. Each chip adds its width as min(width, 100vw −
@@ -362,7 +362,7 @@ function KpisChip({ onOpen }: { onOpen: () => void }) {
         aria-labelledby={headingId}
         className={cn(CHIP_PANEL, "w-[min(420px,calc(100vw-24px))]")}
       >
-        <div className="border-b border-border px-4 py-3">
+        <div className="border-b border-border-subtle px-4 py-3">
           <p id={headingId} className="text-ui font-medium text-fg">
             KPIs for {context.domain.name}
             {subName && !context.domain.generic ? ` · ${subName}` : ""}
@@ -373,7 +373,7 @@ function KpisChip({ onOpen }: { onOpen: () => void }) {
           </p>
         </div>
         {off.length ? (
-          <section className="border-b border-border px-4 py-3">
+          <section className="border-b border-border-subtle px-4 py-3">
             <SectionLabel>Not available · {off.length}</SectionLabel>
             <ul className="mt-2 grid gap-2.5">
               {off.map((k) => (
@@ -410,7 +410,7 @@ function KpisChip({ onOpen }: { onOpen: () => void }) {
             ))}
           </ul>
         </section>
-        <div className="border-t border-border px-4 py-2.5">
+        <div className="border-t border-border-subtle px-4 py-2.5">
           <PopoverClose asChild>
             <Button size="sm" variant="secondary" onClick={onOpen}>
               Open KPI availability <ArrowRight aria-hidden />
@@ -452,7 +452,7 @@ function ColumnsChip({ rows, onOpen }: { rows: ColumnRow[]; onOpen: (filter: Col
         aria-labelledby={headingId}
         className={cn(CHIP_PANEL, "w-[min(440px,calc(100vw-24px))]")}
       >
-        <div className="border-b border-border px-4 py-3">
+        <div className="border-b border-border-subtle px-4 py-3">
           <p id={headingId} className="text-ui font-medium text-fg">
             The columns of your file
           </p>
@@ -462,9 +462,9 @@ function ColumnsChip({ rows, onOpen }: { rows: ColumnRow[]; onOpen: (filter: Col
           </p>
         </div>
         {unused.length ? (
-          <section className="border-b border-border px-4 py-3">
+          <section className="border-b border-border-subtle px-4 py-3">
             <SectionLabel>Not used · {unused.length}</SectionLabel>
-            <ul className="mt-1 divide-y divide-border">
+            <ul className="mt-1 divide-y divide-border-subtle">
               {unused.map((r) => (
                 <li key={r.column.name} className="py-2.5">
                   <div className="flex items-center justify-between gap-2">
@@ -492,14 +492,14 @@ function ColumnsChip({ rows, onOpen }: { rows: ColumnRow[]; onOpen: (filter: Col
             </ul>
           </section>
         ) : (
-          <p className="border-b border-border px-4 py-3 text-xs text-fg-muted">
+          <p className="border-b border-border-subtle px-4 py-3 text-xs text-fg-muted">
             Every column you kept feeds a KPI, a chart or a filter.
           </p>
         )}
         {hidden.length ? (
-          <section className="border-b border-border px-4 py-3">
+          <section className="border-b border-border-subtle px-4 py-3">
             <SectionLabel>Hidden by you · {hidden.length}</SectionLabel>
-            <ul className="mt-1 divide-y divide-border">
+            <ul className="mt-1 divide-y divide-border-subtle">
               {hidden.map((r) => (
                 <li key={r.column.name} className="flex items-center justify-between gap-2 py-2">
                   <span className="min-w-0 truncate text-ui text-fg-muted line-through" title={r.column.name}>
@@ -509,7 +509,7 @@ function ColumnsChip({ rows, onOpen }: { rows: ColumnRow[]; onOpen: (filter: Col
                     size="xs"
                     variant="ghost"
                     onClick={() => setHidden([r.column.name], false)}
-                    aria-label={`Use ${r.column.name} again`}
+                    aria-label={`Use again: ${r.column.name}`}
                   >
                     <Eye aria-hidden /> Use again
                   </Button>
@@ -531,7 +531,7 @@ function ColumnsChip({ rows, onOpen }: { rows: ColumnRow[]; onOpen: (filter: Col
             ))}
           </ul>
         </section>
-        <div className="border-t border-border px-4 py-2.5">
+        <div className="border-t border-border-subtle px-4 py-2.5">
           <PopoverClose asChild>
             <Button size="sm" variant="secondary" onClick={() => onOpen(unused.length ? "unused" : "all")}>
               Open Your columns <ArrowRight aria-hidden />
@@ -623,8 +623,8 @@ function FieldMapping() {
               // A column the user chose by hand for a registry field (those list synonyms) can be taught.
               const teachable = Boolean(manual && col && f.synonyms.length > 0 && learning);
               return (
-                <tr key={f.id} className="hover:bg-surface-2/60">
-                  <td className="border-b border-border px-4 py-2.5 align-top">
+                <tr key={f.id} className="hover:bg-surface-hover">
+                  <td className="border-b border-border-subtle px-4 py-2.5 align-top">
                     <div className="flex items-center gap-2">
                       <span className="font-medium text-fg">{f.label}</span>
                       {f.core ? <Badge tone="outline">core</Badge> : null}
@@ -635,7 +635,7 @@ function FieldMapping() {
                       </ClampText>
                     ) : null}
                   </td>
-                  <td className="border-b border-border px-4 py-2 align-top">
+                  <td className="border-b border-border-subtle px-4 py-2 align-top">
                     <Select value={col ?? NONE} onValueChange={(v) => choose(f.id, v === NONE ? null : v)}>
                       <SelectTrigger
                         size="sm"
@@ -675,7 +675,7 @@ function FieldMapping() {
                       />
                     ) : null}
                   </td>
-                  <td className="border-b border-border px-4 py-2.5 align-top">
+                  <td className="border-b border-border-subtle px-4 py-2.5 align-top">
                     {col ? (
                       manual ? (
                         <Badge tone="accent">set by you</Badge>
@@ -690,7 +690,7 @@ function FieldMapping() {
                       <span className="text-xs text-fg-subtle">—</span>
                     )}
                   </td>
-                  <td className="border-b border-border px-4 py-2 align-top">
+                  <td className="border-b border-border-subtle px-4 py-2 align-top">
                     {col ? (
                       <div className="flex justify-end">
                         <UsedBy use={usage?.usage.get(col)} />
@@ -753,7 +753,7 @@ function RememberWord({
           description: "Stored in this browser only. Settings › What Loupe has learned lists it.",
         });
       }}
-      className="mt-1.5 flex w-64 items-start gap-1.5 rounded-control text-left text-xs text-accent underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-accent-ring focus-visible:outline-none"
+      className="mt-1.5 flex w-64 items-start gap-1.5 rounded-control text-left text-xs text-accent-text underline-offset-4 hover:underline focus-visible:focus-ring"
     >
       <BookMarked className="mt-0.5 size-3.5 shrink-0" aria-hidden />
       Remember “{column}” as {label} for future files
@@ -799,7 +799,7 @@ function ValueMeanings() {
                       <PopoverTrigger asChild>
                         <button
                           type="button"
-                          className="relative inline-flex min-h-8 max-w-[70%] flex-wrap items-center justify-end gap-1 rounded-control border border-border-strong bg-surface-2 px-2 py-1 text-left hover:border-border-accent focus-visible:ring-2 focus-visible:ring-accent-ring focus-visible:outline-none"
+                          className="relative inline-flex min-h-8 max-w-[70%] flex-wrap items-center justify-end gap-1 rounded-control border border-border-strong bg-surface-2 px-2 py-1 text-left transition-colors hover:border-border-hover focus-visible:focus-ring data-[state=open]:border-border-hover"
                         >
                           {/* Read out with what the values mean, not only as the values themselves. */}
                           <span className="sr-only">Values that mean {phrase(c.label)}: </span>
@@ -843,7 +843,7 @@ function ValueMeanings() {
                           return (
                             <label
                               key={v.value}
-                              className="flex cursor-pointer items-center gap-2 rounded-[6px] px-2 py-1.5 text-ui text-fg hover:bg-surface-3"
+                              className="flex cursor-pointer items-center gap-2 rounded-xs px-2 py-1.5 text-ui text-fg hover:bg-surface-hover"
                             >
                               <Checkbox
                                 checked={on}
@@ -941,7 +941,7 @@ function UsedBy({ use }: { use: ColumnUse | undefined }) {
           <Tooltip key={p.label} content={p.names.join(" · ")}>
             <button
               type="button"
-              className="rounded-[6px] focus-visible:ring-2 focus-visible:ring-accent-ring focus-visible:outline-none"
+              className="rounded-full focus-visible:focus-ring"
               aria-label={`${p.label}: ${p.names.join(", ")}`}
             >
               <Badge tone="outline">{p.label}</Badge>
@@ -1024,8 +1024,8 @@ function ColumnRoles({
                 const numeric = c.storage === "number";
                 const off = status === "hidden";
                 return (
-                  <tr key={c.name} className={cn("hover:bg-surface-2/60", off && "bg-surface-2/50")}>
-                    <td className="border-b border-border px-4 py-2">
+                  <tr key={c.name} className={cn("hover:bg-surface-hover", off && "bg-surface-2")}>
+                    <td className="border-b border-border-subtle px-4 py-2">
                       <Tooltip
                         content={
                           off
@@ -1046,16 +1046,16 @@ function ColumnRoles({
                     </td>
                     <td
                       className={cn(
-                        "min-w-36 border-b border-border px-4 py-2 font-medium",
+                        "min-w-36 border-b border-border-subtle px-4 py-2 font-medium",
                         off ? "text-fg-subtle line-through" : "text-fg",
                       )}
                     >
                       {c.name}
                     </td>
-                    <td className="font-data max-w-[240px] border-b border-border px-4 py-2 text-xs leading-relaxed text-fg-muted">
+                    <td className="font-data max-w-[240px] border-b border-border-subtle px-4 py-2 text-xs leading-relaxed text-fg-muted">
                       <ClampText lines={2}>{dataSummary(c, locale)}</ClampText>
                     </td>
-                    <td className="border-b border-border px-4 py-1.5">
+                    <td className="border-b border-border-subtle px-4 py-1.5">
                       {off ? (
                         <Badge tone="neutral">
                           <EyeOff aria-hidden /> Hidden
@@ -1072,10 +1072,10 @@ function ColumnRoles({
                         <UsedBy use={use} />
                       )}
                     </td>
-                    <td className="border-b border-border px-4 py-2 whitespace-nowrap text-fg-muted">
+                    <td className="border-b border-border-subtle px-4 py-2 whitespace-nowrap text-fg-muted">
                       {kindLabel(c)}
                     </td>
-                    <td className="border-b border-border px-4 py-1.5">
+                    <td className="border-b border-border-subtle px-4 py-1.5">
                       <div className="flex items-center gap-1.5">
                         <Select
                           value={c.role}
@@ -1107,7 +1107,7 @@ function ColumnRoles({
                         ) : null}
                       </div>
                     </td>
-                    <td className="border-b border-border px-4 py-1.5">
+                    <td className="border-b border-border-subtle px-4 py-1.5">
                       {numeric && ["measure", "currency", "rate", "percentage"].includes(c.role) ? (
                         <Select
                           value={c.additivity ?? "additive"}
@@ -1134,7 +1134,7 @@ function ColumnRoles({
                         </span>
                       )}
                     </td>
-                    <td className="max-w-[360px] border-b border-border px-4 py-2 text-xs leading-relaxed text-fg-muted">
+                    <td className="max-w-[360px] border-b border-border-subtle px-4 py-2 text-xs leading-relaxed text-fg-muted">
                       <ClampText lines={2}>{c.roleReason}</ClampText>
                     </td>
                   </tr>

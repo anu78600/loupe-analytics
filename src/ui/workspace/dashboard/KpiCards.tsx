@@ -90,12 +90,13 @@ export function DeltaChip({
   const flat = fromZero ? change === 0 : isFlatChange(change);
   const up = change > 0;
   const good = meta.direction === "neutral" || flat ? null : up === (meta.direction === "higher");
+  // On a status tint the words take the status's text step, made for that tint (≥ 4.5:1 in both themes).
   const tone =
     good === null
       ? "text-fg-muted bg-surface-3"
       : good
-        ? "text-success bg-success-soft"
-        : "text-danger bg-danger-soft";
+        ? "text-success-text bg-success-soft"
+        : "text-danger-text bg-danger-soft";
   const Icon = flat ? Minus : up ? ArrowUpRight : ArrowDownRight;
   const text = fromZero
     ? flat
@@ -207,8 +208,9 @@ export function KpiCard({
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.04, type: "spring", stiffness: 380, damping: 32 }}
       className={cn(
-        "group @container/kpi relative flex min-w-0 flex-col rounded-card border bg-surface-1 p-4 text-left shadow-card transition-[border-color,box-shadow] duration-200 hover:border-border-accent",
-        selected ? "border-accent shadow-[0_0_0_3px_var(--accent-soft)]" : "border-border",
+        "group @container/kpi relative flex min-w-0 flex-col rounded-card border bg-surface-1 p-4 text-left shadow-card transition-[border-color,box-shadow] duration-fast",
+        // The one being inspected: an accent edge and a soft ring, drawn with the card's shadow.
+        selected ? "border-accent ring-3 ring-accent-soft" : "border-border hover:border-border-hover",
       )}
       title={`${meta.name}: ${full}${value?.comparisonLabel ? ` · change ${value.currentLabel ? `${value.currentLabel} ` : ""}${value.comparisonLabel}` : ""}`}
     >
@@ -390,7 +392,7 @@ export function KpiTiles({ ids, label }: { ids: string[]; label: string }) {
                 ? `Change ${v.currentLabel ? `${v.currentLabel} ` : ""}${v.comparisonLabel}`
                 : meta.name
             }
-            className="flex min-w-0 flex-col items-start gap-1 rounded-card border border-border bg-surface-1 px-3.5 py-3 text-left transition-colors hover:border-border-accent hover:bg-surface-2"
+            className="flex min-w-0 flex-col items-start gap-1 rounded-card border border-border bg-surface-1 px-3.5 py-3 text-left shadow-card transition-colors duration-fast hover:border-border-hover"
           >
             {/* Up to two lines, so a longer name ("Customer LTV (historical)") isn't cut off; the figures
                 then sit at the foot, level with the rest of the row. */}

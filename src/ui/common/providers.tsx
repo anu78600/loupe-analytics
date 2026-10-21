@@ -4,8 +4,9 @@
  * App-wide client providers, mounted once in the root layout: Framer Motion
  * honours the OS reduced-motion setting, one shared TooltipProvider (moving
  * between tooltips skips the delay), theme and chart-colour syncing and the
- * toast host. Toast classes use `!` so the design tokens override sonner's
- * built-in styles.
+ * toast host. Toasts sit on the overlay plane like menus and popovers
+ * (--surface-overlay, the pop shadow, the card radius); their classes use `!`
+ * so the design tokens override sonner's built-in styles.
  */
 import * as React from "react";
 import { Toaster } from "sonner";
@@ -51,9 +52,14 @@ export function Providers({ children }: { children: React.ReactNode }) {
           toastOptions={{
             classNames: {
               toast:
-                "!rounded-[12px] !border !border-border-strong !bg-surface-2 !text-fg !shadow-pop !font-sans !text-ui",
+                "!rounded-card !border !border-border !bg-surface-overlay !text-fg !shadow-pop !font-sans !text-ui",
               description: "!text-fg-muted",
               actionButton: "!bg-accent !text-accent-fg",
+              // A status toast's icon in its status colour (the fill, which icons use).
+              success: "[&_[data-icon]]:text-success",
+              error: "[&_[data-icon]]:text-danger",
+              warning: "[&_[data-icon]]:text-warning",
+              info: "[&_[data-icon]]:text-info",
             },
           }}
         />

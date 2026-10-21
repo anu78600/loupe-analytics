@@ -11,6 +11,7 @@ import Link from "next/link";
 import { ArrowRight, BookOpenText, ChartNoAxesCombined, GraduationCap, Layers } from "lucide-react";
 import { chartGlossary, GLOSSARY, industryGlossary } from "@/content/glossary";
 import { DOMAINS } from "@/registry";
+import { buttonVariants } from "@/ui/primitives/button";
 import { Kbd } from "@/ui/primitives/misc";
 import { CreditBar } from "@/ui/site/CreditBar";
 import { Glossary } from "@/ui/site/Glossary";
@@ -44,7 +45,7 @@ export default function GlossaryPage() {
       <main id="main" className="relative isolate">
         <div aria-hidden className="mesh absolute inset-x-0 top-0 -z-10 h-[420px] opacity-70" />
         <div className="mx-auto max-w-6xl px-4 pt-14 pb-24 sm:px-6 sm:pt-20">
-          <p className="eyebrow text-accent">Glossary</p>
+          <p className="eyebrow text-accent-text">Glossary</p>
           <h1 className="mt-3 max-w-3xl font-display text-display-md text-fg sm:text-display-lg">
             Learn the language of data.
           </h1>
@@ -100,14 +101,11 @@ export default function GlossaryPage() {
             <div className="mt-5 flex flex-wrap gap-3">
               <Link
                 href="/app?sample=ecommerce&step=dashboard"
-                className="inline-flex items-center gap-2 rounded-control bg-accent px-4 py-2.5 text-sm font-medium text-accent-fg hover:bg-accent-strong"
+                className={buttonVariants({ variant: "primary" })}
               >
-                Explore a live demo <ArrowRight className="size-4" aria-hidden />
+                Explore a live demo <ArrowRight aria-hidden />
               </Link>
-              <Link
-                href="/app"
-                className="inline-flex items-center gap-2 rounded-control border border-border-strong px-4 py-2.5 text-sm text-fg hover:border-border-accent"
-              >
+              <Link href="/app" className={buttonVariants({ variant: "secondary" })}>
                 Open the workspace
               </Link>
             </div>

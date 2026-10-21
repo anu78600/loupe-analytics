@@ -5,6 +5,12 @@
  * default, which suits icon buttons at the right of a header.
  * Items take an optional right-aligned `hint`; radio and checkbox items show
  * a brass check.
+ *
+ * The menu sits on the overlay plane (--surface-overlay with the pop shadow)
+ * at the card radius; its items take the control radius (12 − 4 px of
+ * padding), so the corners nest. It grows out of its trigger (Radix's
+ * transform origin) from 96 % over 120 ms; the highlight moving between items
+ * is instant, since arrowing through a menu is the most frequent action in it.
  */
 import * as React from "react";
 import { DropdownMenu as MenuPrimitive } from "radix-ui";
@@ -27,8 +33,8 @@ export const DropdownMenuContent = React.forwardRef<
       align={align}
       collisionPadding={12}
       className={cn(
-        "z-50 min-w-48 overflow-hidden rounded-[12px] border border-border-strong bg-surface-2 p-1 text-fg shadow-pop",
-        "data-[state=open]:animate-[fade-up_160ms_var(--ease-out-quint)]",
+        "z-50 min-w-48 overflow-hidden rounded-card border border-border bg-surface-overlay p-1 text-fg shadow-pop outline-none",
+        "origin-(--radix-dropdown-menu-content-transform-origin) scale-100 transition-[opacity,scale] duration-fast ease-out-quint starting:scale-96 starting:opacity-0",
         className,
       )}
       {...props}
@@ -40,7 +46,7 @@ DropdownMenuContent.displayName = "DropdownMenuContent";
 // Icons inside items are greyed via [&_svg]:text-fg-subtle; the check marks
 // below use `!text-accent` to override that and stay brass.
 const itemClass =
-  "relative flex cursor-default select-none items-center gap-2 rounded-[8px] px-2 py-1.5 text-ui outline-none transition-colors data-[disabled]:pointer-events-none data-[highlighted]:bg-surface-3 data-[disabled]:opacity-45 [&_svg]:size-3.5 [&_svg]:shrink-0 [&_svg]:text-fg-subtle";
+  "relative flex cursor-default select-none items-center gap-2 rounded-control px-2 py-1.5 text-ui outline-none data-[disabled]:pointer-events-none data-[highlighted]:bg-surface-hover data-[disabled]:opacity-disabled [&_svg]:size-3.5 [&_svg]:shrink-0 [&_svg]:text-fg-subtle";
 
 export const DropdownMenuItem = React.forwardRef<
   HTMLDivElement,
@@ -89,6 +95,7 @@ export function DropdownMenuLabel({ className, ...props }: React.ComponentProps<
   );
 }
 
+/** A divider between groups: the subtle line, quieter than the menu's own edge. */
 export function DropdownMenuSeparator({ className }: { className?: string }) {
-  return <MenuPrimitive.Separator className={cn("-mx-1 my-1 h-px bg-border", className)} />;
+  return <MenuPrimitive.Separator className={cn("-mx-1 my-1 h-px bg-border-subtle", className)} />;
 }

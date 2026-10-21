@@ -120,6 +120,11 @@ function axisTicks(format: KpiFormat, fmt: FormatOptions, maxAbs: number): (v: n
   };
 }
 
+/**
+ * The tooltip is HTML on the page, so it can wear the overlay plane's own finish: the theme's
+ * --chart-tooltip fill (the overlay surface), the control radius and the pop shadow, read as CSS
+ * variables, which carry the dark theme's lit top edge and the light theme's hairline ring.
+ */
 function baseTooltip(t: ChartTokens): Obj {
   return {
     backgroundColor: t.tooltip,
@@ -127,7 +132,7 @@ function baseTooltip(t: ChartTokens): Obj {
     borderWidth: 1,
     padding: [8, 11],
     textStyle: { color: t.fg, fontSize: 12, fontFamily: t.fontSans },
-    extraCssText: `border-radius:10px;box-shadow:0 12px 32px -8px rgba(0,0,0,${t.dark ? 0.55 : 0.18});`,
+    extraCssText: "border-radius:8px;box-shadow:var(--shadow-pop);",
     // Keep the tooltip within the chart's bounds instead of overflowing it.
     confine: true,
   };
@@ -377,6 +382,16 @@ function colorFor(ctx: OptionContext, i: number, isOthers?: boolean): string {
 
 function dimmed(ctx: OptionContext, label: string): boolean {
   return Boolean(ctx.highlight && ctx.highlight !== label);
+}
+
+/**
+ * The blur state of a series that focuses on hover: what the pointer leaves out fades to the
+ * theme's --chart-dim, as a cross-filter fades what it leaves out. (ECharts' own blur is a tenth of
+ * full strength, which loses the rest of the chart.)
+ */
+function blurred(t: ChartTokens): Obj {
+  const opacity = t.dim;
+  return { itemStyle: { opacity }, lineStyle: { opacity }, areaStyle: { opacity }, label: { opacity } };
 }
 
 function areaGradient(color: string): Obj {
@@ -801,6 +816,7 @@ function cartesian(ctx: OptionContext): EChartsCoreOption {
           borderRadius: i === segments.length - 1 ? [4, 4, 0, 0] : 0,
         },
         emphasis: { focus: "series" },
+        blur: blurred(t),
       });
     });
   } else {
@@ -813,14 +829,17 @@ function cartesian(ctx: OptionContext): EChartsCoreOption {
     data.series.forEach((s, i) => {
       const color = splitColours?.[i] ?? colorFor(ctx, i, othersSeries(i));
       // Per-point styling: "Others" in the neutral colour; points outside the
-      // cross-filter selection and an incomplete first or last period are faded.
+      // cross-filter selection fade to the theme's --chart-dim, and an incomplete
+      // first or last period fades too (less on a line, whose dashed end shows it).
       const values = s.values.map((v, idx) => {
         const cat = data.categories[idx];
         const partialPoint = partialBucket(data, idx);
-        const fade = (cat && dimmed(ctx, cat.label)) || partialPoint;
+        const left = Boolean(cat && dimmed(ctx, cat.label));
         const base: Obj = { value: share(v, idx) };
-        if (cat?.isOthers) base.itemStyle = { color: t.other, opacity: fade ? 0.35 : 1 };
-        else if (fade) base.itemStyle = { opacity: partialPoint && isLine ? 0.55 : 0.35 };
+        if (cat?.isOthers)
+          base.itemStyle = { color: t.other, opacity: left ? t.dim : partialPoint ? 0.35 : 1 };
+        else if (left) base.itemStyle = { opacity: t.dim };
+        else if (partialPoint) base.itemStyle = { opacity: isLine ? 0.55 : 0.35 };
         // A faded single-series column says why it is short: the period isn't over in the data. The
         // first column's text reads rightwards from its centre, clear of the value axis's labels.
         if (
@@ -875,6 +894,7 @@ function cartesian(ctx: OptionContext): EChartsCoreOption {
                 ? { color: withAlpha(color, t.dark ? 0.5 : 0.55) }
                 : undefined,
           emphasis: { focus: "series" },
+          blur: blurred(t),
           // The value at the end of the line, unless the line now ends before an incomplete period.
           endLabel:
             data.series.length === 1 && !ctx.forExport && !pointsLabelled && !(dashed && data.partialLast)
@@ -965,6 +985,7 @@ function cartesian(ctx: OptionContext): EChartsCoreOption {
               : undefined,
           ...(pointsLabelled ? { labelLayout: { hideOverlap: true } } : {}),
           emphasis: { focus: data.series.length > 1 ? "series" : "self" },
+          blur: blurred(t),
           markPoint: kind === "bar" && timeAxis && !pointsLabelled ? markPoints(ctx, i) : undefined,
           animationDelay: (idx: number) => idx * 14,
         });
@@ -1083,7 +1104,7 @@ function donut(ctx: OptionContext, pie = false): EChartsCoreOption {
   const items = data.categories.map((c, i) => ({
     name: c.label,
     value: s?.values[i] ?? 0,
-    itemStyle: { color: colours[i], opacity: dimmed(ctx, c.label) ? 0.35 : 1 },
+    itemStyle: { color: colours[i], opacity: dimmed(ctx, c.label) ? ctx.tokens.dim : 1 },
   }));
   // On a small one-page card the names and shares go in a legend beside the ring (as on a report
   // page), where they never collide, instead of on leader lines around it.
@@ -1257,7 +1278,7 @@ function treemap(ctx: OptionContext): EChartsCoreOption {
         name: s.segment,
         value: s.customers,
         revenueShare: s.revenueShare,
-        itemStyle: { color, opacity: dimmed(ctx, s.segment) ? 0.35 : 1 },
+        itemStyle: { color, opacity: dimmed(ctx, s.segment) ? ctx.tokens.dim : 1 },
         label: { color: inkOn(color, t) },
       };
     });
@@ -1272,7 +1293,7 @@ function treemap(ctx: OptionContext): EChartsCoreOption {
       return {
         name: n.label,
         value: n.value ?? 0,
-        itemStyle: { color, opacity: dimmed(ctx, n.label) ? 0.35 : 1 },
+        itemStyle: { color, opacity: dimmed(ctx, n.label) ? ctx.tokens.dim : 1 },
         label: { color: inkOn(color, t) },
         children: n.children?.map((c) => {
           const shade = shadeOf.get(c.label) ?? color;
@@ -1615,7 +1636,7 @@ function geoTiles(ctx: OptionContext): EChartsCoreOption {
       name: s.name,
       code: s.code,
       category: v?.label,
-      itemStyle: v ? { opacity: dimmed(ctx, v.label) ? 0.35 : 1 } : { color: t.surface2 },
+      itemStyle: v ? { opacity: dimmed(ctx, v.label) ? ctx.tokens.dim : 1 } : { color: t.surface2 },
       ...(v && v.value !== null ? { label: { color: seqInk(t, v.value, min, max) } } : {}),
     };
   });
@@ -1685,7 +1706,7 @@ function scatter(ctx: OptionContext): EChartsCoreOption {
         name: p.label,
         size: (p as { size?: number | null }).size ?? null,
         symbolSize: bubble ? sizeOf((p as { size?: number | null }).size) : 11,
-        itemStyle: { opacity: dimmed(ctx, p.label) ? 0.3 : bubble ? 0.72 : 0.9 },
+        itemStyle: { opacity: dimmed(ctx, p.label) ? ctx.tokens.dim : bubble ? 0.72 : 0.9 },
       })),
       symbolSize: 11,
       itemStyle: { color: t.palette[0], borderColor: t.surface, borderWidth: 2 },
@@ -1840,7 +1861,10 @@ function dumbbell(ctx: OptionContext): EChartsCoreOption {
     name: s?.label ?? "",
     data: (s?.values ?? []).map((v, idx) => {
       const cat = data.categories[idx];
-      return { value: v, itemStyle: cat && dimmed(ctx, cat.label) ? { opacity: 0.35 } : undefined };
+      return {
+        value: v,
+        itemStyle: cat && dimmed(ctx, cat.label) ? { opacity: ctx.tokens.dim } : undefined,
+      };
     }),
     symbol: "circle",
     symbolSize: 12,
@@ -2141,7 +2165,7 @@ function sunburst(ctx: OptionContext): EChartsCoreOption {
     return {
       name: n.label,
       value: n.value ?? 0,
-      itemStyle: { color, opacity: dimmed(ctx, n.label) ? 0.35 : 1 },
+      itemStyle: { color, opacity: dimmed(ctx, n.label) ? ctx.tokens.dim : 1 },
       label: { color: inkOn(color, t) },
       children: kids.map((c, k) => ({
         name: c.label,

@@ -4,19 +4,19 @@
  * Power BI report theme, a saved config).
  *
  * - The checks reproduce the reference validator's figures for the built-in
- *   palette (the numbers recorded in tokens.css).
+ *   palette (the numbers recorded in styles/theme-dark.css and theme-light.css).
  * - Every preset passes every check in both themes, and "Loupe" is exactly
- *   tokens.css, so the default can't drift.
+ *   the theme stylesheets' palette and gradient, so the default can't drift.
+ * - Every gradient starts visibly: step 1 at ≥ 1.5:1 on the chart background.
  * - Your colours are kept exactly; the rest of the series are filled in.
  * - One colour → shades keeps the colour and its hue, and neighbouring
  *   shades stay easy to tell apart; → matching colours never fails a check,
  *   whatever colour is picked (a sweep round the colour wheel).
  * - improve() keeps hues and clears the failures it can.
  */
-import * as fs from "node:fs";
 import { describe, expect, it } from "vitest";
 import { contrast, deltaE, normaliseHex, oklch, oklchToHex } from "@/ui/charts/palette/colour";
-import { checkPalette, type ThemeMode } from "@/ui/charts/palette/check";
+import { checkPalette, SURFACE, type ThemeMode } from "@/ui/charts/palette/check";
 import { forDark, improve, matchingFrom, rampFrom, shadesFrom, SLOTS } from "@/ui/charts/palette/generate";
 import {
   DEFAULT_CHART_THEME,
@@ -30,6 +30,7 @@ import {
 } from "@/ui/charts/palette/themes";
 import { chartThemeBootScript } from "@/ui/charts/palette/apply";
 import { chartThemeSchema } from "@/engine/export/config";
+import { themeTokens } from "./helpers/theme";
 
 const MODES: ThemeMode[] = ["light", "dark"];
 const hueGap = (a: number, b: number) => {
@@ -78,7 +79,7 @@ describe("readability checks", () => {
     if (!loupe) throw new Error("no presets");
     const light = checkPalette(loupe.light, "light");
     const dark = checkPalette(loupe.dark, "dark");
-    // The figures recorded in tokens.css (worst neighbouring ΔE: colour-blind, normal vision).
+    // The figures recorded in the theme stylesheets (worst neighbouring ΔE: colour-blind, normal vision).
     expect([dark.worstCvd.toFixed(1), dark.worstNormal.toFixed(1)]).toEqual(["17.7", "18.3"]);
     expect([light.worstCvd.toFixed(1), light.worstNormal.toFixed(1)]).toEqual(["18.0", "20.2"]);
     expect(light.state).toBe("pass");
@@ -112,18 +113,16 @@ describe("presets", () => {
       }
   });
 
-  it("Loupe is exactly the palette in tokens.css", () => {
-    const css = fs.readFileSync("src/styles/tokens.css", "utf8");
-    const darkBlock = css.slice(css.indexOf(":root,"), css.indexOf(':root[data-theme="light"]'));
-    const lightBlock = css.slice(css.indexOf(':root[data-theme="light"]'));
-    const read = (block: string) =>
-      Array.from(
-        { length: SLOTS },
-        (_, i) => new RegExp(`--chart-${i + 1}: (#[0-9a-f]{6})`).exec(block)?.[1],
-      );
-    const loupe = PRESETS.find((p) => p.id === "loupe");
-    expect(read(lightBlock)).toEqual(loupe?.light);
-    expect(read(darkBlock)).toEqual(loupe?.dark);
+  it("Loupe is exactly the palette and gradient of the theme stylesheets", () => {
+    const loupe = resolveTheme(DEFAULT_CHART_THEME);
+    for (const m of MODES) {
+      const t = themeTokens(m);
+      const read = (prefix: string) => Array.from({ length: SLOTS }, (_, i) => t[`${prefix}-${i + 1}`]);
+      expect(read("chart")).toEqual(PRESETS.find((p) => p.id === "loupe")?.[m]);
+      expect(read("seq")).toEqual(loupe[m].ramp);
+      // The palette is checked against the card it is drawn on.
+      expect(t["surface-1"]).toBe(SURFACE[m]);
+    }
   });
 });
 
@@ -168,6 +167,22 @@ describe("resolving a choice", () => {
     }
     // The ramp takes its hue from the colour.
     expect(hueGap(oklch(rampFrom("#1d4ed8", "light")[5] as string).h, oklch("#1d4ed8").h)).toBeLessThan(4);
+  });
+
+  it("starts every gradient where it shows on the chart background", () => {
+    const bases = [
+      ...PRESETS.map((p) => p.light[0] as string),
+      ...Array.from({ length: 18 }, (_, k) => oklchToHex({ l: 0.6, c: 0.14, h: k * 20 })),
+    ];
+    for (const m of MODES) {
+      expect(
+        contrast(resolveTheme(DEFAULT_CHART_THEME)[m].ramp[0] as string, SURFACE[m]),
+      ).toBeGreaterThanOrEqual(1.5);
+      for (const base of bases)
+        expect(contrast(rampFrom(base, m)[0] as string, SURFACE[m]), `${base} ${m}`).toBeGreaterThanOrEqual(
+          1.5,
+        );
+    }
   });
 
   it("gives a new key whenever any colour changes, so charts redraw", () => {

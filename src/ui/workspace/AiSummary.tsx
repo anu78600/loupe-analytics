@@ -161,7 +161,7 @@ export function AiSummary({ insights }: { insights: Insight[] }) {
     <Card className="mb-5 p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex items-start gap-3">
-          <span className="grid size-9 place-items-center rounded-[10px] border border-border-accent bg-accent-soft">
+          <span className="grid size-9 place-items-center rounded-control border border-border-accent bg-accent-soft">
             <Bot className="size-4 text-accent" aria-hidden />
           </span>
           <div>
@@ -182,12 +182,12 @@ export function AiSummary({ insights }: { insights: Insight[] }) {
         </Button>
       </div>
       {error ? (
-        <p role="alert" className="mt-3 flex gap-2 text-ui text-danger">
-          <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden /> {error}
+        <p role="alert" className="mt-3 flex gap-2 text-ui text-danger-text">
+          <AlertTriangle className="mt-0.5 size-4 shrink-0 text-danger" aria-hidden /> {error}
         </p>
       ) : null}
       {result ? (
-        <div className="mt-4 border-t border-border pt-4">
+        <div className="mt-4 border-t border-border-subtle pt-4">
           <p className="text-md font-medium text-fg">{result.headline}</p>
           <ul className="mt-3 grid gap-2">
             {result.bullets.map((b, i) => {
@@ -278,7 +278,7 @@ export function AiDomainCheck() {
           {sending ? <Loader2 className="animate-spin" aria-hidden /> : null} Ask
         </Button>
       </div>
-      {error ? <p className="mt-2 text-xs text-danger">{error}</p> : null}
+      {error ? <p className="mt-2 text-xs text-danger-text">{error}</p> : null}
       {opinion ? (
         <div className="mt-2 text-ui">
           <p className="text-fg">

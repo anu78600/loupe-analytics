@@ -1,4 +1,9 @@
-/** Pill-shaped status label with semantic tones; long text truncates within the pill. */
+/**
+ * Pill-shaped status label with semantic tones; long text truncates within the pill.
+ * Text on a tint is set in that tint's own -text token (accent-text on accent-soft,
+ * success-text on success-soft…), never grey on colour, so every tone keeps its
+ * contrast in both themes (tests/theme-contrast.test.ts).
+ */
 import * as React from "react";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
@@ -11,11 +16,11 @@ const badgeVariants = cva(
     variants: {
       tone: {
         neutral: "border-border-strong bg-surface-2 text-fg-muted",
-        accent: "border-border-accent bg-accent-soft text-accent",
-        success: "border-transparent bg-success-soft text-success",
-        warning: "border-transparent bg-warning-soft text-warning",
-        danger: "border-transparent bg-danger-soft text-danger",
-        info: "border-transparent bg-info-soft text-info",
+        accent: "border-border-accent bg-accent-soft text-accent-text",
+        success: "border-transparent bg-success-soft text-success-text",
+        warning: "border-transparent bg-warning-soft text-warning-text",
+        danger: "border-transparent bg-danger-soft text-danger-text",
+        info: "border-transparent bg-info-soft text-info-text",
         outline: "border-border-strong bg-transparent text-fg-muted",
       },
       size: {

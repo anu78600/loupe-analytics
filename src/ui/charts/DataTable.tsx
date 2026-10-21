@@ -8,7 +8,9 @@
  *
  * Cells hold the user's values, so they are set as data (.font-data: no
  * ligatures, tabular numerals, an unambiguous I and l), numbers right-aligned;
- * the headers are labels, in the caption size.
+ * the headers are labels, in the caption size. Rows are divided by the subtle
+ * line under a stronger header rule, and a row under the pointer takes the
+ * hover layer at once (no fade: the pointer crosses rows constantly).
  */
 import * as React from "react";
 import { ArrowDown, ArrowUp } from "lucide-react";
@@ -194,7 +196,7 @@ export function DataTable({
               >
                 <button
                   type="button"
-                  className="inline-flex items-center gap-1 rounded-[6px] hover:text-fg"
+                  className="inline-flex items-center gap-1 rounded-xs transition-colors duration-fast hover:text-fg focus-visible:focus-ring"
                   onClick={() =>
                     setSort((s) =>
                       s?.i === i ? { i, dir: s.dir === 1 ? -1 : 1 } : { i, dir: c.numeric ? -1 : 1 },
@@ -216,14 +218,14 @@ export function DataTable({
         </thead>
         <tbody>
           {sorted.slice(0, maxRows).map((r, ri) => (
-            <tr key={ri} className="transition-colors hover:bg-surface-2">
+            <tr key={ri} className="hover:bg-surface-hover">
               {cols.map((c, ci) => {
                 const v = r[ci] ?? null;
                 return (
                   <td
                     key={c.key}
                     className={cn(
-                      "font-data border-b border-border px-3 py-1.5",
+                      "font-data border-b border-border-subtle px-3 py-1.5",
                       c.numeric ? "text-right text-fg" : "max-w-[260px] truncate text-fg",
                       ci === 0 && "font-medium",
                     )}

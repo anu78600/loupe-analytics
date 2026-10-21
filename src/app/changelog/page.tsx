@@ -6,6 +6,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, GitCommitVertical, Milestone, Wrench } from "lucide-react";
 import { CURRENT_RELEASE, PLANNED, RELEASES } from "@/content/changelog";
+import { buttonVariants } from "@/ui/primitives/button";
 import { ChangelogTimeline } from "@/ui/site/ChangelogTimeline";
 import { SiteFooter } from "@/ui/site/SiteFooter";
 import { CreditBar } from "@/ui/site/CreditBar";
@@ -29,7 +30,7 @@ export default function ChangelogPage() {
       <main id="main" className="relative isolate">
         <div aria-hidden className="mesh absolute inset-x-0 top-0 -z-10 h-[420px] opacity-70" />
         <div className="mx-auto max-w-3xl px-4 pt-14 pb-24 sm:px-6 sm:pt-20">
-          <p className="eyebrow text-accent">Version log</p>
+          <p className="eyebrow text-accent-text">Version log</p>
           <h1 className="mt-3 font-display text-display-md text-fg sm:text-display-lg">
             Every step, logged.
           </h1>
@@ -108,16 +109,10 @@ export default function ChangelogPage() {
           </div>
 
           <div className="mt-14 flex flex-wrap gap-3">
-            <Link
-              href="/app"
-              className="inline-flex items-center gap-2 rounded-control bg-accent px-4 py-2.5 text-sm font-medium text-accent-fg hover:bg-accent-strong"
-            >
-              Open the workspace <ArrowRight className="size-4" aria-hidden />
+            <Link href="/app" className={buttonVariants({ variant: "primary" })}>
+              Open the workspace <ArrowRight aria-hidden />
             </Link>
-            <Link
-              href="/"
-              className="inline-flex items-center gap-2 rounded-control border border-border-strong px-4 py-2.5 text-sm text-fg hover:border-border-accent"
-            >
+            <Link href="/" className={buttonVariants({ variant: "secondary" })}>
               Back to the home page
             </Link>
           </div>

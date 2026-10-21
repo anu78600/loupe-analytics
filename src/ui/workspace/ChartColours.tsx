@@ -20,6 +20,9 @@
  *
  * Opened from the dashboard toolbar (ChartColoursButton), Settings and the
  * command palette through useChartColoursPanel; mounted once by Workspace.
+ * Closing it gives focus back to where it was opened from, or, when that was
+ * Settings (which closes as this opens), to Settings' own opener: the Sheet
+ * primitive follows the hand-over (useDialogFocus in ui/primitives/dialog.tsx).
  * Explanations are one short line with the full text behind hover, a long
  * press or the ⓘ (ui/primitives/reveal.tsx); the check results stay whole.
  */
@@ -85,7 +88,6 @@ export function ChartColoursButton({
         onOpen?.();
         setOpen(true);
       }}
-      aria-label={`Chart colours: ${theme.name}`}
     >
       <span className="flex -space-x-1" aria-hidden>
         {theme[mode].series.slice(0, 3).map((c, i) => (
@@ -93,6 +95,8 @@ export function ChartColoursButton({
         ))}
       </span>
       {label}
+      {/* The name starts with the visible label (WCAG 2.5.3), then says which colours are in use. */}
+      <span className="sr-only"> ({theme.name} chart colours)</span>
     </Button>
   );
 }
@@ -219,7 +223,7 @@ function Editor({ onClose }: { onClose: () => void }) {
         </section>
         <Readability reports={reports} mode={mode} shades={tab === "single" && single.style === "shades"} />
       </div>
-      <div className="sticky bottom-0 mt-auto flex flex-wrap items-center justify-between gap-3 border-t border-border bg-surface-1 px-6 py-4">
+      <div className="sticky bottom-0 mt-auto flex flex-wrap items-center justify-between gap-3 border-t border-border bg-surface-overlay px-6 py-4">
         <Button
           variant="ghost"
           size="sm"
@@ -289,10 +293,11 @@ function PresetPicker({
             onClick={() => onChange(p.id)}
             onKeyDown={(e) => onKey(e, i)}
             className={cn(
-              "grid gap-2 rounded-card border bg-surface-1 p-3 text-left transition-[border-color,box-shadow] focus-visible:ring-2 focus-visible:ring-accent-ring focus-visible:outline-none",
+              // No transition: arrow keys move the choice, and a keyboard action shows at once.
+              "grid gap-2 rounded-card border p-3 text-left focus-visible:focus-ring",
               on
-                ? "border-accent shadow-[0_0_0_3px_var(--accent-soft)]"
-                : "border-border hover:border-border-accent",
+                ? "border-accent bg-surface-selected"
+                : "border-border hover:border-border-hover hover:bg-surface-hover",
             )}
           >
             <span className="flex items-center justify-between gap-2">
@@ -392,7 +397,7 @@ function CustomColours({
         </Button>
       </div>
       {filled.length ? (
-        <div className="grid gap-1.5 rounded-control border border-border bg-surface-2 px-3 py-2.5">
+        <div className="grid gap-1.5 rounded-control border border-border px-3 py-2.5">
           <p className="text-xs leading-relaxed text-fg-muted">
             <Brief
               label="About the colours Loupe added"
@@ -454,8 +459,9 @@ function SingleColour({
               aria-label={`Use ${c}`}
               aria-pressed={value.colour === c}
               className={cn(
-                "size-7 rounded-full border-2 transition-transform hover:scale-110 focus-visible:ring-2 focus-visible:ring-accent-ring focus-visible:outline-none",
-                value.colour === c ? "border-fg" : "border-surface-1",
+                "size-7 rounded-full border-2 transition-transform duration-fast hover:scale-110 focus-visible:focus-ring",
+                // The unselected ring is the panel's own colour, so only the chosen swatch shows one.
+                value.colour === c ? "border-fg" : "border-surface-overlay",
               )}
               style={{ background: c }}
             />
@@ -487,7 +493,7 @@ function SingleColour({
           </Brief>
         </p>
       </div>
-      <div className="grid gap-2 rounded-control border border-border bg-surface-2 px-3 py-2.5">
+      <div className="grid gap-2 rounded-control border border-border px-3 py-2.5">
         <span className="text-xs text-fg-muted">Series colours</span>
         <SwatchStrip colours={theme[mode].series} />
         <span className="mt-1 text-xs text-fg-muted">Gradient, low to high</span>
@@ -537,7 +543,7 @@ function ColourField({
         onChange={(e) => onChange(e.target.value)}
         aria-label={`${label}: pick`}
         className={cn(
-          "shrink-0 cursor-pointer rounded-control border border-border-strong bg-surface-2 p-0.5 focus-visible:ring-2 focus-visible:ring-accent-ring focus-visible:outline-none [&::-moz-color-swatch]:rounded-[6px] [&::-moz-color-swatch]:border-none [&::-webkit-color-swatch]:rounded-[6px] [&::-webkit-color-swatch]:border-none [&::-webkit-color-swatch-wrapper]:p-0",
+          "shrink-0 cursor-pointer rounded-control border border-border-strong bg-surface-2 p-0.5 transition-colors hover:border-border-hover focus-visible:focus-ring [&::-moz-color-swatch]:rounded-sm [&::-moz-color-swatch]:border-none [&::-webkit-color-swatch]:rounded-sm [&::-webkit-color-swatch]:border-none [&::-webkit-color-swatch-wrapper]:p-0",
           large ? "h-12 w-16" : "h-9 w-12",
         )}
       />
@@ -584,7 +590,7 @@ function SwatchStrip({ colours, start = 0 }: { colours: string[]; start?: number
       {colours.map((c, i) => (
         <span
           key={i}
-          className="h-5 w-7 rounded-[5px] ring-1 ring-border ring-inset"
+          className="h-5 w-7 rounded-xs ring-1 ring-border ring-inset"
           style={{ background: c }}
           title={`Series ${start + i + 1}: ${c}`}
         />
@@ -596,7 +602,7 @@ function SwatchStrip({ colours, start = 0 }: { colours: string[]; start?: number
 function RampStrip({ colours }: { colours: string[] }) {
   return (
     <span
-      className="flex overflow-hidden rounded-[5px]"
+      className="flex overflow-hidden rounded-xs"
       role="img"
       aria-label={`Gradient: ${colours.join(", ")}`}
     >
@@ -648,6 +654,8 @@ function Preview({ colours, mode }: { colours: ThemeColours; mode: ThemeMode }) 
     return `M${x0.toFixed(2)},${y0.toFixed(2)} A${R},${R} 0 ${a1 - a0 > Math.PI ? 1 : 0} 1 ${x1.toFixed(2)},${y1.toFixed(2)}`;
   };
   return (
+    // A chart container, so it keeps --surface-1 inside the sheet: the palettes are validated against
+    // it (every mark at least 3:1). Everything else in an overlay sits on the overlay plane.
     <div
       data-theme={mode}
       className="grid grid-cols-2 gap-2.5 rounded-card border border-border bg-surface-1 p-3 sm:grid-cols-3"
@@ -809,7 +817,7 @@ function Readability({
         })}
       </ul>
       {shades ? (
-        <p className="flex items-start gap-2 rounded-control border border-border bg-surface-2 px-3 py-2 text-xs leading-relaxed text-fg-muted">
+        <p className="flex items-start gap-2 rounded-control border border-border px-3 py-2 text-xs leading-relaxed text-fg-muted">
           <Info className="mt-0.5 size-3.5 shrink-0 text-info" aria-hidden />
           <Brief
             label="About shades"

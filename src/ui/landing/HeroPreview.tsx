@@ -163,9 +163,9 @@ function DeltaChip({ kpi }: { kpi: PreviewKpi }) {
   const Icon = kpi.change === "up" ? ArrowUpRight : kpi.change === "down" ? ArrowDownRight : Minus;
   const tone =
     kpi.tone === "good"
-      ? "text-success bg-success-soft"
+      ? "text-success-text bg-success-soft"
       : kpi.tone === "bad"
-        ? "text-danger bg-danger-soft"
+        ? "text-danger-text bg-danger-soft"
         : "text-fg-muted bg-surface-3";
   const meaning =
     kpi.tone === "good" ? "an improvement" : kpi.tone === "bad" ? "a deterioration" : "no clear change";
@@ -438,7 +438,7 @@ function TrendChart({ state, active }: { state: PreviewState; active: boolean })
         {active && n > 0 ? (
           <div
             className={cn(
-              "pointer-events-none absolute top-0 rounded-[8px] border border-border-strong bg-[var(--chart-tooltip)] px-2 py-1 shadow-pop",
+              "pointer-events-none absolute top-0 rounded-control border border-border-strong bg-[var(--chart-tooltip)] px-2 py-1 shadow-pop",
               // Keep the tooltip inside the chart near either edge.
               shown / Math.max(1, n - 1) > 0.8
                 ? "-translate-x-full"
@@ -501,9 +501,9 @@ function CategoryBars({ state, active }: { state: PreviewState; active: boolean 
           >
             {/* Category names wrap to a second line rather than lose their end. */}
             <span className="leading-tight text-fg-muted">{c.label}</span>
-            <span className="relative h-2.5 overflow-hidden rounded-r-[4px] bg-surface-3/60">
+            <span className="relative h-2.5 overflow-hidden rounded-r-xs bg-surface-3/60">
               <motion.span
-                className="absolute inset-y-0 left-0 rounded-r-[4px] bg-[var(--chart-1)]"
+                className="absolute inset-y-0 left-0 rounded-r-xs bg-[var(--chart-1)]"
                 initial={false}
                 animate={{ width: active ? `${(c.share / max) * 100}%` : "0%" }}
                 transition={reveal(active, calm, { duration: 0.9, delay: 0.35 + i * 0.07, ease: EASE })}
@@ -562,7 +562,7 @@ function StateTiles({
               <span
                 key={k}
                 title={t ? `${t.name}: no orders` : undefined}
-                className={cn("aspect-square rounded-[3px]", t && "border border-border")}
+                className={cn("aspect-square rounded-xs", t && "border border-border")}
               />
             );
           }
@@ -571,7 +571,7 @@ function StateTiles({
             <motion.span
               key={k}
               title={`${s.name}: ${s.display}`}
-              className="aspect-square rounded-[3px]"
+              className="aspect-square rounded-xs"
               style={{ background: `var(--seq-${step})` }}
               initial={false}
               animate={{ opacity: active ? 1 : 0.12, scale: active ? 1 : 0.85 }}
@@ -786,9 +786,9 @@ export function HeroPreview({
                   ) : null}
                   <span
                     className={cn(
-                      "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 transition-colors duration-300",
+                      "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 transition-colors duration-slow",
                       done
-                        ? "border-transparent bg-accent-soft text-accent"
+                        ? "border-transparent bg-accent-soft text-accent-text"
                         : current
                           ? "border-border-accent text-fg"
                           : "border-border text-fg-subtle",
@@ -812,7 +812,7 @@ export function HeroPreview({
           <div
             role="group"
             aria-label="Date range"
-            className="ml-auto flex items-center rounded-control border border-border bg-surface-2 p-0.5 sm:ml-0"
+            className="ml-auto flex items-center gap-0.5 rounded-control border border-border bg-surface-inset p-0.5 sm:ml-0"
           >
             {data.states.map((s, i) => (
               <button
@@ -824,10 +824,11 @@ export function HeroPreview({
                 title={s.label}
                 onClick={() => onPresetChange(i)}
                 className={cn(
-                  "rounded-[7px] px-2 py-0.5 text-xs transition-colors",
+                  // The Segmented control's raised key on a sunken track.
+                  "rounded-sm border px-2 py-px text-xs transition-colors duration-fast focus-visible:focus-ring",
                   i === presetIndex
-                    ? "bg-surface-3 text-fg shadow-[0_0_0_1px_var(--border-strong)]"
-                    : "text-fg-subtle hover:text-fg",
+                    ? "border-border-strong bg-surface-raised-control text-fg shadow-card"
+                    : "border-transparent text-fg-subtle hover:bg-surface-hover hover:text-fg",
                 )}
               >
                 {PRESET_SHORT[s.id]}
@@ -871,7 +872,7 @@ export function HeroPreview({
                 {data.columns.map((c, i) => (
                   <motion.li
                     key={c.name}
-                    className="flex items-center justify-between gap-3 rounded-[6px] px-1.5 py-[3px] text-xs"
+                    className="flex items-center justify-between gap-3 rounded-sm px-1.5 py-[3px] text-xs"
                     initial={false}
                     animate={{ opacity: profiled ? 1 : 0, x: profiled ? 0 : -6 }}
                     transition={reveal(profiled, calm, { duration: 0.25, delay: i * 0.032 })}

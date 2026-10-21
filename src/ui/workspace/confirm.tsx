@@ -7,7 +7,10 @@
  * called from anywhere (an event handler, an effect, a store action) and
  * resolves to the answer; ConfirmHost, mounted once by the workspace, shows
  * the dialog. One question at a time: asking again while one is open answers
- * the first one "no". Focus starts on the safe choice.
+ * the first one "no". Focus starts on the safe choice (`initialFocus`) and
+ * goes back to the control that asked when the dialog closes, or to the
+ * dialog that control sits in when it can't take focus any more (the Dialog
+ * primitive's focus return, useDialogFocus in ui/primitives/dialog.tsx).
  */
 import * as React from "react";
 import { create } from "zustand";
@@ -59,14 +62,8 @@ export function ConfirmHost() {
   return (
     <Dialog open={Boolean(request)} onOpenChange={(open) => (!open ? answer(false) : undefined)}>
       {request ? (
-        <DialogContent
-          className="max-w-md"
-          onOpenAutoFocus={(e) => {
-            // The safe choice takes the focus, so Enter never throws work away by accident.
-            e.preventDefault();
-            cancelRef.current?.focus();
-          }}
-        >
+        // The safe choice takes the focus, so Enter never throws work away by accident.
+        <DialogContent className="max-w-md" initialFocus={cancelRef}>
           <DialogHeader>
             <DialogTitle>{request.title}</DialogTitle>
             <DialogDescription>{request.body}</DialogDescription>

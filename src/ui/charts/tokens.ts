@@ -35,33 +35,40 @@ export interface ChartTokens {
   success: string;
   danger: string;
   warning: string;
+  /**
+   * Opacity of the marks a selection leaves out (cross-filtering): --chart-dim, lower in dark
+   * (a faded colour still glows on graphite) than on paper.
+   */
+  dim: number;
   /** The interface face for words: titles, axis names, categories, legends. */
   fontSans: string;
   /** The face for figures (value labels, value axes, tooltip values): the same Inter. */
   fontFigures: string;
 }
 
-// Used during server rendering and for any token the stylesheet does not define.
+// Used during server rendering and for any token the stylesheet does not define: the dark theme
+// (styles/theme-dark.css) with its aliases resolved, as getComputedStyle reports them.
 const FALLBACK_DARK: ChartTokens = {
   dark: true,
   palette: ["#b98b3d", "#3c79d1", "#33a998", "#7057ba", "#317f38", "#35a0cc", "#bf5914", "#934b98"],
-  other: "#4a4f57",
-  seq: ["#3a2a10", "#4f3912", "#6c4c10", "#866222", "#a17833", "#bd8f44", "#d9a755", "#f6c16b"],
-  div: ["#86b6ef", "#4d84d6", "#2b4f80", "#30343b", "#7a5a25", "#b88a3e", "#e9c27e"],
-  grid: "#1f2329",
-  axis: "#2e333a",
-  label: "#8a9099",
-  fg: "#edeef0",
-  muted: "#9ba1a9",
-  subtle: "#7d838c",
-  surface: "#121418",
-  surface2: "#171a1f",
-  border: "rgba(255,255,255,0.12)",
-  tooltip: "#1a1d22",
+  other: "#4f4d49",
+  seq: ["#4e3b1f", "#654c28", "#7c5f31", "#95723b", "#ad8646", "#c79b52", "#e0b060", "#f9c76f"],
+  div: ["#86b6ef", "#4d84d6", "#2b4f80", "#35322f", "#7a5a25", "#b88a3e", "#e9c27e"],
+  grid: "#22201e",
+  axis: "#35322f",
+  label: "#a19e9a",
+  fg: "#f0eeeb",
+  muted: "#c0bdb9",
+  subtle: "#a19e9a",
+  surface: "#151311",
+  surface2: "#1b1a18",
+  border: "rgba(255,255,255,0.13)",
+  tooltip: "#292724",
   accent: "#d6b47a",
   success: "#3fb68b",
-  danger: "#e5484d",
+  danger: "#f06a6d",
   warning: "#e8833a",
+  dim: 0.3,
   fontSans: "Inter, ui-sans-serif, system-ui, sans-serif",
   fontFigures: "Inter, ui-sans-serif, system-ui, sans-serif",
 };
@@ -104,9 +111,16 @@ export function readChartTokens(el?: HTMLElement | null): ChartTokens {
     success: v("--success", FALLBACK_DARK.success),
     danger: v("--danger", FALLBACK_DARK.danger),
     warning: v("--warning", FALLBACK_DARK.warning),
+    dim: opacity(cs.getPropertyValue("--chart-dim"), FALLBACK_DARK.dim),
     fontSans: sans,
     fontFigures: sans,
   };
+}
+
+/** A number token (an opacity, 0–1) read from CSS, or the fallback when it is missing or not a fraction. */
+function opacity(value: string, fallback: number): number {
+  const n = Number.parseFloat(value);
+  return Number.isFinite(n) && n >= 0 && n <= 1 ? n : fallback;
 }
 
 /** WCAG AA contrast for normal-size text: the floor for any label drawn inside a fill. */

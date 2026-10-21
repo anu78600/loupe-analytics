@@ -320,7 +320,7 @@ function Section({
         <h2 id={id} className="eyebrow text-fg-subtle">
           {title}
         </h2>
-        <span aria-hidden className="h-px flex-1 bg-border" />
+        <span aria-hidden className="h-px flex-1 bg-border-subtle" />
       </div>
       {children}
     </section>
@@ -347,7 +347,7 @@ function TileIcon({
   return (
     <span
       className={cn(
-        "grid shrink-0 place-items-center rounded-[12px] border border-border-accent bg-accent-soft",
+        "grid shrink-0 place-items-center rounded-control border border-border-accent bg-accent-soft",
         large ? "size-12" : "size-11",
       )}
     >
@@ -360,15 +360,17 @@ function TileIcon({
  * Shared surface of the export cards: lifts a little on hover and glows
  * faintly in its corner. Clipped, not hidden: an overflow-hidden box can be
  * scrolled, so focusing a button inside slid the content under the glow.
+ * The featured cards keep their brass edge on hover (FEATURED).
  */
 const SURFACE =
-  "group relative flex min-w-0 flex-col overflow-clip rounded-card border border-border bg-surface-1 shadow-card transition-[border-color,box-shadow,transform] duration-200 hover:border-border-accent motion-safe:hover:-translate-y-0.5";
+  "group relative flex min-w-0 flex-col overflow-clip rounded-card border border-border bg-surface-1 shadow-card transition-[border-color,box-shadow,transform] duration-base hover:border-border-hover motion-safe:hover:-translate-y-0.5";
+const FEATURED = "border-border-accent hover:border-border-accent";
 
 function CornerGlow() {
   return (
     <span
       aria-hidden
-      className="pointer-events-none absolute -top-20 -right-20 size-48 rounded-full bg-[radial-gradient(closest-side,var(--spot),transparent)] opacity-60 transition-opacity duration-300 group-hover:opacity-100"
+      className="pointer-events-none absolute -top-20 -right-20 size-48 rounded-full bg-[radial-gradient(closest-side,var(--spot),transparent)] opacity-60 transition-opacity duration-slow group-hover:opacity-100"
     />
   );
 }
@@ -594,42 +596,50 @@ function ReportTile() {
   );
 }
 
-/** The one-page dashboard in miniature: slicers, banner, KPI row, the charts in their places, insights. */
+/**
+ * The one-page dashboard in miniature: slicers, banner, KPI row, the charts in
+ * their places, insights. The KPI tiles are neutral with a tinted chip, as on
+ * the page; the innermost corners (2 px) are the interface's scaled down,
+ * below the radius scale.
+ */
 function MiniPage({ model }: { model: PageModel }) {
   return (
     <div
       aria-hidden
-      className="grid aspect-video w-full grid-cols-[16%_minmax(0,1fr)] gap-[3px] rounded-[10px] border border-border-strong bg-surface-2 p-[4px]"
+      className="grid aspect-video w-full grid-cols-[16%_minmax(0,1fr)] gap-[3px] rounded-control border border-border-strong bg-surface-2 p-[4px]"
     >
-      <div className="flex flex-col gap-[3px] rounded-[4px] bg-surface-1 p-[3px]">
+      <div className="flex flex-col gap-[3px] rounded-xs bg-surface-1 p-[3px]">
         {Array.from({ length: 1 + model.slicers.length }, (_, i) => (
           <div key={i} className="h-[6px] rounded-[2px] bg-surface-3" />
         ))}
       </div>
       <div className="grid min-h-0 grid-rows-[14%_16%_minmax(0,1fr)_12%] gap-[3px]">
-        <div className="rounded-[3px] bg-accent-soft" />
+        <div className="rounded-xs bg-accent-soft" />
         <div
           className="grid gap-[3px]"
           style={{ gridTemplateColumns: `repeat(${Math.max(1, model.kpis.length)}, minmax(0, 1fr))` }}
         >
           {model.kpis.map((k, i) => (
-            <div
-              key={k.meta.id}
-              className="rounded-[3px]"
-              style={{ background: `color-mix(in oklab, var(--chart-${(i % 8) + 1}) 24%, var(--surface-1))` }}
-            />
+            <div key={k.meta.id} className="relative rounded-xs bg-surface-1">
+              <span
+                className="absolute top-[3px] left-[3px] size-[5px] rounded-[1px]"
+                style={{
+                  background: `color-mix(in oklab, var(--chart-${(i % 8) + 1}) 45%, var(--surface-1))`,
+                }}
+              />
+            </div>
           ))}
         </div>
         <div className="grid min-h-0 grid-cols-6 grid-rows-2 gap-[3px]">
           {model.charts.map((c) => (
             <div
               key={c.spec.id}
-              className="[grid-column:span_var(--span)/span_var(--span)] [grid-row:span_var(--rows)/span_var(--rows)] rounded-[3px] bg-surface-1"
+              className="[grid-column:span_var(--span)/span_var(--span)] [grid-row:span_var(--rows)/span_var(--rows)] rounded-xs bg-surface-1"
               style={{ "--span": c.span, "--rows": c.tall ? 2 : 1 } as React.CSSProperties}
             />
           ))}
         </div>
-        <div className="rounded-[3px] bg-surface-1" />
+        <div className="rounded-xs bg-surface-1" />
       </div>
     </div>
   );
@@ -670,7 +680,7 @@ function OnePagePanel() {
     }
   };
   return (
-    <article className={cn(SURFACE, "border-border-accent p-6 lg:col-span-2")}>
+    <article className={cn(SURFACE, FEATURED, "p-6 lg:col-span-2")}>
       <CornerGlow />
       <FeatureHead
         icon={LayoutDashboard}
@@ -733,13 +743,17 @@ function OnePagePanel() {
   );
 }
 
-/** A slide in miniature: the overview, or its rows of charts, so the deck's shape is seen before it is made. */
+/**
+ * A slide in miniature: the overview, or its rows of charts, so the deck's
+ * shape is seen before it is made. Its inner corners (2 px) are scaled down,
+ * as in MiniPage.
+ */
 function MiniSlide({ slide, n }: { slide: Slide; n: number }) {
   const label =
     slide.kind === "overview" ? "Overview" : `${slide.title}${slide.parts > 1 ? ` ${slide.part}` : ""}`;
   return (
     <li className="flex flex-col items-center gap-1" title={`Slide ${n}: ${label}`}>
-      <div className="flex aspect-video w-[68px] flex-col gap-[3px] rounded-[6px] border border-border-strong bg-surface-2 p-[4px]">
+      <div className="flex aspect-video w-[68px] flex-col gap-[3px] rounded-sm border border-border-strong bg-surface-2 p-[4px]">
         {slide.kind === "overview" ? (
           <>
             <div className="h-[5px] w-3/5 rounded-[2px] bg-accent/70" />
@@ -808,7 +822,7 @@ function SlidesPanel() {
     }
   };
   return (
-    <article className={cn(SURFACE, "border-border-accent p-6 lg:col-span-2")}>
+    <article className={cn(SURFACE, FEATURED, "p-6 lg:col-span-2")}>
       <CornerGlow />
       <FeatureHead
         icon={Presentation}
@@ -860,6 +874,8 @@ function SlidesPanel() {
       <ol
         className="relative mt-5 flex max-h-44 flex-wrap gap-x-2.5 gap-y-3 overflow-y-auto"
         aria-label="The slides"
+        // Focusable, so a long deck (it scrolls on a phone) can be scrolled from the keyboard too.
+        tabIndex={0}
       >
         {slides.map((slide, i) => (
           <MiniSlide key={i} slide={slide} n={i + 1} />
@@ -1062,7 +1078,7 @@ function PowerBiPanel() {
     }
   };
   return (
-    <article className={cn(SURFACE, "border-border-accent p-6 lg:col-span-2")}>
+    <article className={cn(SURFACE, FEATURED, "p-6 lg:col-span-2")}>
       <CornerGlow />
       {consent.dialog}
       <FeatureHead
@@ -1074,8 +1090,8 @@ function PowerBiPanel() {
       />
 
       {manifest ? (
-        <div className="relative mt-5 rounded-card border border-border bg-surface-2/60">
-          <p className="flex items-center gap-1.5 border-b border-border px-3.5 py-2 text-xs text-fg-muted">
+        <div className="relative mt-5 rounded-control border border-border bg-surface-2">
+          <p className="flex items-center gap-1.5 border-b border-border-subtle px-3.5 py-2 text-xs text-fg-muted">
             <CheckCircle2 className="size-3.5 text-success" aria-hidden /> Downloaded: {manifest.files.length}{" "}
             files, {formatBytes(manifest.totalBytes)} compressed
           </p>
@@ -1125,9 +1141,9 @@ function PowerBiPanel() {
         {PACKAGE_STEPS.map((step, i) => (
           <li
             key={step.title}
-            className="flex items-center gap-2.5 rounded-[12px] border border-border bg-surface-2/60 px-3.5 py-2.5 sm:flex-col sm:items-start sm:py-3.5"
+            className="flex items-center gap-2.5 rounded-control border border-border bg-surface-2 px-3.5 py-2.5 sm:flex-col sm:items-start sm:py-3.5"
           >
-            <span className="font-figures grid size-6 shrink-0 place-items-center rounded-full border border-border-accent bg-accent-soft text-2xs font-medium text-accent">
+            <span className="font-figures grid size-6 shrink-0 place-items-center rounded-full border border-border-accent bg-accent-soft text-2xs font-medium text-accent-text">
               {i + 1}
             </span>
             <p className="flex items-center gap-1.5 text-ui font-medium text-fg">
@@ -1216,7 +1232,7 @@ function Panel({
         </div>
         <TypePill>{type}</TypePill>
       </div>
-      <div className="relative mt-3 divide-y divide-border">{children}</div>
+      <div className="relative mt-3 divide-y divide-border-subtle">{children}</div>
     </article>
   );
 }
@@ -1394,13 +1410,13 @@ function SqlPanel() {
                 </thead>
                 <tbody>
                   {results.map((r) => (
-                    <tr key={r.id} className="border-t border-border">
+                    <tr key={r.id} className="border-t border-border-subtle">
                       <td className="py-1 pr-2 text-fg">{r.name}</td>
                       <td className="font-figures py-1 pl-3 text-right text-fg">{fmtKpi(r.id, r.engine)}</td>
                       <td
                         className={cn(
                           "font-figures py-1 pl-3 text-right",
-                          r.match ? "text-fg" : "text-danger",
+                          r.match ? "text-fg" : "text-danger-text",
                         )}
                         title={r.error}
                       >

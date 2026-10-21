@@ -85,7 +85,7 @@ function SectionHeading({
 }) {
   return (
     <Reveal className="mx-auto max-w-3xl text-center">
-      <p className="eyebrow text-accent">{eyebrow}</p>
+      <p className="eyebrow text-accent-text">{eyebrow}</p>
       <h2 id={id} className="mt-4 font-display text-display-sm text-fg sm:text-display">
         {title}
       </h2>
@@ -152,7 +152,7 @@ export function Hero({ data }: { data: LandingData }) {
         <div className="mx-auto max-w-4xl text-center">
           <SectionLink
             href="#privacy"
-            className="word-rise inline-flex items-center gap-2.5 rounded-full border border-border-strong bg-surface-1/70 px-3.5 py-1.5 text-ui text-fg-muted backdrop-blur transition-colors hover:border-border-accent hover:text-fg"
+            className="word-rise inline-flex items-center gap-2.5 rounded-full border border-border-strong bg-surface-1/70 px-3.5 py-1.5 text-ui text-fg-muted backdrop-blur transition-colors duration-fast hover:border-border-hover hover:text-fg"
             style={{ "--i": 0 } as React.CSSProperties}
           >
             <span className="relative flex size-2" aria-hidden>
@@ -218,7 +218,7 @@ export function Hero({ data }: { data: LandingData }) {
           Live engine output from the bundled demo file: synthetic orders from an Indian D2C brand.{" "}
           <Link
             href={demoHref("ecommerce")}
-            className="text-accent underline decoration-accent/40 underline-offset-4 hover:decoration-accent"
+            className="text-accent-text underline decoration-accent-text/40 underline-offset-4 transition-colors duration-fast hover:decoration-accent-text"
           >
             Open it live
           </Link>
@@ -295,8 +295,8 @@ function IndustryPill({ d }: { d: Domain }) {
     >
       <DomainIcon name={d.icon} className="size-4 text-accent" />
       {d.name}
-      {/* Muted, not subtle: on the flagship's brass tint the subtle ink falls below 4.5:1. */}
-      <span className="text-xs text-fg-muted">{d.kpis} KPIs</span>
+      {/* On the flagship's brass tint, the tint's own text colour (grey on colour reads dull). */}
+      <span className={cn("text-xs", d.flagship ? "text-accent-text" : "text-fg-muted")}>{d.kpis} KPIs</span>
       {d.flagship ? (
         <span className="rounded-full bg-[image:var(--accent-gradient)] px-2 py-0.5 text-2xs font-medium text-accent-fg">
           Flagship
@@ -404,7 +404,7 @@ function FlowNode({
     <div className="flex w-[clamp(64px,20vw,84px)] shrink-0 flex-col items-center gap-2 text-center sm:w-[100px]">
       <span
         className={cn(
-          "relative grid size-14 place-items-center rounded-[16px] border sm:size-16",
+          "relative grid size-14 place-items-center rounded-panel border sm:size-16",
           tone === "focus"
             ? "border-border-accent bg-accent-soft text-accent shadow-[0_0_40px_-8px_var(--glow-accent)]"
             : tone === "blocked"
@@ -458,11 +458,11 @@ function FlowDiagram() {
       />
       <div className="relative flex flex-col items-center">
         <FlowNode icon={Server} label="A server" tone="blocked" />
-        <div aria-hidden className="relative my-3 h-16 w-px border-l border-dashed border-danger/60">
+        <div aria-hidden className="relative my-3 h-16 w-px border-l border-dashed border-danger-border">
           <span className="absolute inset-0 animate-[flow-up-blocked_2.8s_ease-in_infinite]">
             <span className="absolute bottom-0 left-1/2 size-1.5 -translate-x-1/2 rounded-full bg-accent" />
           </span>
-          <span className="absolute top-1/2 left-1/2 grid size-6 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border border-danger/40 bg-danger-soft text-danger">
+          <span className="absolute top-1/2 left-1/2 grid size-6 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border border-danger-border bg-danger-soft text-danger">
             <X className="size-3.5" />
           </span>
         </div>
@@ -494,7 +494,7 @@ export function Privacy() {
           flow diagram's minimum and push the page sideways on a 320px phone. */}
       <div className="grid grid-cols-[minmax(0,1fr)] items-center gap-12 lg:grid-cols-[1fr_1.15fr]">
         <Reveal>
-          <p className="eyebrow text-accent">Privacy</p>
+          <p className="eyebrow text-accent-text">Privacy</p>
           <h2 id="privacy-title" className="mt-4 font-display text-display-sm text-fg sm:text-display">
             Your data <em className="text-gradient-accent ink-pad">never leaves</em> your browser.
           </h2>
@@ -540,17 +540,17 @@ export function Samples({ data }: { data: LandingData }) {
               key={s.id}
               as="li"
               className={cn(
-                "rounded-panel border bg-surface-1 transition-[border-color,transform] duration-300 hover:-translate-y-1",
-                s.flagship ? "border-border-accent" : "border-border hover:border-border-strong",
+                "rounded-panel border bg-surface-1 transition-[border-color,transform] duration-slow ease-out-quint hover:-translate-y-1",
+                s.flagship ? "border-border-accent" : "border-border hover:border-border-hover",
               )}
             >
               <Link href={demoHref(s.id)} className="group flex h-full flex-col gap-4 rounded-panel p-5">
                 <div className="flex items-center justify-between gap-3">
-                  <span className="grid size-10 place-items-center rounded-[12px] border border-border bg-surface-2 text-fg-muted transition-colors group-hover:border-border-accent group-hover:text-accent">
+                  <span className="grid size-10 place-items-center rounded-control border border-border bg-surface-2 text-fg-muted transition-colors duration-fast group-hover:border-border-accent group-hover:text-accent">
                     <DomainIcon name={iconOf(s.domain)} className="size-4" />
                   </span>
                   {s.flagship ? (
-                    <span className="rounded-full border border-border-accent bg-accent-soft px-2 py-0.5 text-2xs font-medium text-accent">
+                    <span className="rounded-full border border-border-accent bg-accent-soft px-2 py-0.5 text-2xs font-medium text-accent-text">
                       Flagship
                     </span>
                   ) : null}
@@ -565,7 +565,7 @@ export function Samples({ data }: { data: LandingData }) {
                       ? `${data.samples[s.id]?.rows} rows · ${data.samples[s.id]?.columns} columns`
                       : s.approxRows}
                   </span>
-                  <span className="flex items-center gap-1 text-fg-muted transition-colors group-hover:text-accent">
+                  <span className="flex items-center gap-1 text-fg-muted transition-colors duration-fast group-hover:text-accent-text">
                     Open{" "}
                     <ArrowRight
                       className="size-3 transition-transform group-hover:translate-x-0.5"
@@ -627,7 +627,7 @@ export function Faq() {
     <Section id="faq" labelledBy="faq-title">
       <div className="grid gap-12 lg:grid-cols-[1fr_1.6fr]">
         <Reveal>
-          <p className="eyebrow text-accent">FAQ</p>
+          <p className="eyebrow text-accent-text">FAQ</p>
           <h2 id="faq-title" className="mt-4 font-display text-display-sm text-fg sm:text-display">
             Straight answers
           </h2>
@@ -635,7 +635,7 @@ export function Faq() {
             Every change is in the{" "}
             <Link
               href="/changelog"
-              className="text-accent underline decoration-accent/40 underline-offset-4 hover:decoration-accent"
+              className="text-accent-text underline decoration-accent-text/40 underline-offset-4 transition-colors duration-fast hover:decoration-accent-text"
             >
               version log
             </Link>
@@ -708,7 +708,7 @@ function LensOrb({ className }: { className?: string }) {
       </LensLayer>
       <LensLayer spin="animate-[spin-slow_24s_linear_infinite]">
         <circle cx={100} cy={100} r={52} fill="none" stroke="var(--accent)" strokeOpacity={0.3} />
-        <circle cx={100} cy={48} r={3} fill="var(--accent-strong)" />
+        <circle cx={100} cy={48} r={3} fill="var(--accent-hover)" />
       </LensLayer>
       <LensLayer>
         <circle cx={100} cy={100} r={16} fill="var(--accent)" />

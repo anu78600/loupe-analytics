@@ -18,6 +18,14 @@
  * Hints are behind an ⓘ (a roster's period hint) and long values are
  * clamped to one line, opening in full on hover, focus or a long press
  * (ui/primitives/reveal.tsx).
+ *
+ * States follow the theme tokens: rows hover with the state layer, the
+ * chosen preset and a filter in use take the selected tint, and the presets
+ * change without a fade, because the arrow keys choose them. Beside the
+ * dashboard the dataset card, the health shortcut and the filter buttons are
+ * raised cards on the canvas; in the phone's Filters sheet (`inSheet`) they
+ * sit on the overlay plane with a border only, as everything inside an
+ * overlay does (docs/DESIGN.md, "Inside overlays").
  */
 import * as React from "react";
 import { Check, ChevronDown, Filter as FilterIcon, Gauge, Search, X } from "lucide-react";
@@ -59,7 +67,17 @@ function useWideRail(): boolean {
   return React.useSyncExternalStore(subscribeWide, wideNow, () => true);
 }
 
-export function FilterRail({ onOpenHealth }: { onOpenHealth: () => void }) {
+/** Raised beside the dashboard; inside the Filters sheet, on the overlay plane with its border only. */
+const cardFill = (inSheet: boolean) => (inSheet ? "" : "bg-surface-1 shadow-card");
+
+export function FilterRail({
+  onOpenHealth,
+  inSheet = false,
+}: {
+  onOpenHealth: () => void;
+  /** True in the phone's Filters sheet, where the rail's cards sit flat on the overlay plane. */
+  inSheet?: boolean;
+}) {
   const context = useWorkspace((s) => s.context);
   const summary = useWorkspace((s) => s.summary);
   const health = useWorkspace((s) => s.health);
@@ -67,9 +85,9 @@ export function FilterRail({ onOpenHealth }: { onOpenHealth: () => void }) {
   if (!context || !summary) return null;
   return (
     <div className="grid gap-5">
-      <div className="rounded-card border border-border bg-surface-1 p-4">
+      <div className={cn("rounded-card border border-border p-4", cardFill(inSheet))}>
         <div className="flex items-center gap-2">
-          <span className="grid size-8 place-items-center rounded-[9px] border border-border-accent bg-accent-soft">
+          <span className="grid size-8 place-items-center rounded-control border border-border-accent bg-accent-soft">
             <DomainIcon name={context.domain.icon} className="size-4 text-accent" />
           </span>
           <div className="min-w-0">
@@ -91,13 +109,16 @@ export function FilterRail({ onOpenHealth }: { onOpenHealth: () => void }) {
         ) : null}
       </div>
       <DateFilter />
-      <DimensionFilters />
+      <DimensionFilters inSheet={inSheet} />
       <ActiveFilters />
       {health ? (
         <button
           type="button"
           onClick={onOpenHealth}
-          className="flex items-center gap-3 rounded-card border border-border bg-surface-1 p-3 text-left transition-colors hover:border-border-accent"
+          className={cn(
+            "flex items-center gap-3 rounded-card border border-border p-3 text-left transition-colors duration-fast hover:border-border-hover",
+            cardFill(inSheet),
+          )}
         >
           <Gauge className="size-4 text-accent" aria-hidden />
           <div className="min-w-0 flex-1">
@@ -189,8 +210,10 @@ function DateFilter() {
                 onKeyDown={(e) => onKey(e, i)}
                 title={r ? formatRange(r.from, r.to) : undefined}
                 className={cn(
-                  "flex w-full items-center rounded-[8px] px-2.5 py-1.5 text-left text-ui transition-colors",
-                  active ? "bg-surface-2 text-fg" : "text-fg-muted hover:bg-surface-2 hover:text-fg",
+                  "flex w-full items-center rounded-control px-2.5 py-1.5 text-left text-ui",
+                  active
+                    ? "bg-surface-selected text-fg"
+                    : "text-fg-muted hover:bg-surface-hover hover:text-fg active:bg-surface-active",
                 )}
               >
                 <span className="flex items-center gap-2">
@@ -292,7 +315,7 @@ function CustomRangeForm({
         />
       </div>
       {error ? (
-        <p id="range-error" role="alert" className="text-xs text-danger">
+        <p id="range-error" role="alert" className="text-xs text-danger-text">
           {error}
         </p>
       ) : null}
@@ -303,7 +326,7 @@ function CustomRangeForm({
   );
 }
 
-function DimensionFilters() {
+function DimensionFilters({ inSheet }: { inSheet: boolean }) {
   const context = useWorkspace((s) => s.context);
   if (!context?.dimensions.length) return null;
   return (
@@ -319,6 +342,7 @@ function DimensionFilters() {
             label={friendly(d.column)}
             hint={d.label !== friendly(d.column) ? d.label : undefined}
             distinct={d.distinct}
+            inSheet={inSheet}
           />
         ))}
       </div>
@@ -331,12 +355,14 @@ function DimensionFilter({
   label,
   hint,
   distinct,
+  inSheet,
 }: {
   column: string;
   label: string;
   /** The industry's name for the field, when it differs from the column's. */
   hint?: string;
   distinct: number;
+  inSheet: boolean;
 }) {
   const current = useWorkspace((s) => s.dimFilters.find((f) => f.column === column));
   const setFilter = useWorkspace((s) => s.setDimFilter);
@@ -368,10 +394,13 @@ function DimensionFilter({
           type="button"
           title={hint}
           className={cn(
-            "flex h-9 w-full items-center justify-between gap-2 rounded-control border px-3 text-left text-ui transition-colors",
+            "flex h-9 w-full items-center justify-between gap-2 rounded-control border px-3 text-left text-ui transition-colors duration-fast",
             selected.length
-              ? "border-border-accent bg-accent-soft text-fg"
-              : "border-border bg-surface-1 text-fg-muted hover:border-border-strong hover:text-fg",
+              ? "border-border-accent bg-surface-selected text-fg"
+              : cn(
+                  "border-border text-fg-muted hover:border-border-hover hover:text-fg",
+                  !inSheet && "bg-surface-1",
+                ),
           )}
         >
           <span className="truncate">{label}</span>
@@ -392,7 +421,7 @@ function DimensionFilter({
         side={wide ? "right" : "bottom"}
         className="w-72 max-w-[calc(100vw-1.5rem)] p-0"
       >
-        <div className="flex items-center gap-2 border-b border-border px-3 py-2">
+        <div className="flex items-center gap-2 border-b border-border-subtle px-3 py-2">
           <Search className="size-3.5 text-fg-subtle" aria-hidden />
           <input
             value={q}
@@ -413,7 +442,7 @@ function DimensionFilter({
             return (
               <label
                 key={v.value}
-                className="flex cursor-pointer items-center gap-2 rounded-[7px] px-2 py-1.5 text-ui text-fg hover:bg-surface-3"
+                className="flex cursor-pointer items-center gap-2 rounded-control px-2 py-1.5 text-ui text-fg hover:bg-surface-hover active:bg-surface-active"
               >
                 <Checkbox
                   checked={on}
@@ -473,7 +502,7 @@ export function ActiveFilters({ inline = false }: { inline?: boolean }) {
           <button
             type="button"
             onClick={c.onRemove}
-            className="grid size-4 place-items-center rounded-full hover:bg-surface-3"
+            className="grid size-4 place-items-center rounded-full hover:bg-surface-hover active:bg-surface-active"
             aria-label={`Remove filter ${c.label}`}
           >
             <X className="size-3" aria-hidden />

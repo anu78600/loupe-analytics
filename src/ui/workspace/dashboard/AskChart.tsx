@@ -26,6 +26,10 @@
  * Explanations are one short line, and a preview's reason and notes are
  * clamped, with the full text behind hover, a long press or the ⓘ
  * (ui/primitives/reveal.tsx); warnings stay in view.
+ *
+ * The dialog opens on the question's field (with a mouse or trackpad; on
+ * touch, on the dialog itself, so no keyboard springs up), never on the ⓘ in
+ * its description (the Dialog primitive's `initialFocus`).
  */
 import * as React from "react";
 import { CornerDownLeft, MessageSquarePlus, Plus, Sparkles, Trash2, X } from "lucide-react";
@@ -121,7 +125,14 @@ export function AskChartDialog({
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl">
+      <DialogContent
+        className="max-w-4xl"
+        initialFocus={(dialog) =>
+          window.matchMedia("(pointer: fine)").matches
+            ? dialog.querySelector<HTMLElement>("#ask-input")
+            : null
+        }
+      >
         <DialogHeader>
           <DialogTitle>Your charts</DialogTitle>
           <DialogDescription>
@@ -257,7 +268,7 @@ function AskPanel({ onDone, edit }: { onDone: () => void; edit?: ChartSpec }) {
                 key={e}
                 type="button"
                 onClick={() => run(e)}
-                className="rounded-full border border-border bg-surface-2 px-2.5 py-1 text-xs text-fg-muted transition-colors hover:border-border-accent hover:text-fg focus-visible:ring-2 focus-visible:ring-accent-ring focus-visible:outline-none"
+                className="rounded-full border border-border px-2.5 py-1 text-xs text-fg-muted transition-colors duration-fast hover:border-border-hover hover:bg-surface-hover hover:text-fg focus-visible:focus-ring active:bg-surface-active"
               >
                 {e}
               </button>
@@ -267,22 +278,19 @@ function AskPanel({ onDone, edit }: { onDone: () => void; edit?: ChartSpec }) {
       </form>
 
       {reading ? (
-        <div
-          className="grid gap-1.5 rounded-card border border-border bg-surface-2 px-4 py-3 text-sm"
-          aria-live="polite"
-        >
+        <div className="grid gap-1.5 rounded-card border border-border px-4 py-3 text-sm" aria-live="polite">
           <p className="text-fg">
             <span className="text-fg-muted">Understood: </span>
             {reading.understood}
           </p>
           {reading.unmatched.length ? (
-            <p className="text-warning">
+            <p className="text-warning-text">
               Not found in your file: {reading.unmatched.map((u) => `"${u}"`).join(", ")}. Pick the column
               below instead.
             </p>
           ) : null}
           {reading.filterLabels.length ? (
-            <p className="text-warning">
+            <p className="text-warning-text">
               {`A chart shows every row the dashboard's filters keep, so ${reading.filterLabels.join(" and ")} ${
                 reading.filterLabels.length > 1 ? "aren't" : "isn't"
               } applied here: set ${reading.filterLabels.length > 1 ? "them" : "it"} in the filter bar, or ask it on Questions & SQL.`}
@@ -619,6 +627,8 @@ export function ChartPreview({ spec, why, filters }: { spec: ChartSpec; why?: st
     return buildOption({ tokens: readChartTokens(), fmt, kind: spec.kind, spec, data, animate: false });
   }, [data, spec, fmt, themeKey]);
   return (
+    // A chart container: it keeps --surface-1 inside the dialog, where the chart palettes are
+    // validated (every mark at least 3:1); the rest of the dialog sits on the overlay plane.
     <figure className="grid gap-2 rounded-card border border-border bg-surface-1 p-3">
       <figcaption className="flex items-start justify-between gap-2">
         <span className="text-ui font-medium text-fg">{spec.title}</span>
@@ -678,7 +688,7 @@ function ManageCharts() {
           Hidden charts keep their settings; switch them back on any time.
         </InfoTip>
       </p>
-      <ul className="max-h-[52vh] divide-y divide-border overflow-y-auto rounded-card border border-border">
+      <ul className="max-h-[52vh] divide-y divide-border-subtle overflow-y-auto rounded-card border border-border">
         {rows.map(({ w, spec }) => {
           const custom = spec.source === "custom";
           const inMode = spec.modes.includes(mode);

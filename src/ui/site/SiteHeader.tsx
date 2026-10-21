@@ -5,8 +5,9 @@
  *
  * Transparent over the hero, then turns into a frosted bar with a hairline once
  * the page scrolls; a brass line along its bottom edge shows how far down the
- * page you are. A soft highlight slides between the links under the pointer,
- * and a brass underline marks the section you are reading.
+ * page you are. A soft highlight (the hover state layer) slides between the
+ * links under the pointer, and a brass underline marks the section you are
+ * reading.
  *
  * The section links and the logo are SectionLinks: on the home page they
  * scroll in place (the logo back to the top), from another page they open the
@@ -123,7 +124,7 @@ export function SiteHeader() {
     <header
       ref={headerRef}
       className={cn(
-        "sticky top-0 z-50 border-b transition-[background-color,border-color,backdrop-filter] duration-300",
+        "sticky top-0 z-50 border-b transition-[background-color,border-color,backdrop-filter] duration-slow",
         scrolled || open ? "glass border-border" : "border-transparent",
       )}
     >
@@ -155,7 +156,7 @@ export function SiteHeader() {
                   <motion.span
                     layoutId="site-nav-hover"
                     aria-hidden
-                    className="absolute inset-0 -z-10 rounded-control bg-surface-2"
+                    className="absolute inset-0 -z-10 rounded-control bg-surface-hover"
                     transition={{ type: "spring", stiffness: 420, damping: 36 }}
                   />
                 ) : null}
@@ -209,8 +210,9 @@ export function SiteHeader() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
-            // Solid: a frosted panel inside the frosted header can't blur the page behind it.
-            className="absolute inset-x-0 top-full border-y border-border bg-bg shadow-pop lg:hidden"
+            // Solid, on the overlay plane like every menu: a frosted panel inside the frosted header
+            // can't blur the page behind it.
+            className="absolute inset-x-0 top-full border-y border-border bg-surface-overlay shadow-pop lg:hidden"
           >
             <div className="grid gap-1 px-4 py-3">
               {LINKS.map((l) => {
@@ -222,8 +224,8 @@ export function SiteHeader() {
                     aria-current={current}
                     onClick={() => setOpen(false)}
                     className={cn(
-                      "flex items-center justify-between rounded-control px-3 py-2.5 text-sm hover:bg-surface-2 hover:text-fg",
-                      current ? "bg-surface-2 text-fg" : "text-fg-muted",
+                      "flex items-center justify-between rounded-control px-3 py-2.5 text-sm hover:bg-surface-hover hover:text-fg active:bg-surface-active",
+                      current ? "bg-surface-selected text-fg" : "text-fg-muted",
                     )}
                   >
                     {l.label}

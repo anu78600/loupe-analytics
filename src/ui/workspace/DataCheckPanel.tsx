@@ -78,8 +78,10 @@ export function DataCheckPanel() {
           onClick={() => setSelected(v.id)}
           aria-pressed={active}
           className={cn(
-            "flex w-full items-start gap-2.5 rounded-control border px-3 py-2 text-left transition-colors focus-visible:ring-2 focus-visible:ring-accent-ring focus-visible:outline-none",
-            active ? "border-border-accent bg-accent-soft" : "border-transparent hover:bg-surface-2",
+            "flex w-full items-start gap-2.5 rounded-control border px-3 py-2 text-left transition-colors focus-visible:focus-ring",
+            active
+              ? "border-border-accent bg-surface-selected"
+              : "border-transparent hover:bg-surface-hover active:bg-surface-active",
           )}
         >
           <Icon className={cn("mt-0.5 size-4 shrink-0", TONE_TEXT[v.tone])} aria-hidden />
@@ -136,13 +138,13 @@ export function DataCheckPanel() {
           ) : null}
           {toCheck ? (
             toCheck.rows ? (
-              <p className="mt-2 flex items-start gap-2 text-ui text-warning">
-                <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />
+              <p className="mt-2 flex items-start gap-2 text-ui text-warning-text">
+                <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden />
                 {formatCount(toCheck.rows, locale)} {toCheck.rows === 1 ? "row needs" : "rows need"} a look.
               </p>
             ) : (
-              <p className="mt-2 flex items-start gap-2 text-ui text-success">
-                <CheckCircle2 className="mt-0.5 size-4 shrink-0" aria-hidden />
+              <p className="mt-2 flex items-start gap-2 text-ui text-success-text">
+                <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-success" aria-hidden />
                 Every cell was read and no rule is broken.
               </p>
             )
@@ -190,11 +192,11 @@ export function DataCheckPanel() {
           </p>
           <ul className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-fg-muted" aria-label="Legend">
             <li className="flex items-center gap-1.5">
-              <span className="size-3 rounded-[3px] border border-border bg-warning-soft" aria-hidden /> Needs
-              a look (hover for why)
+              <span className="size-3 rounded-xs border border-border bg-warning-soft" aria-hidden /> Needs a
+              look (hover for why)
             </li>
             <li className="flex items-center gap-1.5">
-              <span className="size-3 rounded-[3px] border border-border bg-info-soft" aria-hidden /> Worth
+              <span className="size-3 rounded-xs border border-border bg-info-soft" aria-hidden /> Worth
               knowing
             </li>
           </ul>

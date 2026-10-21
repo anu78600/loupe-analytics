@@ -213,7 +213,7 @@ export function QuestionsStep() {
                     : "Nothing to measure found yet."}
                 </span>
                 {reading.unmatched.length ? (
-                  <span className="text-warning">
+                  <span className="text-warning-text">
                     {" "}
                     ·{" "}
                     <Brief
@@ -279,7 +279,7 @@ export function QuestionsStep() {
                       scope,
                     })
                   }
-                  className="rounded-card border border-border bg-surface-2 px-3 py-2.5 text-left text-ui text-fg transition-colors hover:border-border-accent focus-visible:ring-2 focus-visible:ring-accent-ring focus-visible:outline-none disabled:opacity-50"
+                  className="rounded-control border border-border bg-surface-2 px-3 py-2.5 text-left text-ui text-fg transition-colors hover:border-border-hover hover:bg-surface-hover focus-visible:focus-ring active:bg-surface-active disabled:pointer-events-none disabled:text-fg-disabled"
                 >
                   {q.text}
                 </button>
@@ -497,7 +497,7 @@ function AnswerCard({
           <h2
             id={`answer-${a.id}`}
             tabIndex={-1}
-            className="rounded-[4px] text-base font-semibold text-fg focus-visible:ring-2 focus-visible:ring-accent-ring focus-visible:outline-none"
+            className="rounded-xs text-base font-semibold text-fg focus-visible:focus-ring"
           >
             {a.question}
           </h2>
@@ -538,11 +538,11 @@ function AnswerCard({
       </div>
       {a.error ? (
         // Kept in view, two lines at most; the rest opens when cut.
-        <ClampText key={a.error} lines={2} className="text-sm text-warning">
+        <ClampText key={a.error} lines={2} className="text-sm text-warning-text">
           {a.error}
         </ClampText>
       ) : !a.rows.length ? (
-        <p className="rounded-card border border-border bg-surface-2 px-4 py-3 text-sm text-fg-muted">
+        <p className="rounded-control border border-border bg-surface-2 px-4 py-3 text-sm text-fg-muted">
           <Brief
             label="Why there is no answer"
             full={`No rows match ${a.filters.length ? `these filters (${rowsUsed})` : "this question"}, so there is nothing to answer. Widen the filters or ask about the whole file.`}
@@ -553,7 +553,7 @@ function AnswerCard({
       ) : (
         <>
           {a.headline ? (
-            <div className="rounded-card border border-border-accent bg-accent-soft px-4 py-3 text-sm text-fg">
+            <div className="rounded-control border border-border-accent bg-accent-soft px-4 py-3 text-sm text-fg">
               <ClampText key={a.headline} lines={2}>
                 {a.headline}
               </ClampText>
@@ -564,7 +564,7 @@ function AnswerCard({
               tabIndex={0}
               role="region"
               aria-label={`Answer table: ${a.question}`}
-              className="max-h-[360px] overflow-auto rounded-card border border-border focus-visible:ring-2 focus-visible:ring-accent-ring focus-visible:outline-none"
+              className="max-h-[360px] overflow-auto rounded-control border border-border focus-visible:focus-ring"
             >
               <table className="w-full border-separate border-spacing-0 text-ui">
                 <thead className="sticky top-0 bg-surface-2 text-left text-xs text-fg-muted">
@@ -587,17 +587,20 @@ function AnswerCard({
                 </thead>
                 <tbody>
                   {a.rows.map((r) => (
-                    <tr key={`${r.raw}`} className="hover:bg-surface-2/60">
+                    <tr key={`${r.raw}`} className="hover:bg-surface-hover">
                       {a.keyLabel !== null ? (
                         <th
                           scope="row"
-                          className="font-data border-b border-border px-3 py-1.5 text-left font-normal text-fg"
+                          className="font-data border-b border-border-subtle px-3 py-1.5 text-left font-normal text-fg"
                         >
                           {r.label}
                         </th>
                       ) : null}
                       {r.values.map((v, i) => (
-                        <td key={i} className="tabular border-b border-border px-3 py-1.5 text-right text-fg">
+                        <td
+                          key={i}
+                          className="tabular border-b border-border-subtle px-3 py-1.5 text-right text-fg"
+                        >
                           {formatValue(v, a.measures[i]?.format ?? "number", {
                             ...fmt,
                             ...(decimals[i] !== undefined ? { decimals: decimals[i] } : {}),
@@ -651,10 +654,10 @@ function AnswerCard({
                 className={cn(
                   "flex items-center gap-1.5 text-xs",
                   check.status === "ok"
-                    ? "text-success"
+                    ? "text-success-text"
                     : check.status === "running"
                       ? "text-fg-muted"
-                      : "text-warning",
+                      : "text-warning-text",
                 )}
                 aria-live="polite"
               >

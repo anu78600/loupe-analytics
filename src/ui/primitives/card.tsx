@@ -1,4 +1,8 @@
-/** Card surface (14px radius, hairline border, card shadow) and its header/title/content/footer slots. */
+/**
+ * Card surface (the card radius, 12px; a hairline border; the card shadow, which in the dark theme
+ * carries a lit top edge) and its header/title/content/footer slots. The footer's rule is a divider
+ * (--border-subtle), quieter than the card's own edge.
+ */
 import * as React from "react";
 import { cn } from "@/lib/utils";
 
@@ -31,6 +35,9 @@ export function CardContent({ className, ...props }: React.HTMLAttributes<HTMLDi
 
 export function CardFooter({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (
-    <div className={cn("flex items-center gap-2 border-t border-border px-5 py-3", className)} {...props} />
+    <div
+      className={cn("flex items-center gap-2 border-t border-border-subtle px-5 py-3", className)}
+      {...props}
+    />
   );
 }

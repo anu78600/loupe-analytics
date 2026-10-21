@@ -11,6 +11,9 @@
  * builds it like any template KPI (engine/kpi/userKpis.ts), SQL and DAX
  * included. Explanations are one short line or an ⓘ, with the full text
  * behind hover, a long press or the ⓘ (ui/primitives/reveal.tsx).
+ *
+ * It opens on itself rather than on the ⓘ in its description, which would
+ * pop open (the Dialog primitive's `initialFocus`).
  */
 import * as React from "react";
 import { Divide } from "lucide-react";
@@ -81,10 +84,13 @@ export function KpiBuilder({
   open,
   onOpenChange,
   editing,
+  returnTo,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   editing: UserKpi | null;
+  /** Takes focus on close when the button that opened it has gone (the KPI moved off its list). */
+  returnTo?: React.RefObject<HTMLElement | null>;
 }) {
   const context = useWorkspace((s) => s.context);
   const customKpis = useWorkspace((s) => s.customKpis);
@@ -137,7 +143,8 @@ export function KpiBuilder({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-xl">
+      {/* Starts on itself, not on the ⓘ in its description; Build takes focus when the opener has gone. */}
+      <DialogContent className="max-w-xl" initialFocus="content" returnFocus={returnTo}>
         <DialogHeader>
           <DialogTitle>{editing ? `Edit “${editing.name}”` : "Build a KPI"}</DialogTitle>
           <DialogDescription>

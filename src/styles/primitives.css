@@ -1,0 +1,205 @@
+/*
+ * Loupe colour primitives: tier 1 of the three token tiers (primitives → semantic → component).
+ *
+ * Raw ramps, named --base-{family}-{step} (light) and --base-{family}-dark-{step} (dark). Components
+ * never use these: they use the semantic tokens of theme-light.css and theme-dark.css, which point
+ * here. Each family has 12 steps with Radix's meaning per step:
+ *   1–2 backgrounds · 3–5 interactive fills (rest, hover, pressed) · 6–8 borders (subtle, default,
+ *   strong) · 9–10 solid fills (rest, hover) · 11–12 text (low contrast, high contrast).
+ *
+ * Light and dark are separate ramps, each tuned in OKLCH on its own terms (a dark ramp is not an
+ * inverted light one): dark steps are further apart, and dark text steps are lighter and lower in
+ * chroma. The values are written as hex because ECharts reads chart colours through
+ * getComputedStyle and cannot parse oklch(), and the label-ink check (ui/charts/tokens.ts inkOn)
+ * reads #rrggbb only. The comment after each value gives its OKLCH lightness, chroma and hue.
+ *
+ * A few steps keep an existing value exactly: the bronze and brass fills (#816226, #d6b47a), the
+ * bronze hover (#6f5422) and the status fills (light info a little deeper, so its text holds 4.5:1
+ * on its tint). tests/theme-contrast.test.ts proves the contrast of every pairing the themes make.
+ */
+
+:root {
+  /* Pure white: the light theme's raised surfaces (cards, overlays). */
+  --base-white: #ffffff;
+
+  /*
+   * Stone: the warm neutral. Light: warm paper. 1 the near-white inside cards, 2 the paper canvas, 3
+   * sunken wells, 4–5 hover and pressed fills, 6–8 solid lines, 9–12 ink (disabled, subtle, muted,
+   * primary).
+   */
+  --base-stone-1: #faf9f7; /* 98.2 0.003 85 */
+  --base-stone-2: #f7f6f2; /* 97.3 0.005 95 */
+  --base-stone-3: #f1efeb; /* 95.3 0.006 85 */
+  --base-stone-4: #eceae5; /* 93.7 0.007 89 */
+  --base-stone-5: #e6e3de; /* 91.7 0.007 81 */
+  --base-stone-6: #dedbd5; /* 89.2 0.009 85 */
+  --base-stone-7: #d3cfc9; /* 85.6 0.009 78 */
+  --base-stone-8: #bebab3; /* 79.0 0.011 82 */
+  --base-stone-9: #88837d; /* 61.3 0.011 73 */
+  --base-stone-10: #6b6761; /* 51.6 0.011 78 */
+  --base-stone-11: #504c47; /* 41.9 0.010 74 */
+  --base-stone-12: #1b1815; /* 21.1 0.007 67 */
+
+  /*
+   * Dark: warm graphite, lighter with each raised level. 1 sunken, 2 canvas, 3–5 the three surfaces, 6
+   * the overlay plane, 7–8 solid lines, 9–12 ink.
+   */
+  --base-stone-dark-1: #080706; /* 13.0 0.004 70 */
+  --base-stone-dark-2: #0e0d0b; /* 15.9 0.004 85 */
+  --base-stone-dark-3: #151311; /* 18.8 0.005 68 */
+  --base-stone-dark-4: #1b1a18; /* 21.8 0.004 85 */
+  --base-stone-dark-5: #22201e; /* 24.5 0.005 68 */
+  --base-stone-dark-6: #292724; /* 27.4 0.006 78 */
+  --base-stone-dark-7: #35322f; /* 31.9 0.007 68 */
+  --base-stone-dark-8: #4f4d49; /* 42.1 0.007 85 */
+  --base-stone-dark-9: #7d7a76; /* 58.1 0.007 75 */
+  --base-stone-dark-10: #a19e9a; /* 70.1 0.007 75 */
+  --base-stone-dark-11: #c0bdb9; /* 80.0 0.007 75 */
+  --base-stone-dark-12: #f0eeeb; /* 95.0 0.005 78 */
+
+  /*
+   * Brass: the one accent. Light: a deep bronze fill (9) that carries white text, darker for hover (10)
+   * and for text and the pressed fill (11).
+   */
+  --base-brass-1: #fdfaf4; /* 98.6 0.009 85 */
+  --base-brass-2: #faf4e7; /* 96.8 0.018 86 */
+  --base-brass-3: #f7ebd5; /* 94.4 0.032 83 */
+  --base-brass-4: #f4e2c3; /* 91.9 0.045 81 */
+  --base-brass-5: #f0d8b1; /* 89.2 0.058 80 */
+  --base-brass-6: #e8cb9a; /* 85.5 0.072 81 */
+  --base-brass-7: #dcb87c; /* 80.1 0.088 80 */
+  --base-brass-8: #c99e58; /* 72.5 0.102 78 */
+  --base-brass-9: #816226; /* 51.6 0.087 81 */
+  --base-brass-10: #6f5422; /* 46.4 0.076 80 */
+  --base-brass-11: #634817; /* 42.1 0.074 79 */
+  --base-brass-12: #3c2a0e; /* 30.0 0.050 76 */
+
+  /*
+   * Dark: the brass fill (9) carries dark ink; lighter for hover (10); text (11) is lighter and lower in
+   * chroma than the fill.
+   */
+  --base-brass-dark-1: #120f0b; /* 17.1 0.009 75 */
+  --base-brass-dark-2: #19140c; /* 19.5 0.017 79 */
+  --base-brass-dark-3: #231b0e; /* 22.8 0.026 79 */
+  --base-brass-dark-4: #2d2311; /* 26.3 0.034 81 */
+  --base-brass-dark-5: #392b13; /* 29.9 0.043 79 */
+  --base-brass-dark-6: #483616; /* 34.6 0.054 80 */
+  --base-brass-dark-7: #60491f; /* 42.1 0.066 80 */
+  --base-brass-dark-8: #a38045; /* 62.1 0.088 79 */
+  --base-brass-dark-9: #d6b47a; /* 78.7 0.085 80 */
+  --base-brass-dark-10: #e9cf9e; /* 86.4 0.070 83 */
+  --base-brass-dark-11: #dec8a0; /* 84.1 0.059 82 */
+  --base-brass-dark-12: #f1e7d0; /* 93.0 0.032 87 */
+
+  /*
+   * Blue: info. The status families share one plan: 3 the soft tint, 7 the border, 9 the fill (also
+   * icons), 11 the text.
+   */
+  --base-blue-1: #f7faff; /* 98.4 0.007 261 */
+  --base-blue-2: #eef5ff; /* 96.8 0.015 257 */
+  --base-blue-3: #e3efff; /* 94.8 0.025 256 */
+  --base-blue-4: #d8e8ff; /* 92.6 0.036 257 */
+  --base-blue-5: #c8deff; /* 89.5 0.051 258 */
+  --base-blue-6: #b3d1ff; /* 85.4 0.072 259 */
+  --base-blue-7: #98bdfa; /* 79.4 0.096 260 */
+  --base-blue-8: #74a3f1; /* 71.5 0.125 260 */
+  --base-blue-9: #2966d3; /* 53.4 0.180 261 */
+  --base-blue-10: #225bc0; /* 49.5 0.170 261 */
+  --base-blue-11: #2754ac; /* 46.6 0.150 262 */
+  --base-blue-12: #182d5d; /* 30.9 0.090 264 */
+
+  /* Dark status ramps: very dark, low-chroma tints (3); text (11) lighter and calmer than the fill (9). */
+  --base-blue-dark-1: #0c0f16; /* 16.9 0.016 267 */
+  --base-blue-dark-2: #101622; /* 20.0 0.026 264 */
+  --base-blue-dark-3: #162238; /* 25.3 0.045 262 */
+  --base-blue-dark-4: #192948; /* 28.4 0.061 262 */
+  --base-blue-dark-5: #1c3157; /* 31.7 0.073 261 */
+  --base-blue-dark-6: #223c6a; /* 36.1 0.086 261 */
+  --base-blue-dark-7: #2f4e86; /* 42.9 0.100 261 */
+  --base-blue-dark-8: #416bb0; /* 53.1 0.119 260 */
+  --base-blue-dark-9: #6c9ef8; /* 70.4 0.143 261 */
+  --base-blue-dark-10: #7faffa; /* 75.0 0.121 259 */
+  --base-blue-dark-11: #9fc3f8; /* 81.0 0.085 258 */
+  --base-blue-dark-12: #dbe9fc; /* 92.9 0.030 256 */
+
+  /* Green: success. */
+  --base-green-1: #f6fcf8; /* 98.5 0.008 157 */
+  --base-green-2: #ebf8f1; /* 96.8 0.017 163 */
+  --base-green-3: #def5e8; /* 95.0 0.030 161 */
+  --base-green-4: #cdf0dc; /* 92.5 0.045 160 */
+  --base-green-5: #bbe9cf; /* 89.5 0.059 160 */
+  --base-green-6: #a5dfbf; /* 85.5 0.074 160 */
+  --base-green-7: #86cfa8; /* 79.6 0.092 160 */
+  --base-green-8: #5eb88b; /* 71.4 0.110 160 */
+  --base-green-9: #16774d; /* 50.5 0.109 159 */
+  --base-green-10: #0f6a46; /* 46.5 0.099 160 */
+  --base-green-11: #126240; /* 44.1 0.093 160 */
+  --base-green-12: #0e3625; /* 29.9 0.055 162 */
+
+  --base-green-dark-1: #0a110e; /* 16.9 0.013 167 */
+  --base-green-dark-2: #0b1913; /* 19.8 0.023 165 */
+  --base-green-dark-3: #0d281c; /* 25.2 0.041 162 */
+  --base-green-dark-4: #0d3223; /* 28.6 0.051 163 */
+  --base-green-dark-5: #0e3c2a; /* 32.0 0.059 163 */
+  --base-green-dark-6: #104833; /* 36.0 0.068 164 */
+  --base-green-dark-7: #195d44; /* 42.9 0.079 164 */
+  --base-green-dark-8: #257d5c; /* 52.9 0.098 164 */
+  --base-green-dark-9: #3fb68b; /* 69.9 0.124 165 */
+  --base-green-dark-10: #58c69b; /* 75.1 0.120 165 */
+  --base-green-dark-11: #80d1af; /* 79.9 0.094 166 */
+  --base-green-dark-12: #d0f1e1; /* 93.0 0.041 165 */
+
+  /* Red: danger. */
+  --base-red-1: #fff8f8; /* 98.5 0.007 17 */
+  --base-red-2: #fff1f0; /* 96.9 0.015 22 */
+  --base-red-3: #ffe7e6; /* 94.7 0.026 21 */
+  --base-red-4: #ffddda; /* 92.5 0.038 24 */
+  --base-red-5: #ffcfcc; /* 89.5 0.055 22 */
+  --base-red-6: #ffbcb7; /* 85.5 0.078 24 */
+  --base-red-7: #f9a19a; /* 79.5 0.106 25 */
+  --base-red-8: #ee7d74; /* 71.5 0.141 26 */
+  --base-red-9: #b93127; /* 52.3 0.174 29 */
+  --base-red-10: #a52a24; /* 48.0 0.160 28 */
+  --base-red-11: #972a26; /* 45.5 0.145 27 */
+  --base-red-12: #4f1a18; /* 30.1 0.080 25 */
+
+  --base-red-dark-1: #160d0c; /* 17.1 0.016 26 */
+  --base-red-dark-2: #211111; /* 20.0 0.027 20 */
+  --base-red-dark-3: #351819; /* 25.1 0.046 19 */
+  --base-red-dark-4: #421d1e; /* 28.4 0.057 20 */
+  --base-red-dark-5: #502223; /* 31.8 0.069 20 */
+  --base-red-dark-6: #61292a; /* 36.0 0.082 21 */
+  --base-red-dark-7: #7e3637; /* 43.1 0.100 21 */
+  --base-red-dark-8: #a8494b; /* 52.9 0.126 21 */
+  --base-red-dark-9: #f06a6d; /* 68.9 0.166 21 */
+  --base-red-dark-10: #f68486; /* 74.0 0.139 20 */
+  --base-red-dark-11: #f79fa1; /* 79.1 0.105 18 */
+  --base-red-dark-12: #ffdfe0; /* 93.0 0.035 16 */
+
+  /* Amber: warning, an orange amber kept clear of the brass hue. */
+  --base-amber-1: #fef9f4; /* 98.5 0.009 68 */
+  --base-amber-2: #fdf3e6; /* 96.8 0.020 75 */
+  --base-amber-3: #feead5; /* 94.8 0.035 69 */
+  --base-amber-4: #fee0c4; /* 92.4 0.050 65 */
+  --base-amber-5: #fdd3b0; /* 89.4 0.066 62 */
+  --base-amber-6: #f9c397; /* 85.5 0.085 60 */
+  --base-amber-7: #f1aa76; /* 79.5 0.108 57 */
+  --base-amber-8: #e18b4e; /* 71.5 0.130 54 */
+  --base-amber-9: #a94e08; /* 53.1 0.138 49 */
+  --base-amber-10: #97460d; /* 49.1 0.125 49 */
+  --base-amber-11: #89410c; /* 46.1 0.115 50 */
+  --base-amber-12: #4b2409; /* 30.9 0.070 51 */
+
+  --base-amber-dark-1: #140e09; /* 17.0 0.014 62 */
+  --base-amber-dark-2: #1e140b; /* 20.1 0.023 63 */
+  --base-amber-dark-3: #301d0e; /* 25.1 0.039 58 */
+  --base-amber-dark-4: #3d230f; /* 28.5 0.051 56 */
+  --base-amber-dark-5: #492911; /* 31.7 0.060 55 */
+  --base-amber-dark-6: #593214; /* 36.0 0.071 55 */
+  --base-amber-dark-7: #74411b; /* 43.0 0.087 54 */
+  --base-amber-dark-8: #9c5825; /* 53.0 0.110 54 */
+  --base-amber-dark-9: #e8833a; /* 70.8 0.150 53 */
+  --base-amber-dark-10: #f49851; /* 76.1 0.140 56 */
+  --base-amber-dark-11: #f1b27e; /* 81.1 0.100 60 */
+  --base-amber-dark-12: #fae4cc; /* 93.0 0.040 70 */
+}

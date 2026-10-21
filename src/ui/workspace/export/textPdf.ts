@@ -8,8 +8,9 @@
  * only, both SIL Open Font Licence, served from /fonts on this site, so no
  * font host is contacted): jsPDF's built-in fonts can't draw ₹ or the minus
  * sign the formatters use. jsPDF embeds only the glyphs a document uses.
- * Colours come from the light theme's tokens (tokens.css), read from the
- * page, so the PDFs match the app.
+ * Colours come from the light theme's tokens (theme-light.css), read from
+ * the page, so the PDFs match the app; words in the accent or a status colour
+ * use its text step, darker than the fill, as on screen.
  *
  * TextPdf lays content top to bottom with automatic page breaks: headings,
  * wrapped paragraphs, label/value lines, highlighted callouts, monospaced
@@ -25,7 +26,7 @@ import { formatDay } from "@/engine/core/dates";
 type Rgb = [number, number, number];
 type Tone = "fg" | "muted" | "subtle" | "accent" | "success" | "warning";
 
-/** Light-theme colours from tokens.css, blended over white when translucent. */
+/** Light-theme colours from the theme's tokens, blended over white when translucent. */
 interface Palette {
   fg: Rgb;
   muted: Rgb;
@@ -65,15 +66,15 @@ function readPalette(): Palette {
   const cs = getComputedStyle(probe);
   const v = (name: string, fallback: Rgb) => parseColour(cs.getPropertyValue(name), fallback);
   const palette: Palette = {
-    fg: v("--fg", [18, 20, 23]),
-    muted: v("--fg-muted", [87, 93, 102]),
-    subtle: v("--fg-subtle", [97, 103, 111]),
-    accent: v("--accent", [129, 98, 38]),
-    success: v("--success", [22, 119, 77]),
-    warning: v("--warning", [169, 78, 8]),
-    border: v("--border-strong", [222, 222, 223]),
-    tint: v("--bg-subtle", [241, 239, 234]),
-    accentTint: v("--accent-soft", [246, 243, 238]),
+    fg: v("--fg", [27, 24, 21]),
+    muted: v("--fg-muted", [80, 76, 71]),
+    subtle: v("--fg-subtle", [107, 103, 97]),
+    accent: v("--accent-text", [99, 72, 23]),
+    success: v("--success-text", [18, 98, 64]),
+    warning: v("--warning-text", [137, 65, 12]),
+    border: v("--border-strong", [221, 220, 220]),
+    tint: v("--bg-subtle", [241, 239, 235]),
+    accentTint: v("--accent-soft", [244, 241, 235]),
     code: {
       keyword: v("--code-keyword", [44, 86, 201]),
       function: v("--code-function", [117, 53, 176]),

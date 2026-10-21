@@ -61,7 +61,7 @@ export function HealthPanel({ health, compact = false }: { health: HealthReport;
           ))}
         </ul>
         {health.issues.length ? (
-          <ul className="mt-4 divide-y divide-border rounded-card border border-border">
+          <ul className="mt-4 divide-y divide-border-subtle rounded-control border border-border">
             {health.issues.slice(0, compact ? 4 : 30).map((i) => {
               const s = SEVERITY[i.severity];
               return (
@@ -199,7 +199,7 @@ export function ParseReportPanel({
         ))}
       </dl>
       {report.sampling ? (
-        <p className="rounded-control border border-warning/30 bg-warning-soft px-3 py-2 text-sm text-fg">
+        <p className="rounded-control border border-warning-border bg-warning-soft px-3 py-2 text-sm text-fg">
           <Brief
             label="About the sample"
             full={`Sampled: ${formatCount(report.sampling.keptRows, locale)} of about ${countOf(report.sampling.estimatedTotalRows, "row", locale)} (${
@@ -216,13 +216,13 @@ export function ParseReportPanel({
       {report.dateFormats.length ? (
         <div>
           <p className="mb-2 text-ui font-medium text-fg">Date formats</p>
-          <ul className="divide-y divide-border rounded-card border border-border">
+          <ul className="divide-y divide-border-subtle rounded-control border border-border">
             {report.dateFormats.map((d) => (
               <li key={d.column} className="flex flex-wrap items-start justify-between gap-3 px-3.5 py-2.5">
                 <div className="min-w-0 flex-1">
                   <p className="text-ui text-fg">
                     <span className="font-medium">{d.column}</span> read as{" "}
-                    <span className="font-medium text-accent">{d.format}</span>
+                    <span className="font-medium text-accent-text">{d.format}</span>
                     {d.ambiguous ? (
                       <Badge tone="warning" className="ml-2">
                         assumed

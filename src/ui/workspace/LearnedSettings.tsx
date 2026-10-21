@@ -29,8 +29,9 @@ const day = (t: number) =>
 const usedText = (uses: number) =>
   uses === 0 ? "not used yet" : uses === 1 ? "used once" : `used ${uses} times`;
 
-const ITEM =
-  "flex items-start justify-between gap-3 rounded-card border border-border bg-surface-2 px-3 py-2.5";
+// A row in the Settings sheet: on the overlay plane with a border only, as everything inside an
+// overlay is (docs/DESIGN.md, "Inside overlays").
+const ITEM = "flex items-start justify-between gap-3 rounded-control border border-border px-3 py-2.5";
 
 export function LearnedSettings() {
   const rules = useLearned((s) => s.rules);

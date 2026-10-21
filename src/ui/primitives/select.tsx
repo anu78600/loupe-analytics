@@ -4,6 +4,11 @@
  * Styled Radix Select. The list opens as a popper below the trigger (not
  * over it, Radix's default), at least as wide as the trigger and at most
  * 360px tall.
+ *
+ * The trigger is a field like Input (control radius, --border-strong, a
+ * --border-hover edge on hover, the focus ring with its gap). The list sits
+ * on the overlay plane like a menu: card radius, pop shadow, items at the
+ * control radius so the corners nest, grown from the trigger over 120 ms.
  */
 import * as React from "react";
 import { Select as SelectPrimitive } from "radix-ui";
@@ -21,7 +26,7 @@ export const SelectTrigger = React.forwardRef<
   <SelectPrimitive.Trigger
     ref={ref}
     className={cn(
-      "flex w-full items-center justify-between gap-2 rounded-control border border-border-strong bg-surface-2 px-3 text-left text-fg transition-[border-color,box-shadow] outline-none hover:border-border-accent focus-visible:border-accent focus-visible:shadow-[0_0_0_3px_var(--accent-soft)] disabled:opacity-50 data-[placeholder]:text-fg-subtle [&>span]:truncate",
+      "flex w-full items-center justify-between gap-2 rounded-control border border-border-strong bg-surface-2 px-3 text-left text-fg transition-[border-color,box-shadow] duration-fast outline-none hover:border-border-hover focus-visible:focus-ring disabled:cursor-not-allowed disabled:opacity-disabled data-[placeholder]:text-fg-subtle data-[state=open]:border-border-hover [&>span]:truncate",
       size === "sm" ? "h-8 text-ui" : "h-9 text-sm",
       className,
     )}
@@ -45,8 +50,8 @@ export const SelectContent = React.forwardRef<
       position={position}
       sideOffset={6}
       className={cn(
-        "relative z-50 max-h-[min(var(--radix-select-content-available-height),360px)] min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-[12px] border border-border-strong bg-surface-2 shadow-pop",
-        "data-[state=open]:animate-[fade-up_160ms_var(--ease-out-quint)]",
+        "relative z-50 max-h-[min(var(--radix-select-content-available-height),360px)] min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-card border border-border bg-surface-overlay text-fg shadow-pop",
+        "origin-(--radix-select-content-transform-origin) scale-100 transition-[opacity,scale] duration-fast ease-out-quint starting:scale-96 starting:opacity-0",
         className,
       )}
       {...props}
@@ -82,7 +87,7 @@ export const SelectItem = React.forwardRef<
   <SelectPrimitive.Item
     ref={ref}
     className={cn(
-      "relative flex w-full cursor-default items-center gap-2 rounded-[8px] py-1.5 pr-2 pl-7 text-ui text-fg outline-none select-none data-[disabled]:pointer-events-none data-[disabled]:opacity-45 data-[highlighted]:bg-surface-3",
+      "relative flex w-full cursor-default items-center gap-2 rounded-control py-1.5 pr-2 pl-7 text-ui text-fg outline-none select-none data-[disabled]:pointer-events-none data-[disabled]:opacity-disabled data-[highlighted]:bg-surface-hover",
       className,
     )}
     {...props}
@@ -98,6 +103,7 @@ export const SelectItem = React.forwardRef<
 ));
 SelectItem.displayName = "SelectItem";
 
+/** A divider between groups: the subtle line, quieter than the list's own edge. */
 export const SelectSeparator = ({ className }: { className?: string }) => (
-  <SelectPrimitive.Separator className={cn("-mx-1 my-1 h-px bg-border", className)} />
+  <SelectPrimitive.Separator className={cn("-mx-1 my-1 h-px bg-border-subtle", className)} />
 );

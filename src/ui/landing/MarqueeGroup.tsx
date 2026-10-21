@@ -26,7 +26,7 @@ export function MarqueeGroup({ children, className }: { children: React.ReactNod
           type="button"
           onClick={() => setPaused((p) => !p)}
           aria-label={paused ? "Play the scrolling industries" : "Pause the scrolling industries"}
-          className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface-2/80 px-2.5 py-1 text-xs text-fg-muted transition-colors hover:text-fg"
+          className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface-2/80 px-2.5 py-1 text-xs text-fg-muted transition-colors duration-fast hover:border-border-hover hover:text-fg"
         >
           {paused ? <Play className="size-3" aria-hidden /> : <Pause className="size-3" aria-hidden />}
           {paused ? "Play" : "Pause"}

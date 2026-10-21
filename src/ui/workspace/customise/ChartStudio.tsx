@@ -31,6 +31,10 @@
  * line with the full text behind hover, a long press or the ⓘ
  * (ui/primitives/reveal.tsx). What a type needs, when the file can't feed
  * it, stays in view.
+ *
+ * A type's card is a raised card; the chosen one takes the selected tint and
+ * an accent edge; one the file can't feed lies flat with its words in the
+ * disabled ink, so the reason it gives stays the readable line.
  */
 import * as React from "react";
 import { toast } from "sonner";
@@ -210,32 +214,48 @@ export function ChartStudio({ editing, onDone }: { editing: ChartSpec | null; on
                       aria-pressed={on}
                       onClick={() => pick(t.kind)}
                       className={cn(
-                        "flex h-full w-full items-start gap-3 rounded-card border bg-surface-1 p-3 pr-10 text-left transition-[border-color,box-shadow] focus-visible:ring-2 focus-visible:ring-accent-ring focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-55",
+                        "flex h-full w-full items-start gap-3 rounded-card border p-3 pr-10 text-left transition-[border-color,background-color] duration-fast focus-visible:focus-ring disabled:cursor-not-allowed",
                         on
-                          ? "border-accent shadow-[0_0_0_3px_var(--accent-soft)]"
-                          : "border-border hover:border-border-accent",
+                          ? "border-accent bg-surface-selected shadow-card"
+                          : why
+                            ? "border-border-subtle bg-transparent"
+                            : "border-border bg-surface-1 shadow-card hover:border-border-hover",
                       )}
                     >
                       <span
                         className={cn(
                           "grid size-9 shrink-0 place-items-center rounded-control",
-                          on ? "bg-accent text-accent-fg" : "bg-surface-3 text-accent",
+                          on
+                            ? "bg-accent text-accent-fg"
+                            : why
+                              ? "bg-surface-2 text-fg-disabled"
+                              : "bg-surface-3 text-accent",
                         )}
                       >
                         <Icon className="size-4.5" aria-hidden />
                       </span>
                       <span className="min-w-0">
-                        <span className="flex items-center gap-1.5 text-ui font-medium text-fg">
+                        <span
+                          className={cn(
+                            "flex items-center gap-1.5 text-ui font-medium",
+                            why ? "text-fg-disabled" : "text-fg",
+                          )}
+                        >
                           {t.name}
                           {on ? <Check className="size-3.5 text-accent" aria-hidden /> : null}
                         </span>
                         {/* What it shows, from sm up; what it suits is behind the ⓘ. */}
-                        <span className="mt-0.5 hidden text-xs leading-relaxed text-fg-muted sm:block">
+                        <span
+                          className={cn(
+                            "mt-0.5 hidden text-xs leading-relaxed sm:block",
+                            why ? "text-fg-disabled" : "text-fg-muted",
+                          )}
+                        >
                           {t.shows}
                         </span>
                         {/* What the file lacks for this type stays in view. */}
                         {why ? (
-                          <span className="block text-xs leading-relaxed text-warning">{why}.</span>
+                          <span className="block text-xs leading-relaxed text-warning-text">{why}.</span>
                         ) : null}
                       </span>
                     </button>
@@ -270,7 +290,8 @@ export function ChartStudio({ editing, onDone }: { editing: ChartSpec | null; on
             onCancel={onDone}
           />
         ) : (
-          <Card className="grid place-items-center gap-2 p-10 text-center">
+          // An empty section: a dashed outline rather than a raised card, as the KPI lists' empty state.
+          <Card className="grid place-items-center gap-2 border-dashed border-border-strong bg-transparent p-10 text-center shadow-none">
             <Plus className="size-6 text-fg-subtle" aria-hidden />
             <p className="text-md font-medium text-fg">Pick a chart type</p>
             <p className="max-w-xs text-sm leading-relaxed text-fg-muted">
@@ -331,7 +352,7 @@ function Builder({
           <h2
             data-builder-heading
             tabIndex={-1}
-            className="rounded-[6px] text-md font-medium text-fg focus-visible:ring-2 focus-visible:ring-accent-ring focus-visible:outline-none"
+            className="rounded-xs text-md font-medium text-fg focus-visible:focus-ring"
           >
             {t.name}
           </h2>
@@ -660,7 +681,7 @@ function Builder({
       {preview ? (
         <ChartPreview spec={preview} />
       ) : (
-        <p className="rounded-control border border-warning bg-warning-soft px-3 py-2.5 text-ui leading-relaxed text-fg">
+        <p className="rounded-control border border-warning-border bg-warning-soft px-3 py-2.5 text-ui leading-relaxed text-fg">
           {problem}
         </p>
       )}

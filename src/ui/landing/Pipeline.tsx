@@ -149,7 +149,7 @@ function DropVisual({ data }: { data: PipelineData }) {
               transition: { type: "spring", stiffness: 200, damping: 19 },
             },
           }}
-          className="mx-auto flex w-fit max-w-full items-center gap-3 rounded-card border border-border-strong bg-surface-2 px-4 py-3 shadow-pop"
+          className="mx-auto flex w-fit max-w-full items-center gap-3 rounded-card border border-border bg-surface-overlay px-4 py-3 shadow-pop"
         >
           <FileSpreadsheet className="size-5 shrink-0 text-accent" aria-hidden />
           <span className="min-w-0">
@@ -285,7 +285,7 @@ function MapVisual({ data }: { data: PipelineData }) {
             <motion.span
               key={p.column}
               variants={RISE}
-              className="flex items-center truncate rounded-[9px] border border-border-strong bg-surface-2 px-3 text-xs font-medium text-fg"
+              className="flex items-center truncate rounded-control border border-border-strong bg-surface-2 px-3 text-xs font-medium text-fg"
               style={{ height: ROW }}
             >
               {p.column}
@@ -322,7 +322,7 @@ function MapVisual({ data }: { data: PipelineData }) {
               <motion.span
                 key={p.field}
                 variants={RISE}
-                className="flex items-center justify-between gap-2 rounded-[9px] border border-border bg-surface-1 px-3 text-xs text-fg-muted"
+                className="flex items-center justify-between gap-2 rounded-control border border-border bg-surface-1 px-3 text-xs text-fg-muted"
                 style={{ height: ROW }}
               >
                 <span className="truncate">{p.field}</span>
@@ -350,7 +350,7 @@ function MapVisual({ data }: { data: PipelineData }) {
         </div>
       </div>
       <motion.div variants={RISE} className="flex flex-wrap items-center gap-2 text-ui">
-        <span className="rounded-full border border-border-accent bg-accent-soft px-3 py-1 text-accent">
+        <span className="rounded-full border border-border-accent bg-accent-soft px-3 py-1 text-accent-text">
           Data health <span className="font-figures">{data.health.score}/100</span>
         </span>
         <span className="rounded-full border border-border px-3 py-1 text-fg-muted">
@@ -402,7 +402,7 @@ function CustomiseVisual({ data }: { data: PipelineData }) {
                 show: { opacity: 1, scale: 1, transition: { duration: 0.4, ease: EASE } },
               }}
               className={cn(
-                "grid aspect-[5/2] place-items-center rounded-card border transition-[border-color,background-color,color,box-shadow] duration-300",
+                "grid aspect-[5/2] place-items-center rounded-card border transition-[border-color,background-color,color,box-shadow] duration-slow",
                 on
                   ? "border-border-accent bg-accent-soft text-accent shadow-[0_0_0_4px_var(--accent-soft)]"
                   : "border-border bg-surface-2/70 text-fg-subtle",
@@ -419,7 +419,7 @@ function CustomiseVisual({ data }: { data: PipelineData }) {
           <span className="font-figures text-fg">{data.chartTypes}</span> chart types, each explained
         </span>
         {/* As wide as the longest name, so the pill doesn't move as the names change. */}
-        <span className="min-w-36 shrink-0 rounded-full border border-border-accent bg-accent-soft px-3 py-1 text-center text-accent">
+        <span className="min-w-36 shrink-0 rounded-full border border-border-accent bg-accent-soft px-3 py-1 text-center text-accent-text">
           {GALLERY[picked]?.name}
         </span>
       </motion.div>
@@ -429,7 +429,7 @@ function CustomiseVisual({ data }: { data: PipelineData }) {
             key={name}
             layout
             transition={{ type: "spring", stiffness: 380, damping: 32 }}
-            className="flex items-center gap-2 rounded-[9px] border border-border bg-surface-2/70 px-3 py-2 text-ui text-fg"
+            className="flex items-center gap-2 rounded-control border border-border bg-surface-2/70 px-3 py-2 text-ui text-fg"
           >
             <GripVertical className="size-3.5 text-fg-subtle" aria-hidden />
             {name}
@@ -448,9 +448,9 @@ function Delta({ kpi }: { kpi: PreviewKpi }) {
   const Icon = kpi.change === "up" ? ArrowUpRight : kpi.change === "down" ? ArrowDownRight : Minus;
   const tone =
     kpi.tone === "good"
-      ? "bg-success-soft text-success"
+      ? "bg-success-soft text-success-text"
       : kpi.tone === "bad"
-        ? "bg-danger-soft text-danger"
+        ? "bg-danger-soft text-danger-text"
         : "bg-surface-3 text-fg-muted";
   return (
     <span
@@ -645,15 +645,15 @@ export function Pipeline({ data }: { data: PipelineData }) {
               onClick={() => select(i)}
               onKeyDown={(e) => onKey(e, i)}
               className={cn(
-                "relative grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-3.5 overflow-hidden rounded-card border px-4 py-3.5 text-left transition-[background-color,border-color,box-shadow] duration-300",
+                "relative grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-3.5 overflow-hidden rounded-card border px-4 py-3.5 text-left transition-[background-color,border-color,box-shadow] duration-slow",
                 selected
                   ? "border-border-strong bg-surface-1 shadow-card"
-                  : "border-transparent hover:bg-surface-1/60",
+                  : "border-transparent hover:bg-surface-hover",
               )}
             >
               <span
                 className={cn(
-                  "grid size-9 place-items-center rounded-control border transition-colors duration-300",
+                  "grid size-9 place-items-center rounded-control border transition-colors duration-slow",
                   selected
                     ? "border-border-accent bg-accent-soft text-accent"
                     : "border-border text-fg-subtle",
@@ -679,7 +679,7 @@ export function Pipeline({ data }: { data: PipelineData }) {
                     is hidden from assistive technology, so a tab's name always holds the text it shows. */}
                 <span
                   className={cn(
-                    "grid grid-rows-[1fr] transition-[grid-template-rows,opacity] duration-300 ease-[var(--ease-out-quint)]",
+                    "grid grid-rows-[1fr] transition-[grid-template-rows,opacity] duration-slow ease-out-quint",
                     selected ? "opacity-100" : "opacity-100 lg:grid-rows-[0fr] lg:opacity-0",
                   )}
                 >
@@ -742,7 +742,7 @@ export function Pipeline({ data }: { data: PipelineData }) {
             type="button"
             onClick={() => setPaused((p) => !p)}
             aria-pressed={paused}
-            className="absolute top-3 right-3 inline-flex items-center gap-1.5 rounded-full border border-border bg-surface-2/80 px-2.5 py-1 text-xs text-fg-muted backdrop-blur transition-colors hover:text-fg"
+            className="absolute top-3 right-3 inline-flex items-center gap-1.5 rounded-full border border-border bg-surface-2/80 px-2.5 py-1 text-xs text-fg-muted backdrop-blur transition-colors duration-fast hover:border-border-hover hover:text-fg"
           >
             {paused ? <Play className="size-3" aria-hidden /> : <Pause className="size-3" aria-hidden />}
             {paused ? "Play" : "Pause"}

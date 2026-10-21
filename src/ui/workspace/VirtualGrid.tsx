@@ -230,7 +230,7 @@ export function VirtualGrid({
                           aria-label={
                             off ? `Use ${c.name} in the analysis again` : `Hide ${c.name} from the analysis`
                           }
-                          className="-mt-0.5 -mr-1.5 grid size-6 shrink-0 place-items-center rounded-[6px] text-fg-subtle transition-colors hover:bg-surface-3 hover:text-fg focus-visible:ring-2 focus-visible:ring-accent-ring focus-visible:outline-none"
+                          className="-mt-0.5 -mr-1.5 grid size-6 shrink-0 place-items-center rounded-sm text-fg-subtle transition-colors hover:bg-surface-hover hover:text-fg focus-visible:focus-ring active:bg-surface-active"
                         >
                           {off ? (
                             <Eye className="size-3.5" aria-hidden />
@@ -272,14 +272,14 @@ export function VirtualGrid({
                   key={it.key}
                   role="row"
                   aria-rowindex={it.index + 2}
-                  className="absolute left-0 flex w-full border-b border-border text-ui hover:bg-surface-2"
+                  className="absolute left-0 flex w-full border-b border-border-subtle text-ui hover:bg-surface-hover"
                   style={{ height: ROW_H, transform: `translateY(${it.start}px)` }}
                 >
                   <div
                     role="rowheader"
                     className={cn(
                       "font-figures sticky left-0 z-[1] flex shrink-0 items-center gap-1 border-r border-border px-3 py-1.5 text-xs",
-                      dup !== undefined ? "bg-warning-soft text-warning" : "bg-surface-1 text-fg-subtle",
+                      dup !== undefined ? "bg-warning-soft text-warning-text" : "bg-surface-1 text-fg-subtle",
                     )}
                     style={{ width: ROW_GUTTER }}
                     title={dup !== undefined ? `Same as row ${dup + 1} in every column.` : undefined}
@@ -304,7 +304,7 @@ export function VirtualGrid({
                         role="gridcell"
                         style={{ width: widths[j] }}
                         className={cn(
-                          "font-data flex shrink-0 items-center gap-1 truncate border-r border-border px-3 py-1.5",
+                          "font-data flex shrink-0 items-center gap-1 truncate border-r border-border-subtle px-3 py-1.5",
                           c.storage === "number" ? "justify-end" : "",
                           v === null || off ? "text-fg-subtle" : "text-fg",
                           off ? "bg-surface-2" : problemClass(problem),
@@ -312,7 +312,7 @@ export function VirtualGrid({
                         title={problem ? problem.note : (v ?? undefined)}
                       >
                         {row === undefined ? (
-                          <span className="skeleton inline-block h-3 w-3/4 rounded" />
+                          <span className="skeleton inline-block h-3 w-3/4 rounded-xs" />
                         ) : (
                           <>
                             {problem?.kind === "unreadable" ? (
