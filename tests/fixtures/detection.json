@@ -3,6 +3,155 @@
   "rowCount": 240,
   "fixtures": [
     {
+      "id": "discom-consumer-billing",
+      "source": "Electricity distribution company: monthly consumer billing and collection extract (India)",
+      "expect": "energy_utilities",
+      "confirm": false,
+      "unique": ["Bill No"],
+      "ids": ["Consumer No"],
+      "headers": ["Consumer No", "Bill No", "Bill Month", "Tariff Category", "Sanctioned Load (kW)", "Units Consumed (kWh)", "Energy Charges", "Fixed Charges", "Total Bill Amount", "Amount Paid", "Payment Date", "Feeder"],
+      "rows": [
+        ["1100234567", "B-2410-000123", "2024-10-01", "Domestic", "3", "245", "1715.00", "120.00", "1835.00", "1835.00", "2024-10-18", "FDR-11KV-Nagar"],
+        ["1100234588", "B-2410-000124", "2024-10-01", "Commercial", "10", "1180", "9440.00", "600.00", "10040.00", "9000.00", "2024-10-22", "FDR-11KV-Market"],
+        ["1100234601", "B-2410-000125", "2024-10-01", "Domestic", "2", "132", "792.00", "80.00", "872.00", "", "", "FDR-11KV-Nagar"],
+        ["1100234617", "B-2410-000126", "2024-10-01", "Agricultural", "7.5", "860", "1720.00", "150.00", "1870.00", "1870.00", "2024-10-25", "FDR-11KV-Rural"],
+        ["1100234630", "B-2410-000127", "2024-10-01", "Industrial", "50", "8420", "63150.00", "4500.00", "67650.00", "67650.00", "2024-10-15", "FDR-33KV-Ind"]
+      ]
+    },
+    {
+      "id": "agmarknet-mandi-prices",
+      "source": "Agmarknet: commodity-wise daily arrivals and prices by market (India)",
+      "expect": "agriculture",
+      "confirm": false,
+      "headers": ["State", "District", "Market", "Commodity", "Variety", "Arrival Date", "Arrivals (Tonnes)", "Min Price (Rs./Quintal)", "Max Price (Rs./Quintal)", "Modal Price (Rs./Quintal)"],
+      "rows": [
+        ["Maharashtra", "Nashik", "Lasalgaon", "Onion", "Red", "2024-11-04", "1820", "2100", "4300", "3650"],
+        ["Madhya Pradesh", "Indore", "Indore", "Soyabean", "Yellow", "2024-11-04", "950", "4100", "4650", "4420"],
+        ["Punjab", "Ludhiana", "Khanna", "Paddy(Dhan)(Common)", "Common", "2024-11-05", "2400", "2250", "2320", "2300"],
+        ["Karnataka", "Kolar", "Kolar", "Tomato", "Hybrid", "2024-11-05", "610", "800", "2200", "1500"],
+        ["Uttar Pradesh", "Agra", "Agra", "Potato", "Desi", "2024-11-06", "1340", "1100", "1700", "1450"]
+      ]
+    },
+    {
+      "id": "amplitude-event-export",
+      "source": "Amplitude: raw event export flattened to CSV (one row per event, mobile app)",
+      "expect": "product_analytics",
+      "confirm": false,
+      "ids": ["user_id", "amplitude_id", "session_id"],
+      "headers": ["event_type", "event_time", "user_id", "amplitude_id", "device_family", "os_name", "country", "city", "platform", "session_id"],
+      "rows": [
+        ["app_open", "2024-03-01 09:00:01", "u42", "880011", "Samsung Galaxy", "android", "India", "Mumbai", "Android", "1709283601000"],
+        ["add_to_cart", "2024-03-01 09:02:11", "u42", "880011", "Samsung Galaxy", "android", "India", "Mumbai", "Android", "1709283601000"],
+        ["subscribe", "2024-03-03 20:12:00", "u77", "880099", "iPhone", "ios", "India", "Bengaluru", "iOS", "1709476320000"],
+        ["screen_view", "2024-03-04 08:45:30", "u91", "880120", "Pixel 7", "android", "United States", "Austin", "Android", "1709541930000"],
+        ["sign_up", "2024-03-04 19:05:12", "u95", "880134", "iPad", "ipados", "United Kingdom", "London", "iOS", "1709579112000"]
+      ]
+    },
+    {
+      "id": "box-office-mojo-yearly",
+      "source": "Box Office Mojo: domestic yearly box office table (one row per release)",
+      "expect": "media",
+      "confirm": false,
+      "unique": ["Release"],
+      "headers": ["Rank", "Release", "Distributor", "Release Date", "Genre", "Theaters", "Opening", "Total Gross", "Budget"],
+      "rows": [
+        ["1", "Oppenheimer", "Universal Pictures", "2023-07-21", "Drama", "3761", "82455420", "330078895", "100000000"],
+        ["2", "Barbie", "Warner Bros.", "2023-07-21", "Comedy", "4337", "162022044", "636238421", "145000000"],
+        ["3", "Wonka", "Warner Bros.", "2023-12-15", "Family", "4203", "39005521", "218402312", "125000000"],
+        ["4", "Elemental", "Walt Disney Studios", "2023-06-16", "Animation", "4035", "29602429", "154426697", "200000000"],
+        ["5", "Creed III", "Metro-Goldwyn-Mayer", "2023-03-03", "Drama", "4007", "58370007", "156248615", "75000000"]
+      ]
+    },
+    {
+      "id": "toast-order-details",
+      "source": "Toast POS: Reports > Sales > Orders, OrderDetails.csv (one row per check, US restaurant)",
+      "expect": "food_service",
+      "confirm": false,
+      "unique": ["Order Id"],
+      "headers": ["Location", "Order Id", "Order #", "Opened", "# of Guests", "Server", "Table", "Revenue Center", "Dining Options", "Discount Amount", "Amount", "Tax", "Tip", "Gratuity", "Total", "Voided"],
+      "rows": [
+        ["Main St", "400000001", "101", "4/1/24 11:32 AM", "2", "Alex P", "12", "Dining Room", "Dine In", "0.00", "48.50", "4.12", "9.00", "0.00", "61.62", "false"],
+        ["Main St", "400000002", "102", "4/1/24 11:40 AM", "1", "Sam K", "", "Bar", "Take Out", "2.00", "18.00", "1.53", "0.00", "0.00", "19.53", "false"],
+        ["Main St", "400000003", "103", "4/1/24 12:05 PM", "4", "Alex P", "7", "Patio", "Dine In", "0.00", "112.40", "9.55", "20.00", "0.00", "141.95", "false"],
+        ["Main St", "400000004", "104", "4/1/24 12:20 PM", "6", "Jo M", "21", "Dining Room", "Dine In", "10.00", "210.00", "17.85", "0.00", "37.80", "265.65", "true"],
+        ["Main St", "400000005", "105", "4/1/24 12:31 PM", "1", "Sam K", "", "Bar", "Delivery", "0.00", "26.00", "2.21", "3.00", "0.00", "31.21", "false"]
+      ]
+    },
+    {
+      "id": "bts-on-time-performance",
+      "source": "US BTS: Airline On-Time Performance (Reporting Carrier), monthly download with delay causes",
+      "expect": "travel",
+      "confirm": false,
+      "headers": ["FL_DATE", "OP_CARRIER", "OP_CARRIER_FL_NUM", "ORIGIN", "DEST", "CRS_DEP_TIME", "DEP_TIME", "DEP_DELAY", "TAXI_OUT", "ARR_DELAY", "CANCELLED", "CANCELLATION_CODE", "DIVERTED", "AIR_TIME", "DISTANCE", "CARRIER_DELAY", "WEATHER_DELAY", "NAS_DELAY", "SECURITY_DELAY", "LATE_AIRCRAFT_DELAY"],
+      "rows": [
+        ["2019-01-01", "AA", "1234", "JFK", "LAX", "0800", "0812", "12.0", "18.0", "5.0", "0.0", "", "0.0", "330.0", "2475.0", "", "", "", "", ""],
+        ["2019-01-01", "DL", "455", "ATL", "ORD", "0930", "1015", "45.0", "22.0", "52.0", "0.0", "", "0.0", "98.0", "606.0", "10.0", "0.0", "7.0", "0.0", "35.0"],
+        ["2019-01-02", "UA", "2201", "SFO", "DEN", "1300", "", "", "", "", "1.0", "B", "0.0", "", "967.0", "", "", "", "", ""],
+        ["2019-01-02", "WN", "88", "DAL", "HOU", "0700", "0655", "-5.0", "9.0", "-12.0", "0.0", "", "0.0", "45.0", "239.0", "", "", "", "", ""],
+        ["2019-01-03", "B6", "917", "BOS", "MCO", "1515", "1532", "17.0", "14.0", "21.0", "0.0", "", "0.0", "150.0", "1121.0", "0.0", "0.0", "21.0", "0.0", "0.0"]
+      ]
+    },
+    {
+      "id": "marg-pharmacy-sale-register",
+      "source": "Marg ERP (India): item-wise sale register of a retail pharmacy, one row per bill line with batch and expiry",
+      "expect": "pharma",
+      "confirm": false,
+      "ids": ["Bill No"],
+      "headers": ["Bill No", "Bill Date", "Patient Name", "Doctor Name", "Item Name", "Company", "Pack", "Batch No", "Expiry", "Qty", "Free", "MRP", "Rate", "Disc %", "Amount", "GST %"],
+      "rows": [
+        ["CS-10421", "02/04/2024", "Ramesh Gupta", "Dr. A K Sharma", "Augmentin 625 Duo Tab", "GSK", "10 TAB", "B230145", "31/08/2025", "2", "0", "223.50", "199.55", "5", "379.15", "12"],
+        ["CS-10421", "02/04/2024", "Ramesh Gupta", "Dr. A K Sharma", "Pan 40 Tab", "Alkem", "15 TAB", "PN4512", "30/11/2025", "1", "0", "155.00", "138.39", "5", "131.47", "12"],
+        ["CS-10422", "02/04/2024", "Sunita Devi", "Dr. R Mehta", "Glycomet GP 1 Tab", "USV", "15 TAB", "GM2309", "31/03/2026", "3", "0", "112.40", "100.36", "0", "301.08", "12"],
+        ["CS-10423", "03/04/2024", "Walk-in", "", "Dolo 650 Tab", "Micro Labs", "15 TAB", "DL0782", "31/01/2026", "2", "0", "33.60", "30.00", "0", "60.00", "12"],
+        ["CS-10424", "03/04/2024", "Anil Kumar", "Dr. S Iyer", "Telma 40 Tab", "Glenmark", "30 TAB", "TL6611", "30/06/2025", "1", "0", "245.00", "218.75", "10", "196.88", "12"]
+      ]
+    },
+    {
+      "id": "donorbox-donations-export",
+      "source": "Donorbox: Donations > Export CSV (one row per donation or recurring payment)",
+      "expect": "nonprofit",
+      "confirm": false,
+      "ids": ["Donor Email"],
+      "headers": ["Donor First Name", "Donor Last Name", "Donor Email", "Campaign", "Amount", "Currency", "Processing Fee", "Platform Fee", "Net Amount", "Donation Date", "Recurring Donation", "Payment Method", "Status", "Designation", "Gift Aid"],
+      "rows": [
+        ["Emma", "Clarke", "emma.clarke@example.org", "Winter Appeal 2024", "50.00", "GBP", "1.20", "0.75", "48.05", "2024-11-03 10:12", "true", "Card", "paid", "Homeless Shelter", "true"],
+        ["Oliver", "Shah", "o.shah@example.com", "Winter Appeal 2024", "25.00", "GBP", "0.68", "0.38", "23.94", "2024-11-03 18:40", "false", "PayPal", "paid", "General Fund", "false"],
+        ["Grace", "Owen", "grace.owen@example.net", "Giving Tuesday", "100.00", "GBP", "1.60", "1.50", "96.90", "2024-12-03 09:05", "false", "Card", "paid", "Food Bank", "true"],
+        ["Liam", "Patel", "liam.p@example.org", "Monthly Supporters", "10.00", "GBP", "0.35", "0.15", "9.50", "2024-12-15 07:30", "true", "Direct Debit", "failed", "General Fund", "true"],
+        ["Ava", "Brown", "ava.brown@example.com", "Giving Tuesday", "250.00", "GBP", "3.80", "3.75", "242.45", "2024-12-03 20:22", "false", "Card", "refunded", "Food Bank", "false"]
+      ]
+    },
+    {
+      "id": "sap-me2n-po-lines",
+      "source": "SAP MM: ME2N purchase orders by PO number (ALV export, one row per PO item, India)",
+      "expect": "procurement",
+      "confirm": false,
+      "ids": ["Purchasing Document", "Vendor", "Material"],
+      "headers": ["Purchasing Document", "Item", "Document Date", "Vendor", "Name of Vendor", "Material", "Short Text", "Material Group", "Plant", "Purchasing Group", "Order Quantity", "Order Unit", "Net Price", "Currency", "Net Order Value", "Delivery Date", "Still to be delivered (qty)", "Still to be delivered (value)"],
+      "rows": [
+        ["4500012345", "10", "2024-04-02", "100234", "Shree Steel Industries", "RM-1001", "MS Sheet 2mm", "RAW-STEEL", "1000", "P01", "500", "KG", "68.50", "INR", "34250.00", "2024-04-16", "0", "0.00"],
+        ["4500012345", "20", "2024-04-02", "100234", "Shree Steel Industries", "RM-1002", "MS Sheet 3mm", "RAW-STEEL", "1000", "P01", "300", "KG", "70.25", "INR", "21075.00", "2024-04-16", "100", "7025.00"],
+        ["4500012346", "10", "2024-04-03", "100561", "Apex Packaging Pvt Ltd", "PK-2001", "Carton 5 ply", "PACK", "1000", "P02", "2000", "EA", "18.00", "INR", "36000.00", "2024-04-10", "2000", "36000.00"],
+        ["4500012347", "10", "2024-04-05", "100789", "Kumar Electricals", "MRO-301", "Contactor 32A", "MRO-ELEC", "2000", "P03", "12", "EA", "1450.00", "INR", "17400.00", "2024-04-20", "0", "0.00"],
+        ["4500012348", "10", "2024-04-06", "100234", "Shree Steel Industries", "RM-1003", "MS Rod 12mm", "RAW-STEEL", "2000", "P01", "800", "KG", "64.00", "INR", "51200.00", "2024-04-25", "800", "51200.00"]
+      ]
+    },
+    {
+      "id": "jira-issues-export",
+      "source": "Jira Cloud: Filters > Export CSV (all fields), one row per issue",
+      "expect": "project_management",
+      "confirm": false,
+      "unique": ["Issue key", "Issue id"],
+      "headers": ["Summary", "Issue key", "Issue id", "Issue Type", "Status", "Project key", "Project name", "Priority", "Resolution", "Assignee", "Reporter", "Created", "Updated", "Resolved", "Due Date", "Sprint", "Custom field (Story Points)", "Custom field (Epic Link)", "Labels"],
+      "rows": [
+        ["Login page throws 500 on SSO", "PAY-101", "10101", "Bug", "Done", "PAY", "Payments", "High", "Done", "Priya Nair", "Arjun Mehta", "02/Apr/24 10:14 AM", "05/Apr/24 4:20 PM", "05/Apr/24 4:20 PM", "06/Apr/24", "PAY Sprint 14", "3", "PAY-90", "backend"],
+        ["Add UPI autopay mandate screen", "PAY-102", "10102", "Story", "In Progress", "PAY", "Payments", "Medium", "Unresolved", "Rahul Verma", "Arjun Mehta", "02/Apr/24 11:02 AM", "08/Apr/24 9:00 AM", "", "19/Apr/24", "PAY Sprint 14", "8", "PAY-90", "frontend"],
+        ["Refund webhook retries", "PAY-103", "10103", "Task", "To Do", "PAY", "Payments", "Low", "Unresolved", "", "Sneha Iyer", "03/Apr/24 3:45 PM", "03/Apr/24 3:45 PM", "", "", "PAY Sprint 15", "5", "PAY-91", "backend"],
+        ["Upgrade Node to 20", "PAY-104", "10104", "Task", "Done", "PAY", "Payments", "Medium", "Done", "Priya Nair", "Priya Nair", "04/Apr/24 9:30 AM", "10/Apr/24 6:10 PM", "10/Apr/24 6:10 PM", "12/Apr/24", "PAY Sprint 14", "2", "", "devops"],
+        ["Card tokenisation flaky test", "PAY-105", "10105", "Bug", "Code Review", "PAY", "Payments", "Highest", "Unresolved", "Rahul Verma", "Sneha Iyer", "05/Apr/24 12:00 PM", "09/Apr/24 1:00 PM", "", "11/Apr/24", "PAY Sprint 15", "1", "PAY-91", "qa"]
+      ]
+    },
+    {
       "id": "shopify-orders",
       "source": "Shopify admin: Orders > Export (one row per line item)",
       "expect": "ecommerce",
@@ -85,7 +234,13 @@
         ["RT1102238", "OD330012345678906", "OI41007", "2024-05-08", "2024-05-14", "2024-05-20", "SHR-LIN-BLU-M", "Linen Shirt Blue", "Shirts", "1", "exchange", "SIZE_ISSUE", "Too large", "completed", "0", "Mysuru", "Karnataka", "Ekart", "FMPR0012345681"]
       ]
     },
-    { "id": "demo-ecommerce", "source": "Bundled demo: D2C e-commerce orders (flagship)", "demo": "ecommerce", "expect": "ecommerce", "confirm": false },
+    {
+      "id": "demo-ecommerce",
+      "source": "Bundled demo: D2C e-commerce orders (flagship)",
+      "demo": "ecommerce",
+      "expect": "ecommerce",
+      "confirm": false
+    },
     {
       "id": "shiprocket-shipments",
       "source": "Shiprocket: Shipments export",
@@ -263,7 +418,13 @@
         ["10168", "36", "96.66", "1", "3479.76", "10/28/2003 0:00", "On Hold", "4", "10", "2003", "Vintage Cars", "118", "S10_4757", "Technics Stores Inc.", "Burlingame", "USA", "NA", "Medium"]
       ]
     },
-    { "id": "demo-sales", "source": "Bundled demo: B2B sales invoices", "demo": "sales", "expect": "sales", "confirm": false },
+    {
+      "id": "demo-sales",
+      "source": "Bundled demo: B2B sales invoices",
+      "demo": "sales",
+      "expect": "sales",
+      "confirm": false
+    },
     {
       "id": "google-ads-campaigns",
       "source": "Google Ads: Campaigns report, segmented by day",
@@ -340,7 +501,13 @@
         ["2024-10-03", "LinkedIn", "B2B Gifting", "61230.40", "40120", "690", "118", "12", "196000"]
       ]
     },
-    { "id": "demo-marketing", "source": "Bundled demo: campaign performance", "demo": "marketing", "expect": "marketing", "confirm": false },
+    {
+      "id": "demo-marketing",
+      "source": "Bundled demo: campaign performance",
+      "demo": "marketing",
+      "expect": "marketing",
+      "confirm": false
+    },
     {
       "id": "stripe-subscriptions",
       "source": "Stripe dashboard: Subscriptions export",
@@ -389,7 +556,13 @@
         ["C-1006", "QuickCart", "Growth", "Monthly", "18", "810", "Active", "2024-01-05", "", "No", "Mid-Market", "Singapore"]
       ]
     },
-    { "id": "demo-saas", "source": "Bundled demo: SaaS MRR movements", "demo": "saas", "expect": "saas", "confirm": false },
+    {
+      "id": "demo-saas",
+      "source": "Bundled demo: SaaS MRR movements",
+      "demo": "saas",
+      "expect": "saas",
+      "confirm": false
+    },
     {
       "id": "tally-day-book",
       "source": "Tally ERP: Day Book export (journal lines with split debit and credit, no account classification)",
@@ -452,7 +625,13 @@
         ["2024-05", "Loupe India Pvt Ltd", "Depreciation", "6900", "Depreciation", "Finance", "64000", "64000", "0", "0.0%"]
       ]
     },
-    { "id": "demo-finance", "source": "Bundled demo: P&L ledger vs budget", "demo": "finance", "expect": "finance", "confirm": false },
+    {
+      "id": "demo-finance",
+      "source": "Bundled demo: P&L ledger vs budget",
+      "demo": "finance",
+      "expect": "finance",
+      "confirm": false
+    },
     {
       "id": "ibm-hr-attrition",
       "source": "IBM HR Analytics employee attrition dataset (Kaggle)",
@@ -501,7 +680,13 @@
         ["EMP0106", "Ananya Reddy", "18-10-2022", "15-12-2023", "Customer Support", "Support Associate", "L1", "Hyderabad", "420000", "Female", "Terminated", "Performance", "Rakesh Nair", "Contract"]
       ]
     },
-    { "id": "demo-hr", "source": "Bundled demo: employee roster", "demo": "hr", "expect": "hr", "confirm": false },
+    {
+      "id": "demo-hr",
+      "source": "Bundled demo: employee roster",
+      "demo": "hr",
+      "expect": "hr",
+      "confirm": false
+    },
     {
       "id": "hospital-admissions",
       "source": "Kaggle healthcare dataset: hospital admissions with billing",

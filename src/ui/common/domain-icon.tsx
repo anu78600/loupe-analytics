@@ -28,10 +28,27 @@ import {
   Truck,
   Users,
   Wallet,
+  ClipboardList,
+  Clapperboard,
+  HandHeart,
+  Kanban,
+  Pill,
+  Sprout,
+  UtensilsCrossed,
+  Zap,
   type LucideIcon,
 } from "lucide-react";
 
 const ICONS: Record<string, LucideIcon> = {
+  // The ten industries added in 43.0.
+  "clipboard-list": ClipboardList,
+  kanban: Kanban,
+  clapperboard: Clapperboard,
+  utensils: UtensilsCrossed,
+  zap: Zap,
+  sprout: Sprout,
+  "hand-heart": HandHeart,
+  pill: Pill,
   "shopping-bag": ShoppingBag,
   "shopping-cart": ShoppingBag,
   store: ShoppingBag,

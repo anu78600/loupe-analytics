@@ -25,6 +25,16 @@ import hospitality from "./domains/hospitality.json";
 import telecom from "./domains/telecom.json";
 import insurance from "./domains/insurance.json";
 import support from "./domains/support.json";
+import pharma from "./domains/pharma.json";
+import nonprofit from "./domains/nonprofit.json";
+import productAnalytics from "./domains/product_analytics.json";
+import media from "./domains/media.json";
+import foodService from "./domains/food_service.json";
+import travel from "./domains/travel.json";
+import procurement from "./domains/procurement.json";
+import projectManagement from "./domains/project_management.json";
+import energyUtilities from "./domains/energy_utilities.json";
+import agriculture from "./domains/agriculture.json";
 
 const RAW: unknown[] = [
   ecommerce,
@@ -43,6 +53,16 @@ const RAW: unknown[] = [
   telecom,
   insurance,
   support,
+  pharma,
+  nonprofit,
+  productAnalytics,
+  media,
+  foodService,
+  travel,
+  procurement,
+  projectManagement,
+  energyUtilities,
+  agriculture,
 ];
 
 function load(): DomainDef[] {

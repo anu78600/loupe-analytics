@@ -343,10 +343,12 @@ function buildExpr(e: Expr, conds: string[], b: Builder): string {
     const having = e.having
       ? `${simpleOrThrow(e.having.expr, ctx)} ${CMP_SYMBOL[e.having.cmp]} ${num(e.having.value)}`
       : "";
-    const pSel = period ? `${periodExpr(period)} AS period, ` : "";
-    const pGroup = period ? "period, " : "";
+    // Inside the subquery the bucket is named loupe_period: a user column called "Period" would
+    // otherwise be what GROUP BY period binds to, and the KPI would be grouped by it instead.
+    const pSel = period ? `${periodExpr(period)} AS loupe_period, ` : "";
+    const pGroup = period ? "loupe_period, " : "";
     b.ctes.push(
-      `${leaf} AS (\n  SELECT ${period ? "period, " : ""}${REDUCE_SQL[e.reduce]?.("v")} AS v\n  FROM (\n    SELECT ${pSel}${ent} AS entity, ${inner} AS v\n    FROM ${ctx.table}\n    WHERE ${ent} IS NOT NULL${where ? ` AND ${where}` : ""}\n    GROUP BY ${pGroup}${ent}${having ? `\n    HAVING ${having}` : ""}\n  ) per_entity${period ? "\n  GROUP BY period" : ""}\n)`,
+      `${leaf} AS (\n  SELECT ${period ? "loupe_period AS period, " : ""}${REDUCE_SQL[e.reduce]?.("v")} AS v\n  FROM (\n    SELECT ${pSel}${ent} AS entity, ${inner} AS v\n    FROM ${ctx.table}\n    WHERE ${ent} IS NOT NULL${where ? ` AND ${where}` : ""}\n    GROUP BY ${pGroup}${ent}${having ? `\n    HAVING ${having}` : ""}\n  ) per_entity${period ? "\n  GROUP BY loupe_period" : ""}\n)`,
     );
     // A period with no qualifying entity has no leaf row: a sum or count of no entities is 0.
     return leafValue(leaf, e, ctx);
@@ -376,7 +378,7 @@ function buildExpr(e: Expr, conds: string[], b: Builder): string {
   const innerSql = simpleOrThrow(e.expr, ctx, ["snap_rank = 1"]);
   const partition = period ? `PARTITION BY ${periodExpr(period)} ` : "";
   b.ctes.push(
-    `${leaf} AS (\n  -- Semi-additive: only rows on the latest date${period ? " of each period" : ""}\n  SELECT ${period ? "period, " : ""}${innerSql} AS v\n  FROM (\n    SELECT *, ${period ? `${periodExpr(period)} AS period, ` : ""}DENSE_RANK() OVER (${partition}ORDER BY ${snap} DESC NULLS LAST) AS snap_rank\n    FROM ${ctx.table}\n    WHERE ${snap} IS NOT NULL${where ? ` AND ${where}` : ""}\n  ) latest${period ? "\n  GROUP BY period" : ""}\n)`,
+    `${leaf} AS (\n  -- Semi-additive: only rows on the latest date${period ? " of each period" : ""}\n  SELECT ${period ? "loupe_period AS period, " : ""}${innerSql} AS v\n  FROM (\n    SELECT *, ${period ? `${periodExpr(period)} AS loupe_period, ` : ""}DENSE_RANK() OVER (${partition}ORDER BY ${snap} DESC NULLS LAST) AS snap_rank\n    FROM ${ctx.table}\n    WHERE ${snap} IS NOT NULL${where ? ` AND ${where}` : ""}\n  ) latest${period ? "\n  GROUP BY loupe_period" : ""}\n)`,
   );
   return leafValue(leaf, e, ctx);
 }

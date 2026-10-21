@@ -32,18 +32,8 @@ import { DOMAINS } from "@/registry";
 import { detect, expandFixture, parseCsv, seedOf, type LayoutSpec } from "./helpers/layouts";
 
 /** Industries the benchmark already describes but the registry doesn't have yet. */
-export const PLANNED_INDUSTRIES = [
-  "procurement",
-  "product_analytics",
-  "project_management",
-  "food_service",
-  "energy_utilities",
-  "nonprofit",
-  "travel",
-  "pharma",
-  "media",
-  "agriculture",
-] as const;
+// Empty since 43.0 added all ten; list an id here when the corpus describes an industry the registry lacks.
+export const PLANNED_INDUSTRIES: readonly string[] = [];
 
 /**
  * The measured floors: raise them as detection improves, never lower them.
@@ -54,18 +44,20 @@ export const PLANNED_INDUSTRIES = [
  *   roles 99.1%, confidently wrong 2.3%.
  * - 42.0, analysts' tables and shop sales: industry 80.0%, held out 80.6%,
  *   shape 89.6%, roles 99.1%, confidently wrong 0.8%.
+ * - 43.0, ten more industries (252 of 265 layouts now covered): industry
+ *   81.7%, held out 80.8%, shape 89.6%, roles 99.1%, confidently wrong 0.4%.
  */
 const FLOORS = {
   /** Industry ranked first, every layout of a covered industry. */
-  industry: 0.8,
+  industry: 0.817,
   /** The same, held-out layouts only. */
-  industryHoldout: 0.806,
+  industryHoldout: 0.807,
   /** Shape picked, where a layout names one and its industry was found. */
   shape: 0.896,
   /** Labelled columns given the expected role. */
   roles: 0.99,
   /** At most this share of layouts with a wrong industry presented without asking. */
-  confidentlyWrong: 0.008,
+  confidentlyWrong: 0.004,
 };
 
 const ROWS = 240;
@@ -287,7 +279,9 @@ function buildReport(): { summary: string; markdown: string } {
     "",
     head,
     row("Covered industries", metrics(results.filter((r) => r.scope === "covered"))),
-    row("Planned industries", metrics(results.filter((r) => r.scope === "planned"))),
+    ...(results.some((r) => r.scope === "planned")
+      ? [row("Planned industries", metrics(results.filter((r) => r.scope === "planned")))]
+      : []),
     row("No industry", metrics(results.filter((r) => r.scope === "none"))),
     "",
     "## Industry misses (tuning split)",

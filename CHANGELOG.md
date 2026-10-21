@@ -7,10 +7,29 @@ Every step of building Loupe, newest first. Generated from `src/content/changelo
 
 ## Up next
 
-1. **Ten more industries.** Procurement, product analytics, project management, restaurants, energy and utilities, non-profit, travel and airlines, pharma, media and agriculture, each with KPIs proven against DuckDB.
-2. **Better dashboards for any other table.** When no industry fits: a plain description of what the table is, KPIs that suit its shape, and better automatic charts (trend, top N, distribution, correlation, cross-tab).
-3. **Learns from your corrections, in your browser.** A corrected industry, column mapping or role is remembered and reused for the next file with similar headers; teach Loupe your own words; see, export, share or clear what it has learned. Nothing leaves the browser.
-4. **Workbooks with several tables.** Excel files with orders, customers and products on separate sheets: the keys between them found and the tables joined, and a star model in the Power BI export.
+1. **Better dashboards for any other table.** When no industry fits: a plain description of what the table is, KPIs that suit its shape, and better automatic charts (trend, top N, distribution, correlation, cross-tab).
+2. **Learns from your corrections, in your browser.** A corrected industry, column mapping or role is remembered and reused for the next file with similar headers; teach Loupe your own words; see, export, share or clear what it has learned. Nothing leaves the browser.
+3. **Workbooks with several tables.** Excel files with orders, customers and products on separate sheets: the keys between them found and the tables joined, and a star model in the Power BI export.
+
+## 43.0 · Ten more industries
+
+*Major · 2026-10-21 06:32 UTC · Feature, Data, Fix*
+
+Loupe now knows 26 industries, up from 16. It recognises procurement, product analytics, project management, restaurants, energy and utilities, agriculture, non-profit, pharma, travel and media files, with their own KPIs (each proven against DuckDB), charts and glossary entries. On the real-world benchmark the right industry is named first for 81.7% of tables, and a wrong one is presented without asking for 0.4%.
+
+- Procurement: purchase orders, goods receipts, supplier masters and spend, with total spend, average PO value, supplier on-time delivery, lead time and rejection rate.
+- Project management: Jira, Asana and Monday issues, timesheets and project portfolios, with done %, lead time, sprint velocity, billable hours %, cost overrun and on-time completion.
+- Product analytics: event logs, sessions, user tables and app metrics from Mixpanel, Amplitude, GA4 and similar, with active users, average DAU, D1/D7/D30 retention, bounce rate and conversion.
+- Media: viewing logs, content performance, catalogues and box office, with watch time, completion rate, net subscribers and gross-to-budget multiple.
+- Restaurants: bills, item lines and Swiggy/Zomato delivery orders, with average bill value, covers, spend per cover, items per bill and platform commission.
+- Travel and airlines: bookings and PNRs, flight operations, route traffic and passenger surveys, with on-time performance, average delay, load factor and cancellation rate.
+- Energy and utilities: meter readings, billing and collection, outages and plant generation, with collection efficiency, AT&C loss, SAIDI/SAIFI and capacity factor.
+- Agriculture: crop statistics, mandi arrivals and prices, farmer procurement and dairy collection, with yield, weighted modal price, fat and SNF.
+- Non-profit: donations, donors, grants and volunteers, with total raised, average gift, recurring share, lapsed donors and grant success rate.
+- Pharma: pharmacy sales, medical-rep field calls, stock batches with expiry, and clinical-trial adverse events.
+- Fixed: when a file had a column called “Period”, some SQL grouped by that column instead of by month.
+
+Files: `src/registry/domains/`, `src/registry/index.ts`, `src/ui/common/domain-icon.tsx`, `src/engine/compile/sql.ts`, `tests/fixtures/detection.json`, `tests/benchmark.test.ts`
 
 ## 42.0 · Understands the tables analysts build
 
