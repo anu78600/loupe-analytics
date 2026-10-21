@@ -10,6 +10,11 @@
  * its stage throws ("No dataset loaded." / "No analysis context."), and
  * adopting a new dataset drops the context, so configure() must run again.
  *
+ * Words the user taught Loupe (detect/learned.ts) come with each file read
+ * and are kept for that dataset: detection and every configure() match
+ * fields against a copy of the domains that lists them. A demo gets none, so
+ * it always reads the same way.
+ *
  * One instance per worker (workers/engine.worker.ts). Every return value is
  * structured-cloned across the Comlink boundary, so results stay small; the
  * dataset itself only leaves as export bytes, which the worker transfers
@@ -52,6 +57,7 @@ import { detectDomain, type DetectionResult } from "@/engine/detect/detect";
 import { assignFields, matchableColumns } from "@/engine/detect/match";
 import { buildMapping, type Mapping } from "@/engine/detect/mapping";
 import { buildGenericDomain, GENERIC_ID } from "@/engine/detect/generic";
+import { withLearnedSynonyms, type LearnedSynonym } from "@/engine/detect/learned";
 import { grainLabel } from "@/engine/profile/structure";
 import { friendly, friendlyStart } from "@/engine/core/labels";
 import { resolveKpis, selectKpis, type KpiResolutionMap, type KpiSelection } from "@/engine/kpi/resolve";
@@ -575,6 +581,8 @@ export class Session {
   /** The data check, tied to the dataset and checked columns it was built for. */
   private checker: { ds: Dataset; profile: DatasetProfile; check: DataCheck } | null = null;
   private ctx: ActiveContext | null = null;
+  /** Words the user taught (extra field synonyms), set with the file they came with; none for a demo. */
+  private learned: readonly LearnedSynonym[] = [];
   // Results of the most recent dashboard computation. insights() reads these
   // instead of recomputing, and chartCsv() exports exactly what is on screen.
   // adopt() and configure() reset all three, so nothing outlives its dataset or mapping.
@@ -608,13 +616,16 @@ export class Session {
    * Parses a user file and, when it loads, profiles and detects it. Returns
    * "needs-sheet" or "needs-decision" without touching the current dataset.
    * `onProgress` is a Comlink proxy when called from the UI, so every call is
-   * a cross-thread message.
+   * a cross-thread message. `learned` are the words the user taught Loupe:
+   * detection and every later configure() of this dataset read them as
+   * extra field synonyms.
    */
   async ingest(
     file: Blob,
     fileName: string,
     opts: IngestOptions,
     onProgress?: (p: IngestProgress) => void,
+    learned: readonly LearnedSynonym[] = [],
   ): Promise<LoadResult> {
     // Ask before guessing: a multi-sheet workbook needs an explicit sheet choice.
     if (fileKindFromName(fileName) === "workbook" && !opts.sheet) {
@@ -624,6 +635,7 @@ export class Session {
     const t0 = performance.now();
     const out = await ingestFile(file, fileName, opts, onProgress);
     if (out.status === "needs-decision") return out;
+    this.learned = [...learned];
     return this.adopt(out.dataset, out.report, { parse: Math.round(performance.now() - t0) }, onProgress);
   }
 
@@ -631,6 +643,8 @@ export class Session {
   ingestSample(id: string): LoadResult {
     const t0 = performance.now();
     const ds = generateSample(id);
+    // A demo is deterministic: no learned words.
+    this.learned = [];
     const info = SAMPLES.find((s) => s.id === id);
     const report: ParseReport = {
       fileName: ds.source.fileName,
@@ -680,7 +694,7 @@ export class Session {
     timings.health = Math.round(performance.now() - t2);
     const t3 = performance.now();
     onProgress?.({ phase: "detecting", loadedBytes: 0, totalBytes: 0, rows: ds.rowCount });
-    const detection = detectDomain(DOMAIN_LIST(), this.baseProfile);
+    const detection = detectDomain(withLearnedSynonyms(DOMAIN_LIST(), this.learned), this.baseProfile);
     timings.detect = Math.round(performance.now() - t3);
     const replaced = replacedColumns(ds, this.baseProfile, this.health);
     const domains = DOMAIN_LIST().map((d) => ({
@@ -819,7 +833,8 @@ export class Session {
       domain = g.domain;
       mapping = g.mapping;
     } else {
-      domain = getDomain(req.domainId) as DomainDef;
+      // With the words the user taught, so a learned header fills its field here as on Detect.
+      domain = withLearnedSynonyms([getDomain(req.domainId) as DomainDef], this.learned)[0] as DomainDef;
       mapping = buildMapping(domain, active, assignFields(domain, matchableColumns(active)), {
         fields: req.mappingOverrides,
         classes: req.classOverrides,

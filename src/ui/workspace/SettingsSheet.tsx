@@ -3,8 +3,10 @@
 /**
  * Settings sheet: theme and chart colours, number format (Indian lakh/crore or international)
  * and currency, whether Loupe may add columns (ask first or never), the
- * privacy statement, the opt-in AI layer (API key kept in
- * memory only, model choice) and a link to the version log.
+ * privacy statement, what Loupe has learned from the user's corrections
+ * (LearnedSettings: list, delete, clear, export and import), the opt-in AI
+ * layer (API key kept in memory only, model choice) and a link to the
+ * version log.
  */
 import * as React from "react";
 import Link from "next/link";
@@ -22,6 +24,7 @@ import { Badge } from "@/ui/primitives/badge";
 import { Eyebrow, Separator } from "@/ui/primitives/misc";
 import { ThemeToggle } from "@/ui/common/theme-toggle";
 import { ChartColoursButton } from "./ChartColours";
+import { LearnedSettings } from "./LearnedSettings";
 
 /** `version` comes from the server page, so the client bundle doesn't carry the whole version log. */
 export function SettingsSheet({
@@ -144,7 +147,13 @@ export function SettingsSheet({
               account. The page&apos;s Content-Security-Policy only allows network requests to the DuckDB
               download (when you verify SQL) and, if you switch it on, the Anthropic API.
             </p>
+            <p className="text-sm leading-relaxed text-fg-muted">
+              What Loupe learns from your corrections stays in this browser too, as header names and your
+              choices only, never cell values.
+            </p>
           </section>
+          <Separator />
+          <LearnedSettings />
           <Separator />
           <section className="grid gap-3">
             <div className="flex items-center justify-between gap-3">

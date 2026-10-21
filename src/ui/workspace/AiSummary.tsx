@@ -277,7 +277,7 @@ export function AiDomainCheck() {
               size="xs"
               variant="secondary"
               className="mt-2"
-              onClick={() => useWorkspace.setState({ domainId: opinion.domainId, subDomainId: null })}
+              onClick={() => useWorkspace.getState().chooseIndustry(opinion.domainId, null)}
             >
               Use this industry
             </Button>

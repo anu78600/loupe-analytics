@@ -27,6 +27,11 @@
  * A column fills one field at most, so mapping a column that another field
  * uses takes it from that field: the column list says which field each
  * column fills, and the change says which field lost its column, with Undo.
+ *
+ * Corrections made here are learned for files like this one
+ * (store/learned.ts); LearnedNotice says when a learned rule is in use. A
+ * column mapped by hand offers "Remember '<header>' as <field> for future
+ * files" (RememberWord), which teaches detection the header as a synonym.
  */
 import * as React from "react";
 import { toast } from "sonner";
@@ -43,9 +48,11 @@ import {
   RotateCcw,
   Rows3,
   Tags,
+  BookMarked,
 } from "lucide-react";
 import { stepNumber, useWorkspace } from "@/store/workspace";
 import { useSettings } from "@/store/settings";
+import { useLearned } from "@/store/learned";
 import { formatCount } from "@/engine/core/format";
 import { formatRange } from "@/engine/core/dates";
 import { friendly } from "@/engine/core/labels";
@@ -77,6 +84,7 @@ import { HealthPanel, ParseReportPanel } from "./HealthPanel";
 import { HiddenColumns } from "./HiddenColumns";
 import { KpiNameInput } from "./customise/KpiNameInput";
 import { useFileColumns } from "./useFileColumns";
+import { LearnedNotice } from "./LearnedNotice";
 
 const ROLES: SemanticRole[] = [
   "identifier",
@@ -238,6 +246,7 @@ export function MapStep() {
           </Button>
         </div>
       </div>
+      <LearnedNotice className="mb-5" />
       <HiddenColumns />
       <Tabs value={tab} onValueChange={setTab}>
         {/* Six tabs are wider than a phone: they scroll sideways here instead of widening the page. */}
@@ -534,6 +543,8 @@ function FieldMapping() {
   const context = useWorkspace((s) => s.context);
   const setOverride = useWorkspace((s) => s.setMappingOverride);
   const overrides = useWorkspace((s) => s.mappingOverrides);
+  // Learning is on for the user's own files, not demos.
+  const learning = useWorkspace((s) => Boolean(s.learned));
   const usage = useColumnUsage();
   if (!context) return null;
   const labelOf = (fieldId: string) => context.domain.fields.find((f) => f.id === fieldId)?.label ?? fieldId;
@@ -549,10 +560,8 @@ function FieldMapping() {
       {
         action: {
           label: "Undo",
-          onClick: () => {
-            useWorkspace.setState({ mappingOverrides: before });
-            void useWorkspace.getState().reconfigure();
-          },
+          // Through the store's action, so what Loupe learned from the change is taken back too.
+          onClick: () => useWorkspace.getState().setMappingOverrides(before),
         },
       },
     );
@@ -588,6 +597,8 @@ function FieldMapping() {
               const col = context.mapping.fields[f.id];
               const score = context.mapping.scores[f.id];
               const manual = f.id in overrides;
+              // A column the user chose by hand for a registry field (those list synonyms) can be taught.
+              const teachable = Boolean(manual && col && f.synonyms.length > 0 && learning);
               return (
                 <tr key={f.id} className="hover:bg-surface-2/60">
                   <td className="border-b border-border px-4 py-2.5 align-top">
@@ -628,6 +639,14 @@ function FieldMapping() {
                         })}
                       </SelectContent>
                     </Select>
+                    {teachable && col ? (
+                      <RememberWord
+                        domainId={context.domain.id}
+                        fieldId={f.id}
+                        label={f.label}
+                        column={col}
+                      />
+                    ) : null}
                   </td>
                   <td className="border-b border-border px-4 py-2.5 align-top">
                     {col ? (
@@ -665,6 +684,53 @@ function FieldMapping() {
         </table>
       </div>
     </Card>
+  );
+}
+
+/**
+ * "Remember 'Net Amt' as Net revenue for future files": teaches Loupe the
+ * header as a synonym of the field, so later files are mapped (and their
+ * industry detected) with it. Once taught, says so instead.
+ */
+function RememberWord({
+  domainId,
+  fieldId,
+  label,
+  column,
+}: {
+  domainId: string;
+  fieldId: string;
+  label: string;
+  column: string;
+}) {
+  const remember = useWorkspace((s) => s.rememberWord);
+  const known = useLearned((s) =>
+    s.words.some(
+      (w) =>
+        w.domainId === domainId && w.fieldId === fieldId && w.header.toLowerCase() === column.toLowerCase(),
+    ),
+  );
+  if (known)
+    return (
+      <p className="mt-1.5 flex w-64 items-start gap-1.5 text-xs text-fg-subtle">
+        <Check className="mt-0.5 size-3.5 shrink-0 text-success" aria-hidden />
+        Loupe knows “{column}” as {label} in future files.
+      </p>
+    );
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        remember(fieldId, column);
+        toast.success(`Loupe will read “${column}” as ${label} in future files`, {
+          description: "Stored in this browser only. Settings › What Loupe has learned lists it.",
+        });
+      }}
+      className="mt-1.5 flex w-64 items-start gap-1.5 rounded-control text-left text-xs text-accent underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-accent-ring focus-visible:outline-none"
+    >
+      <BookMarked className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+      Remember “{column}” as {label} for future files
+    </button>
   );
 }
 

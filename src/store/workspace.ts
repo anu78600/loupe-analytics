@@ -27,6 +27,15 @@
  * Loads run one at a time and each has a token: progress messages travel on
  * their own channel and can arrive after the result, so once a load has
  * settled (or a newer one has started) its messages change nothing.
+ *
+ * Corrections are learned (store/learned.ts). When the user's own file is
+ * adopted, a rule learned on a file like it sets the industry, mappings,
+ * value meanings, roles and hidden columns the way the user's overrides
+ * would (`learned.applied`, shown with Undo and Forget); each correction the
+ * user makes afterwards (chooseIndustry then confirming, setSubDomain, the
+ * override setters, setColumnsHidden) is recorded in that file's rule, in
+ * the action itself. Demos neither learn nor apply anything, so they always
+ * read the same way. Words taught in Check & map go with every file read.
  */
 import { create } from "zustand";
 import { Comlink, engine, resetEngine } from "@/lib/engine-client";
@@ -53,6 +62,26 @@ import type { IngestProgress } from "@/engine/parse";
 import type { LoupeConfig } from "@/engine/export/config";
 import { defaultPreset, presetRange, type DatePreset } from "@/engine/core/periods";
 import { useSettings } from "./settings";
+import {
+  applyRule,
+  appliedNothing,
+  findRule,
+  headerKey,
+  isEmptyRule,
+  newRule,
+  signatureOf,
+  synonymsOf,
+  teachClass,
+  teachField,
+  teachHidden,
+  teachIndustry,
+  teachRole,
+  undoApplied,
+  useLearned,
+  type AppliedRule,
+  type LearnedChoices,
+  type LearnedRule,
+} from "./learned";
 
 export type Step =
   "upload" | "detect" | "map" | "customise" | "dashboard" | "questions" | "insights" | "export";
@@ -125,6 +154,19 @@ export interface Widget {
   title?: string;
 }
 
+/**
+ * Learning for the loaded file (store/learned.ts): its header signature and
+ * columns, the rule its corrections go to, and what a rule set on it.
+ */
+export interface LearnedFile {
+  signature: string[];
+  columns: string[];
+  /** The rule this file teaches: the one found when it loaded, else the one its first correction made. */
+  ruleId: string | null;
+  /** What a learned rule set on this file, while it is in use; null when none applied, or after Undo or Forget. */
+  applied: AppliedRule | null;
+}
+
 /** Progress overlay state while loading, profiling or configuring. */
 export interface LoadingState {
   phase: IngestProgress["phase"] | "generating" | "configuring";
@@ -177,6 +219,10 @@ interface WorkspaceState {
   replaced: ReplacedColumn[];
   /** The user waved the suggestions away; they come back with the next file. */
   replacedDismissed: boolean;
+  /** Learning from corrections on the loaded file; null for a demo or before a file is loaded. */
+  learned: LearnedFile | null;
+  /** The user picked an industry or data shape on Detect (chooseIndustry); confirming it learns it. */
+  industryChosen: boolean;
   /** Result of the last configure(); null until a domain is confirmed. */
   context: ContextResult | null;
   configuring: boolean;
@@ -290,10 +336,17 @@ interface WorkspaceState {
    * in `error`; it does not throw.
    */
   confirmDomain: (domainId: string, subDomainId?: string | null, opts?: { goTo?: Step }) => Promise<void>;
+  /**
+   * The industry and data shape picked on Detect (null shape = Auto). Like
+   * any choice there, it is built when the user moves on, and learned then.
+   */
+  chooseIndustry: (domainId: string, subDomainId: string | null) => void;
   /** Refreshes only when `period` (the trend grain) is part of the patch. */
   setBusiness: (patch: Partial<BusinessContext>) => void;
   // setMappingOverride, setClassOverride, setRoleOverride, renameKpi and setSubDomain each trigger reconfigure().
   setMappingOverride: (fieldId: string, column: string | null) => void;
+  /** Replaces every mapping override at once (the "Undo" of a mapping change) and reconfigures. */
+  setMappingOverrides: (overrides: Record<string, string | null>) => void;
   setClassOverride: (key: string, values: string[]) => void;
   /** null removes the override, restoring the detected role. */
   setRoleOverride: (column: string, role: SemanticRole | null, additivity?: Additivity) => void;
@@ -303,6 +356,15 @@ interface WorkspaceState {
    */
   setColumnsHidden: (columns: string[], hidden: boolean) => void;
   dismissReplaced: () => void;
+  /** Takes back what a learned rule set on this file (the user's later changes stay); the rule is kept. */
+  undoLearned: () => void;
+  /** Takes back what a learned rule set on this file and deletes the rule. */
+  forgetLearned: () => void;
+  /**
+   * Teaches Loupe that this column's header means this field, for every
+   * future file ("Remember 'Net Amt' as Net revenue"). Registry fields only.
+   */
+  rememberWord: (fieldId: string, column: string) => void;
   renameKpi: (id: string, name: string) => void;
   /** null or a non-finite value clears the target. No refresh: targets are display-only. */
   setTarget: (id: string, value: number | null) => void;
@@ -403,6 +465,8 @@ function initialData(): WorkspaceData {
     hiddenColumns: [],
     replaced: [],
     replacedDismissed: false,
+    learned: null,
+    industryChosen: false,
     context: null,
     configuring: false,
     mode: "analyst",
@@ -543,6 +607,25 @@ function shapeFor(
   return subDomainId ?? s.detection?.shapes[domainId] ?? null;
 }
 
+/** The industry and shape detection picks for a file: the best match from 35% confidence, else Generic. */
+function detectedChoice(detection: DetectionResult): { domainId: string; subDomainId: string | null } {
+  const top = detection.candidates[0];
+  return {
+    domainId: top && top.confidence >= 35 ? top.domainId : "generic",
+    subDomainId: top?.subDomain.id ?? null,
+  };
+}
+
+/** The choices a learned rule can set, as the store holds them. */
+const choicesOf = (s: WorkspaceState): LearnedChoices => ({
+  domainId: s.domainId,
+  subDomainId: s.subDomainId,
+  mappingOverrides: s.mappingOverrides,
+  classOverrides: s.classOverrides,
+  roleOverrides: s.roleOverrides,
+  hiddenColumns: s.hiddenColumns,
+});
+
 /**
  * True when the industry or data shape chosen on Detect is not the one the
  * current analysis was built for (the choice is only remembered until the
@@ -571,6 +654,40 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
     answerSeq++;
   };
 
+  // Records a correction in the loaded file's rule (store/learned.ts): the rule found when it loaded,
+  // else a new one for its signature. A rule left with nothing in it is deleted. Nothing for a demo.
+  // Runs inside the store's actions (event handlers), so the time is the moment of the correction.
+  const teach = (change: (r: LearnedRule) => LearnedRule) => {
+    const l = get().learned;
+    if (!l) return;
+    const now = Date.now();
+    const store = useLearned.getState();
+    const base = store.rules.find((r) => r.id === l.ruleId) ?? newRule(l.signature, l.columns, now);
+    // The rule follows the latest file it was taught on.
+    const next = { ...change({ ...base, signature: l.signature, columns: l.columns }), updatedAt: now };
+    store.saveRule(next);
+    set({ learned: { ...l, ruleId: isEmptyRule(next) ? null : next.id } });
+  };
+
+  // Learns the industry and data shape the user chose (`shape` null = Auto): nothing when it is what
+  // detection picked, so a later file follows detection again.
+  const teachChoice = (domainId: string, shape: string | null) => {
+    const s = get();
+    const ctx = s.context;
+    if (!s.learned || !s.detection || !ctx || ctx.domain.id !== domainId) return;
+    const detected = detectedChoice(s.detection);
+    const autoShape =
+      s.detection.shapes[domainId] ?? (domainId === detected.domainId ? detected.subDomainId : null);
+    const same = domainId === detected.domainId && (shape === null || shape === autoShape);
+    const shapeName = shape ? (ctx.domain.subDomains.find((x) => x.id === shape)?.name ?? null) : null;
+    teach((r) =>
+      teachIndustry(
+        r,
+        same ? null : { domainId, subDomainId: shape, name: ctx.domain.name, shape: shapeName },
+      ),
+    );
+  };
+
   // Applies a LoadResult: either parks the file for a user decision, or
   // adopts the new dataset and resets everything derived from the old one,
   // the business context included (its period would otherwise set the trend
@@ -591,7 +708,38 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
     useSettings
       .getState()
       .applyAutoNumberLocale(useSettings.getState().currencyOverride ?? res.profile.currency.code);
-    const top = res.detection.candidates[0];
+    // What detection picks, then what a rule learned on a file like this one sets on top (the user's
+    // own file only: a demo always reads the same way). A new file has no choices of its own yet.
+    let choices: LearnedChoices = {
+      ...detectedChoice(res.detection),
+      mappingOverrides: {},
+      classOverrides: {},
+      roleOverrides: {},
+      hiddenColumns: [],
+    };
+    let learned: LearnedFile | null = null;
+    if (!res.summary.isDemo) {
+      const learnedStore = useLearned.getState();
+      const now = Date.now();
+      const columns = res.profile.columns.map((c) => c.name);
+      const signature = signatureOf(res.profile.columns);
+      const found = findRule(learnedStore.rules, signature);
+      let applied: AppliedRule | null = null;
+      if (found) {
+        const out = applyRule(
+          found.rule,
+          { columns, domains: [...res.domains.map((d) => d.id), "generic"] },
+          choices,
+        );
+        if (!appliedNothing(out.applied)) {
+          choices = out.choices;
+          applied = out.applied;
+          learnedStore.ruleUsed(found.rule.id, now);
+        }
+      }
+      learnedStore.wordsSeen(new Set(res.profile.columns.map((c) => headerKey(c.tokens))), now);
+      learned = { signature, columns, ruleId: found?.rule.id ?? null, applied };
+    }
     set({
       loading: null,
       error: null,
@@ -604,17 +752,19 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
       detection: res.detection,
       domains: res.domains,
       timings: res.timings,
-      domainId: top && top.confidence >= 35 ? top.domainId : "generic",
-      subDomainId: top?.subDomain.id ?? null,
+      domainId: choices.domainId,
+      subDomainId: choices.subDomainId,
       business: {},
-      mappingOverrides: {},
-      classOverrides: {},
-      roleOverrides: {},
+      mappingOverrides: choices.mappingOverrides,
+      classOverrides: choices.classOverrides,
+      roleOverrides: choices.roleOverrides,
       kpiRenames: {},
       kpiTargets: {},
-      hiddenColumns: [],
+      hiddenColumns: choices.hiddenColumns,
       replaced: res.replaced,
       replacedDismissed: false,
+      learned,
+      industryChosen: false,
       context: null,
       charts: {},
       kpiBatch: null,
@@ -748,7 +898,9 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
         const merged: IngestOptions = { preferDayFirst: assumeDayFirst(), ...opts };
         const progress = progressFor(file.name, token);
         try {
-          const res = await engine().ingest(file, merged, progress.callback);
+          // The words the user taught Loupe go with the file: detection and mapping read them as synonyms.
+          const words = synonymsOf(useLearned.getState().words);
+          const res = await engine().ingest(file, merged, progress.callback, words);
           progress.close();
           if (token !== loadSeq) return;
           if (res.status === "ok") set({ lastFile: file, lastOptions: merged });
@@ -988,11 +1140,18 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
               }),
         });
         get().refresh();
+        // An industry or shape the user picked on Detect is learned once it is built.
+        if (get().industryChosen) {
+          set({ industryChosen: false });
+          teachChoice(domainId, subDomainId ?? null);
+        }
         if (opts?.goTo === "insights") void get().loadInsights();
       } catch {
         set({ loading: null });
       }
     },
+
+    chooseIndustry: (domainId, subDomainId) => set({ domainId, subDomainId, industryChosen: true }),
 
     setBusiness: (patch) => {
       set((s) => ({ business: { ...s.business, ...patch } }));
@@ -1001,11 +1160,39 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
 
     setMappingOverride: (fieldId, column) => {
       set((s) => ({ mappingOverrides: { ...s.mappingOverrides, [fieldId]: column } }));
+      const ctx = get().context;
+      const label = ctx?.domain.fields.find((f) => f.id === fieldId)?.label;
+      if (ctx && label) teach((r) => teachField(r, ctx.domain.id, fieldId, { column, label }));
+      void get().reconfigure();
+    },
+
+    setMappingOverrides: (overrides) => {
+      const before = get().mappingOverrides;
+      set({ mappingOverrides: { ...overrides } });
+      const ctx = get().context;
+      if (ctx) {
+        // Only the fields that changed: one set back to automatic is forgotten.
+        const ids = new Set([...Object.keys(before), ...Object.keys(overrides)]);
+        for (const id of ids) {
+          const was = Object.hasOwn(before, id) ? before[id] : undefined;
+          const now = Object.hasOwn(overrides, id) ? overrides[id] : undefined;
+          if (was === now) continue;
+          const label = ctx.domain.fields.find((f) => f.id === id)?.label ?? id;
+          teach((r) => teachField(r, ctx.domain.id, id, now === undefined ? null : { column: now, label }));
+        }
+      }
       void get().reconfigure();
     },
 
     setClassOverride: (key, values) => {
       set((s) => ({ classOverrides: { ...s.classOverrides, [key]: values } }));
+      const ctx = get().context;
+      if (ctx) {
+        const [fieldId = "", classId = ""] = key.split(".");
+        const field = ctx.domain.fields.find((f) => f.id === fieldId)?.label ?? fieldId;
+        const cls = ctx.domain.valueClasses[fieldId]?.find((c) => c.id === classId)?.label ?? classId;
+        teach((r) => teachClass(r, ctx.domain.id, key, { values, label: `${field} · ${cls}` }));
+      }
       void get().reconfigure();
     },
 
@@ -1016,6 +1203,9 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
         else next[column] = { role, additivity };
         return { roleOverrides: next };
       });
+      teach((r) =>
+        teachRole(r, column, role === null ? null : { role, ...(additivity ? { additivity } : {}) }),
+      );
       void get().reconfigure();
     },
 
@@ -1031,10 +1221,52 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
           crossFilter: s.crossFilter && gone.has(s.crossFilter.column) ? null : s.crossFilter,
         };
       });
+      teach((r) => teachHidden(r, columns, hidden));
       void get().reconfigure();
     },
 
     dismissReplaced: () => set({ replacedDismissed: true }),
+
+    undoLearned: () => {
+      const s = get();
+      const l = s.learned;
+      if (!l?.applied || !s.detection) return;
+      // Not a correction: the rule stays as it was, for the next file like this one.
+      set({
+        ...undoApplied(choicesOf(s), l.applied, detectedChoice(s.detection)),
+        learned: { ...l, applied: null },
+      });
+      // Built at once when an analysis exists; on Detect before that, the choice is built on Next as usual.
+      if (s.context) void get().reconfigure();
+    },
+
+    forgetLearned: () => {
+      const l = get().learned;
+      if (!l) return;
+      get().undoLearned();
+      if (l.ruleId) useLearned.getState().removeRule(l.ruleId);
+      set((s) => ({ learned: s.learned && { ...s.learned, ruleId: null, applied: null } }));
+    },
+
+    rememberWord: (fieldId, column) => {
+      const s = get();
+      const ctx = s.context;
+      const field = ctx?.domain.fields.find((f) => f.id === fieldId);
+      const col = s.profile?.columns.find((c) => c.name === column);
+      // Registry fields list synonyms; the ones Loupe adds for the user's KPIs and columns list none.
+      if (!ctx || !field || !field.synonyms.length || !col || ctx.domain.generic) return;
+      useLearned.getState().addWord(
+        {
+          domainId: ctx.domain.id,
+          domainName: ctx.domain.name,
+          fieldId,
+          fieldLabel: field.label,
+          header: column,
+          key: headerKey(col.tokens),
+        },
+        Date.now(),
+      );
+    },
 
     renameKpi: (id, name) => {
       set((s) => ({ kpiRenames: { ...s.kpiRenames, [id]: name } }));
@@ -1051,6 +1283,8 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
 
     setSubDomain: (id) => {
       set({ subDomainId: id });
+      const ctx = get().context;
+      if (ctx) teachChoice(ctx.domain.id, id);
       void get().reconfigure();
     },
 
@@ -1469,7 +1703,9 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
       else if (SUPPORTED_CURRENCIES.includes(cfg.settings.currency))
         settings.setCurrencyOverride(cfg.settings.currency);
       const business = cfg.business ?? {};
-      set({
+      set((s) => ({
+        // The saved settings replace whatever a learned rule set, so its notice goes.
+        learned: s.learned && { ...s.learned, applied: null },
         mappingOverrides: cfg.mappingOverrides,
         classOverrides: cfg.classOverrides,
         roleOverrides: cfg.roleOverrides,
@@ -1486,7 +1722,7 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
           notes: business.notes,
         },
         customCharts: cfg.dashboard.customCharts as ChartSpec[],
-      });
+      }));
       await configureNow(cfg.domainId, cfg.subDomainId ?? null);
       // Saved widgets come first in their saved order with their saved
       // overrides; charts the config does not mention keep defaults, at the end.

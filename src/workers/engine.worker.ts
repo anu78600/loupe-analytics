@@ -21,6 +21,7 @@ import {
   type QuestionRequest,
 } from "@/engine/session";
 import type { IngestOptions } from "@/engine/core/types";
+import type { LearnedSynonym } from "@/engine/detect/learned";
 import type { IngestProgress } from "@/engine/parse";
 import type { ChartData } from "@/engine/charts/types";
 import type { KpiBatch } from "@/engine/kpi/compute";
@@ -37,8 +38,13 @@ const nextTick = () => new Promise<void>((r) => setTimeout(r, 0));
 const api = {
   listSheets: (file: Blob) => session.listSheets(file),
 
-  ingest: (file: File, opts: IngestOptions, onProgress?: (p: IngestProgress) => void) =>
-    session.ingest(file, file.name, opts, onProgress),
+  /** `learned`: the words the user taught Loupe (extra field synonyms), kept with this dataset. */
+  ingest: (
+    file: File,
+    opts: IngestOptions,
+    onProgress?: (p: IngestProgress) => void,
+    learned?: LearnedSynonym[],
+  ) => session.ingest(file, file.name, opts, onProgress, learned),
 
   ingestSample: (id: string) => session.ingestSample(id),
 

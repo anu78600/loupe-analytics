@@ -17,6 +17,10 @@
  * notice: a tall "Metric | Month | Value" table whose metrics can become
  * columns of their own. The worker plans that pivot first, so the dialog
  * names exactly the columns it adds and the ones it leaves out.
+ *
+ * Choosing an industry or shape goes through chooseIndustry, so it is learned
+ * for files like this one once built; when a learned rule set the choice,
+ * LearnedNotice says so, with Undo and Forget.
  */
 import { FileIdentity } from "./FileIdentity";
 import * as React from "react";
@@ -72,6 +76,7 @@ import { unpivotColumnNames } from "@/engine/parse/unpivot";
 import { ROLE_LABEL } from "@/engine/profile/types";
 import { AiDomainCheck } from "./AiSummary";
 import { DateOrderSwitch } from "./HealthPanel";
+import { LearnedNotice } from "./LearnedNotice";
 
 const MODELS = ["D2C brand", "Marketplace seller", "B2B", "Subscription", "Retail / offline", "Other"];
 const GOALS = [
@@ -196,6 +201,7 @@ export function DetectStep() {
           {grain}
         </p>
       </div>
+      <LearnedNotice className="mb-5" />
       {sampling ? (
         <div
           role="note"
@@ -285,6 +291,7 @@ function DetectionCard() {
   const detection = useWorkspace((s) => s.detection);
   const domains = useWorkspace((s) => s.domains);
   const domainId = useWorkspace((s) => s.domainId);
+  const chooseIndustry = useWorkspace((s) => s.chooseIndustry);
   const top = detection?.candidates[0];
   if (!detection || !top) return null;
   const shown = detection.candidates.find((c) => c.domainId === domainId);
@@ -320,9 +327,7 @@ function DetectionCard() {
                   <button
                     type="button"
                     aria-pressed={c.domainId === domainId}
-                    onClick={() =>
-                      useWorkspace.setState({ domainId: c.domainId, subDomainId: c.subDomain.id })
-                    }
+                    onClick={() => chooseIndustry(c.domainId, c.subDomain.id)}
                     className={cn(
                       "w-full rounded-control border px-3 py-2 text-left transition-colors",
                       c.domainId === domainId
@@ -481,6 +486,7 @@ function BusinessForm() {
   const business = useWorkspace((s) => s.business);
   const setBusiness = useWorkspace((s) => s.setBusiness);
   const confirm = useWorkspace((s) => s.confirmDomain);
+  const chooseIndustry = useWorkspace((s) => s.chooseIndustry);
   const loading = useWorkspace((s) => s.loading);
   const currencyOverride = useSettings((s) => s.currencyOverride);
   const setCurrency = useSettings((s) => s.setCurrencyOverride);
@@ -511,10 +517,7 @@ function BusinessForm() {
       >
         <div className="grid gap-1.5">
           <Label htmlFor="industry">Industry</Label>
-          <Select
-            value={domainId ?? undefined}
-            onValueChange={(v) => useWorkspace.setState({ domainId: v, subDomainId: null })}
-          >
+          <Select value={domainId ?? undefined} onValueChange={(v) => chooseIndustry(v, null)}>
             <SelectTrigger id="industry">
               <SelectValue placeholder="Choose an industry" />
             </SelectTrigger>
@@ -542,7 +545,7 @@ function BusinessForm() {
             <Label htmlFor="shape">Data shape</Label>
             <Select
               value={subDomainId ?? "auto"}
-              onValueChange={(v) => useWorkspace.setState({ subDomainId: v === "auto" ? null : v })}
+              onValueChange={(v) => domainId && chooseIndustry(domainId, v === "auto" ? null : v)}
             >
               <SelectTrigger id="shape">
                 <SelectValue />

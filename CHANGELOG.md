@@ -7,8 +7,21 @@ Every step of building Loupe, newest first. Generated from `src/content/changelo
 
 ## Up next
 
-1. **Learns from your corrections, in your browser.** A corrected industry, column mapping or role is remembered and reused for the next file with similar headers; teach Loupe your own words; see, export, share or clear what it has learned. Nothing leaves the browser.
-2. **Workbooks with several tables.** Excel files with orders, customers and products on separate sheets: the keys between them found and the tables joined, and a star model in the Power BI export.
+1. **Workbooks with several tables.** Excel files with orders, customers and products on separate sheets: the keys between them found and the tables joined, and a star model in the Power BI export.
+
+## 45.0 · Learns from your corrections, in your browser
+
+*Major · 2026-10-21 08:06 UTC · Feature, Security, Tests*
+
+When you correct Loupe (the industry, a column's role, a field mapping, a value meaning, or a hidden column), it remembers this in your browser and applies it to the next file with the same or very similar columns, saying so, with Undo. Only column names and your choices are stored; nothing leaves the browser.
+
+- A file like one you've corrected before opens with your earlier choices applied, and a notice on Detect and Check & map lists them: “Using what you told Loupe last time for a file like this: industry Sales & Retail, 1 field mapping”. Undo takes them back for this file; Forget deletes the rule.
+- Your choices in the current session always win. A remembered choice that names a column the new file doesn't have is skipped.
+- Teach Loupe a word: when you map a column to a field by hand, you can choose “Remember ‘header’ as field for future files”. Taught words also help Loupe recognise the industry of later files.
+- Settings has a new “What Loupe has learned” section. List, delete or clear what it has learned, or export it as a file and import it on another computer, so a team can share it. Malformed files are refused.
+- Stored only in this browser, as column names and choices, never your data values. Demo datasets neither learn nor use anything, so they always look the same.
+
+Files: `src/store/learned.ts`, `src/engine/detect/learned.ts`, `src/ui/workspace/LearnedNotice.tsx`, `src/ui/workspace/LearnedSettings.tsx`, `src/store/workspace.ts`, `src/engine/session.ts`, `src/workers/engine.worker.ts`, `src/ui/workspace/DetectStep.tsx`, `src/ui/workspace/MapStep.tsx`, `src/ui/workspace/SettingsSheet.tsx`, `tests/learned-rules.test.ts`
 
 ## 44.0 · Better dashboards for any other table
 
