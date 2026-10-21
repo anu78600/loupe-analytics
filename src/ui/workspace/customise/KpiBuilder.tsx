@@ -9,7 +9,8 @@
  * into the headline row or the supporting tiles, or stays off the dashboard
  * until placed. Saved through the store (saveCustomKpi), so the engine
  * builds it like any template KPI (engine/kpi/userKpis.ts), SQL and DAX
- * included.
+ * included. Explanations are one short line or an ⓘ, with the full text
+ * behind hover, a long press or the ⓘ (ui/primitives/reveal.tsx).
  */
 import * as React from "react";
 import { Divide } from "lucide-react";
@@ -37,6 +38,7 @@ import {
 import { Input, Label } from "@/ui/primitives/input";
 import { Segmented } from "@/ui/primitives/segmented";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/ui/primitives/select";
+import { Brief, InfoTip } from "@/ui/primitives/reveal";
 
 const AGGS: Array<{ id: UserAgg; label: string }> = [
   { id: "sum", label: "Total" },
@@ -139,7 +141,12 @@ export function KpiBuilder({
         <DialogHeader>
           <DialogTitle>{editing ? `Edit “${editing.name}”` : "Build a KPI"}</DialogTitle>
           <DialogDescription>
-            Computed from your columns over the rows in view, with its SQL and DAX written for you.
+            <Brief
+              label="About building a KPI"
+              full="Computed from your columns over the rows in view, with its SQL and DAX written for you."
+            >
+              From your columns, SQL and DAX included.
+            </Brief>
           </DialogDescription>
         </DialogHeader>
         <Segmented<"one" | "ratio">
@@ -160,8 +167,10 @@ export function KpiBuilder({
         {ratio ? (
           <>
             <p className="flex items-center gap-2 text-xs text-fg-subtle">
-              <Divide className="size-3.5" aria-hidden /> divided by (a ratio of totals, not an average of row
-              ratios)
+              <Divide className="size-3.5" aria-hidden /> divided by
+              <InfoTip label="How the ratio is worked out">
+                A ratio of totals, not an average of row ratios.
+              </InfoTip>
             </p>
             <AggregatePicker label="Bottom: what to divide by" value={per} onChange={setPer} cols={cols} />
           </>

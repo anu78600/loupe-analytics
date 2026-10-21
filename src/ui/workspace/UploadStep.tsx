@@ -8,6 +8,8 @@
  * large-file dialog (systematic sample, first rows or a column subset) and an
  * inline error banner. Parsing happens in the worker; nothing is uploaded.
  * One file is read at a time: dropping several says which one was opened.
+ * Explanations are one short line, with the full text behind hover, a long
+ * press or the ⓘ (ui/primitives/reveal.tsx).
  */
 import * as React from "react";
 import { AnimatePresence, motion } from "framer-motion";
@@ -42,6 +44,15 @@ import {
   DialogTitle,
 } from "@/ui/primitives/dialog";
 import { LoupeMark } from "@/ui/brand/logo";
+import { Brief, ClampText, InfoTip } from "@/ui/primitives/reveal";
+
+/** What the reader handles by itself: badges under the drop zone, an ⓘ on a phone. */
+const FEATURES = [
+  "Auto delimiter & encoding",
+  "DD/MM vs MM/DD resolved",
+  "Related sheets joined",
+  "₹ lakh/crore aware",
+];
 
 /** Every extension the parser reads (engine/parse fileKindFromName). */
 const ACCEPT = ".csv,.tsv,.txt,.psv,.tab,.xlsx,.xlsm,.xlsb,.xls,.ods,.json,.ndjson,.jsonl";
@@ -76,8 +87,12 @@ export function UploadStep() {
                 Bring a clean table.
               </h1>
               <p className="mt-3 text-md leading-relaxed text-fg-muted">
-                Loupe profiles every column, recognises the industry and builds a dashboard with correct KPIs,
-                SQL and DAX, all inside this browser tab.
+                <Brief
+                  label="About Loupe"
+                  full="Loupe profiles every column, recognises the industry and builds a dashboard with correct KPIs, SQL and DAX, all inside this browser tab."
+                >
+                  A full dashboard, built inside this browser tab.
+                </Brief>
               </p>
             </div>
             {error ? <ErrorBanner message={error} /> : null}
@@ -85,8 +100,12 @@ export function UploadStep() {
             <SampleGrid />
             <p className="mt-8 flex items-start gap-2 text-sm text-fg-muted">
               <Lock className="mt-1 size-3.5 shrink-0 text-accent" aria-hidden />
-              Your data never leaves your browser. Files are read locally; the page&apos;s security policy
-              blocks sending them anywhere.
+              <Brief
+                label="About privacy"
+                full="Your data never leaves your browser. Files are read locally; the page's security policy blocks sending them anywhere."
+              >
+                Your data never leaves your browser.
+              </Brief>
             </p>
           </motion.div>
         )}
@@ -186,7 +205,11 @@ function Dropzone() {
             {over ? "Release to analyse" : "Drop a file to begin"}
           </p>
           <p className="mt-1.5 text-ui text-fg-muted">
-            CSV, TSV, Excel (.xlsx, .xls) or JSON · up to ~2 million rows
+            CSV, TSV, Excel (.xlsx, .xls) or JSON · up to ~2 million rows{" "}
+            {/* On a phone the feature badges below sit behind this ⓘ. */}
+            <InfoTip label="What Loupe handles for you" className="sm:hidden">
+              {FEATURES.join(" · ")}
+            </InfoTip>
           </p>
           <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
             <Button variant="primary" size="lg" onClick={() => input.current?.click()}>
@@ -206,13 +229,8 @@ function Dropzone() {
               e.target.value = "";
             }}
           />
-          <div className="mt-8 flex flex-wrap justify-center gap-1.5">
-            {[
-              "Auto delimiter & encoding",
-              "DD/MM vs MM/DD resolved",
-              "Related sheets joined",
-              "₹ lakh/crore aware",
-            ].map((t) => (
+          <div className="mt-8 flex flex-wrap justify-center gap-1.5 max-sm:hidden">
+            {FEATURES.map((t) => (
               <Badge key={t} tone="outline">
                 {t}
               </Badge>
@@ -237,7 +255,12 @@ function SampleGrid() {
             No file handy? Explore with demo data
           </h2>
           <p className="mt-0.5 text-ui text-fg-muted">
-            Generated deterministically, so every number is real for the demo, and clearly labelled as demo.
+            <Brief
+              label="About the demo data"
+              full="Generated deterministically, so every number is real for the demo, and clearly labelled as demo."
+            >
+              Real numbers, clearly labelled as demo.
+            </Brief>
           </p>
         </div>
       </div>
@@ -319,7 +342,7 @@ function LoadingPanel() {
         </motion.div>
       </div>
       {loading.fileName ? (
-        <p className="mb-2 max-w-full truncate text-xs text-fg-subtle">{loading.fileName}</p>
+        <ClampText className="mb-2 max-w-full text-xs text-fg-subtle">{loading.fileName}</ClampText>
       ) : null}
       <p className="text-lg font-medium text-fg">{loading.title}</p>
       {loading.detail ? <p className="mt-1.5 text-ui text-fg-muted">{loading.detail}</p> : null}
@@ -331,8 +354,13 @@ function LoadingPanel() {
         )}
       </div>
       <p className="mt-6 flex items-start gap-1.5 text-xs text-fg-subtle">
-        <Lock className="mt-[3px] size-3 shrink-0" aria-hidden /> Processing locally in a background thread;
-        the page stays responsive.
+        <Lock className="mt-[3px] size-3 shrink-0" aria-hidden />
+        <Brief
+          label="About processing"
+          full="Processing locally in a background thread; the page stays responsive."
+        >
+          Processing locally, in the background.
+        </Brief>
       </p>
     </div>
   );
@@ -463,8 +491,12 @@ function LargeFileDialogBody({ a }: { a: LargeFileAssessment }) {
           </div>
         ) : null}
         <p className="text-xs text-fg-subtle">
-          Prefer the full file? Split it by date (e.g. one file per year) and analyse each part, or load it
-          into DuckDB/BigQuery and export a summary table.
+          <Brief
+            label="About loading the full file"
+            full="Prefer the full file? Split it by date (e.g. one file per year) and analyse each part, or load it into DuckDB/BigQuery and export a summary table."
+          >
+            Prefer the full file? Split it first.
+          </Brief>
         </p>
         <DialogFooter>
           <Button variant="ghost" onClick={() => void resolve(null)}>

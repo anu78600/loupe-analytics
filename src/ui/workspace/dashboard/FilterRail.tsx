@@ -14,6 +14,10 @@
  * below its button in the phone's Filters sheet, so it is never off-screen.
  * Filters are named by their column, as the chips and every other filter
  * description name them ("Channel: Amazon").
+ *
+ * Hints are behind an ⓘ (a roster's period hint) and long values are
+ * clamped to one line, opening in full on hover, focus or a long press
+ * (ui/primitives/reveal.tsx).
  */
 import * as React from "react";
 import { Check, ChevronDown, Filter as FilterIcon, Gauge, Search, X } from "lucide-react";
@@ -30,6 +34,7 @@ import { Button } from "@/ui/primitives/button";
 import { Checkbox, Eyebrow, Separator } from "@/ui/primitives/misc";
 import { Input, Label } from "@/ui/primitives/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/ui/primitives/popover";
+import { ClampText, InfoTip } from "@/ui/primitives/reveal";
 import { DomainIcon } from "@/ui/common/domain-icon";
 import { friendly } from "@/engine/core/labels";
 
@@ -75,9 +80,10 @@ export function FilterRail({ onOpenHealth }: { onOpenHealth: () => void }) {
           </div>
         </div>
         {/* The file's name heads the dashboard; here, its size and what one row is. */}
-        <p className="tabular mt-3 text-xs text-fg-subtle" title={summary.fileName}>
+        {/* Two lines (it wraps, so it never widens the rail), the rest on hover, focus or a long press. */}
+        <ClampText lines={2} className="tabular mt-3 text-xs text-fg-subtle">
           {formatCount(summary.rowCount, locale)} rows in the file · {context.grainLabel.toLowerCase()}
-        </p>
+        </ClampText>
         {summary.isDemo ? (
           <Badge tone="accent" className="mt-2">
             Demo data
@@ -149,18 +155,21 @@ function DateFilter() {
   };
   return (
     <div>
-      <div className="flex items-baseline justify-between gap-2">
-        <Eyebrow>Period</Eyebrow>
+      <div className="flex items-center justify-between gap-2">
+        <span className="flex items-center gap-1.5">
+          <Eyebrow>Period</Eyebrow>
+          {/* What a period means when each row is a person or thing, behind its ⓘ. */}
+          {isRosterView(context) ? (
+            <InfoTip label="About the period filter">
+              Each row is {/^[aeiou]/i.test(grainOf(context)) ? "an" : "a"} {grainOf(context)}: a date range
+              keeps those whose {friendly(context.dateColumn)} falls in it.
+            </InfoTip>
+          ) : null}
+        </span>
         <span className="truncate text-xs text-fg-subtle" title={`Dates from ${context.dateColumn}`}>
           by {friendly(context.dateColumn)}
         </span>
       </div>
-      {isRosterView(context) ? (
-        <p className="mt-1 text-xs leading-relaxed text-fg-subtle">
-          Each row is {/^[aeiou]/i.test(grainOf(context)) ? "an" : "a"} {grainOf(context)}: a date range keeps
-          those whose {friendly(context.dateColumn)} falls in it.
-        </p>
-      ) : null}
       <div className="mt-2 grid gap-0.5" role="radiogroup" aria-label="Date range">
         {offered.map((p, i) => {
           const r = presetRange(p, bounds);

@@ -12,6 +12,8 @@
  * Each column header can hide its column from the analysis. Hidden columns
  * stay in the grid as the user's reference, dimmed, and the check leaves
  * them out: their problems neither mark cells nor count as rows to check.
+ * The note naming them is one short line with the full sentence behind its
+ * ⓘ (ui/primitives/reveal.tsx).
  */
 import { FileIdentity } from "./FileIdentity";
 import * as React from "react";
@@ -24,6 +26,7 @@ import { useWorkspace } from "@/store/workspace";
 import { useSettings } from "@/store/settings";
 import { Badge } from "@/ui/primitives/badge";
 import { Skeleton } from "@/ui/primitives/misc";
+import { Brief } from "@/ui/primitives/reveal";
 import { VirtualGrid } from "./VirtualGrid";
 import { useFileColumns } from "./useFileColumns";
 
@@ -118,14 +121,17 @@ export function DataCheckPanel() {
           {hiddenNames.length ? (
             <p className="mt-2 flex items-start gap-2 text-ui text-fg-muted">
               <EyeOff className="mt-0.5 size-4 shrink-0 text-fg-subtle" aria-hidden />
-              <span>
-                {hiddenNames.length === 1 ? "1 hidden column is" : `${hiddenNames.length} hidden columns are`}{" "}
-                not checked: nothing computes from{" "}
-                {hiddenNames.length === 1
-                  ? `"${hiddenNames[0]}"`
-                  : hiddenNames.map((h) => `"${h}"`).join(", ")}
-                .
-              </span>
+              <Brief
+                label="About the hidden columns"
+                full={`${hiddenNames.length === 1 ? "1 hidden column is" : `${hiddenNames.length} hidden columns are`} not checked: nothing computes from ${
+                  hiddenNames.length === 1
+                    ? `"${hiddenNames[0]}"`
+                    : hiddenNames.map((h) => `"${h}"`).join(", ")
+                }.`}
+              >
+                {hiddenNames.length === 1 ? "1 hidden column" : `${hiddenNames.length} hidden columns`} not
+                checked.
+              </Brief>
             </p>
           ) : null}
           {toCheck ? (

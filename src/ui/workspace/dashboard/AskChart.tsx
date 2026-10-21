@@ -22,6 +22,10 @@
  * With `edit`, the panel opens on that chart's picks: an added chart is
  * replaced in place, a recommended one gets a changed copy (the original
  * stays).
+ *
+ * Explanations are one short line, and a preview's reason and notes are
+ * clamped, with the full text behind hover, a long press or the ⓘ
+ * (ui/primitives/reveal.tsx); warnings stay in view.
  */
 import * as React from "react";
 import { CornerDownLeft, MessageSquarePlus, Plus, Sparkles, Trash2, X } from "lucide-react";
@@ -55,6 +59,7 @@ import { Button } from "@/ui/primitives/button";
 import { Badge } from "@/ui/primitives/badge";
 import { Input, Label } from "@/ui/primitives/input";
 import { Skeleton } from "@/ui/primitives/misc";
+import { Brief, ClampText, InfoTip } from "@/ui/primitives/reveal";
 import { Switch } from "@/ui/primitives/switch";
 import {
   Select,
@@ -120,8 +125,12 @@ export function AskChartDialog({
         <DialogHeader>
           <DialogTitle>Your charts</DialogTitle>
           <DialogDescription>
-            Ask for a chart in your own words, or choose which charts to keep. Everything is computed from
-            your columns.
+            <Brief
+              label="About your charts"
+              full="Ask for a chart in your own words, or choose which charts to keep. Everything is computed from your columns."
+            >
+              Ask in your own words, or choose what to keep.
+            </Brief>
           </DialogDescription>
         </DialogHeader>
         {/* Keyed on open so each opening starts from the requested tab with a fresh question. */}
@@ -280,9 +289,9 @@ function AskPanel({ onDone, edit }: { onDone: () => void; edit?: ChartSpec }) {
             </p>
           ) : null}
           {reading.notes.map((n) => (
-            <p key={n} className="text-xs leading-relaxed text-fg-muted">
+            <ClampText key={n} lines={2} className="text-xs leading-relaxed text-fg-muted">
               {n}
-            </p>
+            </ClampText>
           ))}
         </div>
       ) : null}
@@ -293,9 +302,9 @@ function AskPanel({ onDone, edit }: { onDone: () => void; edit?: ChartSpec }) {
         <div className="grid gap-3">
           {design.error ? <p className="text-sm text-fg-muted">{design.error}</p> : null}
           {design.notes.map((n) => (
-            <p key={n} className="text-xs leading-relaxed text-fg-muted">
+            <ClampText key={n} lines={2} className="text-xs leading-relaxed text-fg-muted">
               {n}
-            </p>
+            </ClampText>
           ))}
           <div className="grid gap-3 md:grid-cols-2">
             {design.charts.map((c) => (
@@ -631,11 +640,16 @@ export function ChartPreview({ spec, why, filters }: { spec: ChartSpec; why?: st
       ) : (
         <DataTable spec={spec} data={data} fmt={fmt} maxRows={8} className="max-h-52 overflow-auto" />
       )}
-      {why ? <p className="text-xs leading-relaxed text-fg-muted">{why}</p> : null}
+      {/* The reason and the notes, two lines and one, the rest behind hover, a long press or focus. */}
+      {why ? (
+        <ClampText key={why} lines={2} className="text-xs leading-relaxed text-fg-muted">
+          {why}
+        </ClampText>
+      ) : null}
       {data?.notes.map((n) => (
-        <p key={n} className="text-xs leading-relaxed text-fg-subtle">
+        <ClampText key={n} className="min-w-0 text-xs leading-relaxed text-fg-subtle">
           {n}
-        </p>
+        </ClampText>
       ))}
     </figure>
   );
@@ -658,9 +672,11 @@ function ManageCharts() {
   const shown = rows.filter((r) => !r.w.hidden).length;
   return (
     <div className="grid gap-3">
-      <p className="text-sm text-fg-muted">
-        {shown} of {rows.length} charts shown. Hidden charts keep their settings; switch them back on any
-        time.
+      <p className="flex items-center gap-1.5 text-sm text-fg-muted">
+        {shown} of {rows.length} charts shown.
+        <InfoTip label="About hidden charts">
+          Hidden charts keep their settings; switch them back on any time.
+        </InfoTip>
       </p>
       <ul className="max-h-[52vh] divide-y divide-border overflow-y-auto rounded-card border border-border">
         {rows.map(({ w, spec }) => {

@@ -6,7 +6,9 @@
  * privacy statement, what Loupe has learned from the user's corrections
  * (LearnedSettings: list, delete, clear, export and import), the opt-in AI
  * layer (API key kept in memory only, model choice) and a link to the
- * version log.
+ * version log. Each explanation is one short line, or an ⓘ beside its
+ * label, with the full text behind hover, a long press or the ⓘ
+ * (ui/primitives/reveal.tsx).
  */
 import * as React from "react";
 import Link from "next/link";
@@ -23,6 +25,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/ui/primitives/badge";
 import { Eyebrow, Separator } from "@/ui/primitives/misc";
 import { ThemeToggle } from "@/ui/common/theme-toggle";
+import { Brief, InfoTip } from "@/ui/primitives/reveal";
 import { ChartColoursButton } from "./ChartColours";
 import { LearnedSettings } from "./LearnedSettings";
 
@@ -62,11 +65,11 @@ export function SettingsSheet({
               <ThemeToggle />
             </div>
             <div className="flex items-center justify-between gap-3">
-              <div>
+              <div className="flex items-center gap-1.5">
                 <Label>Chart colours</Label>
-                <p className="mt-0.5 text-xs text-fg-subtle">
+                <InfoTip label="About chart colours">
                   Presets, your own colours, or a gradient from one colour.
-                </p>
+                </InfoTip>
               </div>
               {/* The colours panel is a sheet of its own, so Settings closes first. */}
               <ChartColoursButton label="Change" onOpen={() => onOpenChange(false)} />
@@ -74,7 +77,14 @@ export function SettingsSheet({
           </section>
           <Separator />
           <section className="grid gap-3">
-            <Eyebrow>Numbers & currency</Eyebrow>
+            <div className="flex items-center gap-1.5">
+              <Eyebrow>Numbers & currency</Eyebrow>
+              {auto ? (
+                <InfoTip label="About the automatic number format">
+                  Auto uses lakh/crore for rupee data and K/M/B otherwise.
+                </InfoTip>
+              ) : null}
+            </div>
             <Segmented<NumberLocale | "auto">
               ariaLabel="Number format"
               value={auto ? "auto" : locale}
@@ -90,11 +100,6 @@ export function SettingsSheet({
                 { value: "INTL", label: "International" },
               ]}
             />
-            {auto ? (
-              <p className="text-xs text-fg-subtle">
-                Auto uses lakh/crore for rupee data and K/M/B otherwise.
-              </p>
-            ) : null}
             <p className="font-figures text-ui text-fg-muted">
               {formatValue(12345678.9, "currency", { locale, currency: sampleCurrency })} ·{" "}
               {formatValue(12345678.9, "currency", { locale, currency: sampleCurrency, compact: true })}
@@ -131,11 +136,16 @@ export function SettingsSheet({
               ]}
             />
             <p className="text-sm leading-relaxed text-fg-subtle">
-              The dashboard uses only the columns in your file. Unpivoting a wide layout and a few Power BI
-              helpers would add one;{" "}
-              {newColumns === "ask"
-                ? "Loupe shows exactly which and waits for your yes."
-                : "with “Never add”, Loupe builds without them and adds nothing."}
+              <Brief
+                label="About new columns"
+                full={`The dashboard uses only the columns in your file. Unpivoting a wide layout and a few Power BI helpers would add one; ${
+                  newColumns === "ask"
+                    ? "Loupe shows exactly which and waits for your yes."
+                    : "with “Never add”, Loupe builds without them and adds nothing."
+                }`}
+              >
+                {newColumns === "ask" ? "Loupe asks before adding any column." : "Loupe never adds a column."}
+              </Brief>
             </p>
           </section>
           <Separator />
@@ -143,13 +153,24 @@ export function SettingsSheet({
             <Eyebrow>Privacy</Eyebrow>
             <p className="flex gap-2 text-sm leading-relaxed text-fg-muted">
               <ShieldCheck className="mt-0.5 size-4 shrink-0 text-success" aria-hidden />
-              Files are parsed and analysed in a background thread of this tab. There is no server and no
-              account. The page&apos;s Content-Security-Policy only allows network requests to the DuckDB
-              download (when you verify SQL) and, if you switch it on, the Anthropic API.
-            </p>
-            <p className="text-sm leading-relaxed text-fg-muted">
-              What Loupe learns from your corrections stays in this browser too, as header names and your
-              choices only, never cell values.
+              <Brief
+                label="About privacy"
+                full={
+                  <>
+                    <span className="block">
+                      Files are parsed and analysed in a background thread of this tab. There is no server and
+                      no account. The page&apos;s Content-Security-Policy only allows network requests to the
+                      DuckDB download (when you verify SQL) and, if you switch it on, the Anthropic API.
+                    </span>
+                    <span className="mt-1.5 block">
+                      What Loupe learns from your corrections stays in this browser too, as header names and
+                      your choices only, never cell values.
+                    </span>
+                  </>
+                }
+              >
+                No server, no account: it all stays in this tab.
+              </Brief>
             </p>
           </section>
           <Separator />
@@ -168,9 +189,12 @@ export function SettingsSheet({
               />
             </div>
             <p className="text-sm leading-relaxed text-fg-muted">
-              Adds a second opinion on the industry and an executive summary written from the computed
-              insights. Everything else works without it. Each request shows you the exact payload first; it
-              contains schema, aggregates and a few masked rows, never your dataset.
+              <Brief
+                label="About the AI layer"
+                full="Adds a second opinion on the industry and an executive summary written from the computed insights. Everything else works without it. Each request shows you the exact payload first; it contains schema, aggregates and a few masked rows, never your dataset."
+              >
+                Industry check and summary; you approve each payload.
+              </Brief>
             </p>
             {ai.enabled ? (
               <div className="grid gap-3 rounded-card border border-border bg-surface-2 p-4">
@@ -188,8 +212,13 @@ export function SettingsSheet({
                     onChange={(e) => setAi({ apiKey: e.target.value.trim() })}
                   />
                   <p className="flex items-start gap-1.5 text-xs text-fg-subtle">
-                    <Lock className="mt-0.5 size-3 shrink-0" aria-hidden /> Kept in memory for this tab only;
-                    never saved or sent anywhere except api.anthropic.com.
+                    <Lock className="mt-0.5 size-3 shrink-0" aria-hidden />
+                    <Brief
+                      label="About your API key"
+                      full="Kept in memory for this tab only; never saved or sent anywhere except api.anthropic.com."
+                    >
+                      Kept in memory for this tab only.
+                    </Brief>
                   </p>
                 </div>
                 <div className="grid gap-1.5">
@@ -209,17 +238,24 @@ export function SettingsSheet({
                     </SelectContent>
                   </Select>
                 </div>
-                <p className="text-xs leading-relaxed text-fg-subtle">
-                  <Badge tone="outline">Refusal fallback on</Badge> Opus and Sonnet requests opt into
-                  server-side refusal fallback, so a declined request can be completed by a fallback model
-                  instead of failing.
+                <p className="flex items-center gap-1.5 text-xs leading-relaxed text-fg-subtle">
+                  <Badge tone="outline">Refusal fallback on</Badge>
+                  <InfoTip label="About refusal fallback">
+                    Opus and Sonnet requests opt into server-side refusal fallback, so a declined request can
+                    be completed by a fallback model instead of failing.
+                  </InfoTip>
                 </p>
               </div>
             ) : null}
           </section>
           <Separator />
           <section className="grid gap-2">
-            <Eyebrow>About</Eyebrow>
+            <div className="flex items-center gap-1.5">
+              <Eyebrow>About</Eyebrow>
+              <InfoTip label="About the version log">
+                Every step of building Loupe, as major and minor versions.
+              </InfoTip>
+            </div>
             <Link
               href="/changelog"
               className="flex items-center justify-between gap-3 rounded-card border border-border bg-surface-2 px-4 py-3 text-ui transition-colors hover:border-border-accent"
@@ -229,9 +265,6 @@ export function SettingsSheet({
               </span>
               <span className="font-figures text-fg-subtle">v{version}</span>
             </Link>
-            <p className="text-xs text-fg-subtle">
-              Every step of building Loupe, as major and minor versions.
-            </p>
           </section>
         </div>
       </SheetContent>

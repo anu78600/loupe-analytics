@@ -10,6 +10,11 @@
  * lets them keep or remove any chart (AskChart.tsx); the line saying how
  * many of the file's columns are used; and the "Not shown" panel, which
  * lists every KPI or chart that could not be computed and what it needs.
+ *
+ * Little text on screen: on a phone the header's secondary facts (data to,
+ * columns used) sit behind an ⓘ, what each section is for is behind the ⓘ
+ * beside its title, and long reasons are clamped, with the full text behind
+ * hover, a long press or the ⓘ (ui/primitives/reveal.tsx).
  */
 import { FileIdentity } from "../FileIdentity";
 import * as React from "react";
@@ -35,6 +40,7 @@ import { Badge } from "@/ui/primitives/badge";
 import { Segmented } from "@/ui/primitives/segmented";
 import { Sheet, SheetContent } from "@/ui/primitives/sheet";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/ui/primitives/dialog";
+import { Brief, ClampText, InfoTip } from "@/ui/primitives/reveal";
 
 import { useColumnUsage } from "../useColumnUsage";
 import { AskChartButton } from "./AskChart";
@@ -128,17 +134,23 @@ function FullDashboard() {
             </h1>
             <div className="mt-2 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-fg-subtle">
               {/* With no industry, what the table is ("Daily readings of 4 measures at 49 locations, …"). */}
+              {/* One line; the whole description on hover, focus or a long press. */}
               {context.domain.generic ? (
-                <span className="text-fg-muted">{context.domain.description}</span>
+                <ClampText key={context.domain.description} className="max-w-full min-w-0 text-fg-muted">
+                  {context.domain.description}
+                </ClampText>
               ) : null}
               {summary ? <FileIdentity summary={summary} size="sm" className="max-w-full" /> : null}
-              {/* The period in view, and how recent the data is, as a report's header states them. */}
+              {/* The period in view, and how recent the data is, as a report's header states them (on a
+                  phone, how recent is behind the ⓘ at the end of the line). */}
               {period ? (
                 <span className="tabular inline-flex items-center gap-1.5">
                   <CalendarRange className="size-3.5" aria-hidden />
                   {preset !== "custom" && preset !== "all" ? `${PRESET_LABEL[preset]}: ` : ""}
                   {period}
-                  {context.dateBounds ? ` · data to ${formatDay(context.dateBounds.max)}` : ""}
+                  {context.dateBounds ? (
+                    <span className="hidden sm:inline">{` · data to ${formatDay(context.dateBounds.max)}`}</span>
+                  ) : null}
                 </span>
               ) : null}
               <span className="tabular inline-flex items-center gap-1.5" aria-live="polite">
@@ -152,12 +164,27 @@ function FullDashboard() {
                     : ""}
               </span>
               {usage ? (
-                <span className="inline-flex items-center gap-1.5">
+                <span className="hidden items-center gap-1.5 sm:inline-flex">
                   <Columns3 className="size-3.5" aria-hidden />
                   {usage.used} of {usage.total} columns used
                   {usage.hidden ? ` · ${usage.hidden} hidden by you` : ""}
                   {usage.derived ? " · unpivot columns added" : ""}
                 </span>
+              ) : null}
+              {/* On a phone the secondary facts above are here. */}
+              {context.dateBounds || usage ? (
+                <InfoTip label="More about this data" className="sm:hidden">
+                  {context.dateBounds ? (
+                    <span className="block">Data to {formatDay(context.dateBounds.max)}</span>
+                  ) : null}
+                  {usage ? (
+                    <span className="block">
+                      {usage.used} of {usage.total} columns used
+                      {usage.hidden ? ` · ${usage.hidden} hidden by you` : ""}
+                      {usage.derived ? " · unpivot columns added" : ""}
+                    </span>
+                  ) : null}
+                </InfoTip>
               ) : null}
             </div>
           </div>
@@ -210,11 +237,14 @@ function FullDashboard() {
           const foldable = sec.id === "columns" && visible.length > 0;
           return (
             <section key={sec.id} className="mt-10" aria-labelledby={`sec-${sec.id}`}>
-              {/* A title and a hairline; what the section is for is in its tooltip, not more text to read. */}
-              <div className="mb-3 flex items-center gap-3" title={sec.blurb}>
-                <h2 id={`sec-${sec.id}`} className="text-md font-medium text-fg">
-                  {sec.title}
-                </h2>
+              {/* A title and a hairline; what the section is for is behind its ⓘ, not more text to read. */}
+              <div className="mb-3 flex items-center gap-3">
+                <span className="flex items-center gap-1.5">
+                  <h2 id={`sec-${sec.id}`} className="text-md font-medium text-fg">
+                    {sec.title}
+                  </h2>
+                  <InfoTip label={`About ${sec.title}`}>{sec.blurb}</InfoTip>
+                </span>
                 <span aria-hidden className="h-px flex-1 bg-border" />
                 {foldable ? (
                   <Button
@@ -305,9 +335,10 @@ function NotShown() {
       >
         <span className="flex items-center gap-2 text-ui text-fg">
           <CircleSlash className="size-4 text-fg-subtle" aria-hidden />
+          {/* Short; why (they can't be computed from this data) is said when the panel opens. */}
           Not shown: {unavailable.length} KPI{unavailable.length === 1 ? "" : "s"} and{" "}
-          {context.skippedCharts.length} chart{context.skippedCharts.length === 1 ? "" : "s"} can&apos;t be
-          computed from this data{hidden.length ? `, ${hidden.length} hidden by you` : ""}.
+          {context.skippedCharts.length} chart{context.skippedCharts.length === 1 ? "" : "s"}
+          {hidden.length ? `, ${hidden.length} hidden by you` : ""}
         </span>
         <ChevronDown
           className={cn("size-4 text-fg-subtle transition-transform", open && "rotate-180")}
@@ -370,7 +401,13 @@ function NotShown() {
       ) : null}
       {!open ? null : (
         <p className="border-t border-border px-5 py-2.5 text-xs text-fg-subtle">
-          <Badge tone="outline">Honest by design</Badge> Loupe never estimates a KPI it can&apos;t compute.
+          <Badge tone="outline">Honest by design</Badge>{" "}
+          <Brief
+            label="Why these aren't shown"
+            full={`${unavailable.length} KPI${unavailable.length === 1 ? "" : "s"} and ${context.skippedCharts.length} chart${context.skippedCharts.length === 1 ? "" : "s"} can't be computed from this data. Loupe never estimates a KPI it can't compute.`}
+          >
+            Loupe never estimates a KPI it can&apos;t compute.
+          </Brief>
         </p>
       )}
     </section>

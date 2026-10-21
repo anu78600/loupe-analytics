@@ -25,6 +25,12 @@
  *
  * Below the xl breakpoint the builder sits under the gallery, so picking a
  * type brings it into view (and moves focus to it).
+ *
+ * Text is kept short: a type's card shows its name and (from sm up) what it
+ * shows; the data it suits is behind its ⓘ, and the builder's notes are one
+ * line with the full text behind hover, a long press or the ⓘ
+ * (ui/primitives/reveal.tsx). What a type needs, when the file can't feed
+ * it, stays in view.
  */
 import * as React from "react";
 import { toast } from "sonner";
@@ -38,10 +44,10 @@ import type { ContextResult } from "@/engine/session";
 import { cn } from "@/lib/utils";
 import { useWorkspace } from "@/store/workspace";
 import { Button } from "@/ui/primitives/button";
-import { Badge } from "@/ui/primitives/badge";
 import { Card } from "@/ui/primitives/card";
 import { Input, Label } from "@/ui/primitives/input";
 import { Segmented } from "@/ui/primitives/segmented";
+import { Brief, InfoTip } from "@/ui/primitives/reveal";
 import {
   Select,
   SelectContent,
@@ -165,16 +171,29 @@ export function ChartStudio({ editing, onDone }: { editing: ChartSpec | null; on
           <p className="rounded-card border border-border-accent bg-accent-soft px-4 py-3 text-sm text-fg">
             Editing “{widget?.title?.trim() || editing.title}”.{" "}
             <span className="text-fg-muted">
-              {editing.source === "custom"
-                ? "Your changes replace it."
-                : "It's a recommended chart, so your version is saved as a custom chart and the original is hidden."}
+              {editing.source === "custom" ? (
+                "Your changes replace it."
+              ) : (
+                <Brief
+                  label="How a recommended chart is edited"
+                  full="It's a recommended chart, so your version is saved as a custom chart and the original is hidden."
+                >
+                  Saved as your copy; the original is hidden.
+                </Brief>
+              )}
             </span>
           </p>
         ) : null}
         {groups.map((g) => (
           <div key={g.id}>
-            <h2 className="text-md font-medium text-fg">
-              {g.title} <span className="font-normal text-fg-subtle">· {g.question}</span>
+            {/* The question each group answers: beside its title from sm up, behind the ⓘ on a phone. */}
+            <h2 className="flex items-center gap-1.5 text-md font-medium text-fg">
+              <span>
+                {g.title} <span className="hidden font-normal text-fg-subtle sm:inline">· {g.question}</span>
+              </span>
+              <InfoTip label={`About ${g.title}`} className="sm:hidden">
+                {g.question}
+              </InfoTip>
             </h2>
             <ul role="list" className="mt-2 grid gap-2 sm:grid-cols-2 2xl:grid-cols-3">
               {g.types.map((t) => {
@@ -182,14 +201,16 @@ export function ChartStudio({ editing, onDone }: { editing: ChartSpec | null; on
                 const on = draft?.kind === t.kind;
                 const Icon = CHART_ICON[t.kind];
                 return (
-                  <li key={t.kind}>
+                  // The ⓘ sits over the card's corner, beside the button rather than inside it (a button
+                  // can't hold another).
+                  <li key={t.kind} className="relative">
                     <button
                       type="button"
                       disabled={Boolean(why)}
                       aria-pressed={on}
                       onClick={() => pick(t.kind)}
                       className={cn(
-                        "flex h-full w-full items-start gap-3 rounded-card border bg-surface-1 p-3 text-left transition-[border-color,box-shadow] focus-visible:ring-2 focus-visible:ring-accent-ring focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-55",
+                        "flex h-full w-full items-start gap-3 rounded-card border bg-surface-1 p-3 pr-10 text-left transition-[border-color,box-shadow] focus-visible:ring-2 focus-visible:ring-accent-ring focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-55",
                         on
                           ? "border-accent shadow-[0_0_0_3px_var(--accent-soft)]"
                           : "border-border hover:border-border-accent",
@@ -208,16 +229,22 @@ export function ChartStudio({ editing, onDone }: { editing: ChartSpec | null; on
                           {t.name}
                           {on ? <Check className="size-3.5 text-accent" aria-hidden /> : null}
                         </span>
-                        <span className="mt-0.5 block text-xs leading-relaxed text-fg-muted">{t.shows}</span>
-                        <span className="block text-xs leading-relaxed text-fg-subtle">
-                          {why ? (
-                            <span className="text-warning">{why}.</span>
-                          ) : (
-                            <>Best for: {lower(t.bestFor)}</>
-                          )}
+                        {/* What it shows, from sm up; what it suits is behind the ⓘ. */}
+                        <span className="mt-0.5 hidden text-xs leading-relaxed text-fg-muted sm:block">
+                          {t.shows}
                         </span>
+                        {/* What the file lacks for this type stays in view. */}
+                        {why ? (
+                          <span className="block text-xs leading-relaxed text-warning">{why}.</span>
+                        ) : null}
                       </span>
                     </button>
+                    <span className="absolute top-3 right-3">
+                      <InfoTip label={`About ${t.name}`}>
+                        <span className="block">{t.shows}</span>
+                        <span className="mt-1 block text-fg-muted">Best for: {lower(t.bestFor)}</span>
+                      </InfoTip>
+                    </span>
                   </li>
                 );
               })}
@@ -247,8 +274,12 @@ export function ChartStudio({ editing, onDone }: { editing: ChartSpec | null; on
             <Plus className="size-6 text-fg-subtle" aria-hidden />
             <p className="text-md font-medium text-fg">Pick a chart type</p>
             <p className="max-w-xs text-sm leading-relaxed text-fg-muted">
-              Each type says what it shows and what data it suits best. Choose one, then the columns and
-              measures to draw; the real chart previews here before you add it.
+              <Brief
+                label="How the builder works"
+                full="Each type says what it shows and what data it suits best. Choose one, then the columns and measures to draw; the real chart previews here before you add it."
+              >
+                The real chart previews here.
+              </Brief>
             </p>
           </Card>
         )}
@@ -305,7 +336,9 @@ function Builder({
             {t.name}
           </h2>
           <p className="text-xs leading-relaxed text-fg-muted">
-            {t.shows} Best for: {lower(t.bestFor)}
+            <Brief label={`About ${t.name}`} full={`${t.shows} Best for: ${lower(t.bestFor)}`}>
+              {t.shows}
+            </Brief>
           </p>
         </div>
       </div>
@@ -641,8 +674,12 @@ function Builder({
       </div>
       {!editing ? (
         <p className="text-xs text-fg-subtle">
-          <Badge tone="outline">Tip</Badge> The preview uses the dashboard&apos;s filters; it is the chart you
-          get.
+          <Brief
+            label="About the preview"
+            full="The preview uses the dashboard's filters; it is the chart you get."
+          >
+            Previewed with the dashboard&apos;s filters.
+          </Brief>
         </p>
       ) : null}
     </Card>

@@ -20,6 +20,8 @@
  *
  * Opened from the dashboard toolbar (ChartColoursButton), Settings and the
  * command palette through useChartColoursPanel; mounted once by Workspace.
+ * Explanations are one short line with the full text behind hover, a long
+ * press or the ⓘ (ui/primitives/reveal.tsx); the check results stay whole.
  */
 import * as React from "react";
 import { create } from "zustand";
@@ -34,6 +36,7 @@ import { Input } from "@/ui/primitives/input";
 import { Segmented } from "@/ui/primitives/segmented";
 import { Sheet, SheetContent } from "@/ui/primitives/sheet";
 import { Tooltip } from "@/ui/primitives/tooltip";
+import { Brief } from "@/ui/primitives/reveal";
 import { normaliseHex } from "@/ui/charts/palette/colour";
 import { checkPalette, type CheckState, type PaletteReport, type ThemeMode } from "@/ui/charts/palette/check";
 import { improve, SLOTS } from "@/ui/charts/palette/generate";
@@ -343,8 +346,12 @@ function CustomColours({
           Your colours, in series order
         </h3>
         <p className="mt-0.5 text-xs leading-relaxed text-fg-muted">
-          Type or pick up to {SLOTS} colours, say from your brand guide. They are used exactly as given in the
-          light theme; in the dark theme the same hues are adjusted in lightness so they stay readable.
+          <Brief
+            label="About your colours"
+            full={`Type or pick up to ${SLOTS} colours, say from your brand guide. They are used exactly as given in the light theme; in the dark theme the same hues are adjusted in lightness so they stay readable.`}
+          >
+            Up to {SLOTS}, used exactly as given.
+          </Brief>
         </p>
       </div>
       <ol className="grid gap-2">
@@ -387,8 +394,13 @@ function CustomColours({
       {filled.length ? (
         <div className="grid gap-1.5 rounded-control border border-border bg-surface-2 px-3 py-2.5">
           <p className="text-xs leading-relaxed text-fg-muted">
-            {filled.length === 1 ? `Series ${SLOTS}` : `Series ${theme.given + 1}–${SLOTS}`} use matching
-            colours Loupe picked to go with yours and stay distinct:
+            <Brief
+              label="About the colours Loupe added"
+              full={`${filled.length === 1 ? `Series ${SLOTS}` : `Series ${theme.given + 1}–${SLOTS}`} use matching colours Loupe picked to go with yours and stay distinct.`}
+            >
+              {filled.length === 1 ? `Series ${SLOTS}` : `Series ${theme.given + 1}–${SLOTS}`}: matched by
+              Loupe
+            </Brief>
           </p>
           <SwatchStrip colours={theme[mode].series.slice(theme.given)} start={theme.given} />
         </div>
@@ -417,8 +429,12 @@ function SingleColour({
           Your colour
         </h3>
         <p className="mt-0.5 text-xs leading-relaxed text-fg-muted">
-          Pick one colour and Loupe designs the rest: its gradient for heatmaps and funnels, and the series
-          colours in the style you choose.
+          <Brief
+            label="About one colour"
+            full="Pick one colour and Loupe designs the rest: its gradient for heatmaps and funnels, and the series colours in the style you choose."
+          >
+            Pick one colour; Loupe designs the rest.
+          </Brief>
         </p>
       </div>
       <ColourField
@@ -457,9 +473,18 @@ function SingleColour({
           ]}
         />
         <p className="text-xs leading-relaxed text-fg-muted">
-          {value.style === "shades"
-            ? "Every series is a lighter or darker shade of your colour, ordered so neighbouring series stay far apart. Best when charts show up to four series."
-            : "Your colour leads; the other series are hues chosen to go with it and stay distinct, even for colour-blind viewers."}
+          <Brief
+            label="About this style"
+            full={
+              value.style === "shades"
+                ? "Every series is a lighter or darker shade of your colour, ordered so neighbouring series stay far apart. Best when charts show up to four series."
+                : "Your colour leads; the other series are hues chosen to go with it and stay distinct, even for colour-blind viewers."
+            }
+          >
+            {value.style === "shades"
+              ? "Shades of your colour; best up to four series."
+              : "Your colour leads; matching hues follow."}
+          </Brief>
         </p>
       </div>
       <div className="grid gap-2 rounded-control border border-border bg-surface-2 px-3 py-2.5">
@@ -786,14 +811,22 @@ function Readability({
       {shades ? (
         <p className="flex items-start gap-2 rounded-control border border-border bg-surface-2 px-3 py-2 text-xs leading-relaxed text-fg-muted">
           <Info className="mt-0.5 size-3.5 shrink-0 text-info" aria-hidden />
-          Shades of one colour can only be so far apart: they read best on charts with up to four series. For
-          more, choose “Matching colours”.
+          <Brief
+            label="About shades"
+            full="Shades of one colour can only be so far apart: they read best on charts with up to four series. For more, choose “Matching colours”."
+          >
+            Shades read best with up to four series.
+          </Brief>
         </p>
       ) : null}
       <p className="flex items-start gap-2 text-xs leading-relaxed text-fg-subtle">
         <Sparkles className="mt-0.5 size-3.5 shrink-0" aria-hidden />
-        Checked the way Loupe&apos;s own palette was: neighbouring series under simulated colour blindness
-        (protanopia and deuteranopia), with normal vision, and against the {mode} background.
+        <Brief
+          label="How the colours are checked"
+          full={`Checked the way Loupe's own palette was: neighbouring series under simulated colour blindness (protanopia and deuteranopia), with normal vision, and against the ${mode} background.`}
+        >
+          Checked for colour blindness and contrast.
+        </Brief>
       </p>
     </section>
   );

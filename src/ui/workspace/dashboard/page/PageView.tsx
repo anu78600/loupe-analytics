@@ -4,7 +4,8 @@
  * The dashboard step in its one-page view: a slim toolbar (the switch between
  * the one-page view and every chart, chart colours, and the page's download)
  * above the live page (OnePage.tsx). The page's insights are found as soon as
- * the view opens, and again whenever the selection changes them away.
+ * the view opens, and again whenever the selection changes them away. The
+ * toolbar's hint is one short line, the rest behind it (Brief).
  */
 import * as React from "react";
 import { toast } from "sonner";
@@ -13,6 +14,7 @@ import { useWorkspace } from "@/store/workspace";
 import { useFmt } from "@/ui/common/hooks";
 import { Button } from "@/ui/primitives/button";
 import { Segmented } from "@/ui/primitives/segmented";
+import { Brief } from "@/ui/primitives/reveal";
 import { ChartColoursButton } from "../../ChartColours";
 import { downloadOnePage, OnePage, usePageModel } from "./OnePage";
 
@@ -76,7 +78,12 @@ export function PageView() {
                 <Loader2 className="size-3 animate-spin" aria-hidden /> Updating…
               </span>
             ) : (
-              "Click the title to rename the page. The download is exactly this page."
+              <Brief
+                label="About this page"
+                full="Click the title to rename the page. The download is exactly this page."
+              >
+                Click the title to rename it.
+              </Brief>
             )}
           </p>
         </div>

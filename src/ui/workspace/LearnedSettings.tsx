@@ -7,8 +7,9 @@
  * delete button; clear all (after a yes); export as a JSON file and import
  * one, so a team can share what Loupe knows. Imports are validated
  * (store/learned.ts parseLearned) and a malformed file changes nothing. The
- * one-line privacy note says what is kept: header names and choices only,
- * in this browser.
+ * privacy note, behind the heading's ⓘ, says what is kept: header names and
+ * choices only, in this browser. A long rule is clamped to two lines, whole
+ * on hover, focus or a long press (ui/primitives/reveal.tsx).
  */
 import * as React from "react";
 import { toast } from "sonner";
@@ -18,6 +19,7 @@ import { useSettings } from "@/store/settings";
 import { downloadBlob, exportFileName } from "@/lib/utils";
 import { countOf } from "@/ui/common/words";
 import { Button } from "@/ui/primitives/button";
+import { Brief, ClampText, InfoTip } from "@/ui/primitives/reveal";
 import { askConfirm } from "./confirm";
 
 /** "3 Oct 2026", in the viewer's time zone (these are real moments, not dates from the data). */
@@ -71,17 +73,23 @@ export function LearnedSettings() {
 
   return (
     <section className="grid gap-3" aria-labelledby={headingId}>
-      <h3 id={headingId} className="eyebrow text-fg-subtle">
-        What Loupe has learned
-      </h3>
-      <p className="text-xs text-fg-subtle">
-        Stored only in this browser: header names and your choices (for value meanings, the category labels
-        you picked), never cell values.
-      </p>
+      <div className="flex items-center gap-1.5">
+        <h3 id={headingId} className="eyebrow text-fg-subtle">
+          What Loupe has learned
+        </h3>
+        <InfoTip label="What is stored">
+          Stored only in this browser: header names and your choices (for value meanings, the category labels
+          you picked), never cell values.
+        </InfoTip>
+      </div>
       {empty ? (
         <p className="text-sm leading-relaxed text-fg-muted">
-          Nothing yet. Correct the industry, a mapping, a value meaning or a column&apos;s role, or hide a
-          column, and Loupe reuses it for files like that one, saying so each time.
+          <Brief
+            label="How Loupe learns"
+            full="Nothing yet. Correct the industry, a mapping, a value meaning or a column's role, or hide a column, and Loupe reuses it for files like that one, saying so each time."
+          >
+            Nothing yet: your corrections show up here.
+          </Brief>
         </p>
       ) : (
         <ul className="grid max-h-96 gap-2 overflow-y-auto" aria-label="Learned rules and words">
@@ -90,9 +98,9 @@ export function LearnedSettings() {
             return (
               <li key={r.id} className={ITEM}>
                 <div className="min-w-0">
-                  <p className="text-ui break-words text-fg">
+                  <ClampText lines={2} className="text-ui break-words text-fg">
                     {files}: {describeRule(r).join("; ")}
-                  </p>
+                  </ClampText>
                   <p className="mt-0.5 text-xs text-fg-subtle">
                     Learned {day(r.learnedAt)} · {usedText(r.uses)}
                   </p>

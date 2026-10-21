@@ -19,8 +19,12 @@
  * A PNG download is framed like a slide (title, takeaway, unit line, then
  * the source and slice under the plot; chartImage.ts), so it says what it
  * shows once it leaves the app. An empty chart offers to clear the filters
- * when filters are what emptied it. The takeaway is never cut short on a
- * phone, where its figures would be lost.
+ * when filters are what emptied it.
+ *
+ * The takeaway is up to two lines and the first note one line; when either
+ * is cut, hover, focus or a long press opens it in full (ClampText,
+ * ui/primitives/reveal.tsx), so its figures are never lost. Further notes
+ * are behind the ⓘ beside the first.
  */
 import * as React from "react";
 import {
@@ -63,6 +67,7 @@ import {
   DropdownMenuTrigger,
 } from "@/ui/primitives/dropdown-menu";
 import { Skeleton } from "@/ui/primitives/misc";
+import { ClampText, InfoTip } from "@/ui/primitives/reveal";
 import { useAnimate, useChartThemeKey, useFmt } from "@/ui/common/hooks";
 import { EChart, type ChartClick, type EChartHandle } from "./EChart";
 import { DataTable } from "./DataTable";
@@ -374,14 +379,14 @@ export function ChartCard({
           </div>
           {/* What the chart says (its takeaway, computed from this data), then the unit: the title
               says what the chart is about, this line what it shows. */}
-          {/* Two lines on wider cards; on a phone it is never cut, so its figures are always read. */}
+          {/* Two lines; when it is cut, hover, focus or a long press shows it whole. Keyed by the
+              sentence, so a new one (after a filter) is measured afresh. */}
           {data?.headline && !data.empty ? (
-            <p
-              className="mt-1 border-l-2 border-accent pl-2 text-ui text-fg sm:line-clamp-2"
-              title={data.headline}
-            >
-              {data.headline}
-            </p>
+            <div className="mt-1 border-l-2 border-accent pl-2 text-ui text-fg">
+              <ClampText key={data.headline} lines={2}>
+                {data.headline}
+              </ClampText>
+            </div>
           ) : null}
           {subtitle ? <p className="mt-1 text-xs text-fg-subtle">{subtitle}</p> : null}
         </div>
@@ -564,11 +569,22 @@ export function ChartCard({
       </div>
       {notes.length && data && !data.empty ? (
         <footer className="border-t border-border px-4 py-1.5">
-          {/* Two lines, so a note is read rather than cut; any further notes are in the tooltip. */}
-          <p className="line-clamp-2 text-xs leading-relaxed text-fg-subtle" title={notes.join(" ")}>
-            {notes[0]}
-            {notes.length > 1 ? ` (+${notes.length - 1} more)` : ""}
-          </p>
+          {/* The first note on one line (in full on hover, focus or a long press); any others are
+              behind the ⓘ beside it. */}
+          <div className="flex items-center gap-1.5">
+            <ClampText key={notes[0]} className="min-w-0 flex-1 text-xs leading-relaxed text-fg-subtle">
+              {notes[0]}
+            </ClampText>
+            {notes.length > 1 ? (
+              <InfoTip label={`All ${notes.length} notes`}>
+                <span className="grid gap-1">
+                  {notes.map((n) => (
+                    <span key={n}>{n}</span>
+                  ))}
+                </span>
+              </InfoTip>
+            ) : null}
+          </div>
         </footer>
       ) : null}
     </section>

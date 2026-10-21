@@ -7,7 +7,8 @@
  * rows"), how many rows have a key a lookup doesn't hold, and which sheets
  * stayed out and why. "Use one sheet instead" opens the sheet picker for the
  * same file; the joined table stays until a sheet is chosen. Nothing shows
- * for a single sheet, a text file or a demo.
+ * for a single sheet, a text file or a demo. How the join works is behind
+ * an ⓘ; the joins, counts and anything left blank or out stay in view.
  */
 import { Combine } from "lucide-react";
 import { describeModel, modelSheetCount } from "@/engine/core/model";
@@ -16,6 +17,7 @@ import { useSettings } from "@/store/settings";
 import { cn } from "@/lib/utils";
 import { countOf } from "@/ui/common/words";
 import { Button } from "@/ui/primitives/button";
+import { InfoTip } from "@/ui/primitives/reveal";
 
 export function WorkbookModelNotice({ className }: { className?: string }) {
   const model = useWorkspace((s) => s.summary?.model ?? null);
@@ -41,8 +43,10 @@ export function WorkbookModelNotice({ className }: { className?: string }) {
               {describeModel(model)}: {countOf(modelSheetCount(model), "sheet", locale)},{" "}
               {countOf(rows, "row", locale)}.
             </span>{" "}
-            Loupe joined the lookup sheets onto {model.fact} by their keys, so every {model.fact} row is kept
-            once, with the lookups&apos; columns beside it.
+            <InfoTip label="How the sheets were joined">
+              Loupe joined the lookup sheets onto {model.fact} by their keys, so every {model.fact} row is
+              kept once, with the lookups&apos; columns beside it.
+            </InfoTip>
           </p>
           {missing.length || model.left.length ? (
             <ul className="mt-1.5 grid gap-1 text-ui text-fg-muted">

@@ -19,6 +19,10 @@
  * (setKpiLayout); from then on the dashboard shows exactly these lists.
  * Values come from previewKpis, which leaves the dashboard's last results
  * (and so its insights) untouched.
+ *
+ * Little text on screen: what each list is for, a KPI's definition and
+ * formula, and the builder's explanation sit behind an ⓘ or a short line
+ * (ui/primitives/reveal.tsx); on a phone a KPI's formula line is behind its ⓘ.
  */
 import * as React from "react";
 import { toast } from "sonner";
@@ -44,6 +48,7 @@ import {
 } from "@/ui/primitives/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/ui/primitives/select";
 import { Tooltip } from "@/ui/primitives/tooltip";
+import { Brief, ClampText, InfoTip } from "@/ui/primitives/reveal";
 import { useFmt } from "@/ui/common/hooks";
 import { chartsUsingKpi } from "./brokenCharts";
 import { KpiBuilder } from "./KpiBuilder";
@@ -167,7 +172,8 @@ export function KpiPlanner() {
       <div className="grid min-w-0 grid-cols-1 content-start gap-5">
         {SLOTS.map((slot) => (
           <Card key={slot.id} className="p-4">
-            <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+            {/* What the list is for is behind its ⓘ, not a line under every heading. */}
+            <div className="mb-3 flex items-center gap-1.5">
               <h2 className="text-md font-medium text-fg">
                 {slot.title}{" "}
                 <span className="font-figures font-normal text-fg-subtle">
@@ -175,7 +181,7 @@ export function KpiPlanner() {
                   {slot.id === "hero" ? ` of ${MAX_HEADLINE}` : ""}
                 </span>
               </h2>
-              <p className="text-xs text-fg-subtle">{slot.hint}</p>
+              <InfoTip label={`About ${slot.title}`}>{slot.hint}</InfoTip>
             </div>
             {layout[slot.id].length ? (
               <ol className="grid grid-cols-1 gap-1.5">
@@ -202,7 +208,12 @@ export function KpiPlanner() {
               </ol>
             ) : (
               <p className="rounded-control border border-dashed border-border px-3 py-4 text-center text-xs text-fg-subtle">
-                Nothing here. Add KPIs from the list on the right.
+                <Brief
+                  full="Nothing here. Add KPIs from the list on the right."
+                  label="How to fill this list"
+                >
+                  Nothing here yet.
+                </Brief>
               </p>
             )}
           </Card>
@@ -214,8 +225,12 @@ export function KpiPlanner() {
             <div>
               <h2 className="text-md font-medium text-fg">Build a KPI</h2>
               <p className="mt-0.5 text-xs leading-relaxed text-fg-muted">
-                From any column: a total, average, lowest, highest, median, distinct count or number of rows,
-                or a ratio of two (such as profit ÷ revenue). Its SQL and DAX are written for you.
+                <Brief
+                  label="About building a KPI"
+                  full="From any column: a total, average, lowest, highest, median, distinct count or number of rows, or a ratio of two (such as profit ÷ revenue). Its SQL and DAX are written for you."
+                >
+                  From any column, SQL and DAX included.
+                </Brief>
               </p>
             </div>
             <Button variant="primary" size="sm" onClick={() => setBuilder({ open: true, kpi: null })}>
@@ -461,10 +476,18 @@ function KpiRow({
         <div className="flex min-w-0 items-center gap-1.5">
           <KpiNameInput id={meta.id} name={meta.name} title={meta.definition} />
           {isUserKpiId(meta.id) ? <Badge tone="accent">yours</Badge> : null}
+          {/* The definition (also on touch and keyboard) and, on a phone, the formula line below. */}
+          <InfoTip label={`About ${meta.name}`}>
+            {meta.definition ? <span className="block">{meta.definition}</span> : null}
+            <span className="mt-1 block text-fg-muted">
+              {meta.group} · {meta.formula}
+            </span>
+          </InfoTip>
         </div>
-        <p className="truncate px-1 text-xs text-fg-subtle" title={meta.formula}>
+        {/* From sm up only: on a phone it is behind the ⓘ above. */}
+        <ClampText className="hidden px-1 text-xs text-fg-subtle sm:block">
           {meta.group} · {meta.formula}
-        </p>
+        </ClampText>
       </div>
       <span className={cn("font-figures shrink-0 text-ui", value ? "text-fg" : "text-fg-subtle")}>
         {shownValue(value, meta, fmt)}

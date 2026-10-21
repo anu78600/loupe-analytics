@@ -5,6 +5,21 @@ Every step of building Loupe, newest first. Generated from `src/content/changelo
 - **MAJOR** (`x.0`): a new capability, subsystem or page.
 - **MINOR** (`x.y`): a refinement, fix or follow-up to that major version.
 
+## 47.0 · Less text on screen, the full text one gesture away
+
+*Major · 2026-10-21 10:36 UTC · Design, Feature*
+
+The workspace shows much less text, especially on phones. Explanations, hints and notes are one short line, and the full text opens on hover or keyboard focus on a computer, and on a long press or a tap of the ⓘ on a phone. Nothing was removed: every sentence is still there when you want it.
+
+- Step intros, hints, notes and “why” sentences are one short line, with the full text behind it.
+- On a computer, hover over the short text or its ⓘ, or tab to it with the keyboard. On a phone, long-press the text or tap the ⓘ. Escape, a click elsewhere or moving away closes it.
+- Long values (file names, chart takeaways, insight text, column samples) are cut to one or two lines and open in full the same way, only when they were actually cut.
+- On phones, secondary lines (formulas, data-to dates, chart-type explanations, file details) move behind an ⓘ.
+- Headings, numbers, buttons, selected values and warnings stay in view. Warnings are shorter but never hidden.
+- Visible words at phone width, before → after: Settings 267 → 81, Customise › Create a chart 828 → 117, Customise › Charts 607 → 230, Customise › KPIs 535 → 263, Export 451 → 279, Questions 205 → 137.
+
+Files: `src/ui/primitives/reveal.tsx`, `src/ui/workspace/`, `src/ui/workspace/customise/`, `src/ui/workspace/dashboard/`, `src/ui/charts/ChartCard.tsx`, `CLAUDE.md`
+
 ## 46.0 · Workbooks with several sheets, joined into one table
 
 *Major · 2026-10-21 09:54 UTC · Feature, Data, Tests*

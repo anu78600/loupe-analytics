@@ -10,6 +10,11 @@
  * SQL is the card's own: the KPI over the card's period and filters, so it
  * returns the number on screen (Session.kpiCardSql).
  * Unavailable KPIs say what they need and suggest a substitute.
+ *
+ * Explanations (how it adds up, the benchmark's note, the footnotes) are one
+ * short line or an ⓘ, and pitfalls are clamped, with the full text behind
+ * hover, a long press or the ⓘ (ui/primitives/reveal.tsx). Figures, the
+ * formula, the columns and the caveat stay in view.
  */
 import * as React from "react";
 import { Check, Copy, Info, Loader2, TriangleAlert } from "lucide-react";
@@ -27,6 +32,7 @@ import { Badge } from "@/ui/primitives/badge";
 import { Button } from "@/ui/primitives/button";
 import { Input } from "@/ui/primitives/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/primitives/tabs";
+import { Brief, ClampText, InfoTip } from "@/ui/primitives/reveal";
 import { useFmt } from "@/ui/common/hooks";
 import { CodeLegend, HighlightedCode, languageOf } from "@/ui/common/code";
 import { DeltaChip } from "./KpiCards";
@@ -45,6 +51,15 @@ const AGGREGATION: Record<KpiAggregation, string> = {
     "Counted by first-ever date: someone is new only in the period of their first record, so the value depends on the window it is read over. Recomputed for every period and segment, never summed.",
   ratio:
     "Not additive (a ratio or an average): recomputed from its own rows for every period and segment, never summed or averaged across them.",
+};
+
+/** The same, in a few words for the panel; the sentence above is behind it. */
+const AGGREGATION_SHORT: Record<KpiAggregation, string> = {
+  additive: "Additive: totals add up.",
+  distinct: "Distinct count: recomputed, never summed.",
+  snapshot: "Semi-additive: the latest balance.",
+  firstDate: "Counted by first-ever date.",
+  ratio: "Not additive: recomputed, never summed.",
 };
 
 /**
@@ -142,10 +157,10 @@ export function KpiDetails({ kpiId }: { kpiId: string }) {
   // How the KPI adds up, from the engine (only this KPI's own answer, never the previous one's while
   // a new request runs). Without it (no date column), a rate or ratio is still known not to add up.
   const basis = ti?.key === tiKey ? ti.values.find((t) => t.key === "ma7")?.basis : undefined;
-  const aggregation = basis
-    ? AGGREGATION[basis]
+  const aggregation: KpiAggregation | null = basis
+    ? basis
     : meta.format === "percent" || meta.format === "ratio"
-      ? AGGREGATION.ratio
+      ? "ratio"
       : null;
   const inStrip =
     context.selection.hero.includes(kpiId) ||
@@ -250,13 +265,22 @@ export function KpiDetails({ kpiId }: { kpiId: string }) {
               : "no filters"}{" "}
             · {period}
           </Row>
-          {aggregation ? <Row label="Aggregation">{aggregation}</Row> : null}
+          {aggregation ? (
+            <Row label="Aggregation">
+              <Brief label="How it adds up" full={AGGREGATION[aggregation]}>
+                {AGGREGATION_SHORT[aggregation]}
+              </Brief>
+            </Row>
+          ) : null}
+          {/* The range stays in view; its note is behind it, and that it isn't from the data is said. */}
           {meta.benchmark ? (
             <Row label="Indicative range">
               {meta.benchmark.low !== undefined && meta.benchmark.high !== undefined
                 ? `${formatValue(meta.benchmark.low, meta.format, fmt)} – ${formatValue(meta.benchmark.high, meta.format, fmt)}. `
                 : ""}
-              {meta.benchmark.note} Not computed from your data.
+              <Brief label="About this range" full={`${meta.benchmark.note} Not computed from your data.`}>
+                Not computed from your data.
+              </Brief>
             </Row>
           ) : null}
           <Row label="Target">
@@ -275,7 +299,7 @@ export function KpiDetails({ kpiId }: { kpiId: string }) {
                   setTarget(kpiId, meta.format === "percent" ? n / 100 : n);
                 }}
               />
-              <span className="text-xs text-fg-subtle">Shown as progress on the card.</span>
+              <InfoTip label="About targets">Shown as progress on the card.</InfoTip>
             </div>
           </Row>
           {meta.pitfalls.length ? (
@@ -284,7 +308,10 @@ export function KpiDetails({ kpiId }: { kpiId: string }) {
                 {meta.pitfalls.map((p) => (
                   <li key={p} className="flex gap-1.5">
                     <Info className="mt-0.5 size-3.5 shrink-0 text-info" aria-hidden />
-                    {p}
+                    {/* Two lines each; the rest on hover, focus or a long press. */}
+                    <ClampText lines={2} className="min-w-0">
+                      {p}
+                    </ClampText>
                   </li>
                 ))}
               </ul>
@@ -329,7 +356,12 @@ export function KpiDetails({ kpiId }: { kpiId: string }) {
             </table>
           )}
           <p className="mt-3 text-xs text-fg-subtle">
-            Relative to the end of the selected period. Ratios are recomputed for each window, never averaged.
+            <Brief
+              label="About these windows"
+              full="Relative to the end of the selected period. Ratios are recomputed for each window, never averaged."
+            >
+              Relative to the end of the selected period.
+            </Brief>
           </p>
         </TabsContent>
         <TabsContent value="code" className="mt-4 grid gap-3">
@@ -348,9 +380,21 @@ export function KpiDetails({ kpiId }: { kpiId: string }) {
             <CodeBlock code={`${meta.daxName} =\n${meta.dax}`} language="DAX · measure" label="DAX" />
           ) : null}
           <p className="text-xs leading-relaxed text-fg-subtle">
-            {sqlForCard && !sqlForCard.filtered && filters.length
-              ? "This KPI counts each entity once, by its first-ever date, which a filtered query can't reproduce exactly, so this query is over the whole file. The card uses the period and filters you chose."
-              : "This query returns the number on the card: the same definition over the same rows (the period and filters you chose). The DAX is the Power BI measure, which your report's slicers filter. Export › SQL re-runs the KPIs on your data in DuckDB."}
+            {sqlForCard && !sqlForCard.filtered && filters.length ? (
+              <Brief
+                label="Why this query is over the whole file"
+                full="This KPI counts each entity once, by its first-ever date, which a filtered query can't reproduce exactly, so this query is over the whole file. The card uses the period and filters you chose."
+              >
+                Over the whole file: filters can&apos;t apply exactly.
+              </Brief>
+            ) : (
+              <Brief
+                label="About this SQL and DAX"
+                full="This query returns the number on the card: the same definition over the same rows (the period and filters you chose). The DAX is the Power BI measure, which your report's slicers filter. Export › SQL re-runs the KPIs on your data in DuckDB."
+              >
+                This query returns the number on the card.
+              </Brief>
+            )}
           </p>
         </TabsContent>
       </Tabs>

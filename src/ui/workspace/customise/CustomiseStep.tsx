@@ -15,6 +15,8 @@
  * restores the recommended layout and keeps what the user built (with Undo).
  * "Chart colours" opens the same colour panel as the dashboard toolbar, so
  * the colours can be chosen while the charts are being arranged.
+ * The intro is one short line, with the full text behind hover, a long press
+ * or the ⓘ (ui/primitives/reveal.tsx).
  */
 import * as React from "react";
 import { toast } from "sonner";
@@ -24,6 +26,7 @@ import { allSpecs, kpiLayoutOf, stepNumber, useWorkspace } from "@/store/workspa
 import { Button } from "@/ui/primitives/button";
 import { Badge } from "@/ui/primitives/badge";
 import { Eyebrow } from "@/ui/primitives/misc";
+import { Brief } from "@/ui/primitives/reveal";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/primitives/tabs";
 import { ChartColoursButton } from "../ChartColours";
 import { KpiPlanner } from "./KpiPlanner";
@@ -74,8 +77,12 @@ export function CustomiseStep() {
           <Eyebrow>Step {stepNumber("customise")} · Customise</Eyebrow>
           <h1 className="mt-2 font-display text-display-sm text-fg">Make the dashboard yours.</h1>
           <p className="mt-2 text-sm text-fg-muted">
-            Choose exactly which KPIs and charts it shows, in what order and how big; change any chart&apos;s
-            type or data; and build new KPIs and charts from your columns. Everything applies straight away.
+            <Brief
+              label="About Customise"
+              full="Choose exactly which KPIs and charts it shows, in what order and how big; change any chart's type or data; and build new KPIs and charts from your columns. Everything applies straight away."
+            >
+              Pick the KPIs and charts; changes apply at once.
+            </Brief>
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">

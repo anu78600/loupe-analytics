@@ -4,7 +4,9 @@
  * Right-hand inspector: details for the selected chart (why this chart,
  * alternatives, Top-N) and the chart builder, which creates custom charts from
  * any KPI or from an ad-hoc aggregate of any column (`agg:<fn>:<column>`),
- * offering only chart types that suit the data.
+ * offering only chart types that suit the data. Reasons and notes are
+ * clamped and explanations are one short line, with the full text behind
+ * hover, a long press or the ⓘ (ui/primitives/reveal.tsx).
  */
 import * as React from "react";
 import { MessageSquarePlus, Plus } from "lucide-react";
@@ -29,6 +31,7 @@ import {
   SelectValue,
 } from "@/ui/primitives/select";
 import { Eyebrow } from "@/ui/primitives/misc";
+import { Brief, ClampText } from "@/ui/primitives/reveal";
 import { KIND_LABEL } from "@/ui/charts/ChartCard";
 import { KpiDetails } from "./KpiDetails";
 import { AskChartDialog } from "./AskChart";
@@ -102,7 +105,10 @@ function ChartInspector({ id }: { id: string }) {
     <div className="grid gap-4">
       <div>
         <h3 className="text-lg font-semibold text-fg">{spec.title}</h3>
-        <p className="mt-1 text-sm leading-relaxed text-fg-muted">{spec.reason}</p>
+        {/* Why this chart: two lines, the rest on hover, focus or a long press. */}
+        <ClampText key={spec.reason} lines={2} className="mt-1 text-sm leading-relaxed text-fg-muted">
+          {spec.reason}
+        </ClampText>
       </div>
       <dl className="grid gap-2 text-ui">
         <div className="flex justify-between gap-3">
@@ -132,7 +138,9 @@ function ChartInspector({ id }: { id: string }) {
       {data?.notes.length ? (
         <ul className="grid gap-1 rounded-control border border-border bg-surface-2 p-3 text-xs leading-relaxed text-fg-muted">
           {data.notes.map((n) => (
-            <li key={n}>{n}</li>
+            <li key={n}>
+              <ClampText lines={2}>{n}</ClampText>
+            </li>
           ))}
         </ul>
       ) : null}
@@ -157,9 +165,16 @@ function ChangeWithAsk({ spec }: { spec: ChartSpec }) {
   return (
     <div className="grid gap-2">
       <p className="text-xs leading-relaxed text-fg-muted">
-        {spec.measures.length > 1
-          ? `This chart shows ${spec.measures.length} measures; change any of them, or what they are shown by, in Ask for a chart.`
-          : "Change the measure, what it is shown by, or the chart type in Ask for a chart."}
+        <Brief
+          label="About changing this chart"
+          full={
+            spec.measures.length > 1
+              ? `This chart shows ${spec.measures.length} measures; change any of them, or what they are shown by, in Ask for a chart.`
+              : "Change the measure, what it is shown by, or the chart type in Ask for a chart."
+          }
+        >
+          Changed in Ask for a chart.
+        </Brief>
       </p>
       <Button variant="secondary" onClick={() => setOpen(true)}>
         <MessageSquarePlus aria-hidden /> {spec.source === "custom" ? "Change this chart" : "Change a copy"}
@@ -415,7 +430,12 @@ function ChartBuilder({ base }: { base?: ChartSpec }) {
         agg === "sum" &&
         ["rate", "percentage"].includes(columns.find((c) => c.name === aggCol)?.role ?? "") ? (
           <p className="text-xs text-warning">
-            Summing a rate column is almost always wrong; prefer Average, or a KPI built from its parts.
+            <Brief
+              label="Why summing a rate is wrong"
+              full="Summing a rate column is almost always wrong; prefer Average, or a KPI built from its parts."
+            >
+              Summing a rate is almost always wrong.
+            </Brief>
           </p>
         ) : null}
       </div>

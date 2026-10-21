@@ -18,6 +18,10 @@
  * button is often disabled while its work runs, and a dialog opened from
  * code has no Radix trigger to return to, so focus would otherwise fall to
  * the page.
+ *
+ * What would be added and replaced stays in view; what a "no" keeps and how
+ * to stop being asked are short lines with the full text behind their ⓘ, and
+ * focus opens on the "no" button, ahead of them (ui/primitives/reveal.tsx).
  */
 import * as React from "react";
 import { Columns3, Plus, Replace } from "lucide-react";
@@ -32,6 +36,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/ui/primitives/dialog";
+import { Brief } from "@/ui/primitives/reveal";
 
 /** One column that would be added. */
 export interface ProposedColumn {
@@ -114,11 +119,17 @@ export function useColumnConsent(): {
 
   const req = pending?.req;
   const opener = pending?.opener ?? null;
+  const noRef = React.useRef<HTMLButtonElement>(null);
   const dialog = (
     <Dialog open={Boolean(pending)} onOpenChange={(o) => (o ? undefined : answer(null))}>
       {req ? (
         <DialogContent
           className="max-w-xl"
+          onOpenAutoFocus={(e) => {
+            // Focus starts on the "no" button, not on a note's ⓘ, which would open its popover over the dialog.
+            e.preventDefault();
+            noRef.current?.focus();
+          }}
           onCloseAutoFocus={(e) => {
             // Radix would focus a trigger this dialog doesn't have; the control that asked takes it instead.
             e.preventDefault();
@@ -162,12 +173,12 @@ export function useColumnConsent(): {
           ) : null}
           <p className="flex gap-2 rounded-card border border-border bg-surface-2 px-3 py-2 text-sm leading-relaxed text-fg-muted">
             <Columns3 className="mt-0.5 size-4 shrink-0 text-fg-subtle" aria-hidden />
-            <span>
-              <span className="text-fg">If you say no, nothing is added.</span> {req.ifNo}
-            </span>
+            <Brief label="If you say no" full={`If you say no, nothing is added. ${req.ifNo}`}>
+              <span className="text-fg">If you say no, nothing is added.</span>
+            </Brief>
           </p>
           <DialogFooter>
-            <Button variant="secondary" onClick={() => answer(false)}>
+            <Button ref={noRef} variant="secondary" onClick={() => answer(false)}>
               {req.noLabel}
             </Button>
             <Button variant="primary" onClick={() => answer(true)}>
@@ -175,7 +186,12 @@ export function useColumnConsent(): {
             </Button>
           </DialogFooter>
           <p className="text-xs text-fg-subtle">
-            To never be asked again and never add columns, choose “Never add” under Settings → New columns.
+            <Brief
+              label="How to stop being asked"
+              full="To never be asked again and never add columns, choose “Never add” under Settings → New columns."
+            >
+              Never ask again: Settings → New columns.
+            </Brief>
           </p>
         </DialogContent>
       ) : null}

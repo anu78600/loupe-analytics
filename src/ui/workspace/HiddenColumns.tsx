@@ -12,12 +12,15 @@
  * The hidden list: every column the user hid, with Show to bring it back.
  * The note says what hiding means: the column stays in the file, the data
  * grid and the exports, but no KPI, chart, filter, insight or question reads
- * it. With neither, one line says how to hide a column.
+ * it. With neither, one line says how to hide a column. Each explanation is
+ * one short line with the full text behind hover, a long press or its ⓘ
+ * (ui/primitives/reveal.tsx).
  */
 import * as React from "react";
 import { ArrowRight, EyeOff, Sparkles } from "lucide-react";
 import { useWorkspace } from "@/store/workspace";
 import { Button } from "@/ui/primitives/button";
+import { Brief, ClampText, InfoTip } from "@/ui/primitives/reveal";
 
 export function HiddenColumns() {
   const replaced = useWorkspace((s) => s.replaced);
@@ -46,8 +49,12 @@ export function HiddenColumns() {
                     : `These ${open.length} columns look replaced by cleaned copies`}
                 </h2>
                 <p className="mt-0.5 max-w-3xl text-sm text-fg-muted">
-                  Hide {open.length === 1 ? "it" : "them"} and every KPI, chart and question uses the clean
-                  column instead. {open.length === 1 ? "It stays" : "They stay"} in your file as a reference.
+                  <Brief
+                    label="About hiding replaced columns"
+                    full={`Hide ${open.length === 1 ? "it" : "them"} and every KPI, chart and question uses the clean column instead. ${open.length === 1 ? "It stays" : "They stay"} in your file as a reference.`}
+                  >
+                    Hide {open.length === 1 ? "it" : "them"} to use the clean column instead.
+                  </Brief>
                 </p>
               </div>
             </div>
@@ -84,7 +91,9 @@ export function HiddenColumns() {
                     <span className="sr-only">replaced by</span>
                     <span className="font-medium text-fg">{r.keep}</span>
                   </p>
-                  <p className="mt-0.5 text-xs leading-relaxed text-fg-muted">{r.reason}</p>
+                  <ClampText lines={2} className="mt-0.5 text-xs leading-relaxed text-fg-muted">
+                    {r.reason}
+                  </ClampText>
                 </div>
                 <Button
                   size="sm"
@@ -105,6 +114,12 @@ export function HiddenColumns() {
             <span className="inline-flex items-center gap-1.5 text-ui font-medium text-fg">
               <EyeOff className="size-4 text-fg-subtle" aria-hidden />
               Hidden from the analysis
+              <InfoTip label="About hidden columns">
+                {list.length === 1 ? "It stays" : "They stay"} in your file, in the grid and in every export
+                as your reference, but no KPI, chart, filter, insight or question uses{" "}
+                {list.length === 1 ? "it" : "them"}. Power BI gets {list.length === 1 ? "it" : "them"} as
+                hidden columns.
+              </InfoTip>
             </span>
             <ul className="flex flex-wrap gap-1.5">
               {list.map((c) => (
@@ -127,18 +142,16 @@ export function HiddenColumns() {
               ))}
             </ul>
           </div>
-          <p className="text-xs leading-relaxed text-fg-subtle">
-            {list.length === 1 ? "It stays" : "They stay"} in your file, in the grid and in every export as
-            your reference, but no KPI, chart, filter, insight or question uses{" "}
-            {list.length === 1 ? "it" : "them"}. Power BI gets {list.length === 1 ? "it" : "them"} as hidden
-            columns.
-          </p>
         </div>
       ) : !open.length ? (
         <p className="flex items-start gap-2 text-xs leading-relaxed text-fg-subtle">
           <EyeOff className="mt-0.5 size-3.5 shrink-0" aria-hidden />
-          Keeping a raw column only as a reference for a cleaned one? Hide it with the eye button on its
-          header below, or in Your columns: it stays in your file, and nothing is computed from it.
+          <Brief
+            label="About hiding a column"
+            full="Keeping a raw column only as a reference for a cleaned one? Hide it with the eye button on its header below, or in Your columns: it stays in your file, and nothing is computed from it."
+          >
+            Hide a reference-only column with the eye on its header.
+          </Brief>
         </p>
       ) : null}
     </section>

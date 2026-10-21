@@ -21,6 +21,10 @@
  * Choosing an industry or shape goes through chooseIndustry, so it is learned
  * for files like this one once built; when a learned rule set the choice,
  * LearnedNotice says so, with Undo and Forget.
+ *
+ * Notes and hints are one short line each; the full sentence is behind
+ * hover, a long press or its ⓘ (ui/primitives/reveal.tsx), and long values
+ * (a column's contents, a tagline) are clamped with the whole text on demand.
  */
 import { FileIdentity } from "./FileIdentity";
 import * as React from "react";
@@ -68,6 +72,7 @@ import {
 import { Segmented } from "@/ui/primitives/segmented";
 import { Eyebrow } from "@/ui/primitives/misc";
 import { Tooltip } from "@/ui/primitives/tooltip";
+import { Brief, ClampText, InfoTip } from "@/ui/primitives/reveal";
 import { DomainIcon } from "@/ui/common/domain-icon";
 import { ConfidenceRing } from "./ConfidenceRing";
 import { dataSummary, kindLabel } from "./columnSummary";
@@ -212,12 +217,17 @@ export function DetectStep() {
           <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden />
           <p className="text-sm text-fg">
             <span className="font-medium">A sample of the file.</span>{" "}
-            {formatCount(sampling.keptRows, locale)} of about{" "}
-            {countOf(sampling.estimatedTotalRows, "row", locale)} were loaded (
-            {sampling.strategy === "systematic" && sampling.every
-              ? `every ${ordinal(sampling.every)} row`
-              : "the first rows"}
-            ). Totals describe these rows, not the whole file.
+            <Brief
+              label="About the sample"
+              full={`${formatCount(sampling.keptRows, locale)} of about ${countOf(sampling.estimatedTotalRows, "row", locale)} were loaded (${
+                sampling.strategy === "systematic" && sampling.every
+                  ? `every ${ordinal(sampling.every)} row`
+                  : "the first rows"
+              }). Totals describe these rows, not the whole file.`}
+            >
+              {formatCount(sampling.keptRows, locale)} of about{" "}
+              {countOf(sampling.estimatedTotalRows, "row", locale)} loaded.
+            </Brief>
           </p>
         </div>
       ) : null}
@@ -234,8 +244,12 @@ export function DetectStep() {
                   <span className="font-medium">
                     {d.column} read as {d.format}.
                   </span>{" "}
-                  {d.evidence} If these are {d.alternative?.startsWith("MM") ? "month" : "day"}-first, switch
-                  now; you can also do it later in Check & map › File report.
+                  <Brief
+                    label={`Why ${d.column} was read as ${d.format}`}
+                    full={`${d.evidence} If these are ${d.alternative?.startsWith("MM") ? "month" : "day"}-first, switch now; you can also do it later in Check & map › File report.`}
+                  >
+                    Switch if they are {d.alternative?.startsWith("MM") ? "month" : "day"}-first.
+                  </Brief>
                 </span>
               </p>
               <DateOrderSwitch decision={d} />
@@ -246,7 +260,10 @@ export function DetectStep() {
       {profile.wide ? (
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-card border border-info/30 bg-info-soft px-4 py-3">
           <p className="text-sm text-fg">
-            <span className="font-medium">Wide format detected.</span> {profile.wide.suggestion}
+            <span className="font-medium">Wide format detected.</span>{" "}
+            <Brief label="About the wide format" full={profile.wide.suggestion}>
+              Unpivot it so trends work.
+            </Brief>
           </p>
           <Button size="sm" variant="secondary" onClick={() => void askUnpivot()}>
             <Waypoints aria-hidden /> Unpivot (adds 2 columns)…
@@ -260,7 +277,10 @@ export function DetectStep() {
         >
           {/* Grows beside the button on wide screens; below 16rem of room the button wraps underneath. */}
           <p className="min-w-[16rem] flex-1 text-sm text-fg">
-            <span className="font-medium">This looks like a scorecard.</span> {tall.suggestion}
+            <span className="font-medium">This looks like a scorecard.</span>{" "}
+            <Brief label="About the scorecard layout" full={tall.suggestion}>
+              Its metrics can become columns.
+            </Brief>
           </p>
           <Button
             size="sm"
@@ -308,9 +328,12 @@ function DetectionCard() {
           >
             <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden />
             <p className="text-sm text-fg">
-              <span className="font-medium">Please confirm.</span> {detection.reason} Use the form{" "}
-              <span className="lg:hidden">below</span>
-              <span className="hidden lg:inline">on the right</span>; your choice always overrides detection.
+              <span className="font-medium">Please confirm.</span> {detection.reason}{" "}
+              <InfoTip label="How to confirm">
+                Use the form <span className="lg:hidden">below</span>
+                <span className="hidden lg:inline">on the right</span>; your choice always overrides
+                detection.
+              </InfoTip>
             </p>
           </div>
         ) : null}
@@ -393,9 +416,20 @@ function ChoiceDetail({ domain, top }: { domain: DomainListItem | undefined; top
       </div>
       <h2 className="font-display text-display-sm text-fg">{domain?.name ?? "Generic"}</h2>
       <p className="max-w-xl text-sm text-fg-muted">
-        {generic
-          ? `${noFit ? `No industry matches this file well (the closest, ${top.name}, scores ${top.confidence}%), so the` : "The"} dashboard is built for the kind of table it is: KPIs and charts that suit its shape, with no industry's KPIs assumed. Pick a top match instead if one fits.`
-          : "Not among the top matches for this file. Check & map shows which of its fields were found; KPIs that need a missing field will say so instead of guessing."}
+        <Brief
+          label="About this choice"
+          full={
+            generic
+              ? `${noFit ? `No industry matches this file well (the closest, ${top.name}, scores ${top.confidence}%), so the` : "The"} dashboard is built for the kind of table it is: KPIs and charts that suit its shape, with no industry's KPIs assumed. Pick a top match instead if one fits.`
+              : "Not among the top matches for this file. Check & map shows which of its fields were found; KPIs that need a missing field will say so instead of guessing."
+          }
+        >
+          {generic
+            ? noFit
+              ? `No industry fits (closest: ${top.name}, ${top.confidence}%).`
+              : "Built from the table's shape, no industry assumed."
+            : "Not a top match; missing fields will say so."}
+        </Brief>
       </p>
       {table ? (
         <p className="max-w-xl text-sm text-fg">
@@ -471,8 +505,10 @@ function CandidateDetail({ candidate: shown, best }: { candidate: DomainCandidat
         </motion.ul>
         {shown.missingSignals.length ? (
           <p className="mt-3 text-sm text-fg-subtle">
-            Not found: {shown.missingSignals.map((m) => m.label).join(", ")}. KPIs that need them will say so
-            instead of guessing.
+            Not found: {shown.missingSignals.map((m) => m.label).join(", ")}.{" "}
+            <InfoTip label="About the fields not found">
+              KPIs that need them will say so instead of guessing.
+            </InfoTip>
           </p>
         ) : null}
       </div>
@@ -505,8 +541,12 @@ function BusinessForm() {
     >
       <h2 className="text-base font-semibold text-fg">Tell us about your business</h2>
       <p className="mt-1 text-sm text-fg-muted">
-        Detection is a starting point. Anything you set here wins: the dashboard is built from it as soon as
-        you move on.
+        <Brief
+          label="About this form"
+          full="Detection is a starting point. Anything you set here wins: the dashboard is built from it as soon as you move on."
+        >
+          Anything you set here wins.
+        </Brief>
       </p>
       {/* A container, so the goal and the two buttons lay out by the form's width rather than the
           screen's; its one track may shrink below its widest child, so nothing pushes the card wider. */}
@@ -540,7 +580,7 @@ function BusinessForm() {
               <SelectItem value="generic">Generic (build from the data&apos;s structure)</SelectItem>
             </SelectContent>
           </Select>
-          {domain ? <p className="text-xs text-fg-subtle">{domain.tagline}</p> : null}
+          {domain ? <ClampText className="text-xs text-fg-subtle">{domain.tagline}</ClampText> : null}
         </div>
         {domain && domain.subDomains.length > 1 ? (
           <div className="grid gap-1.5">
@@ -579,7 +619,12 @@ function BusinessForm() {
           </Select>
         </div>
         <div className="grid gap-1.5">
-          <Label>Main goal</Label>
+          <div className="flex items-center gap-1.5">
+            <Label>Main goal</Label>
+            <InfoTip label="About the main goal">
+              Orders the KPI strip around what you care about most.
+            </InfoTip>
+          </div>
           {/* Two by two in a narrow form (the 1024 px layout), one row of four where it fits. */}
           <Segmented
             ariaLabel="Main goal"
@@ -588,7 +633,6 @@ function BusinessForm() {
             onChange={(v) => setBusiness({ goal: v })}
             options={GOALS.map((g) => ({ value: g.value, label: g.label }))}
           />
-          <p className="text-xs text-fg-subtle">Orders the KPI strip around what you care about most.</p>
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div className="grid gap-1.5">
@@ -610,7 +654,15 @@ function BusinessForm() {
             </Select>
           </div>
           <div className="grid gap-1.5">
-            <Label htmlFor="currency">Currency</Label>
+            <div className="flex items-center gap-1.5">
+              <Label htmlFor="currency">Currency</Label>
+              {profileCurrency && !currencyOverride ? (
+                <InfoTip label="Where the currency came from">
+                  Currency source: {profileCurrency.source}
+                  {/[.!?]$/.test(profileCurrency.source) ? "" : "."}
+                </InfoTip>
+              ) : null}
+            </div>
             <Select
               value={currencyOverride ?? "auto"}
               onValueChange={(v) => setCurrency(v === "auto" ? null : v)}
@@ -633,12 +685,6 @@ function BusinessForm() {
             </Select>
           </div>
         </div>
-        {profileCurrency && !currencyOverride ? (
-          <p className="-mt-2 text-xs text-fg-subtle">
-            Currency source: {profileCurrency.source}
-            {/[.!?]$/.test(profileCurrency.source) ? "" : "."}
-          </p>
-        ) : null}
         <div className="grid gap-1.5">
           <Label htmlFor="notes">Anything else? (optional)</Label>
           <Textarea
@@ -691,10 +737,18 @@ function ColumnsInFile() {
             <Columns3 className="size-4 text-accent" aria-hidden /> Columns in your file
           </h2>
           <p className="mt-1 text-sm text-fg-muted">
-            {profile.columns.length === 1
-              ? "1 column header, read from its values."
-              : `${profile.columns.length} column headers, each read from its values.`}{" "}
-            Next, check the data itself row by row.
+            <Brief
+              label="About this table"
+              full={`${
+                profile.columns.length === 1
+                  ? "1 column header, read from its values."
+                  : `${profile.columns.length} column headers, each read from its values.`
+              } Next, check the data itself row by row.`}
+            >
+              {profile.columns.length === 1
+                ? "1 column header, read from its values."
+                : `${profile.columns.length} column headers, each read from its values.`}
+            </Brief>
           </p>
         </div>
       </div>
@@ -741,7 +795,7 @@ function ColumnsInFile() {
                     </Tooltip>
                   </td>
                   <td className="font-data max-w-[420px] border-b border-border px-4 py-2 text-xs leading-relaxed text-fg-muted">
-                    {dataSummary(c, locale)}
+                    <ClampText lines={2}>{dataSummary(c, locale)}</ClampText>
                   </td>
                 </tr>
               );

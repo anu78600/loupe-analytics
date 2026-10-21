@@ -8,6 +8,9 @@
  * cards write them, aiSummaryPayload.ts) and flags any number in it that does
  * not appear in the payload that was sent. AiDomainCheck asks for a second opinion on the
  * detected industry. The API key stays in memory (store/settings.ts).
+ * Explanations are one short line with the full text behind hover, a long
+ * press or the ⓘ, and Claude's rationale is clamped to two lines
+ * (ui/primitives/reveal.tsx).
  */
 import * as React from "react";
 import { AlertTriangle, Bot, Loader2, Lock, Send, Sparkles } from "lucide-react";
@@ -37,6 +40,7 @@ import {
   DialogTitle,
 } from "@/ui/primitives/dialog";
 import { useFmt } from "@/ui/common/hooks";
+import { Brief, ClampText } from "@/ui/primitives/reveal";
 import { summaryKpis } from "./aiSummaryPayload";
 
 export function PayloadPreviewDialog({
@@ -163,7 +167,12 @@ export function AiSummary({ insights }: { insights: Insight[] }) {
           <div>
             <p className="text-sm font-medium text-fg">Executive summary</p>
             <p className="text-ui text-fg-muted">
-              Optional. Claude rewrites the computed insights as a brief; you review the exact payload first.
+              <Brief
+                label="About the executive summary"
+                full="Optional. Claude rewrites the computed insights as a brief; you review the exact payload first."
+              >
+                Optional: Claude rewrites the insights as a brief.
+              </Brief>
             </p>
           </div>
         </div>
@@ -199,8 +208,13 @@ export function AiSummary({ insights }: { insights: Insight[] }) {
             })}
           </ul>
           <p className="mt-3 flex items-start gap-1.5 text-xs text-fg-subtle">
-            <Lock className="mt-0.5 size-3 shrink-0" aria-hidden /> Written by {ai.model} from the headline
-            KPIs and the insights below. Figures not found in what was sent are flagged as unverified.
+            <Lock className="mt-0.5 size-3 shrink-0" aria-hidden />
+            <Brief
+              label="About this summary"
+              full={`Written by ${ai.model} from the headline KPIs and the insights below. Figures not found in what was sent are flagged as unverified.`}
+            >
+              Written by {ai.model}; unverified figures are flagged.
+            </Brief>
           </p>
         </div>
       ) : null}
@@ -271,7 +285,9 @@ export function AiDomainCheck() {
             {match?.name ?? (opinion.domainId === "generic" ? "Generic" : opinion.domainId)} ·{" "}
             <span className="font-figures">{Math.round(opinion.confidence)}%</span>
           </p>
-          <p className="mt-1 text-xs leading-relaxed text-fg-muted">{opinion.rationale}</p>
+          <ClampText lines={2} className="mt-1 text-xs leading-relaxed text-fg-muted">
+            {opinion.rationale}
+          </ClampText>
           {match || opinion.domainId === "generic" ? (
             <Button
               size="xs"

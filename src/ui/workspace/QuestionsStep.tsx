@@ -18,6 +18,11 @@
  * beside the choice; a chart's click-to-filter is not applied), or the whole
  * file. A card can be put back in the box to edit it. Answered questions also
  * go into the SQL PDF on the Export step.
+ *
+ * Text is kept short (version 47.0): the intro, the rows-used note and each
+ * card's notes are one line or an ⓘ, with the full words on hover, focus or
+ * a long press (ui/primitives/reveal); long values (the reading, the
+ * headline, an error) are clamped and open in full when cut.
  */
 import * as React from "react";
 import {
@@ -56,6 +61,7 @@ import { Button } from "@/ui/primitives/button";
 import { Card } from "@/ui/primitives/card";
 import { Input, Label } from "@/ui/primitives/input";
 import { Eyebrow } from "@/ui/primitives/misc";
+import { Brief, ClampText, InfoTip } from "@/ui/primitives/reveal";
 import { Segmented } from "@/ui/primitives/segmented";
 import { CodeBlock } from "./dashboard/KpiDetails";
 import { ChartPreview } from "./dashboard/AskChart";
@@ -111,6 +117,10 @@ export function QuestionsStep() {
       .map((f) => describeFilter(f, formatDay));
   }, [datePreset, customRange, dimFilters, context]);
   if (!context || !actx) return null;
+  const rowsLine =
+    scope === "dashboard"
+      ? `Rows used: ${dashboardRows.length ? dashboardRows.join(" · ") : "every row (the dashboard has no filters)"}`
+      : "Rows used: every row of your file";
   const asked = new Set(questions.filter((q) => !q.error).map((q) => q.question));
 
   const submit = () => {
@@ -157,8 +167,12 @@ export function QuestionsStep() {
           <Eyebrow>Step {stepNumber("questions")} · Questions & SQL</Eyebrow>
           <h1 className="mt-2 font-display text-display-sm text-fg">Ask your data a business question.</h1>
           <p className="mt-2 max-w-2xl text-sm text-fg-muted">
-            Pick a question or type your own. Loupe answers it from your file and writes the SQL query that
-            returns the same answer, which you can check right here.
+            <Brief
+              label="About questions and SQL"
+              full="Pick a question or type your own. Loupe answers it from your file and writes the SQL query that returns the same answer, which you can check right here."
+            >
+              Answered from your file, with SQL to check.
+            </Brief>
           </p>
         </div>
         <Button variant="secondary" onClick={() => setStep("insights")}>
@@ -166,7 +180,7 @@ export function QuestionsStep() {
         </Button>
       </div>
 
-      <Card className="grid gap-4 p-5">
+      <Card className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4 p-5">
         <form
           className="grid gap-2"
           onSubmit={(e) => {
@@ -181,7 +195,7 @@ export function QuestionsStep() {
               id="question-input"
               value={text}
               onChange={(e) => setText(e.target.value)}
-              placeholder="e.g. Which region has the highest revenue? Net revenue in 2026 by channel?"
+              placeholder="e.g. Which region has the highest revenue?"
               autoComplete="off"
               spellCheck={false}
             />
@@ -201,8 +215,13 @@ export function QuestionsStep() {
                 {reading.unmatched.length ? (
                   <span className="text-warning">
                     {" "}
-                    · Not in your file: {quoted(reading.unmatched)}. A question is answered only when every
-                    word is placed.
+                    ·{" "}
+                    <Brief
+                      label="Why it can't be answered yet"
+                      full={`Not in your file: ${quoted(reading.unmatched)}. A question is answered only when every word is placed.`}
+                    >
+                      Not in your file: {quoted(reading.unmatched)}.
+                    </Brief>
                   </span>
                 ) : null}
               </>
@@ -225,15 +244,19 @@ export function QuestionsStep() {
               ]}
             />
           </div>
-          <p className="text-xs leading-relaxed text-fg-subtle">
-            {scope === "dashboard"
-              ? `Rows used: ${dashboardRows.length ? dashboardRows.join(" · ") : "every row (the dashboard has no filters)"}. `
-              : "Rows used: every row of your file. "}
-            {crossFilter
-              ? `The chart click on ${crossFilter.column}: ${crossFilter.value} is not applied to answers.`
-              : "A chart click on the dashboard is never applied to answers."}{" "}
-            A value or period the question names (“in 2026”) narrows the rows further.
-          </p>
+          {/* The rows in one clamped line; why a chart click is left out, and what narrows them, behind the ⓘ. */}
+          <div className="flex min-w-0 items-center gap-1.5 text-xs text-fg-subtle">
+            <ClampText key={rowsLine} className="min-w-0">
+              {rowsLine}
+            </ClampText>
+            <InfoTip label="About the rows used">
+              {rowsLine}.{" "}
+              {crossFilter
+                ? `The chart click on ${crossFilter.column}: ${crossFilter.value} is not applied to answers.`
+                : "A chart click on the dashboard is never applied to answers."}{" "}
+              A value or period the question names (“in 2026”) narrows the rows further.
+            </InfoTip>
+          </div>
         </div>
         {suggestions.length ? (
           <div>
@@ -280,8 +303,12 @@ export function QuestionsStep() {
           <Card className="flex items-start gap-3 p-6 text-sm text-fg-muted">
             <MessageSquareText className="mt-0.5 size-5 shrink-0 text-fg-subtle" aria-hidden />
             <p>
-              No questions yet. Each answer comes with its SQL query, so you can run it on your own database
-              too. They are all included in the SQL PDF on the Export step.
+              <Brief
+                label="About answers"
+                full="No questions yet. Each answer comes with its SQL query, so you can run it on your own database too. They are all included in the SQL PDF on the Export step."
+              >
+                No questions yet. Each answer comes with its SQL.
+              </Brief>
             </p>
           </Card>
         )}
@@ -361,6 +388,7 @@ function AnswerCard({
   const rowsUsed = a.filters.length
     ? a.filters.map((f) => describeFilter(f, formatDay)).join("; ")
     : "every row of your file";
+  const readLine = `Read as: ${a.understood} · Rows used: ${rowsUsed}`;
   // One precision per column: ₹663 beside ₹2,712, never ₹662.75.
   const decimals = a.measures.map((m, i) =>
     columnDecimals(
@@ -463,7 +491,7 @@ function AnswerCard({
   };
 
   return (
-    <Card className="grid gap-4 p-5">
+    <Card className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4 p-5">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h2
@@ -473,14 +501,21 @@ function AnswerCard({
           >
             {a.question}
           </h2>
-          <p className="mt-1 text-xs text-fg-muted">
-            Read as: {a.understood} · Rows used: {rowsUsed}
-          </p>
-          {a.notes.map((n) => (
-            <p key={n} className="mt-1 text-xs text-fg-subtle">
-              {n}
-            </p>
-          ))}
+          {/* How it was read, in one clamped line; the reader's notes behind the ⓘ. */}
+          <div className="mt-1 flex min-w-0 items-center gap-1.5 text-xs text-fg-muted">
+            <ClampText key={readLine} className="min-w-0">
+              {readLine}
+            </ClampText>
+            {a.notes.length ? (
+              <InfoTip label="Notes on how the question was read">
+                <ul className="grid gap-1">
+                  {a.notes.map((n) => (
+                    <li key={n}>{n}</li>
+                  ))}
+                </ul>
+              </InfoTip>
+            ) : null}
+          </div>
         </div>
         <div className="flex shrink-0 items-center gap-1">
           <Button
@@ -502,18 +537,27 @@ function AnswerCard({
         </div>
       </div>
       {a.error ? (
-        <p className="text-sm text-warning">{a.error}</p>
+        // Kept in view, two lines at most; the rest opens when cut.
+        <ClampText key={a.error} lines={2} className="text-sm text-warning">
+          {a.error}
+        </ClampText>
       ) : !a.rows.length ? (
         <p className="rounded-card border border-border bg-surface-2 px-4 py-3 text-sm text-fg-muted">
-          No rows match {a.filters.length ? `these filters (${rowsUsed})` : "this question"}, so there is
-          nothing to answer. Widen the filters or ask about the whole file.
+          <Brief
+            label="Why there is no answer"
+            full={`No rows match ${a.filters.length ? `these filters (${rowsUsed})` : "this question"}, so there is nothing to answer. Widen the filters or ask about the whole file.`}
+          >
+            No rows match. Widen the filters or ask the whole file.
+          </Brief>
         </p>
       ) : (
         <>
           {a.headline ? (
-            <p className="rounded-card border border-border-accent bg-accent-soft px-4 py-3 text-sm text-fg">
-              {a.headline}
-            </p>
+            <div className="rounded-card border border-border-accent bg-accent-soft px-4 py-3 text-sm text-fg">
+              <ClampText key={a.headline} lines={2}>
+                {a.headline}
+              </ClampText>
+            </div>
           ) : null}
           <div className={cn("grid gap-4", preview ? "lg:grid-cols-2" : "")}>
             <div
@@ -576,7 +620,9 @@ function AnswerCard({
           {a.sql ? <CodeBlock code={a.sql} language="SQL · DuckDB / PostgreSQL" label="SQL query" /> : null}
           {a.skipped.map((s) => (
             <p key={s.label} className="text-xs text-fg-muted">
-              No SQL for {s.label}: {s.reason}
+              <Brief label={`Why there is no SQL for ${s.label}`} full={`No SQL for ${s.label}: ${s.reason}`}>
+                No SQL for {s.label}.
+              </Brief>
             </p>
           ))}
           <div className="flex flex-wrap items-center gap-2">

@@ -9,6 +9,11 @@
  * is lost either way), after a yes that says how many dates would become
  * blank when the order is proven or contested. The user's settings are kept
  * across the re-read.
+ *
+ * Long explanations (an issue's detail, a date column's evidence, notes) are
+ * clamped to two lines with the whole text on hover, focus or a long press;
+ * the file's name to one (ui/primitives/reveal.tsx). On a phone the timings
+ * sit behind an ⓘ.
  */
 import { AlertTriangle, CheckCircle2, Info, XCircle } from "lucide-react";
 import type { HealthReport } from "@/engine/profile/quality";
@@ -21,6 +26,7 @@ import { cn } from "@/lib/utils";
 import { Badge } from "@/ui/primitives/badge";
 import { Button } from "@/ui/primitives/button";
 import { countOf, ordinal } from "@/ui/common/words";
+import { Brief, ClampText, InfoTip } from "@/ui/primitives/reveal";
 import { ConfidenceRing } from "./ConfidenceRing";
 import { askConfirm } from "./confirm";
 
@@ -66,7 +72,9 @@ export function HealthPanel({ health, compact = false }: { health: HealthReport;
                       <span className="sr-only">{s.label}: </span>
                       {i.title}
                     </p>
-                    <p className="mt-0.5 text-ui leading-relaxed text-fg-muted">{i.detail}</p>
+                    <ClampText lines={2} className="mt-0.5 text-ui leading-relaxed text-fg-muted">
+                      {i.detail}
+                    </ClampText>
                   </div>
                 </li>
               );
@@ -184,20 +192,25 @@ export function ParseReportPanel({
           // The file's name gets two columns: it is the one fact long enough to be cut short.
           <div key={k} className={cn("min-w-0", k === "File" && "col-span-2")}>
             <dt className="eyebrow text-fg-subtle">{k}</dt>
-            <dd className="truncate text-ui text-fg" title={v}>
-              {v}
+            <dd className="text-ui text-fg">
+              <ClampText>{v}</ClampText>
             </dd>
           </div>
         ))}
       </dl>
       {report.sampling ? (
         <p className="rounded-control border border-warning/30 bg-warning-soft px-3 py-2 text-sm text-fg">
-          Sampled: {formatCount(report.sampling.keptRows, locale)} of about{" "}
-          {countOf(report.sampling.estimatedTotalRows, "row", locale)} (
-          {report.sampling.strategy === "systematic" && report.sampling.every
-            ? `every ${ordinal(report.sampling.every)} row`
-            : "the first rows"}
-          ). Totals describe the sample, not the whole file.
+          <Brief
+            label="About the sample"
+            full={`Sampled: ${formatCount(report.sampling.keptRows, locale)} of about ${countOf(report.sampling.estimatedTotalRows, "row", locale)} (${
+              report.sampling.strategy === "systematic" && report.sampling.every
+                ? `every ${ordinal(report.sampling.every)} row`
+                : "the first rows"
+            }). Totals describe the sample, not the whole file.`}
+          >
+            Sampled: {formatCount(report.sampling.keptRows, locale)} of about{" "}
+            {countOf(report.sampling.estimatedTotalRows, "row", locale)}.
+          </Brief>
         </p>
       ) : null}
       {report.dateFormats.length ? (
@@ -216,7 +229,9 @@ export function ParseReportPanel({
                       </Badge>
                     ) : null}
                   </p>
-                  <p className="mt-0.5 text-ui text-fg-muted">{d.evidence}</p>
+                  <ClampText lines={2} className="mt-0.5 text-ui text-fg-muted">
+                    {d.evidence}
+                  </ClampText>
                 </div>
                 <DateOrderSwitch decision={d} />
               </li>
@@ -231,21 +246,32 @@ export function ParseReportPanel({
             {report.warnings.map((w) => (
               <li key={w} className="flex gap-2">
                 <Info className="mt-0.5 size-3.5 shrink-0 text-info" aria-hidden />
-                {w}
+                <ClampText lines={2} className="min-w-0">
+                  {w}
+                </ClampText>
               </li>
             ))}
             {report.columnNotes.map((n) => (
               <li key={n.column} className="flex gap-2">
                 <Info className="mt-0.5 size-3.5 shrink-0 text-info" aria-hidden />
-                <span>
+                <ClampText lines={2} className="min-w-0">
                   <span className="text-fg">{n.column}:</span> {n.note}
-                </span>
+                </ClampText>
               </li>
             ))}
           </ul>
         </div>
       ) : null}
-      {t ? <p className="text-xs text-fg-subtle">Timings: {t}</p> : null}
+      {t ? (
+        <>
+          <p className="text-xs text-fg-subtle max-sm:hidden">Timings: {t}</p>
+          {/* A technical detail: behind an ⓘ on a phone. */}
+          <p className="flex items-center gap-1.5 text-xs text-fg-subtle sm:hidden">
+            Timings
+            <InfoTip label="Timings">{t}</InfoTip>
+          </p>
+        </>
+      ) : null}
     </div>
   );
 }

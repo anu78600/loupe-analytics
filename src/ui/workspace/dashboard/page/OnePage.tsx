@@ -20,6 +20,13 @@
  * component renders off-screen at 1280 × 720 for the download
  * (exportOnePage), so the image is the page on the screen. Every figure is
  * the dashboard's own: nothing here computes a number.
+ *
+ * On the live page, long text (takeaways, insights, the subtitle, the file
+ * name) is clamped and opens in full on hover, focus or a long press
+ * (ClampText, ui/primitives/reveal.tsx); an insight's sentence with its
+ * figures is two lines. Below lg, where the sidebar's footnote is hidden,
+ * the banner's ⓘ holds it (and on a phone "Data to"). The download keeps its
+ * fixed layout.
  */
 import * as React from "react";
 import {
@@ -69,6 +76,7 @@ import { buildOption } from "@/ui/charts/options";
 import { readChartTokens } from "@/ui/charts/tokens";
 import { Checkbox } from "@/ui/primitives/misc";
 import { Popover, PopoverContent, PopoverTrigger } from "@/ui/primitives/popover";
+import { ClampText, InfoTip } from "@/ui/primitives/reveal";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -565,9 +573,15 @@ function Sidebar({ model, live }: { model: PageModel; live: boolean }) {
           live && "hidden lg:block",
         )}
       >
-        <p className="truncate font-medium text-fg-muted" title={model.fileName}>
-          {model.fileName}
-        </p>
+        {live ? (
+          <ClampText key={model.fileName} className="font-medium text-fg-muted">
+            {model.fileName}
+          </ClampText>
+        ) : (
+          <p className="truncate font-medium text-fg-muted" title={model.fileName}>
+            {model.fileName}
+          </p>
+        )}
         <p className="tabular">{model.rows}</p>
         {model.dataTo ? <p>Data to {model.dataTo}</p> : null}
         {model.isDemo ? <p>Demo data: not real</p> : null}
@@ -631,7 +645,13 @@ function Banner({
             {model.title}
           </h2>
         )}
-        <p className="mt-[0.2cqw] truncate text-[clamp(12px,1cqw,15px)] text-fg-muted">{model.subtitle}</p>
+        {live ? (
+          <ClampText key={model.subtitle} className="mt-[0.2cqw] text-[clamp(12px,1cqw,15px)] text-fg-muted">
+            {model.subtitle}
+          </ClampText>
+        ) : (
+          <p className="mt-[0.2cqw] truncate text-[clamp(12px,1cqw,15px)] text-fg-muted">{model.subtitle}</p>
+        )}
       </div>
       <div
         className={cn(
@@ -650,9 +670,21 @@ function Banner({
           {model.periodRange && model.periodRange !== model.periodLabel ? (
             <span className="tabular font-normal text-fg-muted">· {model.periodRange}</span>
           ) : null}
+          {/* Below lg the sidebar's footnote (the file, its rows, how recent) is hidden: it is here. */}
+          {live ? (
+            <InfoTip label="About this data" className="font-normal lg:hidden">
+              <span className="block font-medium">{model.fileName}</span>
+              <span className="tabular block">{model.rows}</span>
+              {model.dataTo ? <span className="block">Data to {model.dataTo}</span> : null}
+              {model.isDemo ? <span className="block">Demo data: not real</span> : null}
+            </InfoTip>
+          ) : null}
         </p>
         {model.comparison ? <p className="tabular">{model.comparison}</p> : <p>No comparison period</p>}
-        {model.dataTo ? <p className="tabular">Data to {model.dataTo}</p> : null}
+        {/* On a phone, behind the ⓘ above. */}
+        {model.dataTo ? (
+          <p className={cn("tabular", live && "hidden sm:block")}>Data to {model.dataTo}</p>
+        ) : null}
       </div>
     </header>
   );
@@ -675,9 +707,19 @@ function PageChartCard({ chart, live, fmt }: { chart: PlacedChart; live: boolean
         {chart.title}
       </h3>
       {chart.data.headline ? (
-        <p className="mt-[2px] line-clamp-2 text-[clamp(12px,0.94cqw,14px)] leading-snug text-fg-muted">
-          {chart.data.headline}
-        </p>
+        live ? (
+          <ClampText
+            key={chart.data.headline}
+            lines={2}
+            className="mt-[2px] text-[clamp(12px,0.94cqw,14px)] leading-snug text-fg-muted"
+          >
+            {chart.data.headline}
+          </ClampText>
+        ) : (
+          <p className="mt-[2px] line-clamp-2 text-[clamp(12px,0.94cqw,14px)] leading-snug text-fg-muted">
+            {chart.data.headline}
+          </p>
+        )
       ) : null}
       <div className="relative mt-[0.4cqw] min-h-0 flex-1">
         <div className="absolute inset-0">
@@ -790,15 +832,35 @@ function InsightStrip({ insights, live }: { insights: Insight[]; live: boolean }
                 )}
                 aria-hidden
               />
-              <div className="min-w-0">
-                <p className="truncate text-[clamp(12px,1cqw,15px)] leading-snug font-semibold text-fg">
-                  {ins.title}
-                </p>
-                {/* Three lines at 12 px hold the sentence with both of its figures ("… vs ₹2.23Cr in …"). */}
-                <p className="line-clamp-3 text-[clamp(12px,0.94cqw,14px)] leading-snug text-fg-muted">
-                  {firstSentence(ins.body)}
-                </p>
-              </div>
+              {live ? (
+                // Live: the title on one line and the sentence with the figures on two, each opening in
+                // full on hover, focus or a long press (the whole explanation is in the Insights step).
+                <div className="min-w-0">
+                  <ClampText
+                    key={ins.title}
+                    className="text-[clamp(12px,1cqw,15px)] leading-snug font-semibold text-fg"
+                  >
+                    {ins.title}
+                  </ClampText>
+                  <ClampText
+                    key={ins.body}
+                    lines={2}
+                    className="text-[clamp(12px,0.94cqw,14px)] leading-snug text-fg-muted"
+                  >
+                    {firstSentence(ins.body)}
+                  </ClampText>
+                </div>
+              ) : (
+                <div className="min-w-0">
+                  <p className="truncate text-[clamp(12px,1cqw,15px)] leading-snug font-semibold text-fg">
+                    {ins.title}
+                  </p>
+                  {/* Three lines at 12 px hold the sentence with both of its figures ("… vs ₹2.23Cr in …"). */}
+                  <p className="line-clamp-3 text-[clamp(12px,0.94cqw,14px)] leading-snug text-fg-muted">
+                    {firstSentence(ins.body)}
+                  </p>
+                </div>
+              )}
             </div>
           );
         })

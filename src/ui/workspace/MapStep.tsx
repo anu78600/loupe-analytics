@@ -32,6 +32,12 @@
  * (store/learned.ts); LearnedNotice says when a learned rule is in use. A
  * column mapped by hand offers "Remember '<header>' as <field> for future
  * files" (RememberWord), which teaches detection the header as a synonym.
+ *
+ * Explanations are one short line with the full text behind hover, a long
+ * press or the ⓘ, and long values in the tables (a column's contents, why a
+ * role was chosen, why a column isn't used) are clamped with the whole text
+ * on demand (ui/primitives/reveal.tsx). On a phone the facts line is one
+ * clamped line.
  */
 import * as React from "react";
 import { toast } from "sonner";
@@ -75,6 +81,7 @@ import {
 } from "@/ui/primitives/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/primitives/tabs";
 import { Tooltip } from "@/ui/primitives/tooltip";
+import { Brief, ClampText, InfoTip } from "@/ui/primitives/reveal";
 import { phrase } from "@/engine/charts/ask";
 import { isUsed, whyUnused, type ColumnUse, type UnusedReason } from "@/engine/charts/columnUsage";
 import { useColumnUsage } from "./useColumnUsage";
@@ -179,6 +186,20 @@ export function MapStep() {
     );
   }
   const subName = context.domain.subDomains.find((s) => s.id === context.subDomainId)?.name;
+  // What Loupe read the file as, in words: on a phone the facts line is one clamped line of this.
+  const readAs = `${context.domain.name}${subName && !context.domain.generic ? ` · ${subName}` : ""}${context.domain.generic ? ` · ${context.domain.description}` : ""}`;
+  const facts = [
+    readAs,
+    summary
+      ? `${formatCount(summary.rowCount, locale)} rows · ${rows?.length ?? summary.columnCount} columns`
+      : "",
+    context.dateColumn && context.dateBounds
+      ? `${formatRange(context.dateBounds.min, context.dateBounds.max)} by ${friendly(context.dateColumn)}`
+      : "",
+    context.grainLabel,
+  ]
+    .filter(Boolean)
+    .join(" · ");
   const openColumns = (filter: ColumnFilter) => {
     setColumnFilter(filter);
     setTab("roles");
@@ -192,16 +213,17 @@ export function MapStep() {
             Is this your data? Check it, then map it.
           </h1>
           <p className="mt-2 max-w-2xl text-sm text-fg-muted">
-            Scroll the whole file to confirm it is right; anything that looks wrong is marked. Then check how
-            the columns were read: change any mapping, value meaning or role and everything regenerates.
+            <Brief
+              label="About this step"
+              full="Scroll the whole file to confirm it is right; anything that looks wrong is marked. Then check how the columns were read: change any mapping, value meaning or role and everything regenerates."
+            >
+              Check the whole file, then how each column was read.
+            </Brief>
           </p>
-          {/* What Loupe read the file as, in one line: industry and shape, size, date span, grain. */}
-          <p className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-fg-subtle">
-            <span className="text-fg-muted">
-              {context.domain.name}
-              {subName && !context.domain.generic ? ` · ${subName}` : ""}
-              {context.domain.generic ? ` · ${context.domain.description}` : ""}
-            </span>
+          {/* What Loupe read the file as: industry and shape, size, date span, grain. One clamped line on a phone. */}
+          <ClampText className="mt-3 text-xs text-fg-subtle sm:hidden">{facts}</ClampText>
+          <p className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-fg-subtle max-sm:hidden">
+            <span className="text-fg-muted">{readAs}</span>
             {summary ? (
               <span className="inline-flex items-center gap-1">
                 <Rows3 className="size-3.5" aria-hidden />
@@ -419,7 +441,8 @@ function ColumnsChip({ rows, onOpen }: { rows: ColumnRow[]; onOpen: (filter: Col
           <span className="text-fg-muted">
             of {rows.length} columns used
             {unused.length ? ` · ${unused.length} not used` : ""}
-            {hidden.length ? ` · ${hidden.length} hidden` : ""} · none added
+            {hidden.length ? ` · ${hidden.length} hidden` : ""}
+            <span className="max-sm:hidden"> · none added</span>
           </span>
           <ChevronDown className="size-3.5 shrink-0 text-fg-subtle" aria-hidden />
         </button>
@@ -606,7 +629,11 @@ function FieldMapping() {
                       <span className="font-medium text-fg">{f.label}</span>
                       {f.core ? <Badge tone="outline">core</Badge> : null}
                     </div>
-                    {f.description ? <p className="mt-0.5 text-xs text-fg-subtle">{f.description}</p> : null}
+                    {f.description ? (
+                      <ClampText className="mt-0.5 max-w-[280px] text-xs text-fg-subtle">
+                        {f.description}
+                      </ClampText>
+                    ) : null}
                   </td>
                   <td className="border-b border-border px-4 py-2 align-top">
                     <Select value={col ?? NONE} onValueChange={(v) => choose(f.id, v === NONE ? null : v)}>
@@ -867,16 +894,29 @@ function ColumnsNote({
   return (
     <p className="mb-4 flex gap-2 rounded-card border border-border bg-surface-1 px-4 py-3 text-sm leading-relaxed text-fg-muted">
       <Columns3 className="mt-0.5 size-4 shrink-0 text-accent" aria-hidden />
-      <span>
+      <Brief
+        label="About your columns"
+        full={
+          <>
+            <span className="text-fg">
+              The dashboard is built from {used} of your {total} columns
+              {hidden
+                ? `; you hid ${hidden === 1 ? "1 column" : `${hidden} columns`}, which nothing reads`
+                : ""}
+              .{unused.length ? ` Not used: ${unused.join(", ")} (the reason is beside each one below).` : ""}
+            </span>{" "}
+            Loupe never adds a column on its own: every KPI, chart and filter below reads a column from your
+            file
+            {derived ? " (including the two unpivot columns you agreed to)" : ""}, and anything that would
+            need a new one asks you first. Switch a column off to hide it from the analysis: it stays in your
+            file.
+          </>
+        }
+      >
         <span className="text-fg">
-          The dashboard is built from {used} of your {total} columns
-          {hidden ? `; you hid ${hidden === 1 ? "1 column" : `${hidden} columns`}, which nothing reads` : ""}.
-          {unused.length ? ` Not used: ${unused.join(", ")} (the reason is beside each one below).` : ""}
-        </span>{" "}
-        Loupe never adds a column on its own: every KPI, chart and filter below reads a column from your file
-        {derived ? " (including the two unpivot columns you agreed to)" : ""}, and anything that would need a
-        new one asks you first. Switch a column off to hide it from the analysis: it stays in your file.
-      </span>
+          Built from {used} of your {total} columns{hidden ? `, ${hidden} hidden` : ""}; none added.
+        </span>
+      </Brief>
     </p>
   );
 }
@@ -953,9 +993,9 @@ function ColumnRoles({
             { value: "hidden", label: `Hidden ${count("hidden")}` },
           ]}
         />
-        <p className="text-xs text-fg-subtle">
+        <InfoTip label="About this table">
           Hover a KPI or chart count to see the names; a column that isn&apos;t used says why.
-        </p>
+        </InfoTip>
       </div>
       <Card className="overflow-hidden">
         <div className="overflow-x-auto">
@@ -1013,9 +1053,7 @@ function ColumnRoles({
                       {c.name}
                     </td>
                     <td className="font-data max-w-[240px] border-b border-border px-4 py-2 text-xs leading-relaxed text-fg-muted">
-                      <span className="line-clamp-2" title={dataSummary(c, locale)}>
-                        {dataSummary(c, locale)}
-                      </span>
+                      <ClampText lines={2}>{dataSummary(c, locale)}</ClampText>
                     </td>
                     <td className="border-b border-border px-4 py-1.5">
                       {off ? (
@@ -1026,7 +1064,9 @@ function ColumnRoles({
                         // Not used, and why: the answer to "which columns did it leave out?".
                         <div className="max-w-[280px]">
                           <Badge tone="outline">Not used</Badge>
-                          <p className="mt-1 text-xs leading-relaxed text-fg-muted">{why?.reason}</p>
+                          <ClampText lines={2} className="mt-1 text-xs leading-relaxed text-fg-muted">
+                            {why?.reason}
+                          </ClampText>
                         </div>
                       ) : (
                         <UsedBy use={use} />
@@ -1095,7 +1135,7 @@ function ColumnRoles({
                       )}
                     </td>
                     <td className="max-w-[360px] border-b border-border px-4 py-2 text-xs leading-relaxed text-fg-muted">
-                      {c.roleReason}
+                      <ClampText lines={2}>{c.roleReason}</ClampText>
                     </td>
                   </tr>
                 );
@@ -1143,10 +1183,10 @@ function KpiAvailability() {
                   <div className="min-w-0 flex-1">
                     <KpiNameInput id={k.id} name={k.name} title={k.definition} />
                     {k.available ? (
-                      <p className="px-1 text-xs text-fg-subtle">
+                      <ClampText className="px-1 text-xs text-fg-subtle">
                         {k.variantLabel}
                         {k.caveat ? ` · ${k.caveat}` : ""}
-                      </p>
+                      </ClampText>
                     ) : (
                       <p className="px-1 text-xs text-fg-muted">
                         {k.unavailableReason} {k.substitute}

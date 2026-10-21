@@ -29,6 +29,12 @@
  * dictionary) are not offered again on their own. Power BI, SQL and the data
  * files cover the whole file, so the SQL check compares with Loupe's
  * whole-file values and says so.
+ *
+ * Text is kept short (version 47.0): each card says what it is in a few
+ * words, with the full description, captions and notes behind it or an ⓘ
+ * (ui/primitives/reveal: hover, focus or a long press opens them). On a
+ * phone the one-page chart list and the Power BI contents fold behind a
+ * line of their own; file names and chart titles are clamped.
  */
 import * as React from "react";
 import {
@@ -68,6 +74,7 @@ import { cn, downloadBlob, exportFileName } from "@/lib/utils";
 import type { VerificationResult } from "@/lib/duckdb";
 import { Button } from "@/ui/primitives/button";
 import { Eyebrow } from "@/ui/primitives/misc";
+import { Brief, ClampText, InfoTip } from "@/ui/primitives/reveal";
 import { Segmented } from "@/ui/primitives/segmented";
 import { Switch } from "@/ui/primitives/switch";
 import { useFmt } from "@/ui/common/hooks";
@@ -251,14 +258,21 @@ export function ExportStep() {
           <h1 className="mt-2 font-display text-display-sm text-fg">Take it anywhere.</h1>
           {/* Said as it is: the shared files show the dashboard's selection, the rest every row. */}
           <p className="mt-2 text-sm text-fg-muted">
-            Slides and reports show the dashboard as you see it; Power BI, SQL and the data cover the whole
-            file.
+            <Brief
+              label="What each export covers"
+              full="Slides and reports show the dashboard as you see it; Power BI, SQL and the data cover the whole file."
+            >
+              Slides show your view; data files, every row.
+            </Brief>
           </p>
         </div>
         <div className="flex min-w-0 flex-col items-start gap-1.5 sm:items-end">
           <FileIdentity summary={summary} size="sm" />
           <span className="inline-flex items-center gap-1.5 text-xs text-fg-subtle">
-            <ShieldCheck className="size-3.5 text-success" aria-hidden /> Made in this tab · nothing uploaded
+            <ShieldCheck className="size-3.5 text-success" aria-hidden />
+            <Brief label="Where the files are made" full="Made in this tab · nothing uploaded">
+              Nothing uploaded
+            </Brief>
           </span>
         </div>
       </header>
@@ -276,7 +290,7 @@ export function ExportStep() {
       <Section id="export-build" title="Build on it" className="mt-10">
         <div className="grid gap-4 lg:grid-cols-3">
           <PowerBiPanel />
-          <div className="grid gap-4">
+          <div className="grid min-w-0 gap-4">
             <SqlPanel />
             <DataPanel />
           </div>
@@ -348,7 +362,7 @@ function TileIcon({
  * scrolled, so focusing a button inside slid the content under the glow.
  */
 const SURFACE =
-  "group relative flex flex-col overflow-clip rounded-card border border-border bg-surface-1 shadow-card transition-[border-color,box-shadow,transform] duration-200 hover:border-border-accent motion-safe:hover:-translate-y-0.5";
+  "group relative flex min-w-0 flex-col overflow-clip rounded-card border border-border bg-surface-1 shadow-card transition-[border-color,box-shadow,transform] duration-200 hover:border-border-accent motion-safe:hover:-translate-y-0.5";
 
 function CornerGlow() {
   return (
@@ -368,11 +382,15 @@ function FeatureHead({
   icon,
   title,
   line,
+  full,
   type,
 }: {
   icon: React.ComponentType<{ className?: string }>;
   title: string;
+  /** What it is for, in a few words. */
   line: string;
+  /** The whole description, behind the line. */
+  full: string;
   type: string;
 }) {
   return (
@@ -380,7 +398,11 @@ function FeatureHead({
       <TileIcon icon={icon} large />
       <div className="col-span-2 row-start-2 min-w-0 sm:col-span-1 sm:col-start-2 sm:row-start-1">
         <h3 className="text-lg font-medium text-fg">{title}</h3>
-        <p className="mt-1 text-sm leading-relaxed text-fg-muted">{line}</p>
+        <p className="mt-1 text-sm leading-relaxed text-fg-muted">
+          <Brief label={`About ${title}`} full={full}>
+            {line}
+          </Brief>
+        </p>
       </div>
       <div className="col-start-2 row-start-1 justify-self-end sm:col-start-3">
         <TypePill>{type}</TypePill>
@@ -421,26 +443,26 @@ function ColumnsSwitch({
 /**
  * Which charts a file leaves out and why: charts on the dashboard that can't
  * be drawn now (one uses a column hidden in Check & map or a KPI that was
- * deleted, or has nothing to draw for this selection). Three are named; the
- * count covers all.
+ * deleted, or has nothing to draw for this selection). The count stays in
+ * view; three are named, with the reason, behind its ⓘ.
  */
 function LeftOutNote({ charts, className }: { charts: LeftOutChart[]; className?: string }) {
   if (!charts.length) return null;
   return (
-    <div className={cn("text-xs leading-relaxed text-fg-subtle", className)}>
-      <p className="flex items-center gap-1.5 font-medium text-fg-muted">
-        <TriangleAlert className="size-3.5 shrink-0 text-warning" aria-hidden />
-        {leftOutLabel(charts.length)}
-      </p>
-      <ul className="mt-0.5 grid gap-0.5 pl-5">
-        {charts.slice(0, 3).map((c) => (
-          <li key={c.id}>
-            <span className="text-fg-muted">{c.title}</span>: {c.why}
-          </li>
-        ))}
-        {charts.length > 3 ? <li>and {charts.length - 3} more</li> : null}
-      </ul>
-    </div>
+    <p className={cn("flex items-center gap-1.5 text-xs font-medium text-fg-muted", className)}>
+      <TriangleAlert className="size-3.5 shrink-0 text-warning" aria-hidden />
+      {leftOutLabel(charts.length)}
+      <InfoTip label="Which charts are left out, and why">
+        <ul className="grid gap-1">
+          {charts.slice(0, 3).map((c) => (
+            <li key={c.id}>
+              <span className="font-medium">{c.title}</span>: {c.why}
+            </li>
+          ))}
+          {charts.length > 3 ? <li>and {charts.length - 3} more</li> : null}
+        </ul>
+      </InfoTip>
+    </p>
   );
 }
 
@@ -454,6 +476,7 @@ function Tile({
   type,
   title,
   line,
+  full,
   fact,
   options,
   note,
@@ -465,6 +488,8 @@ function Tile({
   type: string;
   title: string;
   line: string;
+  /** The whole description behind `line`, when the line is a short form of it. */
+  full?: string;
   fact: React.ReactNode;
   /** Controls for what goes in the file (a switch). */
   options?: React.ReactNode;
@@ -483,7 +508,15 @@ function Tile({
         <TypePill>{type}</TypePill>
       </div>
       <h3 className="relative mt-4 text-md font-medium text-fg">{title}</h3>
-      <p className="relative mt-1 text-sm leading-relaxed text-fg-muted">{line}</p>
+      <p className="relative mt-1 text-sm leading-relaxed text-fg-muted">
+        {full ? (
+          <Brief label={`About ${title}`} full={full}>
+            {line}
+          </Brief>
+        ) : (
+          line
+        )}
+      </p>
       <p className="tabular relative mt-3 text-xs text-fg-subtle">{fact}</p>
       {options ? <div className="relative mt-3">{options}</div> : null}
       {note ? <div className="relative mt-3">{note}</div> : null}
@@ -618,6 +651,13 @@ function OnePagePanel() {
   const [busy, setBusy] = React.useState<"png" | "pdf" | null>(null);
   if (!model) return null;
   const filters = model.slicers.filter((s) => s.values.length).length;
+  const pageMeta = `${model.periodLabel}${filters ? ` · ${filters} filter${filters === 1 ? "" : "s"}` : " · no filters"}`;
+  const chartList = model.charts.map((c, i) => (
+    <li key={c.spec.id} className="flex min-w-0 gap-1">
+      <span className="tabular shrink-0 text-fg-subtle">{i + 1}.</span>
+      <ClampText className="min-w-0">{c.title}</ClampText>
+    </li>
+  ));
   const run = async (format: "png" | "pdf") => {
     setBusy(format);
     try {
@@ -635,29 +675,40 @@ function OnePagePanel() {
       <FeatureHead
         icon={LayoutDashboard}
         title="One-page dashboard"
-        line="The whole story on one landscape page: headline KPIs, five key charts with their takeaways, and the key insights."
+        line="Your dashboard on one landscape page."
+        full="The whole story on one landscape page: headline KPIs, five key charts with their takeaways, and the key insights."
         type="PNG · PDF"
       />
       <div className="relative mt-5 grid gap-5 sm:grid-cols-[minmax(0,280px)_minmax(0,1fr)] sm:items-center">
         <MiniPage model={model} />
         <div className="min-w-0">
-          <p className="truncate text-ui font-medium text-fg">{model.title}</p>
-          <p className="tabular mt-0.5 text-xs text-fg-subtle">
-            {model.periodLabel}
-            {filters ? ` · ${filters} filter${filters === 1 ? "" : "s"}` : " · no filters"}
-          </p>
-          <ol className="mt-3 grid gap-1 text-xs text-fg-muted" aria-label="Charts on the page">
-            {model.charts.map((c, i) => (
-              <li key={c.spec.id} className="truncate">
-                <span className="tabular text-fg-subtle">{i + 1}.</span> {c.title}
-              </li>
-            ))}
+          <ClampText key={model.title} className="text-ui font-medium text-fg">
+            {model.title}
+          </ClampText>
+          <ClampText key={pageMeta} className="tabular mt-0.5 text-xs text-fg-subtle">
+            {pageMeta}
+          </ClampText>
+          {/* The charts by name from sm up; on a phone, their count with the names behind the ⓘ. */}
+          <ol className="mt-3 hidden gap-1 text-xs text-fg-muted sm:grid" aria-label="Charts on the page">
+            {chartList}
           </ol>
+          <p className="mt-2 flex items-center gap-1.5 text-xs text-fg-muted sm:hidden">
+            <span className="tabular">
+              {model.charts.length} {model.charts.length === 1 ? "chart" : "charts"}
+            </span>
+            <InfoTip label="Charts on the page">
+              <ol className="grid gap-1">{chartList}</ol>
+            </InfoTip>
+          </p>
         </div>
       </div>
       <p className="tabular relative mt-4 text-xs text-fg-subtle">
-        One image, 3840 × 2160 (4K), or a one-page landscape PDF, with the dashboard&apos;s current period and
-        filters.
+        <Brief
+          label="About the page's format"
+          full="One image, 3840 × 2160 (4K), or a one-page landscape PDF, with the dashboard's current period and filters."
+        >
+          A 4K image or a one-page PDF.
+        </Brief>
       </p>
       <div className="relative mt-auto flex flex-wrap items-center gap-3 pt-6">
         <Button variant="primary" size="lg" onClick={() => void run("png")} disabled={Boolean(busy)}>
@@ -733,6 +784,7 @@ function SlidesPanel() {
     () => planSlides(withColumns ? all : all.filter((c) => !isColumnChart(c)), density),
     [all, withColumns, density],
   );
+  const deck = describeSlides(slides);
   const run = async (format: "png" | "pdf") => {
     setBusy("Preparing…");
     try {
@@ -761,7 +813,8 @@ function SlidesPanel() {
       <FeatureHead
         icon={Presentation}
         title="Presentation slides"
-        line="Landscape 16:9 slides with a takeaway on every chart, ready for PowerPoint, Keynote or a screen."
+        line="16:9 slides, a takeaway on every chart."
+        full="Landscape 16:9 slides with a takeaway on every chart, ready for PowerPoint, Keynote or a screen."
         type="PNG · PDF"
       />
 
@@ -812,12 +865,19 @@ function SlidesPanel() {
           <MiniSlide key={i} slide={slide} n={i + 1} />
         ))}
       </ol>
-      <p className="relative mt-3 text-sm text-fg">
-        <span className="tabular font-medium">{slides.length} slides</span>
-        <span className="text-fg-muted"> · {describeSlides(slides)}</span>
-      </p>
+      <div className="relative mt-3 flex min-w-0 items-baseline gap-1 text-sm text-fg">
+        <span className="tabular shrink-0 font-medium">{slides.length} slides</span>
+        <ClampText key={deck} className="min-w-0 text-fg-muted">
+          · {deck}
+        </ClampText>
+      </div>
       <p className="tabular relative mt-0.5 text-xs text-fg-subtle">
-        Each image 3840 × 2160 (4K), numbered in order. Opens with the headline KPIs and key takeaways.
+        <Brief
+          label="About the slides' format"
+          full="Each image 3840 × 2160 (4K), numbered in order. Opens with the headline KPIs and key takeaways."
+        >
+          4K images, opening with the headline KPIs.
+        </Brief>
       </p>
       <LeftOutNote
         className="relative mt-3"
@@ -897,7 +957,8 @@ function InsightsTile() {
       icon={Lightbulb}
       type="PDF"
       title="Insights"
-      line="What the data says, ranked, with its chart where one shows it."
+      line="Ranked findings, each with its chart."
+      full="What the data says, ranked, with its chart where one shows it."
       fact={
         insights
           ? `${insights.length} ${insights.length === 1 ? "insight" : "insights"}`
@@ -1007,7 +1068,8 @@ function PowerBiPanel() {
       <FeatureHead
         icon={FileArchive}
         title="Power BI package"
-        line="Everything to rebuild this dashboard in Power BI Desktop in about five minutes."
+        line="Rebuild this dashboard in Power BI Desktop."
+        full="Everything to rebuild this dashboard in Power BI Desktop in about five minutes."
         type="ZIP"
       />
 
@@ -1020,34 +1082,58 @@ function PowerBiPanel() {
           <ul className="grid gap-x-6 px-3.5 py-2 sm:grid-cols-2">
             {packageLines(manifest).map((f) => (
               <li key={f.path} className="flex items-center justify-between gap-3 py-1 text-xs">
-                <span className="truncate text-fg" title={f.path}>
+                <ClampText key={f.path} className="min-w-0 text-fg">
                   {f.path}
                   {f.files > 1 ? <span className="text-fg-subtle"> · {f.files} files</span> : null}
-                </span>
+                </ClampText>
                 <span className="font-figures shrink-0 text-fg-subtle">{formatBytes(f.bytes)}</span>
               </li>
             ))}
           </ul>
         </div>
       ) : (
-        <ul className="relative mt-5 grid gap-x-6 gap-y-2 sm:grid-cols-2">
-          {PACKAGE_PARTS.map((t) => (
-            <li key={t} className="flex items-center gap-2 text-ui text-fg">
-              <CheckCircle2 className="size-4 shrink-0 text-success" aria-hidden />
-              {t}
-            </li>
-          ))}
-        </ul>
+        <>
+          {/* What it holds, part by part from sm up; on a phone, one line with the parts behind it. */}
+          <ul className="relative mt-5 hidden gap-x-6 gap-y-2 sm:grid sm:grid-cols-2">
+            {PACKAGE_PARTS.map((t) => (
+              <li key={t} className="flex items-center gap-2 text-ui text-fg">
+                <CheckCircle2 className="size-4 shrink-0 text-success" aria-hidden />
+                {t}
+              </li>
+            ))}
+          </ul>
+          <p className="relative mt-4 flex items-center gap-2 text-ui text-fg sm:hidden">
+            <CheckCircle2 className="size-4 shrink-0 text-success" aria-hidden />
+            <Brief
+              label="What the package holds"
+              full={
+                <ul className="grid gap-1">
+                  {PACKAGE_PARTS.map((t) => (
+                    <li key={t}>{t}</li>
+                  ))}
+                </ul>
+              }
+            >
+              Model, measures, data and a build guide
+            </Brief>
+          </p>
+        </>
       )}
 
-      <ol className="relative mt-6 grid gap-3 sm:grid-cols-3" aria-label="How to use it">
+      {/* Each step by name; how to do it behind its ⓘ (the README has every step in full). */}
+      <ol className="relative mt-6 grid gap-2 sm:grid-cols-3 sm:gap-3" aria-label="How to use it">
         {PACKAGE_STEPS.map((step, i) => (
-          <li key={step.title} className="rounded-[12px] border border-border bg-surface-2/60 p-3.5">
-            <span className="font-figures grid size-6 place-items-center rounded-full border border-border-accent bg-accent-soft text-2xs font-medium text-accent">
+          <li
+            key={step.title}
+            className="flex items-center gap-2.5 rounded-[12px] border border-border bg-surface-2/60 px-3.5 py-2.5 sm:flex-col sm:items-start sm:py-3.5"
+          >
+            <span className="font-figures grid size-6 shrink-0 place-items-center rounded-full border border-border-accent bg-accent-soft text-2xs font-medium text-accent">
               {i + 1}
             </span>
-            <p className="mt-2.5 text-ui font-medium text-fg">{step.title}</p>
-            <p className="mt-0.5 text-xs leading-relaxed text-fg-subtle">{step.line}</p>
+            <p className="flex items-center gap-1.5 text-ui font-medium text-fg">
+              {step.title}
+              <InfoTip label={`How to: ${step.title}`}>{step.line}</InfoTip>
+            </p>
           </li>
         ))}
       </ol>
@@ -1058,8 +1144,12 @@ function PowerBiPanel() {
           package
         </Button>
         <p className="max-w-xs text-xs leading-relaxed text-fg-subtle">
-          A project package, not a .pbix: only Power BI Desktop can write that file. Built from your columns;
-          you&apos;re asked before anything is added.
+          <Brief
+            label="About the package"
+            full="A project package, not a .pbix: only Power BI Desktop can write that file. Built from your columns; you're asked before anything is added."
+          >
+            A project package, not a .pbix.
+          </Brief>
         </p>
       </div>
     </article>
@@ -1278,13 +1368,14 @@ function SqlPanel() {
               ) : (
                 <XCircle className="size-4 text-danger" aria-hidden />
               )}
-              <span>
-                {matched} of {results.length} KPI queries return {wholeFile}
+              <span className="min-w-0">
+                {matched} of {results.length} KPI queries match · whole file
               </span>
               <span className="ml-auto shrink-0 text-fg-subtle underline-offset-2 group-open/v:hidden hover:underline">
                 Details
               </span>
             </summary>
+            <p className="mt-2 text-xs text-fg-subtle">Compared with {wholeFile}.</p>
             {/* Scrolls in its own box, so a long list never pushes the rest of the page away. */}
             <div
               className="mt-2 max-h-64 overflow-y-auto"
@@ -1435,7 +1526,12 @@ function SettingsBar() {
         <div className="min-w-0">
           <p className="text-ui font-medium text-fg">Reopen this dashboard later</p>
           <p className="text-xs text-fg-subtle">
-            Save its settings, then load them with the same file. No data rows are inside.
+            <Brief
+              label="About saved settings"
+              full="Save its settings, then load them with the same file. No data rows are inside."
+            >
+              Settings only, no data rows.
+            </Brief>
           </p>
         </div>
       </div>

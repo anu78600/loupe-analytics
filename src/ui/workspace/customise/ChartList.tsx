@@ -15,6 +15,10 @@
  * reads was hidden, a KPI it shows was deleted) is flagged in the list with
  * the reason (brokenCharts.ts), so it is found here, not only on the
  * dashboard.
+ *
+ * Text is kept short: what a chart type suits is behind the ⓘ beside the
+ * title (the type itself is in its menu), and notes are one line with the
+ * full text behind hover, a long press or the ⓘ (ui/primitives/reveal.tsx).
  */
 import * as React from "react";
 import { toast } from "sonner";
@@ -32,6 +36,7 @@ import { Segmented } from "@/ui/primitives/segmented";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/ui/primitives/select";
 import { Switch } from "@/ui/primitives/switch";
 import { Tooltip } from "@/ui/primitives/tooltip";
+import { Brief, ClampText, InfoTip } from "@/ui/primitives/reveal";
 import { SECTIONS } from "../dashboard/sections";
 import { chartProblem } from "./brokenCharts";
 import { CHART_ICON } from "./chartIcons";
@@ -91,8 +96,12 @@ export function ChartList({ onEdit, onCreate }: { onEdit: (spec: ChartSpec) => v
             ]}
           />
           <p className="text-xs text-fg-subtle">
-            The charts of the {mode} layout, in dashboard order. Switch a chart off to hide it; it can come
-            back.
+            <Brief
+              label="About this list"
+              full={`The charts of the ${mode} layout, in dashboard order. Switch a chart off to hide it; it can come back.`}
+            >
+              Switch a chart off to hide it.
+            </Brief>
           </p>
         </div>
         <Button variant="primary" size="sm" onClick={onCreate}>
@@ -105,9 +114,19 @@ export function ChartList({ onEdit, onCreate }: { onEdit: (spec: ChartSpec) => v
           className="flex items-start gap-2 rounded-control border border-warning bg-warning-soft px-3 py-2.5 text-ui leading-relaxed text-fg"
         >
           <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden />
-          {broken === 1
-            ? "One of your charts can't be drawn any more; it is marked below with the reason."
-            : `${broken} of your charts can't be drawn any more; they are marked below with the reason.`}
+          {/* Kept in view, shortened: the full sentence is behind it. */}
+          <Brief
+            label="About charts that can't be drawn"
+            full={
+              broken === 1
+                ? "One of your charts can't be drawn any more; it is marked below with the reason."
+                : `${broken} of your charts can't be drawn any more; they are marked below with the reason.`
+            }
+          >
+            {broken === 1
+              ? "1 chart can't be drawn; see below."
+              : `${broken} charts can't be drawn; see below.`}
+          </Brief>
         </p>
       ) : null}
       {SECTIONS.map((sec) => {
@@ -239,16 +258,19 @@ function ChartRow({
               <AlertTriangle aria-hidden /> Can&apos;t be drawn
             </Badge>
           ) : null}
+          {/* What the type suits; the type's name is in its menu beside the row. */}
+          <InfoTip label={`About ${chartType(kind).name}`}>
+            {chartType(kind).name}: {chartType(kind).bestFor}
+          </InfoTip>
         </div>
+        {/* Why it can't be drawn stays in view, up to two lines (the rest behind it). */}
         {problem ? (
           <p id={problemId} className="px-1.5 text-xs leading-relaxed text-fg">
-            {problem}
+            <ClampText key={problem} lines={2}>
+              {problem}
+            </ClampText>
           </p>
-        ) : (
-          <p className="truncate px-1.5 text-xs text-fg-subtle" title={chartType(kind).bestFor}>
-            {chartType(kind).name}: {chartType(kind).bestFor}
-          </p>
-        )}
+        ) : null}
       </div>
       <div className="flex flex-wrap items-center gap-1.5 lg:flex-nowrap">
         <Select

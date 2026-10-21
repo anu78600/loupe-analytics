@@ -11,6 +11,11 @@
  * placeholders the first time); a selection with no rows says that instead
  * of showing anything. Each insight keeps its overall rank when the list is
  * narrowed to one type.
+ *
+ * Text is kept short (version 47.0): the intro and the empty states are one
+ * line with the full words behind them, each insight's body is clamped to two
+ * lines, and how it was found sits behind the ⓘ beside its confidence
+ * (ui/primitives/reveal: hover, focus or a long press opens them).
  */
 import * as React from "react";
 import { motion } from "framer-motion";
@@ -41,6 +46,7 @@ import { Badge } from "@/ui/primitives/badge";
 import { Button } from "@/ui/primitives/button";
 import { Card } from "@/ui/primitives/card";
 import { Eyebrow, Skeleton } from "@/ui/primitives/misc";
+import { Brief, ClampText, InfoTip } from "@/ui/primitives/reveal";
 import { ActiveFilters } from "./dashboard/FilterRail";
 import { AiSummary } from "./AiSummary";
 
@@ -76,6 +82,13 @@ function periodWords(
   return `the ${name}${range ? ` (${formatRange(range.from, range.to)})` : ""}`;
 }
 
+/** The selected period in a few words, without its dates: "the last 12 months", "all your data". */
+function periodName(preset: DatePreset, custom: { from: number; to: number } | null): string {
+  if (preset === "custom" && custom) return formatRange(custom.from, custom.to);
+  if (preset === "all") return "all your data";
+  return `the ${PRESET_LABEL[preset].toLowerCase()}`;
+}
+
 export function InsightsStep() {
   const insights = useWorkspace((s) => s.insights);
   const loading = useWorkspace((s) => s.insightsLoading);
@@ -101,10 +114,14 @@ export function InsightsStep() {
         <div>
           <Eyebrow>Step {stepNumber("insights")} · Insights</Eyebrow>
           <h1 className="mt-2 font-display text-display-sm text-fg">What the data says</h1>
+          {/* The period stays in view (it is the selection); the rest of the promise is behind it. */}
           <p className="mt-2 max-w-2xl text-sm text-fg-muted">
-            Ranked by impact. Every number below was computed from your data for{" "}
-            {periodWords(preset, custom, bounds)}, with the filters below; nothing is estimated or written by
-            a model unless you ask for the optional AI summary.
+            <Brief
+              label="About these insights"
+              full={`Ranked by impact. Every number below was computed from your data for ${periodWords(preset, custom, bounds)}, with the filters below; nothing is estimated or written by a model unless you ask for the optional AI summary.`}
+            >
+              Ranked by impact, for {periodName(preset, custom)}.
+            </Brief>
           </p>
         </div>
         <Button variant="secondary" size="sm" onClick={() => void load()} disabled={updating}>
@@ -153,8 +170,9 @@ export function InsightsStep() {
           <Lightbulb className="size-6 text-fg-subtle" aria-hidden />
           <p className="text-md font-medium text-fg">No rows match the current filters.</p>
           <p className="max-w-md text-sm text-fg-muted">
-            There is nothing to find in an empty selection. Remove a filter or widen the date range to see
-            insights.
+            <Brief full="There is nothing to find in an empty selection. Remove a filter or widen the date range to see insights.">
+              Remove a filter or widen the date range.
+            </Brief>
           </p>
         </Card>
       ) : updating && !insights?.length ? (
@@ -178,8 +196,9 @@ export function InsightsStep() {
           <Lightbulb className="size-6 text-fg-subtle" aria-hidden />
           <p className="text-md font-medium text-fg">No insights stand out for this selection.</p>
           <p className="max-w-md text-sm text-fg-muted">
-            Insights need enough history and volume to be meaningful. Widen the date range or remove filters,
-            then recompute.
+            <Brief full="Insights need enough history and volume to be meaningful. Widen the date range or remove filters, then recompute.">
+              Widen the date range or remove filters.
+            </Brief>
           </p>
         </Card>
       )}
@@ -213,24 +232,27 @@ function InsightCard({ insight, rank }: { insight: Insight; rank: number }) {
               <tone.icon aria-hidden />
               {tone.label}
             </Badge>
-            <Badge tone="neutral">{insight.confidence} confidence</Badge>
+            {/* On a phone the confidence joins the method behind the ⓘ, so the badges keep to one line. */}
+            <Badge tone="neutral" className="hidden sm:inline-flex">
+              {insight.confidence} confidence
+            </Badge>
+            {/* The method is the same for many insights; it sits behind the ⓘ rather than repeated on each. */}
+            <InfoTip label="How this was found">
+              <span className="font-medium">How this was found</span> ({insight.confidence} confidence):{" "}
+              {insight.basis}
+            </InfoTip>
           </div>
           <h2 className="mt-2.5 text-md font-medium text-fg">{insight.title}</h2>
-          <p className="mt-1 text-sm leading-relaxed text-fg-muted">{insight.body}</p>
-          <div className="mt-3 flex flex-wrap items-start justify-between gap-2">
-            {/* The method is the same for many insights; it is one click away rather than repeated on each. */}
-            <details className="min-w-0 flex-1 text-xs text-fg-subtle">
-              <summary className="w-fit cursor-pointer rounded-[4px] select-none hover:text-fg-muted">
-                How this was found
-              </summary>
-              <p className="mt-1 max-w-prose leading-relaxed">{insight.basis}</p>
-            </details>
-            {insight.chartId ? (
+          <ClampText key={insight.body} lines={2} className="mt-1 text-sm leading-relaxed text-fg-muted">
+            {insight.body}
+          </ClampText>
+          {insight.chartId ? (
+            <div className="mt-3 flex justify-end">
               <Button size="xs" variant="outline" onClick={() => focusChart(insight.chartId as string)}>
                 View chart
               </Button>
-            ) : null}
-          </div>
+            </div>
+          ) : null}
         </div>
       </Card>
     </motion.li>
