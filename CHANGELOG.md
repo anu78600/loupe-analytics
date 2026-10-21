@@ -7,9 +7,24 @@ Every step of building Loupe, newest first. Generated from `src/content/changelo
 
 ## Up next
 
-1. **Better dashboards for any other table.** When no industry fits: a plain description of what the table is, KPIs that suit its shape, and better automatic charts (trend, top N, distribution, correlation, cross-tab).
-2. **Learns from your corrections, in your browser.** A corrected industry, column mapping or role is remembered and reused for the next file with similar headers; teach Loupe your own words; see, export, share or clear what it has learned. Nothing leaves the browser.
-3. **Workbooks with several tables.** Excel files with orders, customers and products on separate sheets: the keys between them found and the tables joined, and a star model in the Power BI export.
+1. **Learns from your corrections, in your browser.** A corrected industry, column mapping or role is remembered and reused for the next file with similar headers; teach Loupe your own words; see, export, share or clear what it has learned. Nothing leaves the browser.
+2. **Workbooks with several tables.** Excel files with orders, customers and products on separate sheets: the keys between them found and the tables joined, and a star model in the Power BI export.
+
+## 44.0 · Better dashboards for any other table
+
+*Major · 2026-10-21 07:29 UTC · Feature, Tests*
+
+When no industry fits (weather, indicators, surveys, practice datasets, logs, lookup tables), Loupe now works out what kind of table it is, says so in a plain sentence, and builds KPIs and charts that suit it, instead of generic totals.
+
+- A plain description of the table, shown on Detect, Check & map and the dashboard: “Daily readings of 4 measures at 7 locations”, “12 countries × 10 years of 4 indicators”, “300 survey responses to 5 questions”, “400 rows with a yes/no outcome (Survived: 40.0% yes)”, “Lookup table: 120 countries and their attributes”.
+- Time series and panels show levels such as temperature, prices, rates and population as their latest value, averaged across places or countries, never summed over dates.
+- Surveys get responses, % favourable (top two boxes) per question, average ratings, and NPS only when there is a 0–10 “recommend” question.
+- Tables with an outcome column (practice datasets) get the outcome rate or class mix, and the average of each feature by outcome.
+- Event logs get events and distinct users over time, by weekday and by type. Lookup tables get breakdowns of their attributes.
+- Charts suit the shape: trend, seasons, top N, distribution, a scatter of the two most correlated measures (computed from your rows), and cross-tab heatmaps.
+- Every one of these KPIs compiles to SQL and DAX, and a new test checks them against DuckDB on realistic tables and on every benchmark table that no industry fits.
+
+Files: `src/engine/detect/tableShape.ts`, `src/engine/detect/generic.ts`, `src/engine/session.ts`, `src/engine/export/dictionary.ts`, `src/ui/workspace/DetectStep.tsx`, `src/ui/workspace/MapStep.tsx`, `src/ui/workspace/dashboard/DashboardStep.tsx`, `tests/generic-dashboards.test.ts`
 
 ## 43.0 · Ten more industries
 

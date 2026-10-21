@@ -227,6 +227,11 @@ export interface DomainSummary {
   subDomains: SubDomainDef[];
   pitfalls: string[];
   generic: boolean;
+  /**
+   * What the domain covers; for the generic domain, the plain sentence saying
+   * what the table holds ("Daily readings of 4 measures at 49 locations, …").
+   */
+  description: string;
 }
 
 /** A business question to answer (step 5); `id` is chosen by the caller. */
@@ -809,7 +814,8 @@ export class Session {
     let domain: DomainDef;
     let mapping: Mapping;
     if (req.domainId === GENERIC_ID || !getDomain(req.domainId)) {
-      const g = buildGenericDomain(active);
+      // The rows are read only to find which measures move together (its scatter chart).
+      const g = buildGenericDomain(active, ds);
       domain = g.domain;
       mapping = g.mapping;
     } else {
@@ -1029,6 +1035,7 @@ export class Session {
         subDomains: domain.subDomains,
         pitfalls: domain.pitfalls,
         generic: domain.id === GENERIC_ID,
+        description: domain.description,
       },
       subDomainId,
       mapping: {
@@ -1047,7 +1054,8 @@ export class Session {
       hiddenColumns: ds.columns.filter((c) => this.hidden.has(c.name)).map((c) => c.name),
       health: this.scope().health,
       customKpiIssues: mine.skipped,
-      grainLabel: grainLabel(active.grain, domain.id !== GENERIC_ID ? sub?.grain : undefined),
+      // The template's "one row per …", or for the generic domain what the table's shape says a row is.
+      grainLabel: grainLabel(active.grain, sub?.grain && sub.grain !== "row" ? sub.grain : undefined),
       currency,
       dimensions,
     };

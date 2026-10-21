@@ -16,7 +16,6 @@ import { formatPlain } from "@/engine/core/format";
 import { isoDate } from "@/engine/core/dates";
 import { friendlyStart } from "@/engine/core/labels";
 import { grainLabel } from "@/engine/profile/structure";
-import { GENERIC_ID } from "@/engine/detect/generic";
 import { tableToCsv } from "./csv";
 import type { ExportContext } from "./context";
 
@@ -153,7 +152,7 @@ export function dictionaryMarkdown(ctx: ExportContext): string {
   return [
     `# Data dictionary · ${ctx.ds.source.fileName}`,
     "",
-    `${ctx.ds.rowCount.toLocaleString("en-US")} rows · ${grainLabel(ctx.profile.grain, ctx.domain.id !== GENERIC_ID ? ctx.subDomain?.grain : undefined)} · Industry: ${ctx.domain.name}`,
+    `${ctx.ds.rowCount.toLocaleString("en-US")} rows · ${grainLabel(ctx.profile.grain, ctx.subDomain?.grain && ctx.subDomain.grain !== "row" ? ctx.subDomain.grain : undefined)} · Industry: ${ctx.domain.name}`,
     "",
     "| Column | Business name | Export name | Type | Role | Unit | Range | Key | Blank | Distinct | Allowed values or examples |",
     "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",

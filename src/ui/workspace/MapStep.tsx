@@ -192,6 +192,7 @@ export function MapStep() {
             <span className="text-fg-muted">
               {context.domain.name}
               {subName && !context.domain.generic ? ` · ${subName}` : ""}
+              {context.domain.generic ? ` · ${context.domain.description}` : ""}
             </span>
             {summary ? (
               <span className="inline-flex items-center gap-1">

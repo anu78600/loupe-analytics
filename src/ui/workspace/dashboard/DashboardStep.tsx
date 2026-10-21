@@ -127,6 +127,10 @@ function FullDashboard() {
               ) : null}
             </h1>
             <div className="mt-2 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-fg-subtle">
+              {/* With no industry, what the table is ("Daily readings of 4 measures at 49 locations, …"). */}
+              {context.domain.generic ? (
+                <span className="text-fg-muted">{context.domain.description}</span>
+              ) : null}
               {summary ? <FileIdentity summary={summary} size="sm" className="max-w-full" /> : null}
               {/* The period in view, and how recent the data is, as a report's header states them. */}
               {period ? (

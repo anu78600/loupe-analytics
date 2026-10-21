@@ -43,6 +43,7 @@ import { useSettings } from "@/store/settings";
 import { SUPPORTED_CURRENCIES, currencySymbol, formatCount } from "@/engine/core/format";
 import { grainLabel, listOf } from "@/engine/profile/structure";
 import type { DomainCandidate } from "@/engine/detect/detect";
+import { describeTable } from "@/engine/detect/tableShape";
 import type { DomainListItem } from "@/engine/session";
 import { cn } from "@/lib/utils";
 import { countOf, ordinal } from "@/ui/common/words";
@@ -97,7 +98,12 @@ export function DetectStep() {
   // The grain as the dashboard will word it: the chosen industry's assumption replaces a key that
   // only numbers the rows (never "One row per row").
   const chosen = detection.candidates.find((c) => c.domainId === domainId);
-  const grain = grainLabel(profile.grain, chosen && chosen.grain !== "row" ? chosen.grain : undefined);
+  // Generic has no template: what one row is comes from the table's shape (a response, a country per year).
+  const shapeGrain = domainId === "generic" ? describeTable(profile).grain : null;
+  const grain = grainLabel(
+    profile.grain,
+    chosen && chosen.grain !== "row" ? chosen.grain : (shapeGrain ?? undefined),
+  );
   const sampling = report?.sampling;
   const unproven = report?.dateFormats.filter((d) => d.ambiguous) ?? [];
   const wide = profile.wide;
@@ -365,8 +371,11 @@ function DetectionCard() {
  * match.
  */
 function ChoiceDetail({ domain, top }: { domain: DomainListItem | undefined; top: DomainCandidate }) {
+  const profile = useWorkspace((s) => s.profile);
   const generic = !domain;
   const noFit = generic && top.confidence < 35;
+  // What the table is, in one sentence, as the generic dashboard will say it (detect/tableShape.ts).
+  const table = generic && profile ? describeTable(profile) : null;
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center gap-2">
@@ -378,9 +387,15 @@ function ChoiceDetail({ domain, top }: { domain: DomainListItem | undefined; top
       <h2 className="font-display text-display-sm text-fg">{domain?.name ?? "Generic"}</h2>
       <p className="max-w-xl text-sm text-fg-muted">
         {generic
-          ? `${noFit ? `No industry matches this file well (the closest, ${top.name}, scores ${top.confidence}%), so the` : "The"} dashboard is built from the data's own structure: totals of its measures over time and by its categories, with no industry's KPIs assumed. Pick a top match instead if one fits.`
+          ? `${noFit ? `No industry matches this file well (the closest, ${top.name}, scores ${top.confidence}%), so the` : "The"} dashboard is built for the kind of table it is: KPIs and charts that suit its shape, with no industry's KPIs assumed. Pick a top match instead if one fits.`
           : "Not among the top matches for this file. Check & map shows which of its fields were found; KPIs that need a missing field will say so instead of guessing."}
       </p>
+      {table ? (
+        <p className="max-w-xl text-sm text-fg">
+          <span className="eyebrow mr-2 text-fg-subtle">{table.label}</span>
+          {table.description}
+        </p>
+      ) : null}
     </div>
   );
 }
