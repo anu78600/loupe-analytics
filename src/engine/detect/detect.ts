@@ -431,9 +431,11 @@ export function detectDomain(domains: readonly DomainDef[], profile: DatasetProf
   let reason = "";
   if (!top || top.confidence < CONFIDENCE_THRESHOLD) {
     needsConfirmation = true;
-    reason = top
-      ? `Best match is ${top.name} at ${top.confidence}%, below the ${CONFIDENCE_THRESHOLD}% bar, so please confirm.`
-      : "No industry matched.";
+    // With no column matched at all, naming a "best match" would suggest an industry that explains nothing.
+    reason =
+      top && top.evidence.length
+        ? `Best match is ${top.name} at ${top.confidence}%, below the ${CONFIDENCE_THRESHOLD}% bar.`
+        : "No industry's fields match these columns, so a general dashboard built from the table itself fits best.";
   } else if (second && top.confidence - second.confidence < AMBIGUITY_GAP) {
     needsConfirmation = true;
     reason = `${top.name} (${top.confidence}%) and ${second.name} (${second.confidence}%) are within ${AMBIGUITY_GAP} points, so please choose.`;

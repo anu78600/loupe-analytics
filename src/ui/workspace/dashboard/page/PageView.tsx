@@ -5,7 +5,8 @@
  * the one-page view and every chart, chart colours, and the page's download)
  * above the live page (OnePage.tsx). The page's insights are found as soon as
  * the view opens, and again whenever the selection changes them away. The
- * toolbar's hint is one short line, the rest behind it (Brief).
+ * toolbar's hint is one short line, the rest behind it (Brief). Above it all,
+ * the fit notice when the industry explains few of the columns (FitNotice).
  */
 import * as React from "react";
 import { toast } from "sonner";
@@ -16,6 +17,7 @@ import { Button } from "@/ui/primitives/button";
 import { Segmented } from "@/ui/primitives/segmented";
 import { Brief } from "@/ui/primitives/reveal";
 import { ChartColoursButton } from "../../ChartColours";
+import { FitNotice } from "../FitNotice";
 import { downloadOnePage, OnePage, usePageModel } from "./OnePage";
 
 /** The switch between the one-page view and every chart; shown in both views' toolbars. */
@@ -68,7 +70,13 @@ export function PageView() {
     }
   };
   return (
-    <div className="mx-auto w-full max-w-[1920px] px-4 py-4 md:px-6" aria-busy={computing}>
+    // With the fit notice above the toolbar, the page leaves room for it (--page-chrome, OnePage), so
+    // it still fits the window on a large screen.
+    <div
+      className="mx-auto w-full max-w-[1920px] px-4 py-4 has-[[data-fit-notice]]:[--page-chrome:234px] md:px-6"
+      aria-busy={computing}
+    >
+      <FitNotice className="mb-3" />
       <div className="no-print mb-3 flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-3">
           <ViewToggle />

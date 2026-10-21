@@ -28,6 +28,11 @@
  * figures is two lines. Below lg, where the sidebar's footnote is hidden,
  * the banner's ⓘ holds it (and on a phone "Data to"). The download keeps its
  * fixed layout.
+ *
+ * The page is never a blank area: when the industry's own KPIs or charts give
+ * it nothing, or the industry explains few of the file's columns
+ * (ContextResult.fit), the ones made from the other columns fill it after the
+ * industry's own; the full dashboard holds those in "From your other columns".
  */
 import * as React from "react";
 import {
@@ -156,6 +161,11 @@ export interface PageModel {
   kpis: Array<{ meta: KpiMeta; value: KpiValue | undefined }>;
   charts: PlacedChart[];
   insights: Insight[];
+  /**
+   * True once the insights for this selection have been looked for, so a page with none says that
+   * none stood out rather than that it is still looking.
+   */
+  insightsReady: boolean;
   fileName: string;
   /** "28,621 of 49,037 rows" or "49,037 rows". */
   rows: string;
@@ -175,7 +185,11 @@ export function pageModel(s: PageState, fmt: FormatOptions, title?: string | nul
   const layout = kpiLayoutOf(s);
   // The user's own order stands as set; the recommended heroes follow the user's main goal.
   const hero = s.kpiLayout ? layout.hero : orderByGoal(layout.hero, metas, s.business.goal);
-  const kpis = pageKpiIds(hero, layout.supporting)
+  const own = pageKpiIds(hero, layout.supporting);
+  // An industry that fits few of the columns leaves the row short, or empty: the KPIs from the
+  // other columns fill it after the industry's own.
+  const fill = ctx.fit.weak;
+  const kpis = (fill || !own.length ? pageKpiIds(own, layout.columns) : own)
     .map((id) => metas.get(id))
     .filter((m): m is KpiMeta => Boolean(m))
     .map((meta) => ({ meta, value: values.get(meta.id) }));
@@ -215,8 +229,9 @@ export function pageModel(s: PageState, fmt: FormatOptions, title?: string | nul
     dataTo: ctx.dateBounds ? formatDay(ctx.dateBounds.max) : null,
     slicers: shown.map((d) => ({ column: d.column, label: d.label, values: filtered.get(d.column) ?? [] })),
     kpis,
-    charts: placeCharts(pickPageCharts(s.widgets, allSpecs(s), s.charts)),
+    charts: pageCharts(s, fill),
     insights: (s.insights ?? []).slice(0, 3),
+    insightsReady: s.insights !== null,
     fileName: s.summary.fileName,
     rows:
       inView !== undefined && inView !== s.summary.rowCount
@@ -225,6 +240,21 @@ export function pageModel(s: PageState, fmt: FormatOptions, title?: string | nul
     isDemo: s.summary.isDemo,
     fmt,
   };
+}
+
+/**
+ * The page's charts, picked and placed by pagePlan.ts. When the industry's own charts give the page
+ * nothing, or the industry fits few of the columns (`fill`), the charts made for the other columns
+ * join them: the full dashboard holds those in "From your other columns", which pickPageCharts
+ * otherwise keeps off the page. Read as breakdowns, they are picked the same way, after the
+ * industry's own charts chosen for executives.
+ */
+function pageCharts(s: PageState, fill: boolean): PlacedChart[] {
+  const specs = allSpecs(s);
+  const own = pickPageCharts(s.widgets, specs, s.charts);
+  if (own.length && !fill) return placeCharts(own);
+  const all = specs.map((x) => (x.section === "columns" ? { ...x, section: "breakdown" as const } : x));
+  return placeCharts(pickPageCharts(s.widgets, all, s.charts));
 }
 
 /** The live page's model, rebuilt when anything it shows changes. */
@@ -802,6 +832,25 @@ function LiveChart({ chart }: { chart: PlacedChart }) {
   );
 }
 
+/**
+ * The chart area with no chart on the page, so it is never a blank area: while the dashboard is
+ * still being computed it says so, and otherwise that there is no chart to show (every chart, and
+ * why any is missing, is under All charts).
+ */
+function NoCharts({ live }: { live: boolean }) {
+  const waiting = useWorkspace((s) => live && (s.computing || !s.lastCompute));
+  return (
+    <p
+      className={cn(
+        "col-span-full row-span-2 grid place-items-center rounded-card border border-dashed border-border bg-surface-1 p-6 text-center text-[clamp(12px,0.94cqw,14px)] text-fg-muted",
+        live && "min-h-[200px]",
+      )}
+    >
+      {waiting ? "Drawing the charts…" : "No chart to show for this selection."}
+    </p>
+  );
+}
+
 const TONE_ICON: Record<Insight["tone"], LucideIcon> = {
   positive: TrendingUp,
   negative: TrendingDown,
@@ -815,7 +864,7 @@ function firstSentence(text: string): string {
   return /^.+?[.!?](?=\s|$)/.exec(t)?.[0] ?? t;
 }
 
-function InsightStrip({ insights, live }: { insights: Insight[]; live: boolean }) {
+function InsightStrip({ insights, ready, live }: { insights: Insight[]; ready: boolean; live: boolean }) {
   return (
     <section
       aria-label="Key insights"
@@ -888,7 +937,7 @@ function InsightStrip({ insights, live }: { insights: Insight[]; live: boolean }
         })
       ) : (
         <p className="text-[clamp(12px,0.94cqw,14px)] text-fg-subtle lg:col-span-3">
-          {live ? "Finding the key insights…" : "No insights stood out for this selection."}
+          {live && !ready ? "Finding the key insights…" : "No insights stood out for this selection."}
         </p>
       )}
     </section>
@@ -909,13 +958,15 @@ export function OnePage({
   onRename?: (title: string) => void;
 }) {
   const n = Math.max(1, model.kpis.length);
+  // Live on a large screen, the 16:9 page fits the window's height less --page-chrome, the room
+  // above and below it (168 px, more while PageView shows the fit notice).
   return (
     <div
       data-page
       className={cn(
         "@container font-sans text-fg",
         live
-          ? "flex flex-col gap-3 lg:mx-auto lg:grid lg:aspect-video lg:w-[min(100%,max(960px,calc((100dvh_-_168px)*16/9)))] lg:grid-cols-[minmax(180px,15%)_minmax(0,1fr)] lg:gap-[10px]"
+          ? "flex flex-col gap-3 lg:mx-auto lg:grid lg:aspect-video lg:w-[min(100%,max(960px,calc((100dvh_-_var(--page-chrome,168px))*16/9)))] lg:grid-cols-[minmax(180px,15%)_minmax(0,1fr)] lg:gap-[10px]"
           : "grid grid-cols-[200px_minmax(0,1fr)] gap-[10px] bg-bg p-[12px]",
       )}
       style={live ? undefined : { width: PAGE_W, height: PAGE_H }}
@@ -957,11 +1008,13 @@ export function OnePage({
             live ? "lg:min-h-0 lg:grid-cols-6 lg:grid-rows-2" : "min-h-0 grid-cols-6 grid-rows-2",
           )}
         >
-          {model.charts.map((c) => (
-            <PageChartCard key={c.spec.id} chart={c} live={live} fmt={model.fmt} />
-          ))}
+          {model.charts.length ? (
+            model.charts.map((c) => <PageChartCard key={c.spec.id} chart={c} live={live} fmt={model.fmt} />)
+          ) : (
+            <NoCharts live={live} />
+          )}
         </div>
-        <InsightStrip insights={model.insights} live={live} />
+        <InsightStrip insights={model.insights} ready={model.insightsReady} live={live} />
       </div>
     </div>
   );

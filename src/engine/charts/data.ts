@@ -18,7 +18,9 @@
  * A chart that draws only its top groups says so in a note ("Showing the top
  * 12 of 24 customer states by RTO rate"), and its takeaway names the lowest
  * bar as the lowest of those shown. Two-key charts (heatmaps, stacks) order
- * their text categories naturally (L1, L2 … L10), not by first appearance.
+ * their text categories naturally (L1, L2 … L10), not by first appearance,
+ * and columns, lines and tables over a number column (a score of 3–9) keep
+ * the numbers' order rather than ranking them by value.
  * A measure that can't be computed any more is named, with the reason.
  * Values pass through finite(), so the UI only sees numbers or null.
  */
@@ -287,6 +289,16 @@ const SERIES_FROM_SPLIT = new Set<ChartKind>([
 const KEEP_LARGEST: Partial<Record<ChartKind, number>> = { dumbbell: 2, radar: 5 };
 /** Category charts that keep every group (no default top N). */
 const KEEP_ALL = new Set<ChartKind>(["table", "scatter", "bubble", "geoTile", "pareto"]);
+/**
+ * Kinds that read a category axis left to right or top to bottom: on a
+ * number column (a score, a class number) their groups keep the numbers'
+ * order. Sorted bars, donuts and the rest keep ranking by value.
+ */
+const IN_AXIS_ORDER = new Set<ChartKind>(["bar", "line", "area", "step", "table"]);
+
+/** True when `column` holds numbers, so its values have an order of their own. */
+const numberColumn = (ds: Dataset, column: string): boolean =>
+  ds.columns.some((c) => c.name === column && c.kind === "number");
 
 /**
  * The stacked "Others" segment: `expr` per x group over the rows whose series
@@ -568,6 +580,17 @@ function chartDataFor(input: ChartDataInput, out: { info?: HeadlineTraits["group
     suppressed += groups.length - kept.length;
     groups = kept;
   }
+  // A number column on the axis (a score of 3–9, a class of 1–3) drawn as columns, a line or a table reads
+  // in its own order, like bands, rather than ranked by value; Others and blanks stay last.
+  if (categorical && IN_AXIS_ORDER.has(kind) && x.kind === "column" && numberColumn(ds, x.column))
+    groups = [...groups].sort(
+      (a, b) =>
+        Number(Boolean(a.isOthers)) - Number(Boolean(b.isOthers)) ||
+        naturalOrder(
+          { label: a.labels[0]?.label ?? "", raw: a.labels[0]?.raw ?? null },
+          { label: b.labels[0]?.label ?? "", raw: b.labels[0]?.raw ?? null },
+        ),
+    );
   if (suppressed) {
     // With an Others bucket the small groups are folded into it; otherwise they are left out.
     const where = groups.some((g) => g.isOthers)

@@ -1261,6 +1261,20 @@
       ]
     },
     {
+      "id": "winequality-white",
+      "source": "Wine Quality, white wines (UCI / Kaggle winequality-white.csv): lab measurements and a 0–10 quality score",
+      "expect": null,
+      "confirm": true,
+      "headers": ["fixed acidity", "volatile acidity", "citric acid", "residual sugar", "chlorides", "free sulfur dioxide", "total sulfur dioxide", "density", "pH", "sulphates", "alcohol", "quality"],
+      "rows": [
+        ["7", "0.27", "0.36", "20.7", "0.045", "45", "170", "1.001", "3", "0.45", "8.8", "6"],
+        ["6.3", "0.3", "0.34", "1.6", "0.049", "14", "132", "0.994", "3.3", "0.49", "9.5", "6"],
+        ["8.1", "0.27", "0.41", "1.45", "0.033", "11", "63", "0.9908", "2.99", "0.56", "12", "5"],
+        ["6.6", "0.16", "0.4", "1.5", "0.044", "48", "143", "0.9912", "3.54", "0.52", "12.4", "7"],
+        ["6.7", "0.23", "0.31", "2.1", "0.046", "30", "96", "0.9926", "3.33", "0.64", "10.7", "8"]
+      ]
+    },
+    {
       "id": "titanic-passengers",
       "source": "Titanic passenger list (Kaggle ML starter dataset)",
       "expect": null,

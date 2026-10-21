@@ -9,6 +9,11 @@
  * coupon codes or negative refunds, from being penalised. Checks currently
  * emit only "info" and "warning"; "critical" is not produced.
  *
+ * Numbers on two scales (a lost decimal point: 994 beside 0.994) are found
+ * by scales.ts, in readings, rates and shares only (scaleCandidate): money
+ * and counts legitimately span powers of ten, and identifiers and codes are
+ * not quantities.
+ *
  * The row-level rules behind the issues (duplicateRowsOf, issueCellTest,
  * isOptionalColumn) are exported for the data check (dataCheck.ts), which
  * marks the exact cells, so its counts always match the issues here.
@@ -17,6 +22,8 @@ import type { Column, Dataset, ParseReport } from "@/engine/core/types";
 import { DAY_MS, formatDay, todayWallClock } from "@/engine/core/dates";
 import { formatPlain } from "@/engine/core/format";
 import type { ColumnProfile, DatasetProfile } from "./types";
+import { mixedScales, offScale, scaleFactor, valueText, type MixedScales } from "./scales";
+import { listOf } from "./structure";
 
 export type HealthSeverity = "info" | "warning" | "critical";
 
@@ -276,6 +283,83 @@ function coordinateLimit(p: ColumnProfile): number {
   return isLatitude ? 90 : isLongitude ? 180 : 0;
 }
 
+/** Name tokens of identifiers and codes kept as numbers: labels, never quantities on a scale. */
+const CODE_WORDS = [
+  "id",
+  "key",
+  "code",
+  "sku",
+  "serial",
+  "reference",
+  "ref",
+  "barcode",
+  "ean",
+  "upc",
+  "isbn",
+  "hsn",
+];
+
+/**
+ * Whether a column is tested for numbers on two scales (scales.ts): readings, rates and shares that are
+ * not all whole numbers. Money and counts legitimately span powers of ten (skew is not two scales), a
+ * column of whole numbers can't show a lost decimal point, and identifiers and codes are labels.
+ * Coordinates are left to their own range check.
+ */
+function scaleCandidate(p: ColumnProfile): boolean {
+  const s = p.numeric;
+  if (p.storage !== "number" || !s || s.integer) return false;
+  if (p.role !== "measure" && p.role !== "rate" && p.role !== "percentage") return false;
+  if (p.tokens.some((t) => QTY.includes(t) || CODE_WORDS.includes(t)) || coordinateLimit(p)) return false;
+  // Values of one sign within a factor of 3 of each other can't hold two groups half a decade apart.
+  const small = Math.min(Math.abs(s.min), Math.abs(s.max));
+  const large = Math.max(Math.abs(s.min), Math.abs(s.max));
+  return !(s.min > 0 || s.max < 0) || large > 3 * small;
+}
+
+const NUMBER_WORDS = ["two", "three", "four", "five", "six", "seven", "eight", "nine"];
+/** 2 → "two" … 9 → "nine"; larger counts as figures. */
+const smallNumber = (n: number) => NUMBER_WORDS[n - 2] ?? fmt(n);
+
+/**
+ * The health issue for a column whose numbers sit on more than one scale (scales.ts). Two scales say how
+ * far apart they are with a pair of values from the file; three or more are listed from the smallest up,
+ * so the wandering decimal point shows (0.99, 9.93, 99.4, 994). The count is the rows the data check
+ * marks: those off the commonest scale.
+ */
+function scalesIssue(p: ColumnProfile, m: MixedScales): HealthIssue {
+  const base = {
+    id: `scales-${p.name}`,
+    severity: "warning" as const,
+    column: p.name,
+    count: m.count,
+    penalty: 6,
+  };
+  const one = m.off.length === 1 ? m.off[0] : undefined;
+  if (one) {
+    // In a share, 100× apart is a fraction (0.12) beside points (12) rather than a lost decimal point.
+    const cause =
+      p.role === "percentage" && Math.abs(one.shift) === 2
+        ? "Probably some shares are written as fractions and some as percentage points"
+        : "Probably a lost decimal point";
+    return {
+      ...base,
+      title: `Values on two scales in "${p.name}"`,
+      detail: `${n_(one.count, "value looks", "values look")} ${scaleFactor(one.shift)} ${one.shift > 0 ? "larger" : "smaller"} than the rest (${valueText(one.example)} next to ${valueText(one.match)}). ${cause}; fix it in the source file.`,
+      examples: [valueText(one.example), valueText(one.match)],
+    };
+  }
+  const scales = [m.main, ...m.off].sort((a, b) => a.shift - b.shift);
+  const words = smallNumber(scales.length);
+  return {
+    ...base,
+    title: `Values on ${words} scales in "${p.name}"`,
+    detail: `Values sit on ${words} scales a power of ten apart: ${listOf(
+      scales.map((g, i) => `${valueText(g.example)} (${i ? fmt(g.count) : n_(g.count, "row", "rows")})`),
+    )}. Probably lost decimal points; fix them in the source file.`,
+    examples: scales.map((g) => valueText(g.example)),
+  };
+}
+
 /** The first currency "discount" column and the first gross/subtotal/total currency column, if both exist. */
 function discountPricePair(cols: ColumnProfile[]): { disc: ColumnProfile; gross: ColumnProfile } | null {
   const disc = cols.find(
@@ -397,6 +481,27 @@ export function issueCellTest(
         test: (r) => canonical.has(col.codes[r] as number),
         note: (r) =>
           `Spelled differently from "${canonical.get(col.codes[r] as number) ?? ""}", the usual spelling.`,
+      };
+    }
+    case "scales-": {
+      // The values off the column's commonest scale, found again exactly as assessHealth found them.
+      const col = ds.columns[p.index];
+      const m = col?.kind === "number" ? mixedScales(col.values) : null;
+      if (!col || col.kind !== "number" || !m) return null;
+      return {
+        column: p.name,
+        test: (r) => offScale(m, col.values[r] as number) !== undefined,
+        note: (r) => {
+          const g = offScale(m, col.values[r] as number);
+          if (!g) return "";
+          const cause =
+            p.role === "percentage" && Math.abs(g.shift) === 2
+              ? g.shift > 0
+                ? "a share written as points, not as a fraction"
+                : "a share written as a fraction, not as points"
+              : "a lost decimal point";
+          return `${scaleFactor(g.shift)} ${g.shift > 0 ? "larger" : "smaller"} than this column's usual values (such as ${valueText(g.match)}): probably ${cause}.`;
+        },
       };
     }
     default:
@@ -526,6 +631,20 @@ export function assessHealth(ds: Dataset, profile: DatasetProfile, report?: Pars
             count: bad.count,
             penalty: 3,
           });
+      }
+      // Numbers on two or more scales a power of ten apart (scales.ts): a lost decimal point or a misread
+      // thousands separator. A warning, penalty 6: every total and average of the column is off by that
+      // power. Shares and ages already flagged as out of range are left to that issue, so one problem
+      // doesn't count twice, and the figures of a tall scorecard (one row per metric) hold different
+      // metrics on different scales by design.
+      if (
+        col.kind === "number" &&
+        scaleCandidate(p) &&
+        !profile.tall?.valueColumns.includes(p.name) &&
+        !issues.some((i) => i.column === p.name && /^(pct-range|age)-/.test(i.id))
+      ) {
+        const m = mixedScales(col.values);
+        if (m) issues.push(scalesIssue(p, m));
       }
       // Heavy tail: over 5% Tukey outliers and |skew| > 1.5 in a measure. Informational, no penalty.
       if (
@@ -709,6 +828,11 @@ export function assessHealth(ds: Dataset, profile: DatasetProfile, report?: Pars
       passed: !issues.some(
         (i) => /^(negative|pct-range|age|geo|discount-over)/.test(i.id) && i.severity !== "info",
       ),
+    },
+    {
+      id: "scales",
+      label: "Consistent number scales",
+      passed: !issues.some((i) => i.id.startsWith("scales-")),
     },
     {
       id: "dates",

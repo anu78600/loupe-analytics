@@ -136,7 +136,10 @@ export function chartHeadline(
     const [a, b] = spec.measures;
     // A flat or single-valued cloud has no fit (R² 0/0): nothing to say.
     if (!a || !b || !Number.isFinite(r2) || !Number.isFinite(slope)) return null;
-    const fit = `(R² ${r2.toFixed(2)})`;
+    // Each point is a group's figures (a state, a band of values), not a single row, so the fit is
+    // named as one across those groups: across rows the link can be far weaker.
+    const groups = data.points.length;
+    const fit = `(R² ${r2.toFixed(2)} across ${groups} ${groups === 1 ? "group" : "groups"})`;
     if (r2 < 0.2 || slope === 0) return `${a.label} and ${inSentence(b.label)} show no clear link ${fit}.`;
     // The second measure (y) moves with the first (x): which way says whether the link is good news.
     const x = inSentence(a.label);

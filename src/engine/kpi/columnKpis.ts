@@ -358,12 +358,18 @@ function breakdownColumn(profile: DatasetProfile, mapped: Set<string>): ColumnPr
  */
 export function columnExtras(input: ColumnExtrasInput): ColumnExtras {
   const { domain, mapping, res, profile, subDomainId, dateColumn } = input;
+  // Columns an available KPI reads, and among them those the template's own KPIs read: generic charts
+  // lent to a thin dashboard (detect/generic.ts genericFill) read columns too, but never compare a plan
+  // with its outcome, so the pairs below still are.
   const read = new Set<string>();
+  const readByTemplate = new Set<string>();
   for (const r of res.values()) {
     if (!r.available || r.dependencyOnly) continue;
     for (const f of r.fieldsUsed) {
       const col = f.startsWith("col:") ? f.slice(4) : mapping.fields[f];
-      if (col) read.add(col);
+      if (!col) continue;
+      read.add(col);
+      if (!isColumnId(r.def.id)) readByTemplate.add(col);
     }
   }
   const rank = (c: ColumnProfile) =>
@@ -517,7 +523,7 @@ export function columnExtras(input: ColumnExtrasInput): ColumnExtras {
   // attainment and variance, ahead of the plain totals in the section.
   const pairSlugs = new Set<string>();
   usablePairs(profile)
-    .filter((p) => !(read.has(p.actual.name) && read.has(p.target.name)))
+    .filter((p) => !(readByTemplate.has(p.actual.name) && readByTemplate.has(p.target.name)))
     .slice(0, MAX_PAIRS)
     .forEach((p, j) => {
       const A = friendly(p.actual.name);

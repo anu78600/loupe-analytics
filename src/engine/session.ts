@@ -57,7 +57,7 @@ import type {
 import { detectDomain, type DetectionResult } from "@/engine/detect/detect";
 import { assignFields, matchableColumns } from "@/engine/detect/match";
 import { buildMapping, type Mapping } from "@/engine/detect/mapping";
-import { buildGenericDomain, GENERIC_ID } from "@/engine/detect/generic";
+import { buildGenericDomain, GENERIC_ID, genericFill, type GenericFill } from "@/engine/detect/generic";
 import { withLearnedSynonyms, type LearnedSynonym } from "@/engine/detect/learned";
 import { grainLabel } from "@/engine/profile/structure";
 import { friendly, friendlyStart } from "@/engine/core/labels";
@@ -318,6 +318,46 @@ export interface ContextResult {
    * then by ascending cardinality.
    */
   dimensions: Array<{ column: string; label: string; distinct: number; geo?: string }>;
+  /**
+   * How much of the file the chosen industry explains, so the UI can say when
+   * it fits few columns (fitOf): `mapped` columns filled by its fields, of the
+   * `columns` in use (not hidden, not entirely blank). `weak` when that is
+   * under a quarter of them, or when fewer than two of its core fields are
+   * mapped. The generic dashboard is built from every column, so it is never weak.
+   */
+  fit: ContextFit;
+}
+
+/** ContextResult.fit: how many of the file's columns the chosen industry's fields fill. */
+export interface ContextFit {
+  mapped: number;
+  columns: number;
+  weak: boolean;
+}
+
+/** An industry filling fewer than this share of the columns in use fits weakly. */
+export const WEAK_FIT_SHARE = 0.25;
+/** An industry with fewer core fields mapped than this fits weakly, whatever else it fills. */
+export const WEAK_FIT_CORE = 2;
+/**
+ * A dashboard with fewer charts than this, its template's and its column charts together, gets the
+ * generic charts for the columns its template doesn't read (genericFill).
+ */
+export const FILL_BELOW_CHARTS = 3;
+
+/**
+ * ContextResult.fit for a domain and its template mapping (before column or
+ * user KPI fields join it): the distinct columns its fields fill among the
+ * columns in use, and whether that is too little to build its dashboard on.
+ */
+export function fitOf(domain: DomainDef, mapping: Mapping, profile: DatasetProfile): ContextFit {
+  const inUse = profile.columns.filter((c) => c.nullPct < 0.999);
+  if (domain.id === GENERIC_ID) return { mapped: inUse.length, columns: inUse.length, weak: false };
+  const names = new Set(inUse.map((c) => c.name));
+  const mapped = new Set(Object.values(mapping.fields).filter((c) => names.has(c))).size;
+  const core = domain.fields.filter((f) => f.core && names.has(mapping.fields[f.id] ?? "")).length;
+  const weak = inUse.length > 0 && (mapped < WEAK_FIT_SHARE * inUse.length || core < WEAK_FIT_CORE);
+  return { mapped, columns: inUse.length, weak };
 }
 
 /** One chart to compute. Optional fields carry per-widget overrides from the dashboard. */
@@ -840,10 +880,13 @@ export class Session {
 
   /**
    * Builds the analysis context from scratch: role overrides → hidden
-   * columns left out → domain and mapping → sub-domain → KPI resolution and
-   * selection → chart specs → primary date column → export names → SQL and
-   * DAX for every available KPI. Everything after the hidden columns works
-   * from the profile without them, so nothing can be built from one.
+   * columns left out → domain and mapping (and how well it fits: `fit`) →
+   * sub-domain → KPI resolution → column KPIs (with the generic charts for
+   * the columns the template doesn't read, when the dashboard would have
+   * fewer than FILL_BELOW_CHARTS charts) → selection → chart specs → primary
+   * date column → export names → SQL and DAX for every available KPI.
+   * Everything after the hidden columns works from the profile without
+   * them, so nothing can be built from one.
    * A KPI that fails to compile gets `sql`/`dax` undefined rather than failing
    * the whole call. Clears the last dashboard results (charts, KPI batch and
    * filters) because spec ids, KPIs and columns may have changed.
@@ -882,6 +925,8 @@ export class Session {
         classes: req.classOverrides,
       });
     }
+    // Read before the column and user KPIs add identity fields of their own.
+    const fit = fitOf(domain, mapping, active);
     // Sub-domain: requested, else best coverage with this mapping. Coverage is
     // the share of the sub-domain's signal fields that are mapped, weighted by
     // each field's registry weight and by how confidently it was matched.
@@ -940,21 +985,47 @@ export class Session {
 
     // Measure columns that no KPI of this view reads get KPIs and charts of their own, computed
     // from the column the way its data says (totals, latest balances or averages; kpi/columnKpis).
-    const extras = columnExtras({ domain, mapping, res, profile: active, subDomainId, dateColumn });
-    if (extras.kpis.length || extras.charts.length) {
-      domain = {
-        ...domain,
-        fields: [...domain.fields, ...extras.fields],
-        kpis: [...domain.kpis, ...extras.kpis],
-        charts: [...domain.charts, ...extras.charts],
+    const withExtras = (
+      base: { domain: DomainDef; mapping: Mapping; res: KpiResolutionMap },
+      add: Pick<GenericFill, "fields" | "kpis" | "charts" | "mapping">,
+    ) => {
+      if (!add.kpis.length && !add.charts.length) return base;
+      const d: DomainDef = {
+        ...base.domain,
+        fields: [...base.domain.fields, ...add.fields],
+        kpis: [...base.domain.kpis, ...add.kpis],
+        charts: [...base.domain.charts, ...add.charts],
       };
-      mapping = {
-        ...mapping,
-        fields: { ...mapping.fields, ...extras.mapping },
-        scores: { ...mapping.scores, ...Object.fromEntries(Object.keys(extras.mapping).map((f) => [f, 1])) },
+      const m: Mapping = {
+        ...base.mapping,
+        fields: { ...base.mapping.fields, ...add.mapping },
+        scores: {
+          ...base.mapping.scores,
+          ...Object.fromEntries(Object.keys(add.mapping).map((f) => [f, 1])),
+        },
       };
-      res = resolveKpis(domain, mapping, subDomainId, hiddenFields);
+      return { domain: d, mapping: m, res: resolveKpis(d, m, subDomainId, hiddenFields) };
+    };
+    const template = { domain, mapping, res };
+    const columnsOf = (base: typeof template) =>
+      columnExtras({ ...base, profile: active, subDomainId, dateColumn });
+    let view = withExtras(template, columnsOf(template));
+    // An industry that hardly fits the file leaves its dashboard nearly empty (Pharma on a table of wine
+    // measurements: no chart of its own, and no date or category for the column charts). The generic
+    // dashboard of the columns its template doesn't read fills the gap, in the "From your other columns"
+    // section (detect/generic.ts genericFill), and the column KPIs are then worked out around it, so no
+    // column gets two KPIs.
+    if (
+      domain.id !== GENERIC_ID &&
+      recommendCharts({ ...view, profile: active, subDomain: subDomainId }).specs.length < FILL_BELOW_CHARTS
+    ) {
+      const fill = genericFill({ ...template, profile: active, ds, subDomainId });
+      if (fill.charts.length) {
+        const filled = withExtras(template, fill);
+        view = withExtras(filled, columnsOf(filled));
+      }
     }
+    ({ domain, mapping, res } = view);
     const selection = selectKpis(res);
     const recommended = recommendCharts({
       domain,
@@ -1115,6 +1186,7 @@ export class Session {
       grainLabel: grainLabel(active.grain, sub?.grain && sub.grain !== "row" ? sub.grain : undefined),
       currency,
       dimensions,
+      fit,
     };
   }
 

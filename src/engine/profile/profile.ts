@@ -31,7 +31,7 @@ import type {
   ValueCount,
 } from "./types";
 import { detectStatePattern, detectStringPatterns } from "./patterns";
-import { inferRole } from "./roles";
+import { inferRole, readingsTable } from "./roles";
 import { nameCurrency, tokenize } from "./names";
 import { detectColumnPairs } from "./pairs";
 import {
@@ -405,13 +405,19 @@ export function detectCurrency(cols: ColumnProfile[], hint = "INR"): CurrencyInf
 }
 
 /**
- * Profiles every column, then the table as a whole: keys and grain,
- * hierarchies, the primary date and its gaps, wide format and currency.
+ * Profiles every column, then the table as a whole: a table of measurements
+ * reads its unnamed numbers as readings (roles.ts readingsTable), then keys
+ * and grain, hierarchies, the primary date and its gaps, wide format and
+ * currency.
  * Deterministic apart from durationMs.
  */
 export function profileDataset(ds: Dataset, opts: { currencyHint?: string } = {}): DatasetProfile {
   const started = performance.now();
-  const columns = ds.columns.map((c, i) => profileColumn(c, i, ds.rowCount));
+  const profiled = ds.columns.map((c, i) => profileColumn(c, i, ds.rowCount));
+  // A table of measurements (no IDs, dates or amounts) reads its unnamed numbers as readings, averaged.
+  // Periods laid out as columns (Jan, Feb, …) hold one measure over time, which may well add up.
+  const wide = detectWideFormat(profiled);
+  const columns = wide ? profiled : readingsTable(profiled);
   const { keys, grain } = detectKeysAndGrain(ds, columns);
   const hierarchies = detectHierarchies(ds, columns);
   const primaryDate = pickPrimaryDate(columns);
@@ -427,7 +433,7 @@ export function profileDataset(ds: Dataset, opts: { currencyHint?: string } = {}
     hierarchies,
     primaryDate,
     timeSeries,
-    wide: detectWideFormat(columns),
+    wide,
     tall: detectTallFormat(ds, columns),
     pairs: detectColumnPairs(columns),
     currency: detectCurrency(columns, opts.currencyHint),

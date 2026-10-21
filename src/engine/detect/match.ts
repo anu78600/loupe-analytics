@@ -7,7 +7,11 @@
  * compatibility, plus a capped bonus when the column's values contain the
  * field's value hints. A column may also match on values alone. An
  * `exclude` token in the column name multiplies a synonym's similarity by 0.3
- * unless that synonym contains the token itself. Pairs scoring at least
+ * unless that synonym contains the token itself. A synonym made only of
+ * generic words ("total", "free", "amount") never matches on its own a column
+ * that adds words it doesn't explain, unless the column's profile confirms
+ * the field's kind ("Order Total" is money; "total sulfur dioxide" is a
+ * reading, so no industry reads it as revenue). Pairs scoring at least
  * MATCH_THRESHOLD are assigned greedily, one to one.
  *
  * KPI names are matched here too (matchKpiNames): a measure column's header,
@@ -154,10 +158,184 @@ const LABEL_BONUS = 0.05;
 const VALUE_TIE_CAP = 0.2;
 
 /**
+ * Words a synonym can be made of and still say nothing about what a column
+ * holds: names.ts's GENERIC_TOKENS ("total", "amount", "value", "net",
+ * "date", "status", "type", "name"…) and a few more amount words.
+ */
+const GENERIC_SYNONYM_WORDS: ReadonlySet<string> = new Set([
+  ...GENERIC_TOKENS,
+  "free",
+  "price",
+  "cost",
+  "sum",
+  "quantity",
+  "grand",
+  "sub",
+]);
+
+/**
+ * Words a column may add to a generic synonym without naming something else:
+ * units, money marks, scale and period words, plan and actual words,
+ * stopwords and the generic modifiers ("Grand Total", "Net Amount", "Total
+ * (₹)", "Amount (₹ Lakh)", "YTD Cost", "Target Qty").
+ */
+const QUALIFYING_WORDS: ReadonlySet<string> = new Set([
+  // money and scale
+  "money",
+  "thousand",
+  "lakh",
+  "crore",
+  "million",
+  "billion",
+  // units
+  "kg",
+  "lb",
+  "lbs",
+  "gram",
+  "tonne",
+  "litre",
+  "km",
+  "mile",
+  "sqft",
+  "sqm",
+  "cubicmetre",
+  "kwh",
+  "mwh",
+  "kw",
+  "mw",
+  "gb",
+  "mb",
+  "tb",
+  "piece",
+  "percent",
+  "hour",
+  "minute",
+  "second",
+  "sec",
+  "min",
+  "hr",
+  "utc",
+  "gmt",
+  "ist",
+  // periods
+  "day",
+  "days",
+  "week",
+  "month",
+  "year",
+  "quarter",
+  "daily",
+  "weekly",
+  "monthly",
+  "quarterly",
+  "yearly",
+  "annual",
+  "annualised",
+  "annualized",
+  "ytd",
+  "mtd",
+  "qtd",
+  "ttm",
+  "ltm",
+  "fy",
+  // plan and actual
+  "target",
+  "budget",
+  "plan",
+  "forecast",
+  "quota",
+  "actual",
+  "act",
+  "achievement",
+  "achieved",
+  "ach",
+  "ly",
+  "py",
+  "ty",
+  "cy",
+  // stopwords
+  "of",
+  "the",
+  "a",
+  "an",
+  "in",
+  "on",
+  "at",
+  "by",
+  "for",
+  "to",
+  "from",
+  "and",
+  "or",
+  "with",
+  // generic modifiers
+  "net",
+  "gross",
+  "grand",
+  "sub",
+  "final",
+  "total",
+]);
+
+/**
+ * The column's words a synonym leaves unexplained, when the synonym is made
+ * only of generic words and every one of them is in the column: "sulfur" and
+ * "dioxide" for "total sulfur dioxide" against "total". Words the synonym
+ * spells almost the same way (Jaro–Winkler ≥ 0.93, five letters or more),
+ * qualifying words and bare numbers are explained. Empty when the synonym
+ * names something specific or the column adds nothing that matters.
+ */
+function unexplainedWords(col: ColumnProfile, synonym: string): string[] {
+  const syn = phraseTokens(synonym).filter((t) => !QUALIFYING_WORDS.has(t) || GENERIC_SYNONYM_WORDS.has(t));
+  if (!syn.length || !syn.every((t) => GENERIC_SYNONYM_WORDS.has(t) || /^\d+$/.test(t))) return [];
+  if (!syn.every((t) => col.tokens.includes(t))) return [];
+  return col.tokens.filter(
+    (t) =>
+      !syn.includes(t) &&
+      !QUALIFYING_WORDS.has(t) &&
+      !/^\d+$/.test(t) &&
+      !syn.some((s) => Math.min(s.length, t.length) >= 5 && jaroWinkler(s, t) >= 0.93),
+  );
+}
+
+/**
+ * The column's own profile says it holds the kind of figure the field holds:
+ * money for a money field (it profiles as currency: a money word, mark or
+ * symbol), an amount that adds up for any other numeric field (not a reading
+ * that is averaged), a rate for a rate field, a date for a date field, and
+ * the field's own role otherwise.
+ */
+function kindConfirmed(field: FieldDef, col: ColumnProfile): boolean {
+  const roles = field.roles as SemanticRole[];
+  if (col.storage === "date") return roles.includes("datetime");
+  if (roles.includes("currency")) return col.role === "currency";
+  if ((col.role === "rate" || col.role === "percentage") && roles.includes(col.role)) return true;
+  if (roles.includes("measure"))
+    return (col.role === "measure" || col.role === "currency") && col.additivity !== "non-additive";
+  return roles.includes(col.role);
+}
+
+/**
+ * Most a generic synonym's name similarity may reach when it leaves words of
+ * the column unexplained and the column doesn't confirm the field's kind: a
+ * hint that counts only with value evidence, as for a partial match in
+ * nameSimilarity.
+ */
+const UNEXPLAINED_GENERIC = 0.35;
+
+/**
  * Scores one field against one column. With a name match the score is
  * name × compatibility (+ the value bonus, capped at 1); a values-only match
  * needs a bonus of at least 0.2 and scores 0.35 × compatibility + bonus, so it
  * clears MATCH_THRESHOLD only with strong value evidence.
+ *
+ * A synonym made only of generic words ("total", "free", "net amount") says
+ * nothing about a column that adds other words: "total sulfur dioxide" is
+ * not a total amount and "free sulfur dioxide" not a free quantity. Such a
+ * match stays below the threshold (UNEXPLAINED_GENERIC) unless the column's
+ * own profile confirms the field's kind (kindConfirmed): "Order Total" is
+ * money by its profile, so it still fills a money field, while a reading of
+ * sulfur dioxide never does.
  */
 export function scoreField(field: FieldDef, col: ColumnProfile): FieldScore {
   const compat = compatibility(field, col);
@@ -168,12 +346,18 @@ export function scoreField(field: FieldDef, col: ColumnProfile): FieldScore {
   let nameScore = 0;
   let bestSynonym = "";
   let labelBest = false;
+  let confirmed: boolean | undefined;
   for (const syn of [field.label, ...field.synonyms]) {
     let s = nameSimilarity(col.tokens, syn);
     if (s > 0 && excluded.length) {
       // An excluded token disqualifies the column unless this synonym names it itself.
       const synTokens = phraseTokens(syn);
       if (excluded.some((t) => !synTokens.includes(t))) s *= 0.3;
+    }
+    // A generic synonym explains a column that adds other words only when the column is that kind of figure.
+    if (s > UNEXPLAINED_GENERIC && unexplainedWords(col, syn).length) {
+      confirmed ??= kindConfirmed(field, col);
+      if (!confirmed) s = UNEXPLAINED_GENERIC;
     }
     if (s > nameScore) {
       nameScore = s;

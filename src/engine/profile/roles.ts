@@ -5,7 +5,11 @@
  *
  * Rules are ordered and the first match wins, so the specific rules
  * (coordinates, time attributes, flags, IDs, percentages, money, rates) come
- * before the generic measure/dimension fallbacks. Token sets hold canonical
+ * before ordinal scores and readings (a quality of 3–9, acidity, pH,
+ * temperature: averaged, never summed) and then the generic measure/dimension
+ * fallbacks. After every column is decided, readingsTable reads the unnamed
+ * numbers of a table of measurements (no IDs, dates or amounts) as readings
+ * too. Token sets hold canonical
  * tokens (names.tokenize) and a token may sit in several sets; rule order
  * decides which reading applies. Confidences are fixed heuristic scores.
  * The role drives additivity and the default aggregation used by KPIs and
@@ -521,6 +525,68 @@ const NON_ADDITIVE_MEASURE = new Set([
   // A length of stay or service is a duration; a length of a thing, an attribute like its weight.
   "length",
 ]);
+/**
+ * Words naming a concentration, a level or a reading of something measured:
+ * chemistry and food (acidity, pH, chlorides, sulphates, sulfur dioxide,
+ * sugar, alcohol), medicine (glucose, cholesterol, sodium), physics
+ * (temperature, pressure, viscosity, humidity) and measurement words (BMI,
+ * index, ratio, level, reading). Each row holds its own reading, so the column
+ * is averaged and never summed: a "Total sulfur dioxide" is how much one wine
+ * holds, not an amount to add up across wines. Clear money or quantity
+ * evidence (a money word, a count, a physical unit such as kg) still wins;
+ * see numericRole. "pH" is read from the raw name (tokenize splits it).
+ */
+const MEASUREMENT_TOKENS = new Set([
+  "acid",
+  "acidity",
+  "density",
+  "chloride",
+  "sulphate",
+  "sulfate",
+  "sulphur",
+  "sulfur",
+  "dioxide",
+  "sugar",
+  "glucose",
+  "cholesterol",
+  "sodium",
+  "potassium",
+  "calcium",
+  "magnesium",
+  "concentration",
+  "alcohol",
+  "abv",
+  "viscosity",
+  "temperature",
+  "temp",
+  "humidity",
+  "pressure",
+  "salinity",
+  "turbidity",
+  "conductivity",
+  "hardness",
+  "bmi",
+  "index",
+  "ratio",
+  "level",
+  "reading",
+]);
+/** "pH" as a word of the raw name ("pH", "soil_pH", "PH Level"); its values must also lie within 0–14. */
+const PH_WORD = /(?:^|[^a-z])ph(?:[^a-z]|$)/i;
+/**
+ * Units of a concentration or a reading in the raw name: mg/L, g/dL, ppm,
+ * ppb, mmHg, mmol, µg, degrees (°C, °F, "deg C"). Physical units of an
+ * amount (kg, litres, kWh) are not here: they measure a quantity.
+ */
+const MEASUREMENT_UNIT =
+  /\bm?g\s*\/\s*(?:d?l|dm[3³]|m[3³]|100\s*g)\b|\bppm\b|\bppb\b|°|\bmm\s*hg\b|\bmmol\b|µ|μ|\bdeg(?:rees?)?\s*[cf]\b|\bcelsius\b|\bfahrenheit\b|\bkelvin\b/i;
+/**
+ * Names of an ordinal score: whole numbers on a short scale ("quality" of
+ * 3–9, a grade of 0–10) are points on that scale, averaged, never summed.
+ * "Rating" and "score" are read as rates earlier (RATE_TOKENS); a grade or
+ * level with at most ten codes stays a category (DIMENSION_CODE_TOKENS).
+ */
+const ORDINAL_SCORE_TOKENS = new Set(["quality", "grade", "rating", "score", "rank", "level"]);
 /** Durations and ages: values of 1–10 under them count years or days, never points on a rating scale. */
 const DURATION_TOKENS = new Set([
   "age",
@@ -963,6 +1029,17 @@ const WORK_ITEMS = new Set([
 ]);
 const TITLE_TOKENS = new Set(["name", "title", "subject"]);
 
+/** The reason of the low-confidence fallback: a number with nothing in its name to say what it is. */
+const SUMMABLE_FALLBACK_REASON = "Numeric values: treated as a summable measure.";
+/** The reason given to a concentration, level or reading named by its header (MEASUREMENT_TOKENS). */
+const MEASUREMENT_REASON =
+  "A concentration, level or reading by name: each row's own value, averaged, never summed.";
+/** The reason of the row-number rule: unique, sequential whole numbers. */
+const ROW_ID_REASON = "Unique, sequential whole numbers look like a row ID.";
+/** Why readingsTable makes a fallback measure non-additive. */
+const OBSERVATION_REASON =
+  "A table of measurements (no IDs, dates or amounts): each value is a reading, so it is averaged, never summed.";
+
 export interface RoleDecision {
   role: SemanticRole;
   /** Fixed heuristic score per rule (0.6–0.97). */
@@ -1314,7 +1391,7 @@ function numericRole(x: RoleInput): RoleDecision {
     !t.includes("total") &&
     !has(t, QUANTITY_TOKENS)
   ) {
-    return decide("identifier", 0.72, "Unique, sequential whole numbers look like a row ID.");
+    return decide("identifier", 0.72, ROW_ID_REASON);
   }
 
   // A % sign in the values wins (the parser stored fractions). Otherwise a percent-like name decides and the
@@ -1501,11 +1578,47 @@ function numericRole(x: RoleInput): RoleDecision {
     );
   }
 
+  // A count, a quantity, a physical unit of an amount (kg, litres, kWh) or a snapshot word other than a
+  // level or reading ("Stock Level", "Inventory") says the column holds an amount: no measurement or
+  // score word below overrides that.
+  const amountNamed =
+    counted ||
+    has(t, QUANTITY_TOKENS) ||
+    measuredInUnit(t, x.name) ||
+    t.some((w) => SEMI_ADDITIVE.has(w) && w !== "level" && w !== "reading");
+
+  // An ordinal score: whole numbers on a short scale (0–10) with few values, named like a quality,
+  // grade, rank or level ("quality" of 3–9). Points on a scale are averaged; their sum means nothing.
+  if (
+    s &&
+    integer &&
+    min >= 0 &&
+    max <= 10 &&
+    x.distinct >= 3 &&
+    x.distinct <= 11 &&
+    has(t, ORDINAL_SCORE_TOKENS) &&
+    !amountNamed
+  ) {
+    return decide(
+      "measure",
+      0.75,
+      `Whole numbers on a ${min}–${max} scale under a name like a quality or grade: an ordinal score, averaged, never summed.`,
+      { additivity: "non-additive" },
+    );
+  }
+
+  // A concentration, level or reading by name or unit ("Residual sugar", "pH", "Chlorides (g/L)",
+  // "Temperature (°C)"): each row's own reading, averaged, never summed.
+  const ph = PH_WORD.test(x.name) && s !== undefined && min >= 0 && max <= 14;
+  if (!amountNamed && (has(t, MEASUREMENT_TOKENS) || ph || MEASUREMENT_UNIT.test(x.name))) {
+    return decide("measure", 0.8, MEASUREMENT_REASON, { additivity: "non-additive" });
+  }
+
   // Fallback: a measure. Additivity comes from the name (snapshots → semi, per-row durations/ages/scores →
   // non); confidence drops to 0.6 when no name token supports the guess.
   let additivity: Additivity = "additive";
   const quantity = has(t, QUANTITY_TOKENS) || counted;
-  let why = quantity ? "A count or quantity: safe to sum." : "Numeric values: treated as a summable measure.";
+  let why = quantity ? "A count or quantity: safe to sum." : SUMMABLE_FALLBACK_REASON;
   if (has(t, SEMI_ADDITIVE)) {
     additivity = "semi-additive";
     why = "A stock/level snapshot: add across items, take the latest value over time.";
@@ -1667,6 +1780,81 @@ export function inferRole(x: RoleInput): RoleDecision {
   if (x.storage === "date") return decide("datetime", 0.97, "Dates/times.");
   if (x.storage === "number") return numericRole(x);
   return stringRole(x);
+}
+
+/** Words of a header that only numbers the rows ("Id", "Index", "Unnamed: 0", "#"). */
+const ROW_INDEX_TOKENS = new Set([
+  "id",
+  "index",
+  "idx",
+  "row",
+  "number",
+  "serial",
+  "unnamed",
+  "sr",
+  "sno",
+  "no",
+  "#",
+]);
+
+/**
+ * An identifier that only numbers the rows: unique, and either a run of whole
+ * numbers (the row-number rule) or named only with index words ("Id",
+ * "Index", "Unnamed: 0", "#"). It says nothing about what the rows are.
+ */
+export const isRowIndex = (c: ColumnProfile): boolean =>
+  c.role === "identifier" &&
+  c.unique &&
+  (c.roleReason === ROW_ID_REASON || c.tokens.every((w) => ROW_INDEX_TOKENS.has(w) || /^\d+$/.test(w)));
+
+/** A measure that reached the low-confidence fallback: nothing in its name says what it holds. */
+const isSummableFallback = (c: ColumnProfile): boolean =>
+  c.role === "measure" && c.additivity === "additive" && c.roleReason === SUMMABLE_FALLBACK_REASON;
+
+/**
+ * A measure saying the table holds amounts: money, a named count or quantity,
+ * a snapshot, or a fallback measured in a physical unit of an amount or
+ * named after things counted one by one.
+ */
+function extensive(c: ColumnProfile): boolean {
+  if (c.role === "currency") return true;
+  if (c.role !== "measure" || c.additivity === "non-additive") return false;
+  if (!isSummableFallback(c)) return true;
+  return c.tokens.some(
+    (w) => PHYSICAL_UNITS.has(w) || QUANTITY_TOKENS.has(w) || COUNTABLE.has(w) || w === "population",
+  );
+}
+
+/**
+ * A table of measurements: no identifier (beyond a column that only numbers
+ * the rows), no date, at least four numeric measures, and none of them money,
+ * a count, a quantity or another amount (a wine-quality or iris table, lab
+ * results). Each row is one thing measured, so its numbers are readings:
+ * every measure that only reached the summable fallback is made non-additive
+ * (averaged, never summed). Measures named as readings already are
+ * (MEASUREMENT_TOKENS). Any other table is returned unchanged. Runs once per
+ * profile, after every column's role (profile.ts profileDataset).
+ */
+export function readingsTable(columns: ColumnProfile[]): ColumnProfile[] {
+  if (columns.some((c) => c.storage === "date")) return columns;
+  if (columns.some((c) => c.role === "identifier" && !isRowIndex(c))) return columns;
+  const measures = columns.filter(
+    (c) =>
+      c.storage === "number" &&
+      (c.role === "measure" || c.role === "currency" || c.role === "rate" || c.role === "percentage"),
+  );
+  if (measures.length < 4 || measures.some(extensive)) return columns;
+  return columns.map((c) =>
+    isSummableFallback(c)
+      ? {
+          ...c,
+          additivity: "non-additive",
+          defaultAgg: "avg",
+          roleConfidence: 0.7,
+          roleReason: OBSERVATION_REASON,
+        }
+      : c,
+  );
 }
 
 /**

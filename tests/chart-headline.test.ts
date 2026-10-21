@@ -222,14 +222,16 @@ describe("what a takeaway may claim (dashboard audit)", () => {
         { id: "a", label: "Attrition rate", format: "percent", direction: "lower" },
       ],
     });
-    const pts = { kind: "scatter" as const, points: [{ label: "A", x: 1, y: 2 }] };
+    // Twelve groups (say, departments), each a point.
+    const points = Array.from({ length: 12 }, (_, i) => ({ label: `D${i}`, x: i, y: 2 }));
+    const pts = { kind: "scatter" as const, points };
     const fall = data(["A"], [1], { ...pts, trendline: { slope: -0.06, intercept: 4.7, r2: 0.53 } });
     expect(chartHeadline(s, fall, FMT, RATE)).toBe(
-      "Attrition rate falls as average engagement score rises (R² 0.53).",
+      "Attrition rate falls as average engagement score rises (R² 0.53 across 12 groups).",
     );
     const rise = data(["A"], [1], { ...pts, trendline: { slope: 0.4, intercept: 0, r2: 0.31 } });
     expect(chartHeadline(s, rise, FMT, RATE)).toBe(
-      "Attrition rate tends to rise with average engagement score, loosely (R² 0.31).",
+      "Attrition rate tends to rise with average engagement score, loosely (R² 0.31 across 12 groups).",
     );
     const none = data(["A"], [1], { ...pts, trendline: { slope: NaN, intercept: NaN, r2: NaN } });
     expect(chartHeadline(s, none, FMT, RATE)).toBeNull();

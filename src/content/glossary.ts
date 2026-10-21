@@ -983,6 +983,19 @@ export const GLOSSARY: GlossarySection[] = [
         related: ["median", "anomaly"],
       },
       {
+        id: "two-scales",
+        term: "Values on two scales",
+        level: "intermediate",
+        short:
+          "One column holding the same measure at two sizes, such as a density of 0.994 in some rows and 994 in others.",
+        body: "It usually means a decimal point was lost, or a thousands separator was misread, while the file was cleaned. The larger values then swamp every average and chart, so fix the column in the source file.",
+        example:
+          "A density column with 0.99 in most rows and 990 in a few: those few look 1,000× larger than the rest.",
+        inLoupe:
+          "Data health warns about the column, names the likely cause and an example pair, and lists the affected rows under Rows to check. Loupe never changes the values itself.",
+        related: ["outlier", "data-health"],
+      },
+      {
         id: "inconsistent-spelling",
         term: "Inconsistent spellings",
         level: "beginner",

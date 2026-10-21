@@ -22,6 +22,12 @@
  * for files like this one once built; when a learned rule set the choice,
  * LearnedNotice says so, with Undo and Forget.
  *
+ * An industry chosen although detection scores it under 35% (the bar below
+ * which detection picks the general dashboard itself) gets a warning under
+ * the Industry field, before the user moves on: how many of the file's
+ * columns it explains, why that matters, and "Use a general dashboard"
+ * (industryFit.ts). It never blocks the choice.
+ *
  * Notes and hints are one short line each; the full sentence is behind
  * hover, a long press or its ⓘ (ui/primitives/reveal.tsx), and long values
  * (a column's contents, a tagline) are clamped with the whole text on demand.
@@ -37,6 +43,7 @@ import {
   Clock,
   Columns3,
   Hash,
+  LayoutDashboard,
   Sparkles,
   TableColumnsSplit,
   ToggleLeft,
@@ -83,6 +90,7 @@ import { AiDomainCheck } from "./AiSummary";
 import { DateOrderSwitch } from "./HealthPanel";
 import { LearnedNotice } from "./LearnedNotice";
 import { WorkbookModelNotice } from "./WorkbookModelNotice";
+import { lowFitOf, lowFitWords, type LowFit } from "./industryFit";
 
 const MODELS = ["D2C brand", "Marketplace seller", "B2B", "Subscription", "Retail / offline", "Other"];
 const GOALS = [
@@ -307,7 +315,8 @@ export function DetectStep() {
  * shape and matched columns. The card follows the choice, not the ranking:
  * the best match says so; a lower-ranked candidate is "Your choice" with its
  * own evidence; an industry outside the top matches, or Generic, gets a card
- * of its own instead of the best match's evidence.
+ * of its own instead of the best match's evidence. Top matches lists only
+ * industries that matched something; when none did, it says so.
  */
 function DetectionCard() {
   const detection = useWorkspace((s) => s.detection);
@@ -317,6 +326,7 @@ function DetectionCard() {
   const top = detection?.candidates[0];
   if (!detection || !top) return null;
   const shown = detection.candidates.find((c) => c.domainId === domainId);
+  const matches = detection.candidates.filter((c) => c.evidence.length > 0);
   return (
     <Card className="relative overflow-hidden p-6 lg:col-span-7">
       <div aria-hidden className="mesh pointer-events-none absolute inset-x-0 top-0 h-48 opacity-60" />
@@ -346,8 +356,13 @@ function DetectionCard() {
         <div className="mt-6 grid gap-5 border-t border-border-subtle pt-5 md:grid-cols-2">
           <div>
             <p className="eyebrow mb-2 text-fg-subtle">Top matches</p>
+            {/* Only industries that matched something: ranking ones that match nothing would name
+                arbitrary industries as matches. */}
+            {matches.length ? null : (
+              <p className="text-ui text-fg-muted">None: no industry&apos;s fields match these columns.</p>
+            )}
             <ul className="grid gap-2">
-              {detection.candidates.map((c) => (
+              {matches.map((c) => (
                 <li key={c.domainId}>
                   <button
                     type="button"
@@ -404,6 +419,8 @@ function ChoiceDetail({ domain, top }: { domain: DomainListItem | undefined; top
   const profile = useWorkspace((s) => s.profile);
   const generic = !domain;
   const noFit = generic && top.confidence < 35;
+  // With nothing matched at all, no industry is "closest".
+  const closest = top.evidence.length ? `the closest, ${top.name}, scores ${top.confidence}%` : null;
   // What the table is, in one sentence, as the generic dashboard will say it (detect/tableShape.ts).
   const table = generic && profile ? describeTable(profile) : null;
   return (
@@ -420,13 +437,15 @@ function ChoiceDetail({ domain, top }: { domain: DomainListItem | undefined; top
           label="About this choice"
           full={
             generic
-              ? `${noFit ? `No industry matches this file well (the closest, ${top.name}, scores ${top.confidence}%), so the` : "The"} dashboard is built for the kind of table it is: KPIs and charts that suit its shape, with no industry's KPIs assumed. Pick a top match instead if one fits.`
+              ? `${noFit ? (closest ? `No industry matches this file well (${closest}), so the` : "No industry's fields match these columns, so the") : "The"} dashboard is built for the kind of table it is: KPIs and charts that suit its shape, with no industry's KPIs assumed. Pick an industry instead if one fits.`
               : "Not among the top matches for this file. Check & map shows which of its fields were found; KPIs that need a missing field will say so instead of guessing."
           }
         >
           {generic
             ? noFit
-              ? `No industry fits (closest: ${top.name}, ${top.confidence}%).`
+              ? closest
+                ? `No industry fits (closest: ${top.name}, ${top.confidence}%).`
+                : "No industry fits these columns."
               : "Built from the table's shape, no industry assumed."
             : "Not a top match; missing fields will say so."}
         </Brief>
@@ -529,9 +548,19 @@ function BusinessForm() {
   const currencyOverride = useSettings((s) => s.currencyOverride);
   const setCurrency = useSettings((s) => s.setCurrencyOverride);
   const profileCurrency = useWorkspace((s) => s.profile?.currency);
+  const columns = useWorkspace((s) => s.profile?.columns);
   const domain = domains.find((d) => d.id === domainId);
   const emphasise = detection?.needsConfirmation;
   const ranked = new Map(detection?.candidates.map((c) => [c.domainId, c.confidence]) ?? []);
+  // A registry industry detection scores under 35% for this file: warned about before moving on.
+  const lowFit =
+    domain && detection && columns
+      ? lowFitOf(
+          detection,
+          domain.id,
+          columns.map((c) => c.name),
+        )
+      : null;
   return (
     <Card
       className={cn(
@@ -582,6 +611,18 @@ function BusinessForm() {
           </Select>
           {domain ? <ClampText className="text-xs text-fg-subtle">{domain.tagline}</ClampText> : null}
         </div>
+        {domain && lowFit && columns ? (
+          <LowFitWarning
+            name={domain.name}
+            fit={lowFit}
+            columns={columns.length}
+            onGeneral={() => {
+              chooseIndustry("generic", null);
+              // The warning goes with the choice: focus stays on the field that now says Generic.
+              document.getElementById("industry")?.focus();
+            }}
+          />
+        ) : null}
         {domain && domain.subDomains.length > 1 ? (
           <div className="grid gap-1.5">
             <Label htmlFor="shape">Data shape</Label>
@@ -718,6 +759,47 @@ function BusinessForm() {
       </form>
       <AiDomainCheck />
     </Card>
+  );
+}
+
+/**
+ * The inline warning under the Industry field for an industry that fits the file poorly (lowFitOf,
+ * industryFit.ts): how many columns it explains (or, outside the top matches, its score at most),
+ * with the rest of the reason behind the ⓘ, and a one-click switch to the general dashboard. The
+ * choice stays the user's: Next works as before.
+ */
+function LowFitWarning({
+  name,
+  fit,
+  columns,
+  onGeneral,
+}: {
+  name: string;
+  fit: LowFit;
+  /** Columns in the file. */
+  columns: number;
+  onGeneral: () => void;
+}) {
+  const locale = useSettings((s) => s.numberLocale);
+  const words = lowFitWords(name, fit, columns, locale);
+  return (
+    <div
+      role="status"
+      className="flex flex-col items-start gap-2 rounded-control border border-warning-border bg-warning-soft px-3 py-2.5"
+    >
+      <p className="flex items-start gap-2.5 text-sm text-fg">
+        <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden />
+        <span>
+          <span className="font-medium">{words.headline}</span>{" "}
+          <Brief label={`Why ${name} may not fit`} full={words.full}>
+            A general dashboard fits better.
+          </Brief>
+        </span>
+      </p>
+      <Button type="button" size="sm" variant="secondary" className="ml-6.5" onClick={onGeneral}>
+        <LayoutDashboard aria-hidden /> Use a general dashboard
+      </Button>
+    </div>
   );
 }
 

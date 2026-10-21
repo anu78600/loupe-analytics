@@ -223,6 +223,12 @@ interface WorkspaceState {
   learned: LearnedFile | null;
   /** The user picked an industry or data shape on Detect (chooseIndustry); confirming it learns it. */
   industryChosen: boolean;
+  /**
+   * The industry the user chose to keep on the dashboard although it explains few of the file's
+   * columns (the fit notice's "Keep", ContextResult.fit): its notice stays away for this file, in
+   * both views. Another industry asks again; a new file starts with none.
+   */
+  fitKept: string | null;
   /** Result of the last configure(); null until a domain is confirmed. */
   context: ContextResult | null;
   configuring: boolean;
@@ -366,6 +372,8 @@ interface WorkspaceState {
   undoLearned: () => void;
   /** Takes back what a learned rule set on this file and deletes the rule. */
   forgetLearned: () => void;
+  /** Keeps an industry that fits few of the file's columns: the dashboard's fit notice goes for it (fitKept). */
+  keepFit: (domainId: string) => void;
   /**
    * Teaches Loupe that this column's header means this field, for every
    * future file ("Remember 'Net Amt' as Net revenue"). Registry fields only.
@@ -473,6 +481,7 @@ function initialData(): WorkspaceData {
     replacedDismissed: false,
     learned: null,
     industryChosen: false,
+    fitKept: null,
     context: null,
     configuring: false,
     mode: "analyst",
@@ -772,6 +781,7 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
       replacedDismissed: false,
       learned,
       industryChosen: false,
+      fitKept: null,
       context: null,
       charts: {},
       kpiBatch: null,
@@ -1267,6 +1277,8 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
       if (l.ruleId) useLearned.getState().removeRule(l.ruleId);
       set((s) => ({ learned: s.learned && { ...s.learned, ruleId: null, applied: null } }));
     },
+
+    keepFit: (domainId) => set({ fitKept: domainId }),
 
     rememberWord: (fieldId, column) => {
       const s = get();

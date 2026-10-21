@@ -8,9 +8,10 @@
  *   kept on the column, see UnreadableCells, and shown here);
  * - it breaks one of the health checks' value rules (a negative quantity, a
  *   date after today, a 1 Jan 1900 placeholder, an impossible age, a
- *   different spelling of a category, a discount above the price…), using
- *   exactly the rules of quality.ts, so every count here equals the health
- *   issue's count;
+ *   different spelling of a category, a discount above the price, a number
+ *   a power of ten off the rest of its column (scales.ts)…), using exactly
+ *   the rules of quality.ts, so every count here equals the health issue's
+ *   count;
  * - it is blank in a column that is otherwise at least 95% filled and isn't
  *   an optional field (a blank there is probably missing data).
  * A row is marked when it repeats an earlier row in every column.

@@ -20,6 +20,11 @@
  * data-health dialog open from state; the primitives give focus back to
  * whatever opened them (a KPI card, a chart's menu). The health report opens
  * on itself rather than on its first ⓘ (the Dialog primitive's `initialFocus`).
+ *
+ * When the industry explains few of the file's columns, both views open with
+ * the fit notice (FitNotice), and when its template draws no chart of its own
+ * on this data, the charts from the other columns are not folded away: the
+ * dashboard leads with them.
  */
 import { FileIdentity } from "../FileIdentity";
 import * as React from "react";
@@ -56,6 +61,7 @@ import { ComparisonNote, KpiStrip, KpiTiles, SupportingKpis } from "./KpiCards";
 import { WidgetGrid } from "./WidgetGrid";
 import { Inspector } from "./Inspector";
 import { SECTIONS } from "./sections";
+import { FitNotice } from "./FitNotice";
 import { PageView, ViewToggle } from "./page/PageView";
 
 /** True when the chart being focused (focusChart) is one of the automatic charts for other columns. */
@@ -111,6 +117,11 @@ function FullDashboard() {
   const columnTiles = kpiLayoutOf({ context, kpiLayout, extraKpis }).columns;
   const specs = allSpecs({ context, customCharts });
   const subName = context.domain.subDomains.find((s) => s.id === context.subDomainId)?.name;
+  // Charts of the dashboard's own in this mode (trend, breakdowns, drivers). Without any (an industry
+  // that explains few of the columns), the charts for the other columns lead, unfolded.
+  const ownCharts = specs.some(
+    (x) => x.section !== "columns" && x.section !== "detail" && x.modes.includes(mode),
+  );
 
   return (
     // overflow-x: clip, so nothing inside can make the page scroll sideways and push the rail off the
@@ -125,6 +136,7 @@ function FullDashboard() {
       </aside>
 
       <div className="min-w-0" aria-busy={computing}>
+        <FitNotice className="mb-5" />
         {/* Two levels only: the title, then one quiet line of facts; the actions sit to the right. */}
         <header className="mb-5 flex flex-wrap items-start justify-between gap-x-6 gap-y-4">
           <div className="min-w-0 flex-[1_1_380px]">
@@ -250,7 +262,7 @@ function FullDashboard() {
           // The your-columns section also carries its KPI tiles, so it shows even without charts.
           const tiles = sec.id === "columns" ? columnTiles : [];
           if (!visible.length && !tiles.length) return null;
-          const foldable = sec.id === "columns" && visible.length > 0;
+          const foldable = sec.id === "columns" && visible.length > 0 && ownCharts;
           return (
             <section key={sec.id} className="mt-10" aria-labelledby={`sec-${sec.id}`}>
               {/* A title and a hairline; what the section is for is behind its ⓘ, not more text to read. */}

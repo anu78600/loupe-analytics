@@ -10,7 +10,10 @@
  * - panel: many entities, each read once per period ("195 countries × 20 years of 6 indicators");
  * - survey: answers on agreement, satisfaction or rating scales ("1,240 survey responses to 18 questions");
  * - labelled table: a practice table with a yes/no or class outcome column
- *   ("891 rows with a yes/no outcome (Survived: 38.4% yes)");
+ *   ("891 rows with a yes/no outcome (Survived: 38.4% yes)"), or a table of
+ *   measurements rated on a short scale ("4,898 wines rated 3–9 on quality,
+ *   with 11 measured characteristics"), the thing rated named from the file
+ *   name when it gives one;
  * - event log: timestamped events, several a day, with no regular grid ("2,400 events, 1–15 May 2024, from 60 users");
  * - lookup table: one row per code and its attributes, with nothing to add up
  *   ("Lookup table: 250 countries and their attributes");
@@ -21,12 +24,14 @@
  * Every word and count comes from the profile: column roles, distinct counts,
  * the key and grain, the primary date and its span, and for a yes/no outcome
  * the share of yes. Nothing is read from the rows here; the generic builder
- * reads them only to find which measures move together.
+ * reads them only to find which measures move together. The one exception is
+ * the noun for a rated table's rows, which comes from the file name.
  */
 import type { ColumnProfile, DatasetProfile } from "@/engine/profile/types";
 import { bucketLabel, formatRange, type TimeGrain } from "@/engine/core/dates";
 import { formatCount } from "@/engine/core/format";
 import { friendly } from "@/engine/core/labels";
+import { isRowIndex } from "@/engine/profile/roles";
 
 export type TableShapeKind =
   "timeSeries" | "panel" | "survey" | "labelled" | "eventLog" | "lookup" | "list" | "scorecard";
@@ -86,8 +91,16 @@ export interface TableShape {
   actor: ColumnProfile | null;
   /** Numeric measures, ranked: continuous before small codes, money first, then the most complete, then file order. */
   measures: ColumnProfile[];
-  /** Labelled tables: the outcome column. */
-  outcome: { column: ColumnProfile; kind: "binary" | "class"; positiveShare: number | null } | null;
+  /**
+   * Labelled tables: the outcome column. "ordinal" is a score on a short
+   * scale (a wine's quality of 3–9) in a table of measurements: it is
+   * averaged, and the share at the top of its scale is counted.
+   */
+  outcome: {
+    column: ColumnProfile;
+    kind: "binary" | "class" | "ordinal";
+    positiveShare: number | null;
+  } | null;
   /** Surveys: text questions on a known scale. */
   likert: LikertQuestion[];
   /** Surveys: numeric scale questions (the NPS question among them). */
@@ -96,6 +109,12 @@ export interface TableShape {
   nps: ColumnProfile | null;
   /** Lookup tables and lists: the column that is unique on every row, if any. */
   key: ColumnProfile | null;
+  /**
+   * Rated tables: what one row is, as a singular noun read from the file
+   * name ("wine" for winequality-white.csv), for counts and the sentence;
+   * null when the name gives none, and the rows are called rows.
+   */
+  noun: string | null;
   /**
    * The period says when each row happened, over more than one day (or one
    * year): a trend over it means something. False for a birthday or a start
@@ -317,10 +336,20 @@ function positiveShare(c: ColumnProfile): number | null {
   return null;
 }
 
+/** A column of only 0 and 1 kept as numbers ("target", "Outcome" of a practice table). */
+const zeroOne = (c: ColumnProfile) =>
+  c.storage === "number" &&
+  c.numeric?.integer === true &&
+  c.numeric.min === 0 &&
+  c.numeric.max === 1 &&
+  c.distinct === 2;
+
 function outcomeOf(columns: readonly ColumnProfile[]): TableShape["outcome"] {
   // The outcome usually comes last in a practice table: read the columns from the end.
   const back = [...columns].reverse();
-  const binary = back.find((c) => c.role === "boolean" && c.tokens.some((t) => OUTCOME_WORDS.has(t)));
+  const binary = back.find(
+    (c) => (c.role === "boolean" || zeroOne(c)) && c.tokens.some((t) => OUTCOME_WORDS.has(t)),
+  );
   if (binary) return { column: binary, kind: "binary", positiveShare: positiveShare(binary) };
   const cls = back.find(
     (c) =>
@@ -332,6 +361,153 @@ function outcomeOf(columns: readonly ColumnProfile[]): TableShape["outcome"] {
       c.tokens.some((t) => CLASS_WORDS.has(t)),
   );
   return cls ? { column: cls, kind: "class", positiveShare: null } : null;
+}
+
+/** Name words of a score on a short scale: a wine's quality, a grade, a rating. */
+const ORDINAL_WORDS = new Set(["quality", "grade", "rating", "score", "rank", "level"]);
+
+/**
+ * The ordinal outcome of a table of measurements: whole numbers on a 0–10
+ * scale, three to eleven of them in use, under a quality, grade or rating
+ * name, filled on (nearly) every row. Read from the last column back, as
+ * practice tables put the outcome last.
+ */
+function ordinalOf(columns: readonly ColumnProfile[]): ColumnProfile | null {
+  return (
+    [...columns]
+      .reverse()
+      .find(
+        (c) =>
+          c.storage === "number" &&
+          (c.role === "measure" || c.role === "rate") &&
+          c.numeric?.integer === true &&
+          c.numeric.min >= 0 &&
+          c.numeric.max <= 10 &&
+          c.distinct >= 3 &&
+          c.distinct <= 11 &&
+          c.nullPct < 0.05 &&
+          c.tokens.some((t) => ORDINAL_WORDS.has(t)),
+      ) ?? null
+  );
+}
+
+/**
+ * The measured characteristics of a table of measurements, when it is one:
+ * no date, no identifier beyond a column that only numbers the rows, at
+ * least three numeric measures besides the outcome, and at least two in
+ * three of them readings (averaged, never summed). Null for any other table:
+ * an order list with a rating column is still an order list.
+ */
+function readingsOf(profile: DatasetProfile, outcome: ColumnProfile): ColumnProfile[] | null {
+  const { columns } = profile;
+  if (columns.some((c) => c.storage === "date")) return null;
+  if (columns.some((c) => c.role === "identifier" && !isRowIndex(c))) return null;
+  const measures = measuresOf(profile, new Set([outcome.name]));
+  const readings = measures.filter(
+    (c) => c.additivity === "non-additive" || c.role === "rate" || c.role === "percentage",
+  );
+  return measures.length >= 3 && readings.length * 3 >= measures.length * 2 ? measures : null;
+}
+
+/**
+ * Words of a file name that say nothing about what a row is: data and file
+ * words, versions, states of the file (clean, final, raw), splits (train,
+ * test) and colours and other adjectives a file of one kind is often named
+ * by ("white.csv" holds white wines, not "whites").
+ */
+const FILE_WORDS = new Set([
+  "data",
+  "dataset",
+  "datasets",
+  "db",
+  "file",
+  "files",
+  "export",
+  "exported",
+  "report",
+  "sample",
+  "samples",
+  "table",
+  "sheet",
+  "sheets",
+  "list",
+  "master",
+  "final",
+  "clean",
+  "cleaned",
+  "raw",
+  "processed",
+  "updated",
+  "latest",
+  "new",
+  "old",
+  "copy",
+  "train",
+  "training",
+  "test",
+  "testing",
+  "valid",
+  "validation",
+  "full",
+  "all",
+  "combined",
+  "merged",
+  "csv",
+  "xlsx",
+  "xls",
+  "json",
+  "tsv",
+  "txt",
+  "white",
+  "red",
+  "black",
+  "blue",
+  "green",
+  "yellow",
+  "rose",
+  "big",
+  "small",
+  "the",
+  "and",
+  "of",
+  "for",
+  "my",
+  "our",
+]);
+
+/**
+ * The thing a rated table's rows are, from its file name, as a lower-case
+ * singular noun: "winequality-white.csv" → "wine", "WineQT.csv" → "wine".
+ * Words of the outcome's own name are dropped, inside a run-together word
+ * too ("winequality" without "quality"), as are file words (FILE_WORDS) and
+ * anything shorter than three letters or with digits. Null when no word is
+ * left ("cleaned.xlsx", "data.csv").
+ */
+function fileNoun(fileName: string | undefined, outcome: ColumnProfile): string | null {
+  if (!fileName) return null;
+  const stem = fileName.replace(/^.*[\\/]/, "").replace(/\.[a-z0-9]{1,5}$/i, "");
+  const outcomeWords = outcome.name
+    .toLowerCase()
+    .split(/[^a-z]+/)
+    .filter((w) => w.length >= 3);
+  const words = stem
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2")
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .flatMap((w) => {
+      // A run-together word holding the outcome's name ("winequality") keeps what is left of it.
+      const hit = outcomeWords.find((o) => w !== o && w.includes(o));
+      return hit ? w.split(hit) : [w];
+    })
+    .filter((w) => w.length >= 3 && /^[a-z]+$/.test(w) && !FILE_WORDS.has(w) && !outcomeWords.includes(w));
+  const word = words[0];
+  if (!word) return null;
+  // Singular, as "One row per …" and the plural for counts expect: "wines" → "wine", "classes" → "class".
+  if (/[^aeiou]ies$/.test(word)) return `${word.slice(0, -3)}y`;
+  if (/(ss|us|is)$/.test(word)) return word;
+  if (/(x|z|ch|sh|ss)es$/.test(word)) return word.slice(0, -2);
+  return word.endsWith("s") ? word.slice(0, -1) : word;
 }
 
 // ---------------------------------------------------------------- periods and entities
@@ -525,8 +701,11 @@ function measuresOf(profile: DatasetProfile, exclude: ReadonlySet<string>): Colu
     .map((x) => x.c);
 }
 
-/** Classifies the table and words its description, from the profile alone. */
-export function describeTable(profile: DatasetProfile): TableShape {
+/**
+ * Classifies the table and words its description, from the profile alone;
+ * `fileName`, when given, only names what a rated table's rows are ("wine").
+ */
+export function describeTable(profile: DatasetProfile, fileName?: string): TableShape {
   const { columns, rowCount } = profile;
   const rows = count(rowCount);
   const date = profile.primaryDate
@@ -548,6 +727,7 @@ export function describeTable(profile: DatasetProfile): TableShape {
     ratings: [],
     nps: null,
     key: null,
+    noun: null,
     timeline: false,
   };
   const make = (kind: TableShapeKind, rest: Partial<TableShape>): TableShape => ({
@@ -629,6 +809,24 @@ export function describeTable(profile: DatasetProfile): TableShape {
       key,
       period: date,
       timeline: Boolean(date && (date.temporal?.distinctDays ?? 0) >= 2),
+    });
+  }
+
+  // A table of measurements rated on a short scale: a wine's quality, a student's grade.
+  const ordinal = ordinalOf(columns);
+  const readings = ordinal ? readingsOf(profile, ordinal) : null;
+  if (ordinal?.numeric && readings) {
+    const noun = fileNoun(fileName, ordinal);
+    const name = friendly(ordinal.name);
+    const on = /^[A-Z0-9]{2,}/.test(name) ? name : `${name.charAt(0).toLowerCase()}${name.slice(1)}`;
+    return make("labelled", {
+      description: `${rows} ${pluralOf(noun ?? "row", rowCount)} rated ${ordinal.numeric.min}–${ordinal.numeric.max} on ${on}, with ${counted(readings.length, "measured characteristic")}`,
+      outcome: { column: ordinal, kind: "ordinal", positiveShare: null },
+      measures: readings,
+      key,
+      noun,
+      // Each row is one thing measured and rated: a wine, or an item when the file name doesn't say.
+      grain: noun ?? "rated item",
     });
   }
 
