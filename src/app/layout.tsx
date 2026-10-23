@@ -28,6 +28,7 @@ import localFont from "next/font/local";
 import { Providers } from "@/ui/common/providers";
 import { themeBootScript } from "@/store/settings";
 import { chartThemeBootScript } from "@/ui/charts/palette/apply";
+import { sidebarBootScript } from "@/ui/workspace/shell/sidebarState";
 import { AUTHOR } from "@/content/credits";
 import "./globals.css";
 
@@ -119,6 +120,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeBootScript }} />
         <script dangerouslySetInnerHTML={{ __html: chartThemeBootScript }} />
+        <script dangerouslySetInnerHTML={{ __html: sidebarBootScript }} />
       </head>
       <body>
         <a

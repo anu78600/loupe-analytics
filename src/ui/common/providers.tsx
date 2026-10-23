@@ -49,6 +49,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
         <Toaster
           position="bottom-right"
           gap={8}
+          // On phones toasts sit above the workspace's bottom bar (ui/workspace/shell/BottomBar.tsx).
+          mobileOffset={{ bottom: "calc(5rem + env(safe-area-inset-bottom))" }}
           toastOptions={{
             classNames: {
               toast:

@@ -25,6 +25,9 @@ const csp = [
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  // The development-only Next.js badge defaults to the bottom-left corner, where the workspace
+  // sidebar keeps its collapse button (version 50.1); production never shows it.
+  devIndicators: { position: "bottom-right" },
   experimental: {
     optimizePackageImports: ["lucide-react"],
   },

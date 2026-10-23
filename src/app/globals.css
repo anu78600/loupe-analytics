@@ -569,6 +569,25 @@
 
   /* The prefixed line must come first: Lightning CSS keeps only the last of the pair, and with the
      prefixed one last Chrome, Edge and Firefox got no blur at all. */
+  /* The workspace sidebar (ui/workspace/shell/Sidebar.tsx): the icon rail below xl and on the
+     canvas steps (Customise, Dashboard: data-canvas), the full list otherwise. The user's own
+     choice, <html data-sidebar>, set by its toggle and restored by sidebarBootScript before first
+     paint, wins: its selectors are the more specific. */
+  .ws-sidebar {
+    width: 4rem;
+  }
+  @media (width >= 80rem) {
+    .ws-sidebar:not([data-canvas]) {
+      width: 15rem;
+    }
+  }
+  :root[data-sidebar="open"] .ws-sidebar {
+    width: 15rem;
+  }
+  :root[data-sidebar="closed"] .ws-sidebar {
+    width: 4rem;
+  }
+
   /* The display voice: Inter semibold at its display optical size (the opsz axis follows the size).
      Emphasis inside a heading is carried by colour (text-gradient-accent), never a slant: Inter
      ships no italic, and a synthesised one looks broken. */

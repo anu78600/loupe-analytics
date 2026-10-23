@@ -141,6 +141,15 @@ Rules:
 - Motion uses an out-quint ease (`cubic-bezier(0.22, 1, 0.36, 1)`): `duration-fast` 120 ms, `base` 180 ms and `slow` 240 ms for the interface. Charts take up to about 1.3 s to draw. Keyboard choices and frequent actions don't animate. Everything respects `prefers-reduced-motion` (Framer Motion `MotionConfig reducedMotion="user"` plus a CSS override).
 - Atmosphere is restricted to the landing hero: a soft indigo/sky mesh (the film grain is off). No glassmorphism beyond the sticky headers.
 
+## App shell
+
+The workspace (version 50.1, `src/ui/workspace/shell`) groups its eight steps into four phases: **Prepare** (Upload, Detect, Check & map), **Build** (Customise, Dashboard), **Analyse** (Questions & SQL, Insights) and **Share** (Export).
+
+- **From 1024 px, a sidebar** lists the steps under their phases, with how far through you are, and the glossary and version log at its foot. It is the full list (240 px) from 1280 px, and an icon rail (64 px, names in tooltips) below that and on the canvas steps, Customise and Dashboard, where the charts need the width. Its toggle overrides both, and the choice is remembered (`html[data-sidebar]`, restored before first paint).
+- **The top bar** is 56 px, sticky, over the content: the file, then the phase and the step as a breadcrumb, then search (Ctrl/⌘+K, the command palette), start over, settings and the theme.
+- **Below 1024 px** there is no sidebar. The top bar shows the phase over the step, with a second row of the current phase's steps, and a bottom bar holds the four phases within the thumb's reach. A phase opens where you last were in it. The content and the toasts clear the bottom bar and the home indicator.
+- A step that can't be opened yet (no data, no industry) stays visible and focusable, dimmed, and says why.
+
 ## Charts
 
 - Pick the form from the question: trend → line or area; ranked categories → sorted horizontal bars; composition → stacked bars or a donut with at most 6 slices; distribution → histogram; two measures → scatter with a trend line; weekday × hour → heatmap; states → tile map.

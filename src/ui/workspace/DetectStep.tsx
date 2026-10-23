@@ -218,7 +218,8 @@ export function DetectStep() {
         <div>
           <Eyebrow>Step {stepNumber("detect")} · Detect</Eyebrow>
           <h1 className="mt-2 font-display text-display-sm text-fg">What kind of data is this?</h1>
-          <FileIdentity summary={summary} className="mt-2" />
+          {/* From lg the top bar's breadcrumb names the file (shell/TopBar.tsx). */}
+          <FileIdentity summary={summary} className="mt-2 lg:hidden" />
         </div>
         {understood ? null : (
           <p className="text-ui text-fg-muted">

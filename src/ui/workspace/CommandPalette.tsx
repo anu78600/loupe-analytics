@@ -1,7 +1,8 @@
 "use client";
 
 /**
- * Ctrl/⌘+K command palette (cmdk inside a Radix dialog): jump to steps,
+ * Ctrl/⌘+K command palette (cmdk inside a Radix dialog): jump to steps (under
+ * their phases, as the sidebar lists them),
  * charts and KPIs, switch layout mode, theme and number format, open settings
  * or the version log, and load demo data. "Go to" follows the same gating as
  * the step bar (a step that needs data or an industry first is shown, but
@@ -30,12 +31,13 @@ import {
   Sun,
 } from "lucide-react";
 import { SAMPLES } from "@/engine/samples/catalog";
-import { allSpecs, STEPS, useWorkspace } from "@/store/workspace";
+import { allSpecs, useWorkspace } from "@/store/workspace";
 import { useSettings } from "@/store/settings";
 import { cn } from "@/lib/utils";
 import { useDialogFocus } from "@/ui/primitives/dialog";
 import { useChartColoursPanel } from "./ChartColours";
 import { openDemo, stepEnabled } from "./Shell";
+import { PHASES, STEP_ICON, stepLabel } from "./shell/phases";
 
 const itemClass =
   "flex cursor-default select-none items-center gap-2.5 rounded-control px-2.5 py-2 text-ui text-fg outline-none data-[selected=true]:bg-surface-hover [&_svg]:size-4 [&_svg]:text-fg-subtle";
@@ -104,27 +106,31 @@ function PaletteBody({ onClose, onOpenSettings }: { onClose: () => void; onOpenS
       </div>
       <Command.List className="overflow-y-auto p-2">
         <Command.Empty className="px-3 py-6 text-center text-ui text-fg-muted">No matches.</Command.Empty>
-        <Command.Group heading={heading("Go to")} className={groupHeading}>
-          {STEPS.map((s) => {
-            const enabled = stepEnabled(s.id, Boolean(ws.summary), Boolean(ws.domainId));
-            return (
-              <Command.Item
-                key={s.id}
-                value={`go ${s.label}`}
-                disabled={!enabled}
-                className={cn(itemClass, "data-[disabled=true]:opacity-disabled")}
-                onSelect={() => run(() => ws.setStep(s.id))}
-              >
-                <LayoutGrid aria-hidden /> {s.label}
-                {enabled ? null : (
-                  <span className="ml-auto text-xs text-fg-subtle">
-                    {ws.summary ? "Choose an industry first" : "Load data first"}
-                  </span>
-                )}
-              </Command.Item>
-            );
-          })}
-        </Command.Group>
+        {/* The steps under their phases, as the sidebar lists them. */}
+        {PHASES.map((phase) => (
+          <Command.Group key={phase.id} heading={heading(phase.label)} className={groupHeading}>
+            {phase.steps.map((id) => {
+              const enabled = stepEnabled(id, Boolean(ws.summary), Boolean(ws.domainId));
+              const Icon = STEP_ICON[id];
+              return (
+                <Command.Item
+                  key={id}
+                  value={`go ${phase.label} ${stepLabel(id)}`}
+                  disabled={!enabled}
+                  className={cn(itemClass, "data-[disabled=true]:opacity-disabled")}
+                  onSelect={() => run(() => ws.setStep(id))}
+                >
+                  <Icon aria-hidden /> {stepLabel(id)}
+                  {enabled ? null : (
+                    <span className="ml-auto text-xs text-fg-subtle">
+                      {ws.summary ? "Choose an industry first" : "Load data first"}
+                    </span>
+                  )}
+                </Command.Item>
+              );
+            })}
+          </Command.Group>
+        ))}
         {specs.length ? (
           <Command.Group heading={heading("Charts")} className={groupHeading}>
             {specs.map((s) => (

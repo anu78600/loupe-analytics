@@ -1,7 +1,9 @@
 "use client";
 
 /**
- * Client shell for /app. Switches between the steps (STEPS) with a short fade,
+ * Client shell for /app. Lays out the chrome (version 50.1, ./shell): the
+ * sidebar from 1024 px, the top bar over the content, and the bottom bar of
+ * phases below 1024 px. Switches between the steps (STEPS) with a short fade,
  * binds Ctrl/⌘+K, opens a demo from /app?sample=<id> (on a given step with
  * &step=<step>, e.g. dashboard), turns errors after the upload step into
  * toasts, asks before a reload or leaving the page would drop a loaded
@@ -14,7 +16,10 @@ import { AnimatePresence, motion } from "framer-motion";
 import { toast } from "sonner";
 import { STEPS, useWorkspace } from "@/store/workspace";
 import { useSettings } from "@/store/settings";
-import { openDemo, WorkspaceTopBar } from "./Shell";
+import { openDemo } from "./Shell";
+import { Sidebar } from "./shell/Sidebar";
+import { TopBar } from "./shell/TopBar";
+import { BottomBar } from "./shell/BottomBar";
 import { UploadStep } from "./UploadStep";
 import { DetectStep } from "./DetectStep";
 import { MapStep } from "./MapStep";
@@ -130,31 +135,39 @@ export function Workspace({ version }: { version: string }) {
     );
 
   return (
-    <div className="relative isolate min-h-dvh bg-bg">
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[520px] bg-[radial-gradient(60%_100%_at_50%_0%,var(--mesh-1),transparent_75%)] opacity-70"
-      />
-      <WorkspaceTopBar
-        onOpenCommand={() => setCommandOpen(true)}
-        onOpenSettings={() => setSettingsOpen(true)}
-      />
-      {/* One main landmark for every step (the skip link targets #main). */}
-      <main id="main">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={loading && step === "upload" ? "upload" : step}
-            initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-          >
-            {view}
-          </motion.div>
-        </AnimatePresence>
-      </main>
+    <div className="relative isolate min-h-dvh bg-bg lg:flex">
+      <Sidebar />
+      <div className="relative isolate min-w-0 flex-1">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[520px] bg-[radial-gradient(60%_100%_at_50%_0%,var(--mesh-1),transparent_75%)] opacity-70"
+        />
+        <TopBar onOpenCommand={() => setCommandOpen(true)} onOpenSettings={() => setSettingsOpen(true)} />
+        {/* One main landmark for every step (the skip link targets #main). Below lg it clears the
+            bottom bar, so the end of every page can be scrolled into view. */}
+        <main id="main" className="max-lg:pb-[calc(4rem+env(safe-area-inset-bottom))]">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={loading && step === "upload" ? "upload" : step}
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+            >
+              {view}
+            </motion.div>
+          </AnimatePresence>
+        </main>
+      </div>
+      <BottomBar />
       {loading && step !== "upload" ? (
-        <div role="status" aria-live="polite" className="fixed inset-x-0 top-14 z-50 flex justify-center">
+        // Under the top bar from lg; above the bottom bar below that, where the top bar may have a
+        // second row.
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed inset-x-0 z-50 flex justify-center max-lg:bottom-[calc(4.75rem+env(safe-area-inset-bottom))] lg:top-14"
+        >
           <div className="mt-3 flex items-center gap-2.5 rounded-full border border-border bg-surface-overlay px-4 py-2 text-ui text-fg shadow-pop">
             <span className="size-2 animate-pulse rounded-full bg-accent" aria-hidden />
             {loading.title}

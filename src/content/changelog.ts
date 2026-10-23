@@ -41,6 +41,40 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "50.1",
+    kind: "minor",
+    date: "2026-10-23T08:53:15Z",
+    title:
+      "A new app layout: a sidebar of phases, a slim top bar, and a bottom bar on phones (redesign stage 2 of 5)",
+    summary:
+      "The workspace is laid out like a modern app. The eight steps no longer squeeze into one bar along the top: they sit in a sidebar, grouped into four phases (Prepare, Build, Analyse, Share), with a slim top bar for where you are, search and actions. On phones, a bottom bar holds the four phases.",
+    changes: [
+      "A sidebar on laptops and desktops lists every step under its phase, shows how far through you are, and links to the glossary and the version log. On the dashboard and Customise it narrows to icons, so the charts keep their room; one click expands or collapses it, and Loupe remembers your choice.",
+      "A slim top bar shows where you are as a trail (your file, then the phase and the step), with a search box (Ctrl/⌘+K), start over, settings and the theme.",
+      "On phones and tablets, a bottom bar holds the four phases within reach of your thumb, and a row under the top bar lists the steps of the current phase. A phase reopens where you left it.",
+      "Steps that can't be opened yet stay visible, dimmed, and say why (load data first, choose an industry first).",
+      "The search palette lists the steps under their phases, with the same icons as the sidebar.",
+    ],
+    tags: ["Design"],
+    files: [
+      "src/ui/workspace/shell/phases.ts",
+      "src/ui/workspace/shell/sidebarState.ts",
+      "src/ui/workspace/shell/Sidebar.tsx",
+      "src/ui/workspace/shell/TopBar.tsx",
+      "src/ui/workspace/shell/BottomBar.tsx",
+      "src/ui/workspace/Shell.tsx",
+      "src/ui/workspace/Workspace.tsx",
+      "src/ui/workspace/CommandPalette.tsx",
+      "src/ui/workspace/DetectStep.tsx",
+      "src/ui/common/providers.tsx",
+      "src/app/layout.tsx",
+      "src/app/globals.css",
+      "next.config.ts",
+      "docs/DESIGN.md",
+      "tests/workspace-shell.test.ts",
+    ],
+  },
+  {
     version: "50.0",
     kind: "major",
     date: "2026-10-23T07:50:30Z",
@@ -2890,11 +2924,6 @@ export const RELEASES: Release[] = [
  * Remove an item when its version ships.
  */
 export const PLANNED: Array<{ title: string; detail: string }> = [
-  {
-    title: "Redesign stage 2: a new app shell",
-    detail:
-      "A sidebar in place of the eight-step bar along the top, the steps grouped into four phases (Prepare, Build, Analyse, Share), a slim top bar with the file, search and actions, and a bottom bar on phones.",
-  },
   {
     title: "Redesign stage 3: from file to first dashboard in one guided flow",
     detail:
