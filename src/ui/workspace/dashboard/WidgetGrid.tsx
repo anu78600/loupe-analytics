@@ -172,7 +172,7 @@ export function WidgetGrid({ specs, mode }: { specs: ChartSpec[]; mode: LayoutMo
     if (e.over && e.active.id !== e.over.id) moveWidget(String(e.active.id), String(e.over.id));
   };
   // The grid's real width decides how many columns each chart needs; it is
-  // measured as it changes (window resizes, the filter rail opening).
+  // measured as it changes (window resizes, the insights column beside the charts appearing).
   const [width, setWidth] = React.useState(0);
   const observer = React.useRef<ResizeObserver | null>(null);
   const measure = React.useCallback((node: HTMLDivElement | null) => {

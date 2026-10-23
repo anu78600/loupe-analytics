@@ -2,32 +2,31 @@
 
 /**
  * The one-page dashboard: the dashboard as a single landscape page, laid out
- * the way analysts build a report page for an executive.
+ * the way analysts build a report page for an executive (version 50.3):
  *
- * - A sidebar of slicers (the period, the main filters) that shows what is
- *   selected, and where the numbers come from.
- * - A banner with the page's title, what it covers, and the period and what
- *   the changes compare with.
- * - Six headline KPIs, each with an icon for its kind of measure, its value
- *   and its change. The tiles are plain cards like the rest of the page; only
- *   each icon's chip carries a soft tint of a chart colour.
- * - Five charts from the dashboard (pagePlan.ts picks and places them), each
- *   led by its takeaway.
- * - The key insights.
+ * - A banner with the page's title (renamable), what it covers, the dates
+ *   the period spans and where the numbers come from.
+ * - A bar of filter pills under it (PageFilters.tsx): the period and the main
+ *   filters, "Clear all", and what the changes compare with.
+ * - Six headline KPIs (PageKpi.tsx), each with an icon for its kind of
+ *   measure, its value, its change and its trend as a sparkline.
+ * - Four charts from the dashboard as a bento (pagePlan.ts picks and places
+ *   them: the lead across two thirds of the width, its companion beside it,
+ *   two breakdowns under them), each led by its takeaway (PageChart.tsx),
+ *   with the key insights in a column beside them (PageInsights.tsx).
  *
- * In the app the page is live: the slicers filter everything, charts have
- * tooltips, the title can be renamed, and on a large screen the page keeps a
- * 16:9 shape that fits the window (it stacks on smaller ones). The same
+ * In the app the page is live: the pills filter everything, charts have
+ * tooltips and their actions on hover, the title can be renamed, and on a
+ * large screen the page keeps a 16:9 shape that fits the window (it stacks
+ * below lg: banner, filters, KPIs two to a row, charts, insights). The same
  * component renders off-screen at 1280 × 720 for the download
- * (exportOnePage), so the image is the page on the screen. Every figure is
- * the dashboard's own: nothing here computes a number.
+ * (exportOnePage), so the image is the page on the screen, with the pills
+ * as static selections and no hover controls. Every figure is the
+ * dashboard's own: nothing here computes a number.
  *
- * On the live page, long text (takeaways, insights, the subtitle, the file
- * name) is clamped and opens in full on hover, focus or a long press
- * (ClampText, ui/primitives/reveal.tsx); an insight's sentence with its
- * figures is two lines. Below lg, where the sidebar's footnote is hidden,
- * the banner's ⓘ holds it (and on a phone "Data to"). The download keeps its
- * fixed layout.
+ * At 1280 × 720 the KPI row takes about 160 px and each chart row about
+ * 190 px. The insights column takes a fifth of the width, which is why the
+ * page holds four charts rather than five (PAGE_CHARTS says more).
  *
  * The page is never a blank area: when the industry's own KPIs or charts give
  * it nothing, or the industry explains few of the file's columns
@@ -41,89 +40,41 @@
  * strongly keeps its own title and order.
  */
 import * as React from "react";
-import {
-  Activity,
-  Banknote,
-  CalendarRange,
-  Check,
-  ChevronDown,
-  Clock,
-  Gauge,
-  Hash,
-  Lightbulb,
-  MousePointerClick,
-  Package,
-  Percent,
-  Receipt,
-  Repeat,
-  RotateCcw,
-  Search,
-  ShoppingCart,
-  Star,
-  Target,
-  TrendingDown,
-  TrendingUp,
-  TriangleAlert,
-  UserMinus,
-  Users,
-  Wallet,
-  type LucideIcon,
-} from "lucide-react";
+import { CalendarRange } from "lucide-react";
 import type { Insight } from "@/engine/insights/insights";
 import type { KpiValue } from "@/engine/kpi/compute";
 import type { KpiMeta } from "@/engine/session";
 import { formatRange, formatDay } from "@/engine/core/dates";
-import { formatCount, formatValue, type FormatOptions } from "@/engine/core/format";
-import { formatKpi } from "@/ui/common/kpiFormat";
-import { kpiLabel } from "@/engine/core/labels";
-import { PRESET_LABEL, presetAvailable, type DatePreset } from "@/engine/core/periods";
-import type { ValueCount } from "@/engine/profile/types";
+import { formatCount, type FormatOptions } from "@/engine/core/format";
+import { PRESET_LABEL } from "@/engine/core/periods";
+import { friendly } from "@/engine/core/labels";
 import { allSpecs, isRosterView, kpiLayoutOf, useWorkspace } from "@/store/workspace";
-import { engine } from "@/lib/engine-client";
 import { cn, downloadBlob, exportFileName } from "@/lib/utils";
-import { useAnimate, useChartThemeKey, useFmt } from "@/ui/common/hooks";
+import { useFmt } from "@/ui/common/hooks";
 import { DomainIcon } from "@/ui/common/domain-icon";
-import { EChart } from "@/ui/charts/EChart";
-import { buildOption } from "@/ui/charts/options";
-import { readChartTokens } from "@/ui/charts/tokens";
-import { Checkbox } from "@/ui/primitives/misc";
-import { Popover, PopoverContent, PopoverTrigger } from "@/ui/primitives/popover";
 import { ClampText, InfoTip } from "@/ui/primitives/reveal";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuLabel,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/ui/primitives/dropdown-menu";
-import { DeltaChip, orderByGoal, sharedComparison } from "../KpiCards";
-import { renderOffscreen, StaticChart } from "../../export/report";
+import { orderByGoal, sharedComparison } from "../KpiCards";
+import { renderOffscreen } from "../../export/report";
+import { PageChartCard, type ChartSource } from "./PageChart";
+import { PageFilterBar } from "./PageFilters";
+import { PageInsights } from "./PageInsights";
+import { PageKpiTile } from "./PageKpi";
 import {
   dataLed,
   defaultPageTitle,
-  kpiIconName,
   PAGE_CHARTS,
   pageKpiIds,
   pageSubtitle,
   pickPageCharts,
   placeCharts,
   planRank,
-  slicerValue,
   yearOf,
-  yearRange,
-  yearsIn,
-  type KpiIconName,
   type PlacedChart,
 } from "./pagePlan";
 
 /** The page's size when drawn for a download (16:9); the image is three times this. */
 export const PAGE_W = 1280;
 export const PAGE_H = 720;
-
-/** The date presets a slicer offers, as the filter rail does. */
-const PRESETS: DatePreset[] = ["all", "last12m", "last6m", "last90d", "last30d", "ytd", "prevYear"];
 
 type State = ReturnType<typeof useWorkspace.getState>;
 
@@ -144,6 +95,7 @@ type PageState = Pick<
   | "kpiLayout"
   | "extraKpis"
   | "business"
+  | "kpiTargets"
 >;
 
 export interface PageModel {
@@ -152,24 +104,36 @@ export interface PageModel {
   autoTitle: boolean;
   subtitle: string;
   industry: { name: string; icon: string; shape: string | null };
+  /** True when the page is designed from the data rather than led by an industry's template. */
+  dataLed: boolean;
   /** "Last 12 months", "2025", or a custom range. */
   periodLabel: string;
   /** The dates the period covers, "1 Oct 2025 – 30 Sep 2026". */
   periodRange: string | null;
+  /** True when the data has a date column to choose a period by. */
+  hasDates: boolean;
   /**
-   * What the changes compare with, as the banner says it ("Change vs 1 Oct
-   * 2024 – 30 Sep 2025", "Change: Sep 2026 vs Sep 2025"), or why there are no
-   * changes ("All employees in the file · no period comparison").
+   * What the changes compare with, as the filter bar says it ("Change vs 1
+   * Oct 2024 – 30 Sep 2025", "Change: Sep 2026 vs Sep 2025"), or why there
+   * are no changes ("All employees in the file · no period comparison").
    */
   comparison: string | null;
-  /** The no-change reason the banner states once, so a KPI tile doesn't repeat it. */
+  /** The comparison most KPIs share, so a tile says "vs prev." rather than repeating it. */
+  shared: { label: string; current: string } | null;
+  /** The no-change reason the bar states once, so a KPI tile doesn't repeat it. */
   sharedReason: string | undefined;
   dataTo: string | null;
-  /** Dimension slicers: the first four filters, plus any other that is set. */
+  /** Dimension filters: the first four, plus any other that is set. */
   slicers: Array<{ column: string; label: string; values: string[] }>;
   kpis: Array<{ meta: KpiMeta; value: KpiValue | undefined }>;
+  /** The user's targets for the KPIs on the page, by KPI id. */
+  targets: Record<string, number>;
+  /** A roster (one row per employee, customer…): the KPI tiles draw no trend line. */
+  roster: boolean;
   charts: PlacedChart[];
   insights: Insight[];
+  /** How many insights the dashboard has in all. */
+  insightsTotal: number;
   /**
    * True once the insights for this selection have been looked for, so a page with none says that
    * none stood out rather than that it is still looking.
@@ -205,11 +169,15 @@ export function pageModel(s: PageState, fmt: FormatOptions, title?: string | nul
   const shape = ctx.domain.subDomains.find((x) => x.id === ctx.subDomainId)?.name ?? null;
   const roster = isRosterView(ctx);
   const year = s.datePreset === "custom" ? yearOf(s.customRange) : null;
-  const periodLabel = year
-    ? String(year)
-    : s.datePreset === "custom" && s.customRange
-      ? formatRange(s.customRange.from, s.customRange.to)
-      : PRESET_LABEL[s.datePreset];
+  // Without dates there is no period to choose: every row counts, and the pill says so (as live).
+  const hasDates = Boolean(ctx.dateColumn && ctx.dateBounds);
+  const periodLabel = !hasDates
+    ? "All rows"
+    : year
+      ? String(year)
+      : s.datePreset === "custom" && s.customRange
+        ? formatRange(s.customRange.from, s.customRange.to)
+        : PRESET_LABEL[s.datePreset];
   const shared = s.kpiBatch ? sharedComparison(s.kpiBatch.values) : null;
   const filtered = new Map(
     s.dimFilters.filter((f) => f.kind === "in").map((f) => [f.column, f.kind === "in" ? f.values : []]),
@@ -217,6 +185,11 @@ export function pageModel(s: PageState, fmt: FormatOptions, title?: string | nul
   const dims = ctx.dimensions;
   const shown = [...dims.slice(0, 4), ...dims.slice(4).filter((d) => filtered.has(d.column))];
   const inView = s.lastCompute?.rows;
+  const targets: Record<string, number> = {};
+  for (const k of kpis) {
+    const t = s.kpiTargets[k.meta.id];
+    if (typeof t === "number" && Number.isFinite(t)) targets[k.meta.id] = t;
+  }
   return {
     title:
       title?.trim() ||
@@ -232,8 +205,10 @@ export function pageModel(s: PageState, fmt: FormatOptions, title?: string | nul
       shape ?? ctx.domain.name,
     ),
     industry: { name: ctx.domain.name, icon: ctx.domain.icon, shape },
+    dataLed: dataLed(ctx),
     periodLabel,
     periodRange: s.kpiBatch?.period?.label ?? null,
+    hasDates,
     comparison: !shared
       ? null
       : !shared.changes
@@ -241,12 +216,30 @@ export function pageModel(s: PageState, fmt: FormatOptions, title?: string | nul
         : shared.current
           ? `Change: ${shared.current} ${shared.label}`
           : `Change ${shared.label}`,
-    sharedReason: shared && !shared.changes ? shared.label : undefined,
+    shared: shared?.changes ? { label: shared.label, current: shared.current } : null,
+    // With no comparison at all (no dates), the bar says "No comparison period" once; the tiles don't
+    // repeat it (DeltaChip's own words for that case).
+    sharedReason: shared
+      ? shared.changes
+        ? undefined
+        : shared.label
+      : s.kpiBatch
+        ? "No comparison"
+        : undefined,
     dataTo: ctx.dateBounds ? formatDay(ctx.dateBounds.max) : null,
-    slicers: shown.map((d) => ({ column: d.column, label: d.label, values: filtered.get(d.column) ?? [] })),
+    // Named by the user's own header, as the All charts filter bar names it (FilterBar.tsx), never
+    // by the field it was matched to.
+    slicers: shown.map((d) => ({
+      column: d.column,
+      label: friendly(d.column),
+      values: filtered.get(d.column) ?? [],
+    })),
     kpis,
+    targets,
+    roster,
     charts: pageCharts(s, fill),
     insights: (s.insights ?? []).slice(0, 3),
+    insightsTotal: s.insights?.length ?? 0,
     insightsReady: s.insights !== null,
     fileName: s.summary.fileName,
     rows:
@@ -279,7 +272,7 @@ function pageCharts(s: PageState, fill: boolean): PlacedChart[] {
 /** The live page's model, rebuilt when anything it shows changes. */
 export function usePageModel(title?: string | null): PageModel | null {
   const fmt = useFmt();
-  // Each slice the page reads, so it follows filters, recomputes, renames and insights.
+  // Each slice the page reads, so it follows filters, recomputes, renames, targets and insights.
   const context = useWorkspace((s) => s.context);
   const summary = useWorkspace((s) => s.summary);
   const kpiBatch = useWorkspace((s) => s.kpiBatch);
@@ -294,370 +287,21 @@ export function usePageModel(title?: string | null): PageModel | null {
   const kpiLayout = useWorkspace((s) => s.kpiLayout);
   const extraKpis = useWorkspace((s) => s.extraKpis);
   const business = useWorkspace((s) => s.business);
+  const kpiTargets = useWorkspace((s) => s.kpiTargets);
   return React.useMemo(
     () =>
       pageModel(
         // prettier-ignore
-        { context, summary, kpiBatch, charts, widgets, customCharts, insights, datePreset, customRange, dimFilters, lastCompute, kpiLayout, extraKpis, business },
+        { context, summary, kpiBatch, charts, widgets, customCharts, insights, datePreset, customRange, dimFilters, lastCompute, kpiLayout, extraKpis, business, kpiTargets },
         fmt,
         title,
       ),
     // prettier-ignore
-    [context, summary, kpiBatch, charts, widgets, customCharts, insights, datePreset, customRange, dimFilters, lastCompute, kpiLayout, extraKpis, business, fmt, title],
+    [context, summary, kpiBatch, charts, widgets, customCharts, insights, datePreset, customRange, dimFilters, lastCompute, kpiLayout, extraKpis, business, kpiTargets, fmt, title],
   );
 }
 
 // ---------------------------------------------------------------- pieces
-
-const KPI_ICONS: Record<KpiIconName, LucideIcon> = {
-  money: Banknote,
-  profit: TrendingUp,
-  cost: Receipt,
-  pay: Wallet,
-  orders: ShoppingCart,
-  people: Users,
-  loss: UserMinus,
-  returns: RotateCcw,
-  rating: Star,
-  time: Clock,
-  units: Package,
-  traffic: MousePointerClick,
-  conversion: Target,
-  retention: Repeat,
-  average: Gauge,
-  percent: Percent,
-  count: Hash,
-};
-
-/**
- * A tint of one of the chart colours, mixed into the card surface (tokens
- * only): the banner's wash and the KPI icons' chips.
- */
-const tint = (i: number, pct: number) =>
-  `color-mix(in oklab, var(--chart-${(i % 8) + 1}) ${pct}%, var(--surface-1))`;
-
-function KpiTile({
-  meta,
-  value,
-  index,
-  fmt,
-  sharedReason,
-}: {
-  meta: KpiMeta;
-  value: KpiValue | undefined;
-  index: number;
-  fmt: FormatOptions;
-  /** The no-change reason the banner states once (the tile then says nothing in its place). */
-  sharedReason?: string;
-}) {
-  const Icon = KPI_ICONS[kpiIconName(meta)] ?? Activity;
-  const v = value?.value ?? null;
-  // Written as on the dashboard's cards, the slides and the report (formatKpi).
-  const shown = value?.rows === 0 ? "—" : formatKpi(v, meta.format, fmt);
-  // A headline figure is never cut short: past six characters the size steps down with the length,
-  // so "R$607.07" or "CHF 1.2M" fits a sixth of the page as "₹607.07" does.
-  const fit = Math.min(1, 6.5 / Math.max(6.5, shown.length));
-  return (
-    // A neutral card, as every other card on the page: a tint per tile read as six colour codes that
-    // meant nothing. The icon's chip keeps a soft tint, enough to tell the tiles apart at a glance.
-    <div
-      className="flex min-w-0 items-stretch gap-[0.55cqw] rounded-card border border-border bg-surface-1 p-[max(8px,0.75cqw)] shadow-card"
-      title={`${meta.name}: ${formatValue(v, meta.format, fmt)}`}
-    >
-      <span
-        className="grid size-[clamp(24px,2.2cqw,36px)] shrink-0 place-items-center self-start rounded-sm"
-        style={{ background: tint(index, 14), color: `var(--chart-${(index % 8) + 1})` }}
-      >
-        <Icon className="size-[55%]" aria-hidden />
-      </span>
-      {/* The value and its change sit at the foot, so they line up across the row whatever the name's length. */}
-      <div className="flex min-w-0 flex-1 flex-col">
-        {/* Up to two lines, so a longer name ("Average tenure (years)") isn't cut off. 11 px on the
-            1280 px download, with a small icon, so a name like "Average order value" keeps to one line
-            there: a second line in any tile costs every chart on the page its height. */}
-        <p className="line-clamp-2 text-[clamp(11px,0.88cqw,14px)] leading-tight font-medium text-fg-muted">
-          {kpiLabel(meta)}
-        </p>
-        {/* Fluid with the page, 24 px on the 1280 px download; Inter's optical size tightens it. */}
-        <p
-          className="font-figures mt-auto truncate pt-[0.3cqw] text-[clamp(18px,1.88cqw,30px)] leading-none font-semibold text-fg"
-          style={fit < 1 ? { fontSize: `calc(clamp(18px, 1.88cqw, 30px) * ${fit.toFixed(3)})` } : undefined}
-        >
-          {shown}
-        </p>
-        {value ? (
-          // A flex row, so the line is the chip's own height rather than the body's line height.
-          <div className="mt-[0.4cqw] flex min-w-0 overflow-hidden">
-            <DeltaChip meta={meta} value={value} size="sm" shared={sharedReason} />
-          </div>
-        ) : null}
-      </div>
-    </div>
-  );
-}
-
-/**
- * A slicer as a report page draws one: its name above a box holding the
- * selection. `filtered` (a dimension narrowed to some values) takes the
- * selected tint, as the dashboard's filter rail does; the period always has a
- * value, so it keeps the plain box with its accent edge.
- */
-function SlicerBox({
-  label,
-  value,
-  open,
-  filtered,
-}: {
-  label: string;
-  value: string;
-  open?: boolean;
-  filtered?: boolean;
-}) {
-  return (
-    <span className="block min-w-0 text-left">
-      <span className="eyebrow block truncate text-fg-subtle">{label}</span>
-      <span
-        className={cn(
-          "mt-[3px] flex h-[clamp(26px,2.3cqw,34px)] min-w-0 items-center justify-between gap-2 rounded-control border px-[9px] text-[clamp(11px,0.9cqw,14px)]",
-          value === "All" ? "border-border text-fg-muted" : "border-border-accent text-fg",
-          filtered ? "bg-surface-selected" : "bg-surface-1",
-          open && "border-accent",
-        )}
-      >
-        <span className="truncate">{value}</span>
-        <ChevronDown className="size-[1em] shrink-0 text-fg-subtle" aria-hidden />
-      </span>
-    </span>
-  );
-}
-
-/** The live period slicer: the dashboard's presets and the calendar years in the data. */
-function PeriodSlicer({ label }: { label: string }) {
-  const bounds = useWorkspace((s) => s.context?.dateBounds);
-  const preset = useWorkspace((s) => s.datePreset);
-  const custom = useWorkspace((s) => s.customRange);
-  const setPreset = useWorkspace((s) => s.setDatePreset);
-  const [open, setOpen] = React.useState(false);
-  if (!bounds) return <SlicerBox label="Period" value="All rows" />;
-  const latest = new Date(bounds.max).getUTCFullYear();
-  const year = preset === "custom" ? yearOf(custom) : null;
-  const current = year ? `year:${year}` : preset === "custom" ? "custom" : `preset:${preset}`;
-  // The slicers' buttons are named by their own words ("Period Last 12 months"): a label that
-  // differed from the words on screen failed WCAG 2.5.3 (label in name).
-  return (
-    <DropdownMenu open={open} onOpenChange={setOpen}>
-      <DropdownMenuTrigger asChild>
-        <button type="button" className="block w-full rounded-control text-left">
-          <SlicerBox label="Period" value={label} open={open} />
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-60">
-        <DropdownMenuRadioGroup
-          value={current}
-          onValueChange={(v) => {
-            const [kind, key] = v.split(":");
-            if (kind === "preset") setPreset(key as DatePreset);
-            else if (kind === "year") {
-              const y = Number(key);
-              // The year still running is "year to date", compared with the same months a year before.
-              if (y === latest && presetAvailable("ytd", bounds)) setPreset("ytd");
-              else setPreset("custom", yearRange(y));
-            }
-          }}
-        >
-          <DropdownMenuLabel>Period</DropdownMenuLabel>
-          {PRESETS.filter((p) => presetAvailable(p, bounds)).map((p) => (
-            <DropdownMenuRadioItem key={p} value={`preset:${p}`}>
-              {PRESET_LABEL[p]}
-            </DropdownMenuRadioItem>
-          ))}
-          <DropdownMenuSeparator />
-          <DropdownMenuLabel>Calendar year</DropdownMenuLabel>
-          {yearsIn(bounds).map((y) => (
-            <DropdownMenuRadioItem key={y} value={`year:${y}`}>
-              {y === latest ? `${y} to date` : y}
-            </DropdownMenuRadioItem>
-          ))}
-          {current === "custom" && custom ? (
-            <>
-              <DropdownMenuSeparator />
-              <DropdownMenuRadioItem value="custom" disabled>
-                {formatRange(custom.from, custom.to)}
-              </DropdownMenuRadioItem>
-            </>
-          ) : null}
-        </DropdownMenuRadioGroup>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
-
-/** A live dimension slicer: search, "All", and a checklist of the column's values with their counts. */
-function DimSlicer({ column, label }: { column: string; label: string }) {
-  const selected = useWorkspace((s) => {
-    const f = s.dimFilters.find((x) => x.column === column);
-    return f && f.kind === "in" ? f.values : NONE;
-  });
-  const setFilter = useWorkspace((s) => s.setDimFilter);
-  const fmt = useFmt();
-  const profileValues = useWorkspace(
-    (s) => s.context?.profile.columns.find((c) => c.name === column)?.categorical?.all,
-  );
-  const [open, setOpen] = React.useState(false);
-  const [q, setQ] = React.useState("");
-  const [remote, setRemote] = React.useState<ValueCount[] | null>(null);
-  React.useEffect(() => {
-    if (profileValues || !open) return;
-    let alive = true;
-    void engine()
-      .columnValues(column, 200, q)
-      .then((v) => alive && setRemote(v));
-    return () => {
-      alive = false;
-    };
-  }, [column, q, profileValues, open]);
-  const values = (profileValues ?? remote ?? []).filter(
-    (v) => !q || v.value.toLowerCase().includes(q.toLowerCase()),
-  );
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <button type="button" className="block w-full rounded-control text-left">
-          <SlicerBox label={label} value={slicerValue(selected)} open={open} filtered={selected.length > 0} />
-        </button>
-      </PopoverTrigger>
-      <PopoverContent
-        align="start"
-        side="bottom"
-        collisionPadding={8}
-        className="w-72 p-0"
-        aria-label={`Filter by ${label}`}
-      >
-        <div className="flex items-center gap-2 border-b border-border-subtle px-3 py-2">
-          <Search className="size-3.5 text-fg-subtle" aria-hidden />
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder={`Search ${label.toLowerCase()}`}
-            className="h-7 flex-1 bg-transparent text-ui text-fg outline-none placeholder:text-fg-subtle"
-            aria-label={`Search ${label}`}
-          />
-        </div>
-        <div className="max-h-72 overflow-y-auto p-1">
-          <button
-            type="button"
-            onClick={() => setFilter(column, [])}
-            className="flex w-full items-center gap-2 rounded-control px-2 py-1.5 text-left text-ui text-fg hover:bg-surface-hover active:bg-surface-active"
-          >
-            <Check className={cn("size-3.5", selected.length ? "invisible" : "text-accent")} aria-hidden />
-            All
-          </button>
-          {values.slice(0, 200).map((v) => {
-            const on = selected.includes(v.value);
-            return (
-              <label
-                key={v.value}
-                className="flex cursor-pointer items-center gap-2 rounded-control px-2 py-1.5 text-ui text-fg hover:bg-surface-hover active:bg-surface-active"
-              >
-                <Checkbox
-                  checked={on}
-                  onCheckedChange={(x) =>
-                    setFilter(column, x ? [...selected, v.value] : selected.filter((y) => y !== v.value))
-                  }
-                />
-                <span className="flex-1 truncate">{v.value}</span>
-                {v.count ? (
-                  <span className="font-figures text-xs text-fg-subtle">
-                    {formatCount(v.count, fmt.locale)}
-                  </span>
-                ) : null}
-              </label>
-            );
-          })}
-          {!values.length ? <p className="px-2 py-3 text-ui text-fg-subtle">No matching values.</p> : null}
-        </div>
-      </PopoverContent>
-    </Popover>
-  );
-}
-
-/** A stable empty selection, so the selector above doesn't return a new array on every read. */
-const NONE: string[] = [];
-
-function Sidebar({ model, live }: { model: PageModel; live: boolean }) {
-  const clear = useWorkspace((s) => s.clearFilters);
-  // Offered when a filter is set; the period has its own slicer (clearing goes back to the default period).
-  const anyFilter = model.slicers.some((s) => s.values.length);
-  return (
-    <aside
-      aria-label="Page filters"
-      className={cn(
-        "flex min-w-0 flex-col gap-[max(8px,0.8cqw)] rounded-card border border-border bg-surface-1 p-[max(10px,0.9cqw)] shadow-card",
-        live ? "lg:min-h-0" : "min-h-0",
-      )}
-    >
-      <div className="flex min-w-0 items-center gap-2">
-        <span className="grid size-[clamp(26px,2.3cqw,34px)] shrink-0 place-items-center rounded-sm border border-border-accent bg-accent-soft">
-          <DomainIcon name={model.industry.icon} className="size-[55%] text-accent" />
-        </span>
-        <div className="min-w-0">
-          <p className="truncate text-[clamp(12px,1cqw,15px)] font-semibold text-fg">{model.industry.name}</p>
-          {model.industry.shape ? (
-            <p className="truncate text-[clamp(11px,0.88cqw,13px)] text-fg-subtle">{model.industry.shape}</p>
-          ) : null}
-        </div>
-      </div>
-      <div className={cn("grid gap-[max(7px,0.6cqw)]", live && "grid-cols-2 sm:grid-cols-3 lg:grid-cols-1")}>
-        {live ? (
-          <PeriodSlicer label={model.periodLabel} />
-        ) : (
-          <SlicerBox label="Period" value={model.periodLabel} />
-        )}
-        {model.slicers.map((s) =>
-          live ? (
-            <DimSlicer key={s.column} column={s.column} label={s.label} />
-          ) : (
-            <SlicerBox
-              key={s.column}
-              label={s.label}
-              value={slicerValue(s.values)}
-              filtered={s.values.length > 0}
-            />
-          ),
-        )}
-      </div>
-      {live && anyFilter ? (
-        <button
-          type="button"
-          onClick={clear}
-          className="self-start text-[clamp(12px,0.94cqw,14px)] text-fg-subtle underline-offset-2 hover:text-fg hover:underline"
-        >
-          Clear filters
-        </button>
-      ) : null}
-      {/* Where the numbers come from, as a report page's footnote. */}
-      <div
-        className={cn(
-          "mt-auto min-w-0 border-t border-border-subtle pt-[0.6cqw] text-[clamp(11px,0.88cqw,13px)] leading-snug text-fg-subtle",
-          live && "hidden lg:block",
-        )}
-      >
-        {live ? (
-          <ClampText key={model.fileName} className="font-medium text-fg-muted">
-            {model.fileName}
-          </ClampText>
-        ) : (
-          <p className="truncate font-medium text-fg-muted" title={model.fileName}>
-            {model.fileName}
-          </p>
-        )}
-        <p className="tabular">{model.rows}</p>
-        {model.dataTo ? <p>Data to {model.dataTo}</p> : null}
-        {model.isDemo ? <p>Demo data: not real</p> : null}
-      </div>
-    </aside>
-  );
-}
 
 function Banner({
   model,
@@ -669,79 +313,84 @@ function Banner({
   onRename?: (title: string) => void;
 }) {
   const [editing, setEditing] = React.useState(false);
+  const span = model.periodRange ?? (model.hasDates ? model.periodLabel : "All rows");
+  const scope = [model.rows, model.dataTo ? `data to ${model.dataTo}` : null].filter(Boolean).join(" · ");
+  const source = [model.fileName, model.isDemo ? "demo data, not real" : null].filter(Boolean).join(" · ");
   return (
-    <header
-      className="relative flex min-w-0 flex-wrap items-center justify-between gap-x-6 gap-y-2 overflow-hidden rounded-card border border-border px-[max(14px,1.4cqw)] py-[max(10px,0.9cqw)] shadow-card"
-      style={{ background: `linear-gradient(105deg, ${tint(0, 16)} 0%, var(--surface-1) 64%)` }}
-    >
-      {/* The industry's icon as a faint watermark off the banner's right edge, as a report page's banner picture. */}
-      <DomainIcon
-        name={model.industry.icon}
-        className="pointer-events-none absolute top-1/2 -right-[1.5cqw] size-[clamp(90px,10cqw,160px)] -translate-y-1/2 text-[var(--chart-1)] opacity-[0.06]"
-      />
-      <div className="relative min-w-0 flex-[1_1_320px]">
-        {/* The serif at its smallest display size; a step up only on a page wider than 1440 px (a
-            container query on the page, so the 1280 px download, drawn in this same window, never
-            takes it). leading-tight, because truncate clips at the line box and would cut descenders.
-            Below lg the live page stacks, so the title wraps there rather than losing its end. */}
-        {onRename && editing ? (
-          <input
-            autoFocus
-            defaultValue={model.autoTitle ? "" : model.title}
-            placeholder={model.title}
-            aria-label="Page title"
-            onBlur={(e) => {
-              onRename(e.currentTarget.value);
-              setEditing(false);
-            }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") e.currentTarget.blur();
-              if (e.key === "Escape") setEditing(false);
-            }}
-            className="w-full rounded-control border border-border-accent bg-surface-1 px-2 font-display text-display-xs leading-tight text-fg outline-none @[90rem]:text-display-sm"
+    <header className="flex min-w-0 flex-wrap items-center justify-between gap-x-8 gap-y-3">
+      <div className="flex min-w-0 flex-[1_1_360px] items-center gap-3">
+        {/* The industry's mark; a page designed from the data takes a plain chart mark instead. */}
+        <span
+          className="grid size-10 shrink-0 place-items-center rounded-control border border-border-accent bg-accent-soft"
+          title={
+            model.dataLed
+              ? undefined
+              : [model.industry.name, model.industry.shape].filter(Boolean).join(" · ")
+          }
+        >
+          <DomainIcon
+            name={model.dataLed ? "bar-chart" : model.industry.icon}
+            className="size-5 text-accent"
           />
-        ) : onRename ? (
-          <button
-            type="button"
-            onClick={() => setEditing(true)}
-            title="Rename this page"
-            className="block max-w-full rounded-control text-left font-display text-display-xs leading-tight text-fg transition-colors duration-fast hover:text-accent-text lg:truncate @[90rem]:text-display-sm"
-          >
-            {model.title}
-          </button>
-        ) : (
-          <h2 className="truncate font-display text-display-xs leading-tight text-fg @[90rem]:text-display-sm">
-            {model.title}
-          </h2>
-        )}
-        {live ? (
-          <ClampText key={model.subtitle} className="mt-[0.2cqw] text-[clamp(12px,1cqw,15px)] text-fg-muted">
-            {model.subtitle}
-          </ClampText>
-        ) : (
-          <p className="mt-[0.2cqw] truncate text-[clamp(12px,1cqw,15px)] text-fg-muted">{model.subtitle}</p>
-        )}
+        </span>
+        <div className="min-w-0 flex-1">
+          {/* Display type at its smallest size; leading-tight, because truncate clips at the line box
+              and would cut descenders. Below lg the live page stacks, so the title wraps there. */}
+          {onRename && editing ? (
+            <input
+              autoFocus
+              defaultValue={model.autoTitle ? "" : model.title}
+              placeholder={model.title}
+              aria-label="Page title"
+              onBlur={(e) => {
+                onRename(e.currentTarget.value);
+                setEditing(false);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") e.currentTarget.blur();
+                if (e.key === "Escape") setEditing(false);
+              }}
+              className="w-full rounded-control border border-border-accent bg-surface-1 px-2 font-display text-display-xs leading-tight text-fg outline-none"
+            />
+          ) : onRename ? (
+            <button
+              type="button"
+              onClick={() => setEditing(true)}
+              title="Rename this page"
+              className="block max-w-full rounded-control text-left font-display text-display-xs leading-tight text-fg transition-colors duration-fast outline-none hover:text-accent-text focus-visible:focus-ring lg:truncate"
+            >
+              {model.title}
+            </button>
+          ) : (
+            <h2 className="truncate font-display text-display-xs leading-tight text-fg">{model.title}</h2>
+          )}
+          {live ? (
+            <ClampText key={model.subtitle} className="mt-0.5 text-ui text-fg-muted">
+              {model.subtitle}
+            </ClampText>
+          ) : (
+            <p className="mt-0.5 truncate text-ui text-fg-muted">{model.subtitle}</p>
+          )}
+        </div>
       </div>
+      {/* The dates the period spans, and where the numbers come from, as a report page's header says. */}
       <div
         className={cn(
-          "relative min-w-0 text-[clamp(11.5px,0.92cqw,13.5px)] leading-snug text-fg-muted",
-          live ? "text-left sm:text-right" : "text-right",
+          "min-w-0 leading-snug",
+          live ? "max-sm:w-full sm:text-right" : "max-w-[40%] text-right",
         )}
       >
         <p
           className={cn(
-            "flex items-center gap-1.5 font-medium text-fg",
+            "tabular flex items-center gap-1.5 text-ui font-medium text-fg",
             live ? "sm:justify-end" : "justify-end",
           )}
         >
-          <CalendarRange className="size-[1.1em] text-accent" aria-hidden />
-          {model.periodLabel}
-          {model.periodRange && model.periodRange !== model.periodLabel ? (
-            <span className="tabular font-normal text-fg-muted">· {model.periodRange}</span>
-          ) : null}
-          {/* Below lg the sidebar's footnote (the file, its rows, how recent) is hidden: it is here. */}
+          <CalendarRange className="size-3.5 shrink-0 text-accent" aria-hidden />
+          {span}
+          {/* On a phone the source line is hidden: it is here. */}
           {live ? (
-            <InfoTip label="About this data" className="font-normal lg:hidden">
+            <InfoTip label="About this data" className="font-normal sm:hidden">
               <span className="block font-medium">{model.fileName}</span>
               <span className="tabular block">{model.rows}</span>
               {model.dataTo ? <span className="block">Data to {model.dataTo}</span> : null}
@@ -749,105 +398,16 @@ function Banner({
             </InfoTip>
           ) : null}
         </p>
-        {model.comparison ? <p className="tabular">{model.comparison}</p> : <p>No comparison period</p>}
-        {/* On a phone, behind the ⓘ above. */}
-        {model.dataTo ? (
-          <p className={cn("tabular", live && "hidden sm:block")}>Data to {model.dataTo}</p>
-        ) : null}
-      </div>
-    </header>
-  );
-}
-
-/** One chart on the page: its title, its takeaway, and the chart (live, or drawn once for the download). */
-function PageChartCard({ chart, live, fmt }: { chart: PlacedChart; live: boolean; fmt: FormatOptions }) {
-  return (
-    <section
-      className={cn(
-        "flex min-h-0 min-w-0 flex-col rounded-card border border-border bg-surface-1 p-[max(10px,0.85cqw)] shadow-card",
-        live
-          ? "h-[320px] lg:[grid-column:span_var(--span)/span_var(--span)] lg:[grid-row:span_var(--rows)/span_var(--rows)] lg:h-auto"
-          : "[grid-column:span_var(--span)/span_var(--span)] [grid-row:span_var(--rows)/span_var(--rows)]",
-      )}
-      style={{ "--span": chart.span, "--rows": chart.tall ? 2 : 1 } as React.CSSProperties}
-      aria-label={chart.title}
-    >
-      <h3 className="truncate text-[clamp(13px,1.05cqw,16px)] leading-snug font-semibold text-fg">
-        {chart.title}
-      </h3>
-      {chart.data.headline ? (
-        live ? (
-          <ClampText
-            key={chart.data.headline}
-            lines={2}
-            className="mt-[2px] text-[clamp(12px,0.94cqw,14px)] leading-snug text-fg-muted"
-          >
-            {chart.data.headline}
+        <p className="tabular mt-0.5 truncate text-xs text-fg-muted">{scope}</p>
+        {live ? (
+          <ClampText key={source} className="text-xs text-fg-subtle max-sm:hidden">
+            {source}
           </ClampText>
         ) : (
-          <p className="mt-[2px] line-clamp-2 text-[clamp(12px,0.94cqw,14px)] leading-snug text-fg-muted">
-            {chart.data.headline}
-          </p>
-        )
-      ) : null}
-      <div className="relative mt-[0.4cqw] min-h-0 flex-1">
-        <div className="absolute inset-0">
-          {live ? (
-            <LiveChart chart={chart} />
-          ) : (
-            <StaticChart
-              chart={{ spec: chart.spec, data: chart.data, kind: chart.kind }}
-              fmt={fmt}
-              pixelRatio={3}
-              presentation
-            />
-          )}
-        </div>
+          <p className="truncate text-xs text-fg-subtle">{source}</p>
+        )}
       </div>
-    </section>
-  );
-}
-
-/** A live chart: tooltips, the theme's colours, laid out for its measured width. */
-function LiveChart({ chart }: { chart: PlacedChart }) {
-  const fmt = useFmt();
-  const themeKey = useChartThemeKey();
-  const animate = useAnimate();
-  const ref = React.useRef<HTMLDivElement>(null);
-  const [size, setSize] = React.useState<{ width: number; height: number } | null>(null);
-  React.useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    // Rounded to 20 px, so a resize redraws the chart only when its labels could change.
-    const ro = new ResizeObserver(([entry]) => {
-      const w = Math.round((entry?.contentRect.width ?? 0) / 20) * 20;
-      const h = Math.round((entry?.contentRect.height ?? 0) / 20) * 20;
-      if (w && h)
-        setSize((prev) => (prev && prev.width === w && prev.height === h ? prev : { width: w, height: h }));
-    });
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
-  const option = React.useMemo(() => {
-    // themeKey is a dependency only: a theme change must re-read the CSS tokens.
-    void themeKey;
-    return buildOption({
-      tokens: readChartTokens(),
-      fmt,
-      kind: chart.kind,
-      spec: chart.spec,
-      data: chart.data,
-      animate,
-      width: size?.width,
-      height: size?.height,
-      // Read without hovering: values on the points of a short trend, a donut's shares in a legend.
-      presentation: true,
-    });
-  }, [chart, fmt, themeKey, animate, size]);
-  return (
-    <div ref={ref} className="h-full w-full">
-      <EChart option={option} resetKey={`${chart.kind}-${themeKey}`} ariaLabel={chart.data.altText} />
-    </div>
+    </header>
   );
 }
 
@@ -861,7 +421,7 @@ function NoCharts({ live }: { live: boolean }) {
   return (
     <p
       className={cn(
-        "col-span-full row-span-2 grid place-items-center rounded-card border border-dashed border-border bg-surface-1 p-6 text-center text-[clamp(12px,0.94cqw,14px)] text-fg-muted",
+        "col-span-full row-span-2 grid place-items-center rounded-card border border-dashed border-border bg-surface-1 p-6 text-center text-ui text-fg-muted",
         live && "min-h-[200px]",
       )}
     >
@@ -870,102 +430,13 @@ function NoCharts({ live }: { live: boolean }) {
   );
 }
 
-const TONE_ICON: Record<Insight["tone"], LucideIcon> = {
-  positive: TrendingUp,
-  negative: TrendingDown,
-  warning: TriangleAlert,
-  neutral: Lightbulb,
-};
-
-/** The first sentence of an insight's explanation, where its numbers are. */
-function firstSentence(text: string): string {
-  const t = text.trim();
-  return /^.+?[.!?](?=\s|$)/.exec(t)?.[0] ?? t;
-}
-
-function InsightStrip({ insights, ready, live }: { insights: Insight[]; ready: boolean; live: boolean }) {
-  return (
-    <section
-      aria-label="Key insights"
-      className={cn(
-        "grid min-w-0 gap-[max(8px,0.8cqw)] rounded-card border border-border bg-surface-1 p-[max(10px,0.85cqw)] shadow-card",
-        live ? "lg:grid-cols-[auto_repeat(3,minmax(0,1fr))]" : "grid-cols-[auto_repeat(3,minmax(0,1fr))]",
-      )}
-    >
-      <p className="eyebrow flex items-center gap-1.5 self-center text-accent-text">
-        <Lightbulb className="size-[1.3em]" aria-hidden />
-        Key insights
-      </p>
-      {insights.length ? (
-        insights.map((ins) => {
-          const Icon = TONE_ICON[ins.tone];
-          return (
-            <div
-              key={ins.id}
-              className={cn(
-                "flex min-w-0 gap-[0.6cqw]",
-                live
-                  ? "lg:border-l lg:border-border-subtle lg:pl-[0.9cqw]"
-                  : "border-l border-border-subtle pl-[0.9cqw]",
-              )}
-            >
-              <Icon
-                className={cn(
-                  "mt-[2px] size-[clamp(13px,1.05cqw,16px)] shrink-0",
-                  ins.tone === "positive"
-                    ? "text-success"
-                    : ins.tone === "negative"
-                      ? "text-danger"
-                      : ins.tone === "warning"
-                        ? "text-warning"
-                        : "text-accent",
-                )}
-                aria-hidden
-              />
-              {live ? (
-                // Live: the title on one line and the sentence with the figures on two, each opening in
-                // full on hover, focus or a long press (the whole explanation is in the Insights step).
-                <div className="min-w-0">
-                  <ClampText
-                    key={ins.title}
-                    className="text-[clamp(12px,1cqw,15px)] leading-snug font-semibold text-fg"
-                  >
-                    {ins.title}
-                  </ClampText>
-                  <ClampText
-                    key={ins.body}
-                    lines={2}
-                    className="text-[clamp(12px,0.94cqw,14px)] leading-snug text-fg-muted"
-                  >
-                    {firstSentence(ins.body)}
-                  </ClampText>
-                </div>
-              ) : (
-                <div className="min-w-0">
-                  <p className="truncate text-[clamp(12px,1cqw,15px)] leading-snug font-semibold text-fg">
-                    {ins.title}
-                  </p>
-                  {/* Three lines at 12 px hold the sentence with both of its figures ("… vs ₹2.23Cr in …"). */}
-                  <p className="line-clamp-3 text-[clamp(12px,0.94cqw,14px)] leading-snug text-fg-muted">
-                    {firstSentence(ins.body)}
-                  </p>
-                </div>
-              )}
-            </div>
-          );
-        })
-      ) : (
-        <p className="text-[clamp(12px,0.94cqw,14px)] text-fg-subtle lg:col-span-3">
-          {live && !ready ? "Finding the key insights…" : "No insights stood out for this selection."}
-        </p>
-      )}
-    </section>
-  );
-}
+/** How long a chart stays outlined after an insight's "View chart" points at it. */
+const FLASH_MS = 1600;
 
 /**
- * The page. `live` in the app (slicers filter, charts have tooltips, the title
- * can be renamed); otherwise drawn once at PAGE_W × PAGE_H for the download.
+ * The page. `live` in the app (pills filter, charts have tooltips and actions,
+ * the title can be renamed); otherwise drawn once at PAGE_W × PAGE_H for the
+ * download.
  */
 export function OnePage({
   model,
@@ -976,64 +447,109 @@ export function OnePage({
   live: boolean;
   onRename?: (title: string) => void;
 }) {
+  const [flash, setFlash] = React.useState<string | null>(null);
   const n = Math.max(1, model.kpis.length);
+  const onPage = new Set(model.charts.map((c) => c.spec.id));
+  const source: ChartSource = {
+    fileName: model.fileName,
+    periodLabel: model.periodLabel,
+    filters: model.slicers.filter((s) => s.values.length).length,
+  };
+  // An insight's chart on the page is brought into view and outlined for a moment.
+  const show = (id: string) => {
+    const calm = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    document
+      .getElementById(`page-chart-${id}`)
+      ?.scrollIntoView({ behavior: calm ? "auto" : "smooth", block: "nearest" });
+    setFlash(id);
+    window.setTimeout(() => setFlash((f) => (f === id ? null : f)), FLASH_MS);
+  };
   // Live on a large screen, the 16:9 page fits the window's height less --page-chrome, the room
-  // above and below it (168 px, more while PageView shows the fit notice).
+  // above and below it: the top bar, the toolbar and the padding, 140 px (more while PageView shows
+  // the fit notice). The charts' row never gets less than 400 px, so on a short window (1280 × 800)
+  // the page grows a little past 16:9 rather than squeezing a chart until its legend overlaps it.
   return (
     <div
       data-page
       className={cn(
-        "@container font-sans text-fg",
+        "font-sans text-fg",
         live
-          ? "flex flex-col gap-3 lg:mx-auto lg:grid lg:aspect-video lg:w-[min(100%,max(960px,calc((100dvh_-_var(--page-chrome,168px))*16/9)))] lg:grid-cols-[minmax(180px,15%)_minmax(0,1fr)] lg:gap-[10px]"
-          : "grid grid-cols-[200px_minmax(0,1fr)] gap-[10px] bg-bg p-[12px]",
+          ? "flex flex-col gap-4 lg:mx-auto lg:grid lg:aspect-video lg:w-[min(100%,max(960px,calc((100dvh_-_var(--page-chrome,140px))*16/9)))] lg:grid-rows-[auto_auto_auto_minmax(400px,1fr)] lg:gap-3"
+          : "grid grid-rows-[auto_auto_auto_minmax(0,1fr)] gap-3 bg-bg p-4",
       )}
       style={live ? undefined : { width: PAGE_W, height: PAGE_H }}
     >
-      <Sidebar model={model} live={live} />
+      <Banner model={model} live={live} onRename={live ? onRename : undefined} />
+      <PageFilterBar
+        periodLabel={model.periodLabel}
+        slicers={model.slicers}
+        comparison={model.comparison}
+        live={live}
+      />
+      <section
+        aria-label="Headline KPIs"
+        className={cn(
+          "grid gap-3",
+          live
+            ? "grid-cols-2 sm:grid-cols-3 lg:grid-cols-[repeat(var(--n),minmax(0,1fr))]"
+            : "grid-cols-[repeat(var(--n),minmax(0,1fr))]",
+        )}
+        style={{ "--n": n } as React.CSSProperties}
+      >
+        {model.kpis.map((k, i) => (
+          <PageKpiTile
+            key={k.meta.id}
+            meta={k.meta}
+            value={k.value}
+            index={i}
+            fmt={model.fmt}
+            shared={model.shared}
+            sharedReason={model.sharedReason}
+            roster={model.roster}
+            target={model.targets[k.meta.id]}
+          />
+        ))}
+      </section>
+      {/* The charts as a bento, the insights in a column beside them (a fifth of the width). */}
       <div
         className={cn(
           "min-w-0",
           live
-            ? "flex flex-col gap-3 lg:grid lg:min-h-0 lg:grid-rows-[auto_auto_minmax(0,1fr)_auto] lg:gap-[10px]"
-            : "grid min-h-0 grid-rows-[auto_auto_minmax(0,1fr)_auto] gap-[10px]",
+            ? "flex flex-col gap-3 lg:grid lg:min-h-0 lg:grid-cols-[minmax(0,1fr)_clamp(240px,21%,340px)]"
+            : "grid min-h-0 grid-cols-[minmax(0,1fr)_clamp(240px,21%,340px)] gap-3",
         )}
       >
-        <Banner model={model} live={live} onRename={live ? onRename : undefined} />
-        <section
-          aria-label="Headline KPIs"
-          className={cn(
-            "grid gap-[10px]",
-            live
-              ? "grid-cols-2 sm:grid-cols-3 lg:grid-cols-[repeat(var(--n),minmax(0,1fr))]"
-              : "grid-cols-[repeat(var(--n),minmax(0,1fr))]",
-          )}
-          style={{ "--n": n } as React.CSSProperties}
-        >
-          {model.kpis.map((k, i) => (
-            <KpiTile
-              key={k.meta.id}
-              meta={k.meta}
-              value={k.value}
-              index={i}
-              fmt={model.fmt}
-              sharedReason={model.sharedReason}
-            />
-          ))}
-        </section>
         <div
           className={cn(
-            "grid min-w-0 gap-[10px]",
-            live ? "lg:min-h-0 lg:grid-cols-6 lg:grid-rows-2" : "min-h-0 grid-cols-6 grid-rows-2",
+            "grid min-w-0 gap-3",
+            live
+              ? "sm:grid-cols-2 lg:min-h-0 lg:grid-cols-6 lg:grid-rows-2"
+              : "min-h-0 grid-cols-6 grid-rows-2",
           )}
         >
           {model.charts.length ? (
-            model.charts.map((c) => <PageChartCard key={c.spec.id} chart={c} live={live} fmt={model.fmt} />)
+            model.charts.map((c) => (
+              <PageChartCard
+                key={c.spec.id}
+                chart={c}
+                live={live}
+                fmt={model.fmt}
+                source={source}
+                flash={flash === c.spec.id}
+              />
+            ))
           ) : (
             <NoCharts live={live} />
           )}
         </div>
-        <InsightStrip insights={model.insights} ready={model.insightsReady} live={live} />
+        <PageInsights
+          insights={model.insights}
+          total={model.insightsTotal}
+          ready={model.insightsReady}
+          live={live}
+          onPage={onPage}
+          onShow={show}
+        />
       </div>
     </div>
   );

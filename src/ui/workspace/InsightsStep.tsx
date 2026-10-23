@@ -47,7 +47,7 @@ import { Button } from "@/ui/primitives/button";
 import { Card } from "@/ui/primitives/card";
 import { Eyebrow, Skeleton } from "@/ui/primitives/misc";
 import { Brief, ClampText, InfoTip } from "@/ui/primitives/reveal";
-import { ActiveFilters } from "./dashboard/FilterRail";
+import { ActiveFilters } from "./dashboard/FilterBar";
 import { AiSummary } from "./AiSummary";
 
 const KIND: Record<InsightKind, { label: string; icon: LucideIcon }> = {

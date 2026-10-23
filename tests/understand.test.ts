@@ -17,6 +17,7 @@ import { formatValue } from "@/engine/core/format";
 import { pearson } from "@/engine/core/stats";
 import { Session } from "@/engine/session";
 import { KIND_LABEL, SETTABLE_KINDS, roleForKind } from "@/engine/understand/kinds";
+import { fileNounOf } from "@/engine/detect/tableShape";
 import type { ColumnKind, DataUnderstanding } from "@/engine/understand/types";
 import * as P from "./helpers/practice";
 
@@ -432,5 +433,17 @@ describe("reading a column as a kind", () => {
     expect(
       s.understand({ roleOverrides: { Fare: score } }).columns.find((c) => c.name === "Fare")?.kind,
     ).toBe("score");
+  });
+});
+
+describe("the noun a file's name gives its rows", () => {
+  it("skips what was done to the file and the measure it is named after", () => {
+    // The owner's own file: what was done to it (modelling, cleaning) says nothing about its rows.
+    expect(fileNounOf("Modeling Wine Cleaned.xlsx", "quality")).toBe("wine");
+    expect(fileNounOf("winequality-white.csv", "")).toBe("wine");
+    expect(fileNounOf("EDA - titanic analysis.csv", "Survived")).toBe("titanic");
+    expect(fileNounOf("cleaned.xlsx", "quality")).toBeNull();
+    // A noun that is what the rows are stays: a file of projects is one row per project.
+    expect(fileNounOf("projects.xlsx", "")).toBe("project");
   });
 });

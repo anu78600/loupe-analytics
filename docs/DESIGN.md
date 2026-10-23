@@ -158,6 +158,16 @@ The Prepare phase (version 50.2) reads as one sequence from a file to the first 
 - **Detect** tells the data's story in chapters (`flow/Chapter.tsx`): what it is about, with its key figures; what it is measured by and what moves it; how each column is read; which industry it belongs to (the business details folded away); and what to fix before continuing.
 - **Check & map** is one review table (`ui/workspace/review`): a row per column with the eye, its examples, how it is read, the field it fills, what it feeds and its problems, each fixable in place, and its details a click away. Four tiles sum it up (KPIs available, columns used, rows to check, data health), and the whole file, KPI availability, the template's fields and the file report are views beside it. Below 768 px the rows become cards.
 
+## The dashboard
+
+The dashboard (version 50.3, `ui/workspace/dashboard`) has two views that share one look: filter pills, KPI cards with trend lines, chart cards led by their takeaway, and the insights beside the charts.
+
+- **Filter pills** (`FilterBar.tsx`, `page/PageFilters.tsx`) replace the side rail: the period first (presets and calendar years beside a custom range), then one pill per main column, named by the file's own header. A narrowed pill takes the accent tint and a ×; "Clear all" and what the changes compare with close the row. In All charts the bar sticks under the top bar, with the data-health entry at its end; on phones it scrolls sideways inside itself.
+- **KPI cards** (`KpiCards.tsx`, `page/PageKpi.tsx`): the label with its icon chip, the value at `text-3xl`, the change against the previous period and a sparkline of the trend (none for a roster or data without dates). In All charts the six headline cards lead and the rest sit in one compact row that opens to all of them.
+- **Chart cards** (`ui/charts/ChartCard.tsx`, `page/PageChart.tsx`): the title and its one-sentence takeaway, then the chart. Their actions (why this chart, the table, expand, and a menu with type, Top N, downloads, Customise, SQL and DAX, hide) appear on hover or focus and are always shown on touch screens.
+- **Insights beside the charts**: a column next to them on the one page, and in All charts from a content width of 1536 px; below that, the top three as a row above the charts.
+- **The one page** keeps its 16:9 shape and is still exactly what downloads (PNG or PDF): banner, filter pills, six KPIs, four charts and the insights column.
+
 ## Charts
 
 - Pick the form from the question: trend → line or area; ranked categories → sorted horizontal bars; composition → stacked bars or a donut with at most 6 slices; distribution → histogram; two measures → scatter with a trend line; weekday × hour → heatmap; states → tile map.

@@ -4,20 +4,26 @@
  * beside it, then three breakdowns about different things; the charts chosen
  * for executives come first; tables, cohorts and hidden or empty charts stay
  * off the page. Also the words around it: subtitle, title, KPI icons, slicer
- * values and calendar years.
+ * and filter-pill values (version 50.3), what a KPI tile's change compares,
+ * and calendar years.
  */
 import { describe, expect, it } from "vitest";
 import {
+  changeCaption,
   defaultPageTitle,
   kpiIconName,
   pageKpiIds,
   pageSubtitle,
   pickPageCharts,
+  pillValue,
+  pillValueInFull,
   placeCharts,
+  showsChange,
   slicerValue,
   yearOf,
   yearRange,
   yearsIn,
+  type ChangeOf,
   type PageWidget,
 } from "@/ui/workspace/dashboard/page/pagePlan";
 import { Session } from "@/engine/session";
@@ -83,7 +89,16 @@ describe("which charts go on the page", () => {
   ];
 
   it("leads with the trend, then a share of the whole, then breakdowns about new things", () => {
-    expect(pick(specs)).toEqual(["trend", "share", "byCategory", "byState", "byPayment"]);
+    // Four on the page since the insights moved beside the charts (version 50.3).
+    expect(pick(specs)).toEqual(["trend", "share", "byCategory", "byState"]);
+    // A breakdown about something new comes before a second one about the same thing.
+    const five = pickPageCharts(
+      specs.map((s) => ({ id: s.id })),
+      specs,
+      Object.fromEntries(specs.map((s) => [s.id, data()])),
+      5,
+    ).map((c) => c.spec.id);
+    expect(five).toEqual(["trend", "share", "byCategory", "byState", "byPayment"]);
   });
 
   it("puts the charts chosen for executives first", () => {
@@ -189,6 +204,48 @@ describe("the words around the page", () => {
     expect(slicerValue(["Apparel"])).toBe("Apparel");
     expect(slicerValue(["Apparel", "Footwear"])).toBe("Apparel, Footwear");
     expect(slicerValue(["a", "b", "c"])).toBe("3 selected");
+  });
+
+  it("shows a filter pill's selection on one short line", () => {
+    expect(pillValue([])).toBe("All");
+    expect(pillValue(undefined)).toBe("All");
+    expect(pillValue(["Website"])).toBe("Website");
+    expect(pillValue(["Website", "Mobile App"])).toBe("Website +1");
+    expect(pillValue(["a", "b", "c"])).toBe("a +2");
+    // The download can't be hovered: it names up to three values.
+    expect(pillValueInFull([])).toBe("All");
+    expect(pillValueInFull(["Website", "Mobile App"])).toBe("Website, Mobile App");
+    expect(pillValueInFull(["a", "b", "c"])).toBe("a, b, c");
+    expect(pillValueInFull(["a", "b", "c", "d"])).toBe("a, b +2");
+  });
+
+  it("says what a KPI's change compares, without repeating the bar", () => {
+    const v = (over: Partial<ChangeOf> = {}): ChangeOf => ({
+      rows: 10,
+      delta: 0.12,
+      deltaAbs: 1.5,
+      previous: 100,
+      current: 112,
+      comparisonLabel: "vs 1 Oct 2024 – 30 Sep 2025",
+      ...over,
+    });
+    const shared = { label: "vs 1 Oct 2024 – 30 Sep 2025", current: "" };
+    // A change is shown for a relative change, in points for a rate, and from zero.
+    expect(showsChange(v(), false)).toBe(true);
+    expect(showsChange(v({ delta: null }), false)).toBe(false);
+    expect(showsChange(v({ delta: null }), true)).toBe(true);
+    expect(showsChange(v({ delta: null, previous: 0 }), false)).toBe(true);
+    expect(showsChange(v({ rows: 0 }), false)).toBe(false);
+    // The bar names the shared comparison once; a tile says "vs prev.", or its own when it differs.
+    expect(changeCaption(v(), shared)).toBe("vs prev.");
+    expect(changeCaption(v({ comparisonLabel: "vs Sep 2025" }), shared)).toBe("vs Sep 2025");
+    // All time: the change is the latest month's, never the value's above it.
+    expect(
+      changeCaption(v({ comparisonLabel: "vs September 2025", currentLabel: "September 2026" }), {
+        label: "vs September 2025",
+        current: "September 2026",
+      }),
+    ).toBe("in September 2026");
   });
 
   it("offers the calendar years in the data and knows a range that is one", () => {

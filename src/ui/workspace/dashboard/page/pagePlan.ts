@@ -1,21 +1,22 @@
 /**
  * The plan of the one-page dashboard: what fits on a single landscape page,
  * where it sits, and the words around it. The page is laid out the way
- * analysts build a report page for an executive:
+ * analysts build a report page for an executive (version 50.3):
  *
- * - a sidebar of slicers (the period and the main filters) that shows what is
- *   selected ("All", "Apparel", "3 selected");
  * - a banner naming the subject ("E-commerce performance dashboard") and what
  *   it covers ("Revenue | Orders | Profitability | Fulfilment"); a dashboard
  *   designed from the data (generic, or an industry that fits few columns)
  *   is named from the data instead ("Wine quality analysis");
- * - six headline KPIs, each with an icon that says what kind of measure it is;
- * - five charts from the dashboard: the main trend across two thirds of the
- *   width, a share of the whole beside it, then three breakdowns, preferring
+ * - a bar of filter pills (the period and the main filters) that shows what
+ *   is selected ("Channel · All", "Channel · Website +1");
+ * - six headline KPIs, each with an icon that says what kind of measure it
+ *   is, its change and its trend;
+ * - four charts from the dashboard: the main trend across two thirds of the
+ *   width, a share of the whole beside it, then two breakdowns, preferring
  *   the charts chosen for executives and charts about different things. A
  *   dashboard designed from the data follows its plan instead (the
  *   highest-scored chart leads), keeping charts about different things;
- * - the key insights.
+ * - the key insights, in a column beside the charts.
  *
  * Plain data and functions, so the page in the app (OnePage.tsx), its
  * download and tests/one-page.test.ts read the same plan.
@@ -57,8 +58,15 @@ const PART_TO_WHOLE: ReadonlySet<ChartKind> = new Set<ChartKind>(["donut", "pie"
 /** Sections whose charts don't belong on a one-page summary. */
 const OFF_PAGE_SECTIONS = new Set(["columns", "detail"]);
 
-/** The page's charts at most: the trend and its companion, then three breakdowns. */
-export const PAGE_CHARTS = 5;
+/**
+ * The page's charts at most: the trend and its companion, then two breakdowns
+ * side by side. Five fitted while the insights were a strip under the charts;
+ * with the insights in a column beside them (version 50.3), a third breakdown
+ * left the three small charts about 330 × 190 px on the 1280 × 720 download,
+ * where bar names were cut ("Home & Kitc…") and a tile map shrank to a
+ * thumbnail. Four give each breakdown half the width.
+ */
+export const PAGE_CHARTS = 4;
 /** The page's KPI tiles at most, as in a report page's KPI row. */
 export const PAGE_KPIS = 6;
 
@@ -139,7 +147,7 @@ export function planRank(
  *
  * Without a `rank` (an industry that fits strongly), in dashboard order with
  * the charts chosen for executives first: the first chart over time leads;
- * then the first share of the whole; then up to three more, preferring charts
+ * then the first share of the whole; then the rest up to `max`, preferring charts
  * about something not yet shown.
  *
  * With a `rank` (a dashboard designed from the data: generic, or an industry
@@ -333,6 +341,67 @@ export function slicerValue(values: readonly string[] | undefined): string {
   if (!values?.length) return "All";
   if (values.length <= 2) return values.join(", ");
   return `${values.length} selected`;
+}
+
+/**
+ * What a filter pill shows after its name: "All", the one value, or the first
+ * value and how many more ("Website +1"), so a pill keeps to one short line
+ * however many values are picked. The full list is in the pill's name and in
+ * its popover.
+ */
+export function pillValue(values: readonly string[] | undefined): string {
+  if (!values?.length) return "All";
+  const [first, ...rest] = values;
+  return rest.length ? `${first} +${rest.length}` : (first as string);
+}
+
+/**
+ * A filter pill's selection as the download writes it, where nothing can be
+ * hovered to see the rest: up to three values in full ("Website, Mobile
+ * App"), then the first two and how many more ("Website, Amazon +2").
+ */
+export function pillValueInFull(values: readonly string[] | undefined): string {
+  if (!values?.length) return "All";
+  if (values.length <= 3) return values.join(", ");
+  return `${values.slice(0, 2).join(", ")} +${values.length - 2}`;
+}
+
+/** A KPI's value as far as its change goes (the engine's KpiValue). */
+export interface ChangeOf {
+  rows: number;
+  delta: number | null;
+  deltaAbs: number | null;
+  previous: number | null;
+  current: number | null;
+  comparisonLabel: string;
+  currentLabel?: string;
+}
+
+/**
+ * True when a KPI tile shows a change: a relative change (in points for a
+ * rate), or a change from zero, which has no percentage. Otherwise the
+ * badge's place holds the reason there is none, and no caption follows it.
+ */
+export function showsChange(v: ChangeOf, percent: boolean): boolean {
+  if (v.rows === 0) return false;
+  const relative = percent ? v.deltaAbs : v.delta;
+  if (relative !== null && Number.isFinite(relative)) return true;
+  return v.previous === 0 && v.current !== null;
+}
+
+/**
+ * The words after a KPI tile's change. "vs prev." when it compares what most
+ * tiles compare (the filter bar says with what, once); "in September 2026"
+ * when the change describes a narrower window than the value above it (all
+ * time), so it is never read as the change of that value; the tile's own
+ * comparison when it differs.
+ */
+export function changeCaption(
+  v: Pick<ChangeOf, "comparisonLabel" | "currentLabel">,
+  shared: { label: string; current: string } | null,
+): string {
+  if (shared && v.comparisonLabel !== shared.label) return v.comparisonLabel;
+  return v.currentLabel ? `in ${v.currentLabel}` : "vs prev.";
 }
 
 /** The calendar years the data covers, newest first, for the period slicer. */

@@ -605,33 +605,35 @@ function ReportTile() {
  * below the radius scale.
  */
 function MiniPage({ model }: { model: PageModel }) {
+  // The page as it is laid out since version 50.3: the banner, the row of filter pills, the KPI tiles,
+  // then the charts with the insights in a column beside them.
   return (
     <div
       aria-hidden
-      className="grid aspect-video w-full grid-cols-[16%_minmax(0,1fr)] gap-[3px] rounded-control border border-border-strong bg-surface-2 p-[4px]"
+      className="grid aspect-video w-full grid-rows-[12%_7%_15%_minmax(0,1fr)] gap-[3px] rounded-control border border-border-strong bg-surface-2 p-[4px]"
     >
-      <div className="flex flex-col gap-[3px] rounded-xs bg-surface-1 p-[3px]">
+      <div className="rounded-xs bg-accent-soft" />
+      <div className="flex gap-[3px]">
         {Array.from({ length: 1 + model.slicers.length }, (_, i) => (
-          <div key={i} className="h-[6px] rounded-[2px] bg-surface-3" />
+          <div key={i} className="h-full w-[12%] rounded-full bg-surface-3" />
         ))}
       </div>
-      <div className="grid min-h-0 grid-rows-[14%_16%_minmax(0,1fr)_12%] gap-[3px]">
-        <div className="rounded-xs bg-accent-soft" />
-        <div
-          className="grid gap-[3px]"
-          style={{ gridTemplateColumns: `repeat(${Math.max(1, model.kpis.length)}, minmax(0, 1fr))` }}
-        >
-          {model.kpis.map((k, i) => (
-            <div key={k.meta.id} className="relative rounded-xs bg-surface-1">
-              <span
-                className="absolute top-[3px] left-[3px] size-[5px] rounded-[1px]"
-                style={{
-                  background: `color-mix(in oklab, var(--chart-${(i % 8) + 1}) 45%, var(--surface-1))`,
-                }}
-              />
-            </div>
-          ))}
-        </div>
+      <div
+        className="grid gap-[3px]"
+        style={{ gridTemplateColumns: `repeat(${Math.max(1, model.kpis.length)}, minmax(0, 1fr))` }}
+      >
+        {model.kpis.map((k, i) => (
+          <div key={k.meta.id} className="relative rounded-xs bg-surface-1">
+            <span
+              className="absolute top-[3px] left-[3px] size-[5px] rounded-[1px]"
+              style={{
+                background: `color-mix(in oklab, var(--chart-${(i % 8) + 1}) 45%, var(--surface-1))`,
+              }}
+            />
+          </div>
+        ))}
+      </div>
+      <div className="grid min-h-0 grid-cols-[minmax(0,1fr)_21%] gap-[3px]">
         <div className="grid min-h-0 grid-cols-6 grid-rows-2 gap-[3px]">
           {model.charts.map((c) => (
             <div
@@ -649,8 +651,8 @@ function MiniPage({ model }: { model: PageModel }) {
 
 /**
  * The one-page dashboard, the featured share: the dashboard on one landscape
- * page (slicers, title, headline KPIs, five charts with their takeaways, the
- * key insights) as one 4K image or a one-page PDF, drawn in miniature with
+ * page (title, filters, headline KPIs, four charts with their takeaways, the
+ * key insights beside them) as one 4K image or a one-page PDF, drawn in miniature with
  * the charts it holds. It shows the dashboard's current period and filters,
  * and is exactly the page in the dashboard's one-page view.
  */

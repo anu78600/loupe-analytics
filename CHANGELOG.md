@@ -7,8 +7,24 @@ Every step of building Loupe, newest first. Generated from `src/content/changelo
 
 ## Up next
 
-1. **Redesign stage 4: the dashboard.** KPI cards with sparklines and trends, a bento grid of charts, a filter bar above the charts instead of the side rail, new chart cards with their takeaway and actions on hover, and insights beside the charts.
-2. **Redesign stage 5: analysis, sharing and the landing page.** Questions as a conversation with an analyst, Insights as a ranked feed, Export as a gallery with previews, the landing page in the new look, and motion, empty and loading states polished on phones and in both themes.
+1. **Redesign stage 5: analysis, sharing and the landing page.** Questions as a conversation with an analyst, Insights as a ranked feed, Export as a gallery with previews, the landing page in the new look, and motion, empty and loading states polished on phones and in both themes.
+
+## 50.3 · The dashboard redesigned: filter pills, KPI cards with trends, insights beside the charts (redesign stage 4 of 5)
+
+*Minor · 2026-10-23 15:40 UTC · Design*
+
+Both dashboard views now look and work like a modern analytics product. Filters are a row of pills above the charts instead of a side panel, KPI cards show their trend, chart cards lead with their takeaway and keep their actions out of the way until you need them, and the insights sit beside the charts.
+
+- Filters are a row of pills above the charts: the period first (with years and a custom range), then one pill per main column. A narrowed filter is highlighted with a × to clear it, and Clear all and the comparison period end the row. In All charts the row stays in view as you scroll, and the charts get the width the side panel used to take.
+- KPI cards show the value, its change and a small trend line. All charts leads with the six headline KPIs and keeps the rest in one compact row that opens to show them all, instead of a wall of cards.
+- Chart cards lead with the chart's one-sentence takeaway. Their actions (why this chart, the table, a larger view, and a menu with chart type, Top N, downloads, Customise, SQL and DAX, hide) appear when you point at or tab to a chart, and are always there on touch screens.
+- New: open any chart larger, and see the SQL and DAX of the measures a chart draws.
+- Insights sit beside the charts: a column on the one page and on wide screens, the top three in a row above the charts otherwise, each linking to its chart.
+- The one page has a banner, the filter pills, six KPIs with trends, four charts and the insights column, and still downloads exactly as it looks (4K image or PDF). Four charts, because five no longer fit legibly beside the insights.
+- Filters are named by your own column headers in both views, and a dashboard designed from your data is titled from it in both (“Wine quality analysis”, not “Generic”).
+- A file name that says what was done to it (“Modeling Wine Cleaned.xlsx”) no longer names its rows: it reads as wines, not “modelings”.
+
+Files: `src/ui/workspace/dashboard/DashboardStep.tsx`, `src/ui/workspace/dashboard/FilterBar.tsx`, `src/ui/workspace/dashboard/KpiCards.tsx`, `src/ui/workspace/dashboard/DashboardInsights.tsx`, `src/ui/workspace/dashboard/ChartSql.tsx`, `src/ui/charts/ChartCard.tsx`, `src/ui/workspace/dashboard/page/OnePage.tsx`, `src/ui/workspace/dashboard/page/PageView.tsx`, `src/ui/workspace/dashboard/page/pagePlan.ts`, `src/ui/workspace/dashboard/page/PageFilters.tsx`, `src/ui/workspace/dashboard/page/PageKpi.tsx`, `src/ui/workspace/dashboard/page/PageChart.tsx`, `src/ui/workspace/dashboard/page/PageInsights.tsx`, `src/ui/workspace/dashboard/page/PrintClamp.tsx`, `src/ui/workspace/ExportStep.tsx`, `src/ui/workspace/InsightsStep.tsx`, `src/engine/detect/tableShape.ts`, `docs/DESIGN.md`, `docs/ANALYST-STANDARDS.md`, `tests/one-page.test.ts`, `tests/understand.test.ts`
 
 ## 50.2 · From file to first dashboard in one guided flow (redesign stage 3 of 5)
 

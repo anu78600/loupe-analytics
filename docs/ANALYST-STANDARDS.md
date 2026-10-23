@@ -103,12 +103,12 @@ Loupe's output is read the way an analyst's work is read: by managers, finance t
 
 - **Exports are the dashboard as the user left it.** The slides, the report and the insights follow the KPI layout and the chart titles from Customise (`kpiLayoutOf`, `export/exportCharts.ts`). A chart that can't be drawn now (a hidden column, a deleted KPI) is left out and named on the card, never exported as an error.
 - **The one-page dashboard** is the dashboard on a single landscape page, laid out the way analysts build a report page for an executive (`dashboard/page/pagePlan.ts`, `OnePage.tsx`). It is the dashboard's default view and an export:
-  - a sidebar of slicers (the period, with the calendar years in the data, and the main filters) showing what is selected ("All", "Apparel", "3 selected"), and where the numbers come from;
-  - a banner with the page's title (renamable), what it covers from its KPIs' groups ("Revenue | Orders | Profitability | Fulfilment"), the period and what the changes compare with;
-  - six headline KPIs, each with an icon for its kind of measure, its value and its change;
-  - five charts: the main trend across two thirds of the width with a share of the whole beside it, then three breakdowns about different things, the charts chosen for executives first; tables, cohorts and grids stay on the full dashboard;
+  - a banner with the page's title (renamable), what it covers from its KPIs' groups ("Revenue | Orders | Profitability | Fulfilment"), the period and where the numbers come from;
+  - a row of filter pills under it (the period, with the calendar years in the data, and the main filters, named by the file's own headers) showing what is selected ("All", "Apparel", "3 selected"), and what the changes compare with;
+  - six headline KPIs, each with an icon for its kind of measure, its value, its change and its trend line;
+  - four charts: the main trend across two thirds of the width with a share of the whole beside it, then two breakdowns about different things, the charts chosen for executives first; tables, cohorts and grids stay on the full dashboard (five no longer fit legibly beside the insights at 1280 × 720);
   - each chart led by its takeaway, with values printed on the points of a short trend and a donut's shares in a legend, because a page is read without hovering;
-  - the key insights, each with the sentence that holds its numbers;
+  - the key insights in a column beside the charts, each with the sentence that holds its numbers;
   - downloaded as one 4K landscape PNG or a one-page PDF that is exactly the page on screen. One axis per chart: a combination of bars and a line on two scales is never drawn.
 - **The PDF report reads like an analyst's report:**
   - a cover: period, comparison, filters, rows, data up to, grain;

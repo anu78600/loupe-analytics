@@ -1,30 +1,38 @@
 "use client";
 
 /**
- * Step 4, Dashboard. Filter rail on the left; the hero KPI strip and the
- * supporting KPIs; then charts in the order analysts read them (trend →
- * breakdowns → drivers & segments → detail); Executive, Analyst and Compact
- * layouts; the inspector and chart builder (a slide-in panel, so the charts
- * keep the full width; WidgetGrid packs them into full rows); "Ask
- * for a chart", which designs charts from a request in the user's words and
- * lets them keep or remove any chart (AskChart.tsx); the line saying how
- * many of the file's columns are used; and the "Not shown" panel, which
- * lists every KPI or chart that could not be computed and what it needs.
+ * Step 4, Dashboard. Two views: the one-page view (PageView) and every chart
+ * by section (FullDashboard), redesigned in version 50.3:
  *
- * Little text on screen: on a phone the header's secondary facts (data to,
- * columns used) sit behind an ⓘ, what each section is for is behind the ⓘ
- * beside its title, and long reasons are clamped, with the full text behind
- * hover, a long press or the ⓘ (ui/primitives/reveal.tsx).
+ * - the header: the industry, one quiet line of facts (the file below lg,
+ *   where the breadcrumb doesn't name it; the period; the rows in view; the
+ *   columns used; the rest behind an ⓘ) and the toolbar (the view, the layout
+ *   mode, Build manually, Colours, and "Ask for a chart", the page's primary);
+ * - the filter bar (FilterBar), sticky under the top bar from lg, in place of
+ *   the 256 px filter rail, so the charts get the width back;
+ * - the hero KPIs with sparklines, then the other KPIs as one compact panel
+ *   (KpiCards);
+ * - the charts in the order analysts read them (trend → breakdowns → drivers
+ *   & segments → other columns → detail), each section headed by an eyebrow
+ *   and a hairline with its ⓘ, packed into full rows (WidgetGrid);
+ * - the insights beside the charts: a sticky column from a content width of
+ *   about 1536 px, a strip of the top three above the charts below that
+ *   (DashboardInsights);
+ * - the inspector and chart builder in a slide-in panel (so the charts keep
+ *   the full width), "Ask for a chart" (AskChart.tsx), the data-health
+ *   report, and the "Not shown" panel, which lists every KPI or chart that
+ *   could not be computed and what it needs, and restores hidden charts.
  *
- * The phone's Filters sheet opens from its own trigger. The inspector and the
- * data-health dialog open from state; the primitives give focus back to
- * whatever opened them (a KPI card, a chart's menu). The health report opens
- * on itself rather than on its first ⓘ (the Dialog primitive's `initialFocus`).
+ * The automatic charts for the columns the template doesn't use start folded
+ * when the dashboard has charts of its own, and open by themselves when an
+ * insight's "View chart" points at one of them. When the industry explains
+ * few of the file's columns, both views open with the fit notice
+ * (FitNotice), and the charts from the other columns lead, unfolded.
  *
- * When the industry explains few of the file's columns, both views open with
- * the fit notice (FitNotice), and when its template draws no chart of its own
- * on this data, the charts from the other columns are not folded away: the
- * dashboard leads with them.
+ * The inspector and the data-health dialog open from state; the primitives
+ * give focus back to whatever opened them (a KPI card, a chart's menu). The
+ * health report opens on itself rather than on its first ⓘ (the Dialog
+ * primitive's `initialFocus`).
  */
 import { FileIdentity } from "../FileIdentity";
 import * as React from "react";
@@ -32,37 +40,48 @@ import {
   CalendarRange,
   ChevronDown,
   CircleSlash,
-  Columns3,
   LayoutGrid,
   Loader2,
+  MoreHorizontal,
+  Palette,
   Plus,
-  SlidersHorizontal,
 } from "lucide-react";
 import type { LayoutMode } from "@/engine/charts/types";
 import { formatCount } from "@/engine/core/format";
 import { formatDay } from "@/engine/core/dates";
-import { PRESET_LABEL } from "@/engine/core/periods";
 import { allSpecs, kpiLayoutOf, useWorkspace } from "@/store/workspace";
 import { useSettings } from "@/store/settings";
 import { cn } from "@/lib/utils";
 import { Button } from "@/ui/primitives/button";
 import { Badge } from "@/ui/primitives/badge";
 import { Segmented } from "@/ui/primitives/segmented";
-import { Sheet, SheetContent, SheetTrigger } from "@/ui/primitives/sheet";
+import { Sheet, SheetContent } from "@/ui/primitives/sheet";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/ui/primitives/dialog";
 import { Brief, ClampText, InfoTip } from "@/ui/primitives/reveal";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/ui/primitives/dropdown-menu";
 
 import { useColumnUsage } from "../useColumnUsage";
 import { AskChartButton } from "./AskChart";
-import { ChartColoursButton } from "../ChartColours";
+import { ChartColoursButton, useChartColoursPanel } from "../ChartColours";
 import { HealthPanel } from "../HealthPanel";
-import { ActiveFilters, FilterRail } from "./FilterRail";
+import { FilterBar } from "./FilterBar";
 import { ComparisonNote, KpiStrip, KpiTiles, SupportingKpis } from "./KpiCards";
 import { WidgetGrid } from "./WidgetGrid";
 import { Inspector } from "./Inspector";
 import { SECTIONS } from "./sections";
 import { FitNotice } from "./FitNotice";
+import { InsightsColumn, InsightsStrip, useDashboardInsights } from "./DashboardInsights";
 import { PageView, ViewToggle } from "./page/PageView";
+import { dataLed } from "./page/pagePlan";
 
 /** True when the chart being focused (focusChart) is one of the automatic charts for other columns. */
 function inColumnsSection(s: ReturnType<typeof useWorkspace.getState>): boolean {
@@ -78,24 +97,17 @@ export function DashboardStep() {
   return view === "page" ? <PageView /> : <FullDashboard />;
 }
 
-/** Every chart, by section, with the filter rail, the inspector and the layout modes. */
+/** Every chart, by section, under the filter bar, with the insights beside them and the inspector. */
 function FullDashboard() {
   const context = useWorkspace((s) => s.context);
-  const summary = useWorkspace((s) => s.summary);
   const mode = useWorkspace((s) => s.mode);
-  const setMode = useWorkspace((s) => s.setMode);
   const computing = useWorkspace((s) => s.computing);
-  const lastCompute = useWorkspace((s) => s.lastCompute);
-  const period = useWorkspace((s) => s.kpiBatch?.period?.label);
-  const preset = useWorkspace((s) => s.datePreset);
-  const locale = useSettings((s) => s.numberLocale);
   const select = useWorkspace((s) => s.select);
   const health = useWorkspace((s) => s.health);
   const customCharts = useWorkspace((s) => s.customCharts);
   const kpiLayout = useWorkspace((s) => s.kpiLayout);
   const extraKpis = useWorkspace((s) => s.extraKpis);
-  const usage = useColumnUsage();
-  const [filtersOpen, setFiltersOpen] = React.useState(false);
+  const insights = useDashboardInsights();
   const [inspectorOpen, setInspectorOpen] = React.useState(false);
   const [healthOpen, setHealthOpen] = React.useState(false);
   // The automatic charts for columns the template doesn't use start folded: the dashboard leads
@@ -116,7 +128,6 @@ function FullDashboard() {
   if (!context) return null;
   const columnTiles = kpiLayoutOf({ context, kpiLayout, extraKpis }).columns;
   const specs = allSpecs({ context, customCharts });
-  const subName = context.domain.subDomains.find((s) => s.id === context.subDomainId)?.name;
   // Charts of the dashboard's own in this mode (trend, breakdowns, drivers). Without any, or with an
   // industry that explains few of the columns (context.fit.weak, where the data-led charts are planned
   // first), the charts for the other columns lead, unfolded.
@@ -125,188 +136,86 @@ function FullDashboard() {
     specs.some((x) => x.section !== "columns" && x.section !== "detail" && x.modes.includes(mode));
 
   return (
-    // overflow-x: clip, so nothing inside can make the page scroll sideways and push the rail off the
-    // left edge (clip, unlike hidden, keeps the rail's sticky position working).
-    <div className="mx-auto grid w-full max-w-[1760px] gap-6 overflow-x-clip px-4 py-6 md:px-6 lg:grid-cols-[256px_minmax(0,1fr)]">
-      <aside className="no-print hidden min-w-0 lg:block" aria-label="Dataset and filters">
-        {/* Never scrolls sideways: everything in the rail fits its width. The padding (pulled back
-            on the left) keeps room for a control's focus ring, which the scroll box would clip. */}
-        <div className="sticky top-20 -ml-1.5 max-h-[calc(100dvh-6rem)] overflow-x-hidden overflow-y-auto py-1 pr-1 pl-1.5">
-          <FilterRail onOpenHealth={() => setHealthOpen(true)} />
-        </div>
-      </aside>
-
-      <div className="min-w-0" aria-busy={computing}>
+    // overflow-x: clip, so nothing inside can make the page scroll sideways (clip, unlike hidden,
+    // keeps the filter bar's sticky position working). The container query measures the content
+    // width beside the sidebar, which decides where the insights go. Whatever is scrolled into view
+    // (a chart from "View chart", a control reached with Tab) stops below the top bar and, from lg,
+    // the sticky filter bar, never under them.
+    <div
+      className="@container/dash relative w-full overflow-x-clip [&_*]:scroll-mt-28 lg:[&_*]:scroll-mt-32"
+      aria-busy={computing}
+    >
+      <div className="mx-auto w-full max-w-[1760px] px-4 pt-6 md:px-6">
         <FitNotice className="mb-5" />
-        {/* Two levels only: the title, then one quiet line of facts; the actions sit to the right. */}
-        <header className="mb-5 flex flex-wrap items-start justify-between gap-x-6 gap-y-4">
-          <div className="min-w-0 flex-[1_1_380px]">
-            {/* leading-tight, not the display size's own 1.08: truncate clips at the line box, which
-                would cut the serif's descenders. */}
-            <h1 className="truncate font-display text-display-sm leading-tight text-fg">
-              {context.domain.name}
-              {/* The data shape sits beside the industry, smaller and in the interface face (the serif is
-                  for display sizes only), so the line fits next to the actions. */}
-              {subName && !context.domain.generic ? (
-                <span className="ml-3 font-sans text-lg text-fg-subtle">{subName}</span>
-              ) : null}
-            </h1>
-            <div className="mt-2 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-fg-subtle">
-              {/* With no industry, what the table is ("Daily readings of 4 measures at 49 locations, …"). */}
-              {/* One line; the whole description on hover, focus or a long press. */}
-              {context.domain.generic ? (
-                <ClampText key={context.domain.description} className="max-w-full min-w-0 text-fg-muted">
-                  {context.domain.description}
-                </ClampText>
-              ) : null}
-              {summary ? <FileIdentity summary={summary} size="sm" className="max-w-full" /> : null}
-              {/* The period in view, and how recent the data is, as a report's header states them (on a
-                  phone, how recent is behind the ⓘ at the end of the line). */}
-              {period ? (
-                <span className="tabular inline-flex items-center gap-1.5">
-                  <CalendarRange className="size-3.5" aria-hidden />
-                  {preset !== "custom" && preset !== "all" ? `${PRESET_LABEL[preset]}: ` : ""}
-                  {period}
-                  {context.dateBounds ? (
-                    <span className="hidden sm:inline">{` · data to ${formatDay(context.dateBounds.max)}`}</span>
-                  ) : null}
-                </span>
-              ) : null}
-              <span className="tabular inline-flex items-center gap-1.5" aria-live="polite">
-                {computing ? <Loader2 className="size-3 animate-spin" aria-hidden /> : null}
-                {computing
-                  ? "Updating…"
-                  : lastCompute && summary
-                    ? lastCompute.rows === summary.rowCount
-                      ? `all ${formatCount(summary.rowCount, locale)} rows`
-                      : `${formatCount(lastCompute.rows, locale)} of ${formatCount(summary.rowCount, locale)} rows in view`
-                    : ""}
-              </span>
-              {usage ? (
-                <span className="hidden items-center gap-1.5 sm:inline-flex">
-                  <Columns3 className="size-3.5" aria-hidden />
-                  {usage.used} of {usage.total} columns used
-                  {usage.hidden ? ` · ${usage.hidden} hidden by you` : ""}
-                  {usage.derived ? " · unpivot columns added" : ""}
-                </span>
-              ) : null}
-              {/* On a phone the secondary facts above are here. */}
-              {context.dateBounds || usage ? (
-                <InfoTip label="More about this data" className="sm:hidden">
-                  {context.dateBounds ? (
-                    <span className="block">Data to {formatDay(context.dateBounds.max)}</span>
-                  ) : null}
-                  {usage ? (
-                    <span className="block">
-                      {usage.used} of {usage.total} columns used
-                      {usage.hidden ? ` · ${usage.hidden} hidden by you` : ""}
-                      {usage.derived ? " · unpivot columns added" : ""}
-                    </span>
-                  ) : null}
-                </InfoTip>
-              ) : null}
-            </div>
+        <DashboardHeader
+          onBuild={() => {
+            select(null);
+            setInspectorOpen(true);
+          }}
+        />
+      </div>
+
+      <FilterBar onOpenHealth={() => setHealthOpen(true)} />
+
+      <div className="mx-auto grid w-full max-w-[1760px] items-start gap-6 px-4 pt-3 pb-12 md:px-6 @[96rem]/dash:grid-cols-[minmax(0,1fr)_300px]">
+        <div className="min-w-0">
+          {/* Below lg the bar has no room for what the changes compare with; it sits above the cards. */}
+          <ComparisonNote lead className="mb-2.5 lg:hidden" />
+          <div className="grid gap-3">
+            <KpiStrip />
+            {mode !== "executive" ? <SupportingKpis /> : null}
           </div>
-          <div className="no-print flex flex-wrap items-center gap-2">
-            <ViewToggle />
-            {/* The sheet's own trigger, so focus comes back to this button when it closes. */}
-            <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
-              <SheetTrigger asChild>
-                <Button variant="secondary" size="sm" className="lg:hidden">
-                  <SlidersHorizontal aria-hidden /> Filters
-                </Button>
-              </SheetTrigger>
-              <SheetContent side="left" title="Filters">
-                <div className="p-5">
-                  <FilterRail inSheet onOpenHealth={() => setHealthOpen(true)} />
-                </div>
-              </SheetContent>
-            </Sheet>
-            <Segmented<LayoutMode>
-              ariaLabel="Layout mode"
-              size="sm"
-              value={mode}
-              onChange={setMode}
-              options={[
-                { value: "executive", label: "Executive" },
-                { value: "analyst", label: "Analyst" },
-                { value: "compact", label: "Compact" },
-              ]}
-            />
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => {
-                select(null);
-                setInspectorOpen(true);
-              }}
-            >
-              <Plus aria-hidden /> Build manually
-            </Button>
-            <ChartColoursButton />
-            <AskChartButton />
-          </div>
-        </header>
-        <div className="mb-3 flex min-h-5 flex-wrap items-center justify-between gap-x-4 gap-y-2">
-          <ActiveFilters inline />
-          <span className="ml-auto">
-            <ComparisonNote />
-          </span>
-        </div>
-        <div className="grid gap-4">
-          <KpiStrip />
-          {mode !== "executive" ? <SupportingKpis /> : null}
-        </div>
-        {SECTIONS.map((sec) => {
-          const sectionSpecs = specs.filter((s) => s.section === sec.id);
-          const visible = sectionSpecs.filter((s) => s.modes.includes(mode));
-          // The your-columns section also carries its KPI tiles, so it shows even without charts.
-          const tiles = sec.id === "columns" ? columnTiles : [];
-          if (!visible.length && !tiles.length) return null;
-          const foldable = sec.id === "columns" && visible.length > 0 && ownCharts;
-          return (
-            <section key={sec.id} className="mt-10" aria-labelledby={`sec-${sec.id}`}>
-              {/* A title and a hairline; what the section is for is behind its ⓘ, not more text to read. */}
-              <div className="mb-3 flex items-center gap-3">
-                <span className="flex items-center gap-1.5">
-                  <h2 id={`sec-${sec.id}`} className="text-md font-medium text-fg">
+          <InsightsStrip state={insights} className="mt-8 @[96rem]/dash:hidden" />
+          {SECTIONS.map((sec) => {
+            const sectionSpecs = specs.filter((s) => s.section === sec.id);
+            const visible = sectionSpecs.filter((s) => s.modes.includes(mode));
+            // The your-columns section also carries its KPI tiles, so it shows even without charts.
+            const tiles = sec.id === "columns" ? columnTiles : [];
+            if (!visible.length && !tiles.length) return null;
+            const foldable = sec.id === "columns" && visible.length > 0 && ownCharts;
+            return (
+              <section key={sec.id} className="mt-8" aria-labelledby={`sec-${sec.id}`}>
+                {/* An eyebrow and a hairline; what the section is for is behind its ⓘ. */}
+                <div className="mb-3 flex min-h-7 items-center gap-2">
+                  <h2 id={`sec-${sec.id}`} className="eyebrow text-fg-subtle">
                     {sec.title}
                   </h2>
                   <InfoTip label={`About ${sec.title}`}>{sec.blurb}</InfoTip>
-                </span>
-                <span aria-hidden className="h-px flex-1 bg-border-subtle" />
-                {foldable ? (
-                  <Button
-                    size="xs"
-                    variant="ghost"
-                    aria-expanded={columnsOpen}
-                    aria-controls="sec-columns-charts"
-                    onClick={() => setColumnsOpen((o) => !o)}
-                  >
-                    {columnsOpen
-                      ? "Hide charts"
-                      : `Show ${visible.length} chart${visible.length === 1 ? "" : "s"}`}
-                    <ChevronDown
-                      className={cn("transition-transform", columnsOpen && "rotate-180")}
-                      aria-hidden
-                    />
-                  </Button>
+                  <span aria-hidden className="ml-1 h-px flex-1 bg-border-subtle" />
+                  {foldable ? (
+                    <Button
+                      size="xs"
+                      variant="ghost"
+                      aria-expanded={columnsOpen}
+                      aria-controls="sec-columns-charts"
+                      onClick={() => setColumnsOpen((o) => !o)}
+                    >
+                      {columnsOpen
+                        ? "Hide charts"
+                        : `Show ${visible.length} chart${visible.length === 1 ? "" : "s"}`}
+                      <ChevronDown
+                        className={cn("transition-transform", columnsOpen && "rotate-180")}
+                        aria-hidden
+                      />
+                    </Button>
+                  ) : null}
+                </div>
+                {tiles.length ? (
+                  <div className="mb-3">
+                    <KpiTiles ids={tiles} label="KPIs from your other columns" />
+                  </div>
                 ) : null}
-              </div>
-              {tiles.length ? (
-                <div className="mb-4">
-                  <KpiTiles ids={tiles} label="KPIs from your other columns" />
-                </div>
-              ) : null}
-              {visible.length && (!foldable || columnsOpen) ? (
-                <div id={foldable ? "sec-columns-charts" : undefined}>
-                  <WidgetGrid specs={sectionSpecs} mode={mode} />
-                </div>
-              ) : null}
-            </section>
-          );
-        })}
-        <NotShown />
+                {visible.length && (!foldable || columnsOpen) ? (
+                  <div id={foldable ? "sec-columns-charts" : undefined}>
+                    <WidgetGrid specs={sectionSpecs} mode={mode} />
+                  </div>
+                ) : null}
+              </section>
+            );
+          })}
+          <NotShown />
+        </div>
+        <InsightsColumn state={insights} className="hidden @[96rem]/dash:block" />
       </div>
 
       <Sheet
@@ -333,6 +242,161 @@ function FullDashboard() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+/**
+ * The title (the industry, and the data's shape beside it), one quiet line of
+ * facts, and the toolbar. On a phone the secondary facts sit behind the ⓘ.
+ */
+function DashboardHeader({ onBuild }: { onBuild: () => void }) {
+  const context = useWorkspace((s) => s.context);
+  const summary = useWorkspace((s) => s.summary);
+  const mode = useWorkspace((s) => s.mode);
+  const setMode = useWorkspace((s) => s.setMode);
+  const computing = useWorkspace((s) => s.computing);
+  const lastCompute = useWorkspace((s) => s.lastCompute);
+  const period = useWorkspace((s) => s.kpiBatch?.period?.label);
+  const locale = useSettings((s) => s.numberLocale);
+  const usage = useColumnUsage();
+  if (!context) return null;
+  const subName = context.domain.subDomains.find((s) => s.id === context.subDomainId)?.name;
+  const grain = context.grainLabel;
+  return (
+    <header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4 pb-1">
+      <div className="min-w-0 flex-[1_1_360px]">
+        {/* leading-tight, not the display size's own line: truncate clips at the line box. */}
+        <h1 className="flex min-w-0 items-baseline gap-x-3 font-display text-display-xs leading-tight text-fg">
+          {/* A dashboard designed from the data (no industry, or one that fits few columns) is titled from
+              the data, as the one page titles it ("Wine quality analysis"), not "Generic". */}
+          <span className="truncate">
+            {dataLed(context) ? context.understanding.title : context.domain.name}
+          </span>
+          {/* The data shape beside the industry, smaller and in the interface voice. */}
+          {subName && !context.domain.generic ? (
+            <span className="hidden truncate font-sans text-lg font-normal text-fg-subtle sm:inline">
+              {subName}
+            </span>
+          ) : null}
+        </h1>
+        {/* Below lg the breadcrumb doesn't name the file, so it heads the facts. */}
+        {summary ? <FileIdentity summary={summary} size="sm" className="mt-2 max-w-full lg:hidden" /> : null}
+        {/* One quiet line, the facts parted by dots. */}
+        <div className="tabular mt-1.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs text-fg-subtle">
+          {/* With no industry, what the table is ("Daily readings of 4 measures at 49 locations, …"). */}
+          {context.domain.generic ? (
+            <ClampText key={context.domain.description} className="w-full min-w-0 text-fg-muted">
+              {context.domain.description}
+            </ClampText>
+          ) : null}
+          {/* The period in view: its dates (its name is on the period's pill in the filter bar). */}
+          {period ? (
+            <span className="inline-flex items-center gap-1.5">
+              <CalendarRange className="size-3.5" aria-hidden />
+              {period}
+            </span>
+          ) : null}
+          <span className="inline-flex items-center gap-2" aria-live="polite">
+            {period ? <Dot /> : null}
+            {computing ? <Loader2 className="size-3.5 animate-spin" aria-hidden /> : null}
+            {computing
+              ? "Updating…"
+              : lastCompute && summary
+                ? lastCompute.rows === summary.rowCount
+                  ? `All ${formatCount(summary.rowCount, locale)} rows`
+                  : `${formatCount(lastCompute.rows, locale)} of ${formatCount(summary.rowCount, locale)} rows`
+                : ""}
+          </span>
+          {usage ? (
+            <span className="hidden items-center gap-2 sm:inline-flex">
+              <Dot />
+              {usage.used} of {usage.total} columns used
+            </span>
+          ) : null}
+          {/* The rest: what one row is, how recent the data is, hidden columns (and, on a phone, the
+              columns used). */}
+          <InfoTip label="More about this data">
+            <span className="grid gap-1">
+              {grain ? <span>{grain}</span> : null}
+              {context.dateBounds ? <span>Data to {formatDay(context.dateBounds.max)}</span> : null}
+              {usage ? (
+                <span>
+                  {usage.used} of {usage.total} columns used
+                  {usage.hidden ? ` · ${usage.hidden} hidden by you` : ""}
+                  {usage.derived ? " · unpivot columns added" : ""}
+                </span>
+              ) : null}
+              {summary?.isDemo ? <span>Demo data, generated for the example.</span> : null}
+            </span>
+          </InfoTip>
+        </div>
+      </div>
+      <div className="no-print flex w-full flex-wrap items-center gap-2 sm:w-auto">
+        <ViewToggle />
+        {/* On a phone the layout, the builder and the colours share one menu, so the toolbar is one row. */}
+        <div className="hidden flex-wrap items-center gap-2 sm:flex">
+          <Segmented<LayoutMode>
+            ariaLabel="Layout mode"
+            size="sm"
+            value={mode}
+            onChange={setMode}
+            options={LAYOUTS}
+          />
+          <Button variant="secondary" size="sm" onClick={onBuild}>
+            <Plus aria-hidden /> Build manually
+          </Button>
+          <ChartColoursButton />
+        </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="secondary"
+              size="icon-sm"
+              className="size-8 sm:hidden"
+              aria-label="More dashboard options"
+            >
+              <MoreHorizontal aria-hidden />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="min-w-52">
+            <DropdownMenuLabel>Layout</DropdownMenuLabel>
+            <DropdownMenuRadioGroup value={mode} onValueChange={(v) => setMode(v as LayoutMode)}>
+              {LAYOUTS.map((l) => (
+                <DropdownMenuRadioItem key={l.value} value={l.value}>
+                  {l.label}
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={onBuild}>
+              <Plus aria-hidden /> Build manually
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => useChartColoursPanel.getState().setOpen(true)}>
+              <Palette aria-hidden /> Chart colours
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <span className="ml-auto sm:ml-0">
+          <AskChartButton />
+        </span>
+      </div>
+    </header>
+  );
+}
+
+/** The layout modes: every chart (Analyst), the headline ones (Executive), or shorter cards (Compact). */
+const LAYOUTS: Array<{ value: LayoutMode; label: string }> = [
+  { value: "executive", label: "Executive" },
+  { value: "analyst", label: "Analyst" },
+  { value: "compact", label: "Compact" },
+];
+
+/** The quiet separator between the header's facts. */
+function Dot() {
+  return (
+    <span aria-hidden className="text-fg-disabled">
+      ·
+    </span>
   );
 }
 

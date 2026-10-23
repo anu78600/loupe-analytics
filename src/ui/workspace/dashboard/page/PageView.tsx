@@ -73,7 +73,7 @@ export function PageView() {
     // With the fit notice above the toolbar, the page leaves room for it (--page-chrome, OnePage), so
     // it still fits the window on a large screen.
     <div
-      className="mx-auto w-full max-w-[1920px] px-4 py-4 has-[[data-fit-notice]]:[--page-chrome:234px] md:px-6"
+      className="mx-auto w-full max-w-[1920px] px-4 py-4 has-[[data-fit-notice]]:[--page-chrome:206px] md:px-6"
       aria-busy={computing}
     >
       <FitNotice className="mb-3" />
