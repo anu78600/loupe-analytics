@@ -15,20 +15,20 @@
  * restores the recommended layout and keeps what the user built (with Undo).
  * "Chart colours" opens the same colour panel as the dashboard toolbar, so
  * the colours can be chosen while the charts are being arranged.
- * The intro is one short line, with the full text behind hover, a long press
- * or the ⓘ (ui/primitives/reveal.tsx).
+ * The page opens with the flow's StepHeader (version 50.4: "Build · Step 4 of
+ * 8", its task, one short line with the full text behind it, and the actions
+ * beside it), spaced as the other steps are.
  */
 import * as React from "react";
 import { toast } from "sonner";
 import { ArrowRight, RotateCcw } from "lucide-react";
 import type { ChartSpec } from "@/engine/charts/types";
-import { allSpecs, kpiLayoutOf, stepNumber, useWorkspace } from "@/store/workspace";
+import { allSpecs, kpiLayoutOf, useWorkspace } from "@/store/workspace";
 import { Button } from "@/ui/primitives/button";
 import { Badge } from "@/ui/primitives/badge";
-import { Eyebrow } from "@/ui/primitives/misc";
-import { Brief } from "@/ui/primitives/reveal";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/primitives/tabs";
 import { ChartColoursButton } from "../ChartColours";
+import { StepHeader } from "../flow/StepHeader";
 import { KpiPlanner } from "./KpiPlanner";
 import { ChartList } from "./ChartList";
 import { ChartStudio } from "./ChartStudio";
@@ -71,33 +71,29 @@ export function CustomiseStep() {
   };
 
   return (
-    <div className="mx-auto w-full max-w-[1400px] px-4 py-8 md:px-6">
-      <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
-        <div className="max-w-3xl">
-          <Eyebrow>Step {stepNumber("customise")} · Customise</Eyebrow>
-          <h1 className="mt-2 font-display text-display-sm text-fg">Make the dashboard yours.</h1>
-          <p className="mt-2 text-sm text-fg-muted">
-            <Brief
-              label="About Customise"
-              full="Choose exactly which KPIs and charts it shows, in what order and how big; change any chart's type or data; and build new KPIs and charts from your columns. Everything applies straight away."
-            >
-              Pick the KPIs and charts; changes apply at once.
-            </Brief>
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Sized like the buttons beside it (it is a small button elsewhere). */}
-          <ChartColoursButton label="Chart colours" className="h-10 px-4 text-sm" />
-          <Button variant="ghost" onClick={reset}>
-            <RotateCcw aria-hidden /> Back to recommended
-          </Button>
-          <Button variant="primary" onClick={() => setStep("dashboard")}>
-            Continue to dashboard <ArrowRight aria-hidden />
-          </Button>
-        </div>
-      </div>
+    <div className="mx-auto w-full max-w-[1400px] px-4 py-8 md:px-6 lg:py-10">
+      <StepHeader
+        step="customise"
+        className="mb-8"
+        title="Make the dashboard yours"
+        lead="Pick the KPIs and charts; changes apply at once."
+        leadFull="Choose exactly which KPIs and charts it shows, in what order and how big; change any chart's type or data; and build new KPIs and charts from your columns. Everything applies straight away."
+        aside={
+          <>
+            {/* Sized like the buttons beside it (it is a small button elsewhere). On a phone the two
+                quiet actions share a row and the way on takes the next one, full width. */}
+            <ChartColoursButton label="Chart colours" className="h-10 px-4 text-sm max-sm:px-3" />
+            <Button variant="ghost" className="max-sm:px-2.5" onClick={reset}>
+              <RotateCcw aria-hidden /> Back to recommended
+            </Button>
+            <Button variant="primary" className="max-sm:w-full" onClick={() => setStep("dashboard")}>
+              Continue to dashboard <ArrowRight aria-hidden />
+            </Button>
+          </>
+        }
+      />
       <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)}>
-        <TabsList className="mb-5">
+        <TabsList className="mb-6 max-w-full">
           <TabsTrigger value="kpis">
             KPIs <Badge className="ml-1.5">{kpiCount}</Badge>
           </TabsTrigger>

@@ -353,16 +353,19 @@ function Banner({
               className="w-full rounded-control border border-border-accent bg-surface-1 px-2 font-display text-display-xs leading-tight text-fg outline-none"
             />
           ) : onRename ? (
-            <button
-              type="button"
-              onClick={() => setEditing(true)}
-              title="Rename this page"
-              className="block max-w-full rounded-control text-left font-display text-display-xs leading-tight text-fg transition-colors duration-fast outline-none hover:text-accent-text focus-visible:focus-ring lg:truncate"
-            >
-              {model.title}
-            </button>
+            // The page's one heading: its title, which is also the button that renames it.
+            <h1 className="min-w-0">
+              <button
+                type="button"
+                onClick={() => setEditing(true)}
+                title="Rename this page"
+                className="block max-w-full rounded-control text-left font-display text-display-xs leading-tight text-fg transition-colors duration-fast outline-none hover:text-accent-text focus-visible:focus-ring lg:truncate"
+              >
+                {model.title}
+              </button>
+            </h1>
           ) : (
-            <h2 className="truncate font-display text-display-xs leading-tight text-fg">{model.title}</h2>
+            <h1 className="truncate font-display text-display-xs leading-tight text-fg">{model.title}</h1>
           )}
           {live ? (
             <ClampText key={model.subtitle} className="mt-0.5 text-ui text-fg-muted">

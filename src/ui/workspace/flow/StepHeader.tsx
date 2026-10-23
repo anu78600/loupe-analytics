@@ -60,7 +60,9 @@ export function StepHeader({
         ) : null}
         {children}
       </div>
-      {aside ? <div className="flex flex-wrap items-center gap-2">{aside}</div> : null}
+      {/* min-w-0 and max-w-full: long content beside the heading (a file name) wraps or truncates
+          instead of widening the page. */}
+      {aside ? <div className="flex max-w-full min-w-0 flex-wrap items-center gap-2">{aside}</div> : null}
     </header>
   );
 }

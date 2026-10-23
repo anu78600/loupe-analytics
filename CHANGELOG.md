@@ -5,9 +5,21 @@ Every step of building Loupe, newest first. Generated from `src/content/changelo
 - **MAJOR** (`x.0`): a new capability, subsystem or page.
 - **MINOR** (`x.y`): a refinement, fix or follow-up to that major version.
 
-## Up next
+## 50.4 · Questions as a conversation, insights as a feed, export as a gallery, and the landing page in the new look (redesign stage 5 of 5)
 
-1. **Redesign stage 5: analysis, sharing and the landing page.** Questions as a conversation with an analyst, Insights as a ranked feed, Export as a gallery with previews, the landing page in the new look, and motion, empty and loading states polished on phones and in both themes.
+*Minor · 2026-10-23 17:21 UTC · Design*
+
+The last stage of the redesign. Asking questions now feels like talking to an analyst, insights read as a ranked feed with each finding's chart beside it, every export shows a preview of what you will get, and the landing page shows the app as it looks today.
+
+- Questions & SQL is a conversation: your question, then Loupe's answer with its figures, its chart or table, and the SQL one click away, with copy, check against your data, add to the dashboard and remove. The question box stays at the bottom of the screen, suggested questions get you started, and “Ask next” suggestions follow each answer.
+- Insights is a ranked feed: each finding with its rank, how much it matters, its figures and how confident Loupe is. On wide screens, the finding you pick opens beside the list with its chart and how it was found.
+- Export is a gallery: each format shows a preview from your real data (the one-page dashboard exactly as it downloads, the report's pages, the first slides, the Power BI model with its measures, the first lines of the SQL and the first rows of your data), with its options and its download. Every file downloads exactly as before.
+- Customise opens with the same header as every other step.
+- The landing page shows the app as it is today: the hero is the redesigned dashboard (sidebar, filter pills, KPI cards with trends, charts and insights) built from the demo's real figures, and “How it works” walks through the four phases, including a real question answered with its SQL.
+- Loading and empty states are calmer throughout: skeletons in the shape of what is coming, and empty states that say what to try.
+- With this, all five stages of the redesign are done.
+
+Files: `src/ui/workspace/QuestionsStep.tsx`, `src/ui/workspace/InsightsStep.tsx`, `src/ui/workspace/analyse/thread.ts`, `src/ui/workspace/analyse/feed.ts`, `src/ui/workspace/analyse/sqlCheck.ts`, `src/ui/workspace/analyse/AnswerMessage.tsx`, `src/ui/workspace/analyse/AnswerChart.tsx`, `src/ui/workspace/analyse/Composer.tsx`, `src/ui/workspace/analyse/Suggestions.tsx`, `src/ui/workspace/analyse/InsightFeed.tsx`, `src/ui/workspace/analyse/InsightDetail.tsx`, `src/ui/workspace/ExportStep.tsx`, `src/ui/workspace/export/gallery/GalleryCard.tsx`, `src/ui/workspace/export/gallery/PagePreview.tsx`, `src/ui/workspace/export/gallery/previews.tsx`, `src/ui/workspace/export/gallery/excerpts.ts`, `src/ui/workspace/customise/CustomiseStep.tsx`, `src/ui/workspace/flow/StepHeader.tsx`, `src/ui/landing/HeroPreview.tsx`, `src/ui/landing/HeroStage.tsx`, `src/ui/landing/Pipeline.tsx`, `src/ui/landing/Bento.tsx`, `src/ui/landing/sections.tsx`, `src/ui/landing/appShell.ts`, `src/ui/landing/preview-data.ts`, `src/ui/site/SiteHeader.tsx`, `src/ui/site/SiteFooter.tsx`, `docs/DESIGN.md`, `tests/analyse.test.ts`, `tests/export-gallery.test.ts`, `tests/landing-data.test.ts`
 
 ## 50.3 · The dashboard redesigned: filter pills, KPI cards with trends, insights beside the charts (redesign stage 4 of 5)
 

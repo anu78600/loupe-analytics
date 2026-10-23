@@ -1,58 +1,49 @@
 "use client";
 
 /**
- * Step 8, Export. Only the exports people use, in three groups:
+ * Step 8, Export: a gallery of the formats (version 50.4), each card led by
+ * a preview of its file drawn from the dashboard as it stands (gallery/):
  *
- * - Share: the one-page dashboard (the dashboard on one landscape page, as
- *   in its one-page view: one 4K PNG or a one-page PDF), presentation slides
+ * - Share: the one-page dashboard, featured across the row (the page itself,
+ *   drawn as it downloads: one 4K PNG or a one-page PDF, with the page's
+ *   period, filters and charts named beside it); the dashboard report (PDF:
+ *   cover, KPIs, numbered figures, glossary); the presentation slides
  *   (landscape 16:9 PNGs in a zip, or one PDF: an overview, then two or four
- *   charts a slide, each led by its takeaway; the card shows the deck in
- *   miniature and counts it before it is made), the dashboard report (PDF:
- *   cover, KPIs, numbered figures, glossary) and the insights (PDF).
- * - Build on it: the Power BI package (zip: semantic model, DAX, data, build
- *   guide), the SQL file (with the same SQL and DAX in colour to read, the
- *   business questions as a PDF once some were asked, and verification of
- *   every KPI query against the data in DuckDB-WASM), and the data itself
- *   (cleaned CSV, data dictionary).
- * - A settings bar to save and reload the dashboard's setup (no data rows).
+ *   charts a slide, each led by its takeaway, the deck shown and counted
+ *   before it is made); and the insights (PDF).
+ * - Take it further: the Power BI package (zip: semantic model, DAX, data,
+ *   build guide), SQL (the file with every KPI as a view, the same SQL and DAX
+ *   in colour to read, the business questions as a PDF once some were asked,
+ *   and a check of every KPI query against the data in DuckDB-WASM), the data
+ *   itself (cleaned CSV, data dictionary), and the dashboard's settings, saved
+ *   and loaded again (no data rows).
  *
- * Each card says what it holds in a line and carries a real fact about it
- * (pages, charts, insights, rows), computed from the dashboard, never made up.
+ * The page has one primary button, the featured download; every other
+ * download is secondary. Each card carries a real fact about its file (pages,
+ * slides, insights, views, rows), computed from the dashboard, never made up.
  * The slides and the report are the dashboard as the user left it: the KPI
  * layout and chart titles from Customise (kpiLayoutOf, exportCharts), with a
  * chart that can't be drawn now (a hidden column, a deleted KPI) left out and
  * named on the card. The Power BI package and the SQL & DAX page are built
  * from the file's own columns; when one would add a column (a date-only copy
  * of a datetime, a calculated hour or weekday), the user is asked first
- * (powerBiConsent), naming exactly the columns the built package adds.
- * Files that are already inside the package (measures.dax, the Markdown
- * dictionary) are not offered again on their own. Power BI, SQL and the data
- * files cover the whole file, so the SQL check compares with Loupe's
- * whole-file values and says so.
+ * (powerBiConsent), naming exactly the columns the built package adds. Power
+ * BI, SQL and the data files cover the whole file, so the SQL check compares
+ * with Loupe's whole-file values and says so.
  *
- * Text is kept short (version 47.0): each card says what it is in a few
- * words, with the full description, captions and notes behind it or an ⓘ
- * (ui/primitives/reveal: hover, focus or a long press opens them). On a
- * phone the one-page chart list and the Power BI contents fold behind a
- * line of their own; file names and chart titles are clamped.
+ * The insights are looked for when the page opens, so their card and the
+ * page's preview show them. Text is kept short: each card says what it is in
+ * a few words, with the full description and notes behind it or an ⓘ
+ * (ui/primitives/reveal); on a phone the page's chart list folds behind one.
  */
 import * as React from "react";
 import {
+  ArrowUpRight,
   BadgeCheck,
-  BookText,
   CheckCircle2,
-  Database,
   Download,
-  FileArchive,
-  FileCode2,
-  FileSpreadsheet,
   FileText,
-  LayoutDashboard,
-  Lightbulb,
   Loader2,
-  Palette,
-  Presentation,
-  Settings2,
   ShieldCheck,
   TriangleAlert,
   Upload,
@@ -66,26 +57,45 @@ import { describeFilter } from "@/engine/query/filter";
 import { compareFingerprints, fingerprintOf, parseConfig, type LoupeConfig } from "@/engine/export/config";
 import type { PackageManifest } from "@/engine/export/powerbi";
 import { UTF8_BOM } from "@/engine/export/csv";
-import { allSpecs, kpiLayoutOf, stepNumber, useWorkspace } from "@/store/workspace";
+import { allSpecs, kpiLayoutOf, useWorkspace } from "@/store/workspace";
 import { useSettings } from "@/store/settings";
 import { powerBiTheme, resolveTheme } from "@/ui/charts/palette/themes";
 import { engine } from "@/lib/engine-client";
 import { cn, downloadBlob, exportFileName } from "@/lib/utils";
 import type { VerificationResult } from "@/lib/duckdb";
 import { Button } from "@/ui/primitives/button";
-import { Eyebrow } from "@/ui/primitives/misc";
+import { Skeleton } from "@/ui/primitives/misc";
 import { Brief, ClampText, InfoTip } from "@/ui/primitives/reveal";
 import { Segmented } from "@/ui/primitives/segmented";
 import { Switch } from "@/ui/primitives/switch";
 import { useFmt } from "@/ui/common/hooks";
 import { orderByGoal } from "./dashboard/KpiCards";
-import { downloadOnePage, usePageModel, type PageModel } from "./dashboard/page/OnePage";
+import { downloadOnePage, usePageModel } from "./dashboard/page/OnePage";
 import { FileIdentity } from "./FileIdentity";
+import { StepHeader } from "./flow/StepHeader";
 import { exportPdf, type ReportChart, type ReportInput } from "./export/report";
 import { exportSlides } from "./export/slides";
-import { describeSlides, planSlides, type Slide, type SlideDensity } from "./export/slidePlan";
+import { describeSlides, planSlides, type SlideDensity } from "./export/slidePlan";
 import { exportCharts, leftOutLabel, withShownTitle, type LeftOutChart } from "./export/exportCharts";
 import { exportInsightsPdf, exportSqlPdf } from "./export/documents";
+import { GalleryCard, GallerySection } from "./export/gallery/GalleryCard";
+import { PagePreview } from "./export/gallery/PagePreview";
+import {
+  DataPreview,
+  InsightsPreview,
+  ModelPreview,
+  ReportPreview,
+  SettingsPreview,
+  SlidesPreview,
+  SqlPreview,
+} from "./export/gallery/previews";
+import {
+  modelOutline,
+  packageLines,
+  sqlExcerpt,
+  viewCounts,
+  type ModelOutline,
+} from "./export/gallery/excerpts";
 import { useColumnConsent, type ColumnRequest, type ProposedColumn } from "./NewColumnsDialog";
 
 /**
@@ -147,6 +157,11 @@ function useReportCharts(): { charts: ReportChart[]; leftOut: LeftOutChart[] } {
     () => reportCharts({ widgets, charts, mode, context, customCharts }),
     [widgets, charts, mode, context, customCharts],
   );
+}
+
+/** How many headline KPIs the report's cover and the slides' overview show (the dashboard's layout). */
+function useHeroCount(): number {
+  return useWorkspace((s) => kpiLayoutOf(s).hero.length);
 }
 
 /** The automatic charts of the "From your other columns" section, which the slides and report leave out unless asked. */
@@ -251,168 +266,68 @@ export function buildConfig(): LoupeConfig | null {
 export function ExportStep() {
   const context = useWorkspace((s) => s.context);
   const summary = useWorkspace((s) => s.summary);
+  const loadInsights = useWorkspace((s) => s.loadInsights);
+  const insightsMissing = useWorkspace((s) => s.insights === null);
+  // The insights are looked for as the page opens (and again after a rebuild clears them), so the
+  // page's preview and the insights card show them; a download still finds them first if it must.
+  React.useEffect(() => {
+    if (insightsMissing) void loadInsights();
+  }, [insightsMissing, loadInsights]);
   if (!context || !summary) return null;
   return (
-    <div className="mx-auto w-full max-w-6xl px-4 py-8 md:px-6">
-      <header className="mb-8 flex flex-wrap items-end justify-between gap-x-8 gap-y-4">
-        <div>
-          <Eyebrow>Step {stepNumber("export")} · Export</Eyebrow>
-          <h1 className="mt-2 font-display text-display-sm text-fg">Take it anywhere.</h1>
-          {/* Said as it is: the shared files show the dashboard's selection, the rest every row. */}
-          <p className="mt-2 text-sm text-fg-muted">
-            <Brief
-              label="What each export covers"
-              full="Slides and reports show the dashboard as you see it; Power BI, SQL and the data cover the whole file."
-            >
-              Slides show your view; data files, every row.
-            </Brief>
-          </p>
-        </div>
-        <div className="flex min-w-0 flex-col items-start gap-1.5 sm:items-end">
-          <FileIdentity summary={summary} size="sm" />
-          <span className="inline-flex items-center gap-1.5 text-xs text-fg-subtle">
-            <ShieldCheck className="size-3.5 text-success" aria-hidden />
-            <Brief label="Where the files are made" full="Made in this tab · nothing uploaded">
-              Nothing uploaded
-            </Brief>
-          </span>
-        </div>
-      </header>
+    <div className="mx-auto w-full max-w-[1200px] px-4 pt-8 pb-12 md:px-8 md:pt-10">
+      <StepHeader
+        step="export"
+        className="mb-8"
+        title="Take it anywhere"
+        lead="Slides show your view; data files, every row."
+        leadFull="The one page, the report, the slides and the insights show the dashboard as you see it, with its period and filters; Power BI, SQL and the data cover the whole file."
+        aside={
+          // Capped, so a long file or sheet name truncates (whole on hover or a long press) rather
+          // than widening the page: the viewport less its gutters on a phone, 24rem beside the heading.
+          <div className="flex max-w-[calc(100vw-2rem)] min-w-0 flex-col items-start gap-1.5 sm:max-w-sm sm:items-end">
+            <FileIdentity summary={summary} size="sm" />
+            <span className="inline-flex items-center gap-1.5 text-xs text-fg-subtle">
+              <ShieldCheck className="size-3.5 text-success" aria-hidden />
+              <Brief
+                label="Where the files are made"
+                full="Every file is made in this tab. Nothing is uploaded."
+              >
+                Nothing uploaded
+              </Brief>
+            </span>
+          </div>
+        }
+      />
 
-      <Section id="export-share" title="Share">
-        {/* Two featured cards with a smaller file beside each: the page and the report, the deck and the insights. */}
-        <div className="grid gap-4 lg:grid-cols-3">
-          <OnePagePanel />
-          <ReportTile />
-          <SlidesPanel />
-          <InsightsTile />
-        </div>
-      </Section>
-
-      <Section id="export-build" title="Build on it" className="mt-10">
-        <div className="grid gap-4 lg:grid-cols-3">
-          <PowerBiPanel />
-          <div className="grid min-w-0 gap-4">
-            <SqlPanel />
-            <DataPanel />
+      <GallerySection id="export-share" title="Share">
+        <div className="grid gap-5">
+          <OnePageCard />
+          <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+            <ReportCard />
+            <SlidesCard />
+            <InsightsCard alone />
           </div>
         </div>
-      </Section>
+      </GallerySection>
 
-      <SettingsBar />
+      <GallerySection id="export-further" title="Take it further" className="mt-12">
+        <div className="grid gap-5">
+          <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+            <PowerBiCard />
+            <SqlCard />
+            <DataCard alone />
+          </div>
+          <SettingsCard />
+        </div>
+      </GallerySection>
     </div>
   );
 }
 
-/** A group of exports: a quiet label and a hairline, as the dashboard's sections. */
-function Section({
-  id,
-  title,
-  className,
-  children,
-}: {
-  id: string;
-  title: string;
-  className?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <section aria-labelledby={id} className={className}>
-      <div className="mb-3 flex items-center gap-3">
-        <h2 id={id} className="eyebrow text-fg-subtle">
-          {title}
-        </h2>
-        <span aria-hidden className="h-px flex-1 bg-border-subtle" />
-      </div>
-      {children}
-    </section>
-  );
-}
-
-/** The file type in a small pill ("PDF", "ZIP"), top right of a card: a label in the eyebrow style, not code. */
-function TypePill({ children }: { children: React.ReactNode }) {
-  return (
-    <span className="eyebrow shrink-0 rounded-full border border-border-strong px-2 py-0.5 whitespace-nowrap text-fg-subtle">
-      {children}
-    </span>
-  );
-}
-
-/** The icon in its tinted square, shared by every card. */
-function TileIcon({
-  icon: Icon,
-  large,
-}: {
-  icon: React.ComponentType<{ className?: string }>;
-  large?: boolean;
-}) {
-  return (
-    <span
-      className={cn(
-        "grid shrink-0 place-items-center rounded-control border border-border-accent bg-accent-soft",
-        large ? "size-12" : "size-11",
-      )}
-    >
-      <Icon className={cn("text-accent", large ? "size-[22px]" : "size-5")} />
-    </span>
-  );
-}
-
-/**
- * Shared surface of the export cards: lifts a little on hover and glows
- * faintly in its corner. Clipped, not hidden: an overflow-hidden box can be
- * scrolled, so focusing a button inside slid the content under the glow.
- * The featured cards keep their accent edge on hover (FEATURED).
- */
-const SURFACE =
-  "group relative flex min-w-0 flex-col overflow-clip rounded-card border border-border bg-surface-1 shadow-card transition-[border-color,box-shadow,transform] duration-base hover:border-border-hover motion-safe:hover:-translate-y-0.5";
-const FEATURED = "border-border-accent hover:border-border-accent";
-
-function CornerGlow() {
-  return (
-    <span
-      aria-hidden
-      className="pointer-events-none absolute -top-20 -right-20 size-48 rounded-full bg-[radial-gradient(closest-side,var(--spot),transparent)] opacity-60 transition-opacity duration-slow group-hover:opacity-100"
-    />
-  );
-}
-
-/**
- * The head of a featured card (slides, Power BI): icon, title and what it is
- * for, and the file type. On a phone the description takes the card's whole
- * width under the icon row, rather than a narrow column beside the type pill.
- */
-function FeatureHead({
-  icon,
-  title,
-  line,
-  full,
-  type,
-}: {
-  icon: React.ComponentType<{ className?: string }>;
-  title: string;
-  /** What it is for, in a few words. */
-  line: string;
-  /** The whole description, behind the line. */
-  full: string;
-  type: string;
-}) {
-  return (
-    <div className="relative grid grid-cols-[auto_1fr] items-start gap-x-3.5 gap-y-3 sm:grid-cols-[auto_1fr_auto]">
-      <TileIcon icon={icon} large />
-      <div className="col-span-2 row-start-2 min-w-0 sm:col-span-1 sm:col-start-2 sm:row-start-1">
-        <h3 className="text-lg font-medium text-fg">{title}</h3>
-        <p className="mt-1 text-sm leading-relaxed text-fg-muted">
-          <Brief label={`About ${title}`} full={full}>
-            {line}
-          </Brief>
-        </p>
-      </div>
-      <div className="col-start-2 row-start-1 justify-self-end sm:col-start-3">
-        <TypePill>{type}</TypePill>
-      </div>
-    </div>
-  );
+/** A download button's icon: the arrow, or a spinner while its file is made. */
+function DownloadIcon({ busy }: { busy: boolean }) {
+  return busy ? <Loader2 className="animate-spin" aria-hidden /> : <Download aria-hidden />;
 }
 
 /**
@@ -470,73 +385,142 @@ function LeftOutNote({ charts, className }: { charts: LeftOutChart[]; className?
   );
 }
 
-/**
- * One export in the Share row: icon and type, a title, one line on what it
- * holds, a fact about it (and any options or notes), and its download
- * button, which shows progress while the file is made.
- */
-function Tile({
-  icon,
-  type,
-  title,
-  line,
-  full,
-  fact,
-  options,
-  note,
-  action,
-  busy,
-  onAction,
-}: {
-  icon: React.ComponentType<{ className?: string }>;
-  type: string;
-  title: string;
-  line: string;
-  /** The whole description behind `line`, when the line is a short form of it. */
-  full?: string;
-  fact: React.ReactNode;
-  /** Controls for what goes in the file (a switch). */
-  options?: React.ReactNode;
-  /** What the file leaves out, and why. */
-  note?: React.ReactNode;
-  action: string;
-  /** Progress text while the file is being made. */
-  busy: string | null;
-  onAction: () => void;
-}) {
+/** One count on the featured card ("6 KPIs"), the figure above its word; a skeleton until it is known. */
+function Count({ value, label }: { value: number | null; label: string }) {
   return (
-    <article className={cn(SURFACE, "p-5")}>
-      <CornerGlow />
-      <div className="relative flex items-start justify-between">
-        <TileIcon icon={icon} />
-        <TypePill>{type}</TypePill>
-      </div>
-      <h3 className="relative mt-4 text-md font-medium text-fg">{title}</h3>
-      <p className="relative mt-1 text-sm leading-relaxed text-fg-muted">
-        {full ? (
-          <Brief label={`About ${title}`} full={full}>
-            {line}
-          </Brief>
-        ) : (
-          line
-        )}
-      </p>
-      <p className="tabular relative mt-3 text-xs text-fg-subtle">{fact}</p>
-      {options ? <div className="relative mt-3">{options}</div> : null}
-      {note ? <div className="relative mt-3">{note}</div> : null}
-      <div className="relative mt-auto pt-5">
-        <Button
-          variant="secondary"
-          className="w-full"
-          onClick={onAction}
-          disabled={Boolean(busy)}
-          aria-label={`${action}: ${title}`}
+    <div className="min-w-0 rounded-control border border-border-subtle bg-surface-2 px-3 py-2">
+      {value === null ? (
+        <Skeleton className="my-1 h-5 w-6 rounded-sm" />
+      ) : (
+        <p className="font-figures text-lg leading-tight font-semibold text-fg">{value}</p>
+      )}
+      <p className="truncate text-xs text-fg-subtle">{label}</p>
+    </div>
+  );
+}
+
+/**
+ * The one-page dashboard, the featured share: the dashboard on one landscape
+ * page (title, filter pills, headline KPIs, four charts with their takeaways,
+ * the key insights beside them) as one 4K image or a one-page PDF, previewed
+ * as it downloads. It shows the dashboard's current period and filters, and
+ * is exactly the page in the dashboard's one-page view.
+ */
+function OnePageCard() {
+  const fmt = useFmt();
+  const title = useWorkspace((s) => s.pageTitle);
+  const setStep = useWorkspace((s) => s.setStep);
+  const setView = useWorkspace((s) => s.setDashView);
+  const model = usePageModel(title);
+  const [busy, setBusy] = React.useState<"png" | "pdf" | null>(null);
+  if (!model) return null;
+  const filters = model.slicers.filter((s) => s.values.length).length;
+  const pageMeta = `${model.periodLabel}${filters ? ` · ${filters} filter${filters === 1 ? "" : "s"}` : " · no filters"}`;
+  const chartList = model.charts.map((c, i) => (
+    <li key={c.spec.id} className="flex min-w-0 gap-1.5">
+      <span className="tabular w-3 shrink-0 text-fg-subtle">{i + 1}</span>
+      <ClampText className="min-w-0">{c.title}</ClampText>
+    </li>
+  ));
+  const run = async (format: "png" | "pdf") => {
+    setBusy(format);
+    try {
+      await downloadOnePage(format, fmt);
+      toast.success(format === "png" ? "Page downloaded as an image" : "Page downloaded as a PDF");
+    } catch (e) {
+      toast.error(`The page couldn't be made: ${(e as Error).message}`);
+    } finally {
+      setBusy(null);
+    }
+  };
+  return (
+    <GalleryCard
+      layout="featured"
+      stage="paper"
+      title="One-page dashboard"
+      line="Your dashboard on one landscape page."
+      full={`The whole story on one landscape page: the headline KPIs, ${model.charts.length === 1 ? "the key chart" : `${model.charts.length} key charts`} with their takeaways, and the key insights.`}
+      formats={["PNG", "PDF"]}
+      preview={<PagePreview model={model} />}
+      fact={
+        <Brief
+          label="About the page's format"
+          full="One image, 3840 × 2160 (4K), or a one-page landscape PDF, with the dashboard's current period and filters."
         >
-          {busy ? <Loader2 className="animate-spin" aria-hidden /> : <Download aria-hidden />}
-          <span className="truncate">{busy ?? action}</span>
-        </Button>
+          A 4K image or a one-page PDF.
+        </Brief>
+      }
+      actions={
+        <>
+          <Button
+            variant="primary"
+            size="lg"
+            className="max-sm:w-full"
+            onClick={() => void run("png")}
+            disabled={Boolean(busy)}
+          >
+            <DownloadIcon busy={busy === "png"} />
+            Download page
+          </Button>
+          <Button
+            variant="secondary"
+            size="lg"
+            className="max-sm:w-full"
+            onClick={() => void run("pdf")}
+            disabled={Boolean(busy)}
+            aria-label="As PDF: One-page dashboard"
+          >
+            {busy === "pdf" ? <Loader2 className="animate-spin" aria-hidden /> : <FileText aria-hidden />}
+            As PDF
+          </Button>
+        </>
+      }
+    >
+      {/* The page's own title and selection; the way to it wraps under them when they need the room. */}
+      <div className="flex min-w-0 flex-wrap items-start justify-between gap-x-3 gap-y-1.5 border-t border-border-subtle pt-4">
+        <div className="min-w-0 grow basis-56">
+          <ClampText key={model.title} className="text-ui font-medium text-fg">
+            {model.title}
+          </ClampText>
+          <ClampText key={pageMeta} className="tabular mt-0.5 text-xs text-fg-subtle">
+            {pageMeta}
+          </ClampText>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            setView("page");
+            setStep("dashboard");
+          }}
+          className="inline-flex shrink-0 items-center gap-1 rounded-xs text-xs font-medium text-accent-text outline-none hover:underline focus-visible:focus-ring"
+        >
+          See it on the dashboard
+          <ArrowUpRight className="size-3.5" aria-hidden />
+        </button>
       </div>
-    </article>
+      <div className="grid grid-cols-3 gap-2">
+        <Count value={model.kpis.length} label={model.kpis.length === 1 ? "KPI" : "KPIs"} />
+        <Count value={model.charts.length} label={model.charts.length === 1 ? "chart" : "charts"} />
+        <Count
+          value={model.insightsReady ? model.insights.length : null}
+          label={model.insights.length === 1 ? "insight" : "insights"}
+        />
+      </div>
+      {model.charts.length ? (
+        <>
+          {/* The charts by name from sm up; on a phone, their count with the names behind the ⓘ. */}
+          <ol className="hidden gap-1 text-xs text-fg-muted sm:grid" aria-label="Charts on the page">
+            {chartList}
+          </ol>
+          <p className="flex items-center gap-1.5 text-xs text-fg-muted sm:hidden">
+            Charts on the page
+            <InfoTip label="Charts on the page">
+              <ol className="grid gap-1">{chartList}</ol>
+            </InfoTip>
+          </p>
+        </>
+      ) : null}
+    </GalleryCard>
   );
 }
 
@@ -545,15 +529,17 @@ function Tile({
  * figures, glossary). The automatic charts for other columns (folded on the
  * dashboard) stay out unless asked for, as in the slides.
  */
-function ReportTile() {
+function ReportCard() {
   const build = useReportInput();
   const summary = useWorkspace((s) => s.summary);
   const loadInsights = useWorkspace((s) => s.loadInsights);
+  const heroes = useHeroCount();
   const { charts, leftOut } = useReportCharts();
   const [withColumns, setWithColumns] = React.useState(false);
   const columnCharts = charts.filter(isColumnChart).length;
+  const drawn = withColumns ? charts : charts.filter((c) => !isColumnChart(c));
   // Cover, two figures a page, appendix: the same count exportPdf lays out.
-  const pages = 2 + Math.ceil((withColumns ? charts.length : charts.length - columnCharts) / 2);
+  const pages = 2 + Math.ceil(drawn.length / 2);
   const [busy, setBusy] = React.useState<string | null>(null);
   const run = async () => {
     setBusy("Preparing…");
@@ -574,225 +560,52 @@ function ReportTile() {
     }
   };
   return (
-    <Tile
-      icon={FileText}
-      type="PDF"
+    <GalleryCard
+      stage="paper"
       title="Dashboard report"
       line="Cover, KPIs, numbered figures, glossary."
+      full="An analyst's report: a cover with the period and the headline KPIs, an executive summary, every chart as a numbered figure with its takeaway, and a glossary of the KPIs."
+      formats={["PDF"]}
+      preview={<ReportPreview kpis={heroes} pages={pages} charts={drawn} />}
       fact={`A4 · ${pages} pages`}
-      options={
-        columnCharts ? (
-          <ColumnsSwitch
-            count={columnCharts}
-            checked={withColumns}
-            onCheckedChange={setWithColumns}
-            what="report"
-          />
-        ) : null
-      }
-      note={<LeftOutNote charts={leftOut.filter((c) => withColumns || c.section !== "columns")} />}
-      action="Download PDF"
-      busy={busy}
-      onAction={() => void run()}
-    />
-  );
-}
-
-/**
- * The one-page dashboard in miniature: slicers, banner, KPI row, the charts in
- * their places, insights. The KPI tiles are neutral with a tinted chip, as on
- * the page; the innermost corners (2 px) are the interface's scaled down,
- * below the radius scale.
- */
-function MiniPage({ model }: { model: PageModel }) {
-  // The page as it is laid out since version 50.3: the banner, the row of filter pills, the KPI tiles,
-  // then the charts with the insights in a column beside them.
-  return (
-    <div
-      aria-hidden
-      className="grid aspect-video w-full grid-rows-[12%_7%_15%_minmax(0,1fr)] gap-[3px] rounded-control border border-border-strong bg-surface-2 p-[4px]"
-    >
-      <div className="rounded-xs bg-accent-soft" />
-      <div className="flex gap-[3px]">
-        {Array.from({ length: 1 + model.slicers.length }, (_, i) => (
-          <div key={i} className="h-full w-[12%] rounded-full bg-surface-3" />
-        ))}
-      </div>
-      <div
-        className="grid gap-[3px]"
-        style={{ gridTemplateColumns: `repeat(${Math.max(1, model.kpis.length)}, minmax(0, 1fr))` }}
-      >
-        {model.kpis.map((k, i) => (
-          <div key={k.meta.id} className="relative rounded-xs bg-surface-1">
-            <span
-              className="absolute top-[3px] left-[3px] size-[5px] rounded-[1px]"
-              style={{
-                background: `color-mix(in oklab, var(--chart-${(i % 8) + 1}) 45%, var(--surface-1))`,
-              }}
-            />
-          </div>
-        ))}
-      </div>
-      <div className="grid min-h-0 grid-cols-[minmax(0,1fr)_21%] gap-[3px]">
-        <div className="grid min-h-0 grid-cols-6 grid-rows-2 gap-[3px]">
-          {model.charts.map((c) => (
-            <div
-              key={c.spec.id}
-              className="[grid-column:span_var(--span)/span_var(--span)] [grid-row:span_var(--rows)/span_var(--rows)] rounded-xs bg-surface-1"
-              style={{ "--span": c.span, "--rows": c.tall ? 2 : 1 } as React.CSSProperties}
-            />
-          ))}
-        </div>
-        <div className="rounded-xs bg-surface-1" />
-      </div>
-    </div>
-  );
-}
-
-/**
- * The one-page dashboard, the featured share: the dashboard on one landscape
- * page (title, filters, headline KPIs, four charts with their takeaways, the
- * key insights beside them) as one 4K image or a one-page PDF, drawn in miniature with
- * the charts it holds. It shows the dashboard's current period and filters,
- * and is exactly the page in the dashboard's one-page view.
- */
-function OnePagePanel() {
-  const fmt = useFmt();
-  const title = useWorkspace((s) => s.pageTitle);
-  const setStep = useWorkspace((s) => s.setStep);
-  const setView = useWorkspace((s) => s.setDashView);
-  const model = usePageModel(title);
-  const [busy, setBusy] = React.useState<"png" | "pdf" | null>(null);
-  if (!model) return null;
-  const filters = model.slicers.filter((s) => s.values.length).length;
-  const pageMeta = `${model.periodLabel}${filters ? ` · ${filters} filter${filters === 1 ? "" : "s"}` : " · no filters"}`;
-  const chartList = model.charts.map((c, i) => (
-    <li key={c.spec.id} className="flex min-w-0 gap-1">
-      <span className="tabular shrink-0 text-fg-subtle">{i + 1}.</span>
-      <ClampText className="min-w-0">{c.title}</ClampText>
-    </li>
-  ));
-  const run = async (format: "png" | "pdf") => {
-    setBusy(format);
-    try {
-      await downloadOnePage(format, fmt);
-      toast.success(format === "png" ? "Page downloaded as an image" : "Page downloaded as a PDF");
-    } catch (e) {
-      toast.error(`The page couldn't be made: ${(e as Error).message}`);
-    } finally {
-      setBusy(null);
-    }
-  };
-  return (
-    <article className={cn(SURFACE, FEATURED, "p-6 lg:col-span-2")}>
-      <CornerGlow />
-      <FeatureHead
-        icon={LayoutDashboard}
-        title="One-page dashboard"
-        line="Your dashboard on one landscape page."
-        full="The whole story on one landscape page: headline KPIs, five key charts with their takeaways, and the key insights."
-        type="PNG · PDF"
-      />
-      <div className="relative mt-5 grid gap-5 sm:grid-cols-[minmax(0,280px)_minmax(0,1fr)] sm:items-center">
-        <MiniPage model={model} />
-        <div className="min-w-0">
-          <ClampText key={model.title} className="text-ui font-medium text-fg">
-            {model.title}
-          </ClampText>
-          <ClampText key={pageMeta} className="tabular mt-0.5 text-xs text-fg-subtle">
-            {pageMeta}
-          </ClampText>
-          {/* The charts by name from sm up; on a phone, their count with the names behind the ⓘ. */}
-          <ol className="mt-3 hidden gap-1 text-xs text-fg-muted sm:grid" aria-label="Charts on the page">
-            {chartList}
-          </ol>
-          <p className="mt-2 flex items-center gap-1.5 text-xs text-fg-muted sm:hidden">
-            <span className="tabular">
-              {model.charts.length} {model.charts.length === 1 ? "chart" : "charts"}
-            </span>
-            <InfoTip label="Charts on the page">
-              <ol className="grid gap-1">{chartList}</ol>
-            </InfoTip>
-          </p>
-        </div>
-      </div>
-      <p className="tabular relative mt-4 text-xs text-fg-subtle">
-        <Brief
-          label="About the page's format"
-          full="One image, 3840 × 2160 (4K), or a one-page landscape PDF, with the dashboard's current period and filters."
-        >
-          A 4K image or a one-page PDF.
-        </Brief>
-      </p>
-      <div className="relative mt-auto flex flex-wrap items-center gap-3 pt-6">
-        <Button variant="primary" size="lg" onClick={() => void run("png")} disabled={Boolean(busy)}>
-          {busy === "png" ? <Loader2 className="animate-spin" aria-hidden /> : <Download aria-hidden />}
-          Download page
-        </Button>
-        <Button variant="secondary" onClick={() => void run("pdf")} disabled={Boolean(busy)}>
-          {busy === "pdf" ? <Loader2 className="animate-spin" aria-hidden /> : <FileText aria-hidden />} As
-          PDF
-        </Button>
+      actions={
         <Button
-          variant="ghost"
-          onClick={() => {
-            setView("page");
-            setStep("dashboard");
-          }}
+          variant="secondary"
+          className="w-full"
+          onClick={() => void run()}
+          disabled={Boolean(busy)}
+          aria-label="Download PDF: Dashboard report"
         >
-          See it on the dashboard
+          <DownloadIcon busy={Boolean(busy)} />
+          <span className="truncate">{busy ?? "Download PDF"}</span>
         </Button>
-      </div>
-    </article>
+      }
+    >
+      {columnCharts ? (
+        <ColumnsSwitch
+          count={columnCharts}
+          checked={withColumns}
+          onCheckedChange={setWithColumns}
+          what="report"
+        />
+      ) : null}
+      <LeftOutNote charts={leftOut.filter((c) => withColumns || c.section !== "columns")} />
+    </GalleryCard>
   );
 }
 
 /**
- * A slide in miniature: the overview, or its rows of charts, so the deck's
- * shape is seen before it is made. Its inner corners (2 px) are scaled down,
- * as in MiniPage.
+ * Presentation slides: the dashboard as landscape 16:9 images (two or four
+ * charts a slide, each led by its takeaway), with the deck previewed and
+ * counted before it is made, as PNGs in a zip or one PDF. The automatic
+ * charts for other columns (folded on the dashboard) stay out unless asked
+ * for.
  */
-function MiniSlide({ slide, n }: { slide: Slide; n: number }) {
-  const label =
-    slide.kind === "overview" ? "Overview" : `${slide.title}${slide.parts > 1 ? ` ${slide.part}` : ""}`;
-  return (
-    <li className="flex flex-col items-center gap-1" title={`Slide ${n}: ${label}`}>
-      <div className="flex aspect-video w-[68px] flex-col gap-[3px] rounded-sm border border-border-strong bg-surface-2 p-[4px]">
-        {slide.kind === "overview" ? (
-          <>
-            <div className="h-[5px] w-3/5 rounded-[2px] bg-accent/70" />
-            <div className="grid flex-1 grid-cols-3 gap-[2px]">
-              {Array.from({ length: 6 }, (_, i) => (
-                <div key={i} className="rounded-[2px] bg-accent-soft" />
-              ))}
-            </div>
-          </>
-        ) : (
-          slide.rows.map((row, r) => (
-            <div key={r} className="flex flex-1 gap-[3px]">
-              {row.map((c) => (
-                <div key={c.spec.id} className="flex-1 rounded-[2px] bg-surface-3" />
-              ))}
-            </div>
-          ))
-        )}
-      </div>
-      <span className="font-figures text-2xs text-fg-subtle">{n}</span>
-    </li>
-  );
-}
-
-/**
- * Presentation slides, the featured share: the dashboard as landscape 16:9
- * images (two or four charts a slide, each led by its takeaway), with the
- * deck drawn in miniature and counted before it is made, as PNGs in a zip
- * or one PDF. The automatic charts for other columns (folded on the
- * dashboard) stay out unless asked for.
- */
-function SlidesPanel() {
+function SlidesCard() {
   const build = useReportInput();
   const summary = useWorkspace((s) => s.summary);
   const loadInsights = useWorkspace((s) => s.loadInsights);
+  const heroes = useHeroCount();
   const [density, setDensity] = React.useState<SlideDensity>(2);
   const [withColumns, setWithColumns] = React.useState(false);
   const [busy, setBusy] = React.useState<string | null>(null);
@@ -826,99 +639,71 @@ function SlidesPanel() {
     }
   };
   return (
-    <article className={cn(SURFACE, FEATURED, "p-6 lg:col-span-2")}>
-      <CornerGlow />
-      <FeatureHead
-        icon={Presentation}
-        title="Presentation slides"
-        line="16:9 slides, a takeaway on every chart."
-        full="Landscape 16:9 slides with a takeaway on every chart, ready for PowerPoint, Keynote or a screen."
-        type="PNG · PDF"
+    <GalleryCard
+      stage="paper"
+      title="Presentation slides"
+      line="16:9 slides, a takeaway on every chart."
+      full="Landscape 16:9 slides with a takeaway on every chart, ready for PowerPoint, Keynote or a screen. Each image is 3840 × 2160 (4K), numbered in order, opening with the headline KPIs and key takeaways."
+      formats={["PNG", "PDF"]}
+      preview={<SlidesPreview slides={slides} kpis={heroes} />}
+      fact={
+        <span className="flex min-w-0 items-baseline gap-1">
+          <span className="shrink-0 font-medium text-fg-muted">{slides.length} slides</span>
+          <ClampText key={deck} className="min-w-0">
+            · {deck}
+          </ClampText>
+        </span>
+      }
+      actions={
+        <>
+          <Button
+            variant="secondary"
+            className="min-w-0 flex-1 px-3"
+            onClick={() => void run("png")}
+            disabled={Boolean(busy)}
+            aria-label="Download slides as images"
+          >
+            <DownloadIcon busy={Boolean(busy)} />
+            <span className="truncate">{busy ?? "Download slides"}</span>
+          </Button>
+          <Button
+            variant="secondary"
+            className="px-3"
+            onClick={() => void run("pdf")}
+            disabled={Boolean(busy)}
+            aria-label="As PDF: Presentation slides"
+          >
+            <FileText aria-hidden /> As PDF
+          </Button>
+        </>
+      }
+    >
+      <Segmented<"2" | "4">
+        ariaLabel="Charts per slide"
+        size="sm"
+        className="w-fit"
+        value={String(density) as "2" | "4"}
+        onChange={(v) => setDensity(v === "4" ? 4 : 2)}
+        options={[
+          { value: "2", title: "2 charts a slide, for presenting", label: "2 charts a slide" },
+          { value: "4", title: "4 charts a slide, compact", label: "4 charts a slide" },
+        ]}
       />
-
-      <div className="relative mt-5 flex flex-wrap items-center gap-x-5 gap-y-3">
-        <Segmented<"2" | "4">
-          ariaLabel="Charts per slide"
-          size="sm"
-          value={String(density) as "2" | "4"}
-          onChange={(v) => setDensity(v === "4" ? 4 : 2)}
-          // The hint after the count is left off on a phone, so each option stays on one line.
-          options={[
-            {
-              value: "2",
-              title: "2 charts a slide, for presenting",
-              label: (
-                <>
-                  2 charts a slide<span className="hidden sm:inline"> · for presenting</span>
-                </>
-              ),
-            },
-            {
-              value: "4",
-              title: "4 charts a slide, compact",
-              label: (
-                <>
-                  4 charts a slide<span className="hidden sm:inline"> · compact</span>
-                </>
-              ),
-            },
-          ]}
+      {columnCharts ? (
+        <ColumnsSwitch
+          count={columnCharts}
+          checked={withColumns}
+          onCheckedChange={setWithColumns}
+          what="slides"
         />
-        {columnCharts ? (
-          <ColumnsSwitch
-            count={columnCharts}
-            checked={withColumns}
-            onCheckedChange={setWithColumns}
-            what="slides"
-          />
-        ) : null}
-      </div>
-
-      {/* The deck in miniature: how many images it takes, and what is on each. */}
-      <ol
-        className="relative mt-5 flex max-h-44 flex-wrap gap-x-2.5 gap-y-3 overflow-y-auto"
-        aria-label="The slides"
-        // Focusable, so a long deck (it scrolls on a phone) can be scrolled from the keyboard too.
-        tabIndex={0}
-      >
-        {slides.map((slide, i) => (
-          <MiniSlide key={i} slide={slide} n={i + 1} />
-        ))}
-      </ol>
-      <div className="relative mt-3 flex min-w-0 items-baseline gap-1 text-sm text-fg">
-        <span className="tabular shrink-0 font-medium">{slides.length} slides</span>
-        <ClampText key={deck} className="min-w-0 text-fg-muted">
-          · {deck}
-        </ClampText>
-      </div>
-      <p className="tabular relative mt-0.5 text-xs text-fg-subtle">
-        <Brief
-          label="About the slides' format"
-          full="Each image 3840 × 2160 (4K), numbered in order. Opens with the headline KPIs and key takeaways."
-        >
-          4K images, opening with the headline KPIs.
-        </Brief>
-      </p>
-      <LeftOutNote
-        className="relative mt-3"
-        charts={leftOut.filter((c) => withColumns || c.section !== "columns")}
-      />
-
-      <div className="relative mt-auto flex flex-wrap items-center gap-3 pt-6">
-        <Button variant="primary" size="lg" onClick={() => void run("png")} disabled={Boolean(busy)}>
-          {busy ? <Loader2 className="animate-spin" aria-hidden /> : <Download aria-hidden />}
-          {busy ?? "Download slides"}
-        </Button>
-        <Button variant="secondary" onClick={() => void run("pdf")} disabled={Boolean(busy)}>
-          <FileText aria-hidden /> As one PDF
-        </Button>
-      </div>
-    </article>
+      ) : null}
+      <LeftOutNote charts={leftOut.filter((c) => withColumns || c.section !== "columns")} />
+    </GalleryCard>
   );
 }
 
 /** Insights: what the data says, ranked, with the chart that shows it where there is one. */
-function InsightsTile() {
+function InsightsCard({ alone }: { alone?: boolean }) {
   const build = useReportInput();
   const summary = useWorkspace((s) => s.summary);
   const insights = useWorkspace((s) => s.insights);
@@ -973,20 +758,33 @@ function InsightsTile() {
     }
   };
   return (
-    <Tile
-      icon={Lightbulb}
-      type="PDF"
+    <GalleryCard
+      alone={alone}
+      stage="paper"
       title="Insights"
       line="Ranked findings, each with its chart."
-      full="What the data says, ranked, with its chart where one shows it."
+      full="What the data says, ranked by impact, each with the chart that shows it where there is one."
+      formats={["PDF"]}
+      preview={<InsightsPreview insights={insights} />}
       fact={
         insights
-          ? `${insights.length} ${insights.length === 1 ? "insight" : "insights"}`
-          : "Found and ranked on download"
+          ? insights.length
+            ? `${insights.length} ${insights.length === 1 ? "insight" : "insights"}, ranked`
+            : "Nothing stands out for this selection"
+          : "Finding insights…"
       }
-      action="Download PDF"
-      busy={busy}
-      onAction={() => void run()}
+      actions={
+        <Button
+          variant="secondary"
+          className="w-full"
+          onClick={() => void run()}
+          disabled={Boolean(busy)}
+          aria-label="Download PDF: Insights"
+        >
+          <DownloadIcon busy={Boolean(busy)} />
+          <span className="truncate">{busy ?? "Download PDF"}</span>
+        </Button>
+      }
     />
   );
 }
@@ -1011,35 +809,38 @@ const PACKAGE_STEPS = [
 ];
 
 /**
- * The package's files as one list to read: top-level files one by one, each
- * folder (the semantic model) as a single line with its file count and size.
+ * The Power BI package. It describes the dashboard as laid out, the user's
+ * own charts included (the engine reads their specs, titles and chart types
+ * from the config the package embeds, and leaves out any it couldn't draw).
+ * The package is built first and the question names exactly the columns it
+ * adds; nothing is saved until the user answers, and "no" builds it again
+ * without them. The preview is the model's diagram, its table and measures
+ * read from the package's own measures.dax.
  */
-function packageLines(manifest: PackageManifest): Array<{ path: string; bytes: number; files: number }> {
-  const lines = new Map<string, { path: string; bytes: number; files: number }>();
-  for (const f of manifest.files) {
-    const slash = f.path.indexOf("/");
-    const path = slash > 0 ? `${f.path.slice(0, slash)}/` : f.path;
-    const line = lines.get(path) ?? { path, bytes: 0, files: 0 };
-    line.bytes += f.bytes;
-    line.files += 1;
-    lines.set(path, line);
-  }
-  return [...lines.values()];
-}
-
-/**
- * The featured export: the Power BI package. It describes the dashboard as
- * laid out, the user's own charts included (the engine reads their specs,
- * titles and chart types from the config the package embeds, and leaves out
- * any it couldn't draw). The package is built first and the question names
- * exactly the columns it adds; nothing is saved until the user answers, and
- * "no" builds it again without them.
- */
-function PowerBiPanel() {
+function PowerBiCard() {
   const [busy, setBusy] = React.useState(false);
   const [manifest, setManifest] = React.useState<PackageManifest | null>(null);
+  // The model's outline from measures.dax: undefined while it is read, null when it has no measure.
+  const [outline, setOutline] = React.useState<ModelOutline | null | undefined>(undefined);
   const summary = useWorkspace((s) => s.summary);
+  const context = useWorkspace((s) => s.context);
   const consent = useColumnConsent();
+  React.useEffect(() => {
+    let live = true;
+    engine()
+      .exportDax()
+      .then(
+        (dax) => {
+          if (live) setOutline(modelOutline(dax));
+        },
+        () => {
+          if (live) setOutline(null);
+        },
+      );
+    return () => {
+      live = false;
+    };
+  }, [context]);
   const generate = async (opener: HTMLElement) => {
     const cfg = buildConfig();
     if (!cfg) return;
@@ -1082,185 +883,93 @@ function PowerBiPanel() {
     }
   };
   return (
-    <article className={cn(SURFACE, FEATURED, "p-6 lg:col-span-2")}>
-      <CornerGlow />
-      {consent.dialog}
-      <FeatureHead
-        icon={FileArchive}
-        title="Power BI package"
-        line="Rebuild this dashboard in Power BI Desktop."
-        full="Everything to rebuild this dashboard in Power BI Desktop in about five minutes."
-        type="ZIP"
-      />
-
-      {manifest ? (
-        <div className="relative mt-5 rounded-control border border-border bg-surface-2">
-          <p className="flex items-center gap-1.5 border-b border-border-subtle px-3.5 py-2 text-xs text-fg-muted">
-            <CheckCircle2 className="size-3.5 text-success" aria-hidden /> Downloaded: {manifest.files.length}{" "}
-            files, {formatBytes(manifest.totalBytes)} compressed
-          </p>
-          <ul className="grid gap-x-6 px-3.5 py-2 sm:grid-cols-2">
-            {packageLines(manifest).map((f) => (
-              <li key={f.path} className="flex items-center justify-between gap-3 py-1 text-xs">
-                <ClampText key={f.path} className="min-w-0 text-fg">
-                  {f.path}
-                  {f.files > 1 ? <span className="text-fg-subtle"> · {f.files} files</span> : null}
-                </ClampText>
-                <span className="font-figures shrink-0 text-fg-subtle">{formatBytes(f.bytes)}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : (
-        <>
-          {/* What it holds, part by part from sm up; on a phone, one line with the parts behind it. */}
-          <ul className="relative mt-5 hidden gap-x-6 gap-y-2 sm:grid sm:grid-cols-2">
-            {PACKAGE_PARTS.map((t) => (
-              <li key={t} className="flex items-center gap-2 text-ui text-fg">
-                <CheckCircle2 className="size-4 shrink-0 text-success" aria-hidden />
-                {t}
-              </li>
-            ))}
-          </ul>
-          <p className="relative mt-4 flex items-center gap-2 text-ui text-fg sm:hidden">
-            <CheckCircle2 className="size-4 shrink-0 text-success" aria-hidden />
-            <Brief
-              label="What the package holds"
-              full={
-                <ul className="grid gap-1">
-                  {PACKAGE_PARTS.map((t) => (
-                    <li key={t}>{t}</li>
-                  ))}
-                </ul>
-              }
-            >
-              Model, measures, data and a build guide
-            </Brief>
-          </p>
-        </>
-      )}
-
-      {/* Each step by name; how to do it behind its ⓘ (the README has every step in full). */}
-      <ol className="relative mt-6 grid gap-2 sm:grid-cols-3 sm:gap-3" aria-label="How to use it">
-        {PACKAGE_STEPS.map((step, i) => (
-          <li
-            key={step.title}
-            className="flex items-center gap-2.5 rounded-control border border-border bg-surface-2 px-3.5 py-2.5 sm:flex-col sm:items-start sm:py-3.5"
+    <GalleryCard
+      title="Power BI package"
+      line="Rebuild this dashboard in Power BI Desktop."
+      full="Everything to rebuild this dashboard in Power BI Desktop in about five minutes. A project package, not a .pbix: only Power BI Desktop can write that file. Built from your columns; you're asked before anything is added."
+      formats={["ZIP"]}
+      preview={
+        <ModelPreview
+          outline={outline}
+          columns={summary?.columnCount ?? 0}
+          dates={Boolean(context?.dateColumn)}
+        />
+      }
+      fact={
+        manifest ? (
+          <span className="inline-flex items-center gap-1.5 text-fg-muted">
+            <CheckCircle2 className="size-3.5 shrink-0 text-success" aria-hidden />
+            <span className="tabular">
+              Downloaded: {manifest.files.length} files, {formatBytes(manifest.totalBytes)}
+            </span>
+            <InfoTip label="The package's files">
+              <ul className="grid gap-1">
+                {packageLines(manifest).map((f) => (
+                  <li key={f.path} className="flex justify-between gap-4">
+                    <span>
+                      {f.path}
+                      {f.files > 1 ? ` · ${f.files} files` : ""}
+                    </span>
+                    <span className="tabular shrink-0">{formatBytes(f.bytes)}</span>
+                  </li>
+                ))}
+              </ul>
+            </InfoTip>
+          </span>
+        ) : (
+          <Brief
+            label="What the package holds"
+            full={
+              <ul className="grid gap-1">
+                {PACKAGE_PARTS.map((t) => (
+                  <li key={t}>{t}</li>
+                ))}
+              </ul>
+            }
           >
-            <span className="font-figures grid size-6 shrink-0 place-items-center rounded-full border border-border-accent bg-accent-soft text-2xs font-medium text-accent-text">
+            Model, measures, data and a build guide
+          </Brief>
+        )
+      }
+      actions={
+        <Button
+          variant="secondary"
+          className="w-full"
+          onClick={(e) => void generate(e.currentTarget)}
+          disabled={busy}
+          aria-label="Download package: Power BI package"
+        >
+          <DownloadIcon busy={busy} /> Download package
+        </Button>
+      }
+    >
+      {consent.dialog}
+      {/* Each step by name; how to do it behind its ⓘ (the README has every step in full). */}
+      <ol className="grid gap-1.5" aria-label="How to use it">
+        {PACKAGE_STEPS.map((step, i) => (
+          <li key={step.title} className="flex items-center gap-2.5">
+            <span className="font-figures grid size-5 shrink-0 place-items-center rounded-full border border-border-accent bg-accent-soft text-2xs font-medium text-accent-text">
               {i + 1}
             </span>
-            <p className="flex items-center gap-1.5 text-ui font-medium text-fg">
+            <span className="flex min-w-0 items-center gap-1.5 text-ui text-fg">
               {step.title}
               <InfoTip label={`How to: ${step.title}`}>{step.line}</InfoTip>
-            </p>
+            </span>
           </li>
         ))}
       </ol>
-
-      <div className="relative mt-auto flex flex-wrap items-center gap-x-4 gap-y-2 pt-6">
-        <Button variant="primary" size="lg" onClick={(e) => void generate(e.currentTarget)} disabled={busy}>
-          {busy ? <Loader2 className="animate-spin" aria-hidden /> : <Download aria-hidden />} Download
-          package
-        </Button>
-        <p className="max-w-xs text-xs leading-relaxed text-fg-subtle">
-          <Brief
-            label="About the package"
-            full="A project package, not a .pbix: only Power BI Desktop can write that file. Built from your columns; you're asked before anything is added."
-          >
-            A project package, not a .pbix.
-          </Brief>
-        </p>
-      </div>
-    </article>
+    </GalleryCard>
   );
-}
-
-/** A file row inside a panel: what it is, a fact, and its download. */
-function FileRow({
-  icon: Icon,
-  title,
-  fact,
-  action,
-  onAction,
-  disabled,
-}: {
-  icon: React.ComponentType<{ className?: string }>;
-  title: string;
-  fact: React.ReactNode;
-  action: string;
-  onAction: () => void;
-  disabled?: boolean;
-}) {
-  return (
-    <div className="flex items-center justify-between gap-3 py-2.5">
-      <div className="flex min-w-0 items-center gap-2.5">
-        <Icon className="size-4 shrink-0 text-fg-subtle" aria-hidden />
-        <div className="min-w-0">
-          <p className="truncate text-ui text-fg">{title}</p>
-          <p className="tabular truncate text-xs text-fg-subtle">{fact}</p>
-        </div>
-      </div>
-      <Button
-        size="sm"
-        variant="secondary"
-        onClick={onAction}
-        disabled={disabled}
-        aria-label={`${action}: ${title}`}
-      >
-        <Download aria-hidden /> {action}
-      </Button>
-    </div>
-  );
-}
-
-/** A side panel in "Build on it": icon, title and type, then its files. */
-function Panel({
-  icon,
-  title,
-  type,
-  children,
-}: {
-  icon: React.ComponentType<{ className?: string }>;
-  title: string;
-  type: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <article className={cn(SURFACE, "p-5")}>
-      <CornerGlow />
-      <div className="relative flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <TileIcon icon={icon} />
-          <h3 className="text-md font-medium text-fg">{title}</h3>
-        </div>
-        <TypePill>{type}</TypePill>
-      </div>
-      <div className="relative mt-3 divide-y divide-border-subtle">{children}</div>
-    </article>
-  );
-}
-
-/**
- * The KPI views in kpis.sql: one per KPI, counted apart from the helper views
- * other KPIs build on (marked "(helper)" on their title line), so the count
- * matches what Verify checks. Monthly views and analyses don't count.
- */
-function viewCounts(sql: string): { kpis: number; helpers: number } {
-  const all = [...sql.matchAll(/^CREATE VIEW "(kpi_[^"]+)"/gm)].filter(
-    (m) => !/_monthly(_base)?$/.test(m[1] as string),
-  ).length;
-  const helpers = [...sql.matchAll(/^-- ── .+ \(helper\) ─/gm)].length;
-  return { kpis: all - helpers, helpers };
 }
 
 /**
  * SQL: the file (every KPI as a view), the same SQL and DAX in colour to read
  * in a browser, the business questions as a PDF once some were asked, and a
  * check that every KPI query returns Loupe's own value over the whole file in
- * DuckDB (the views have no period or filter, so neither has the check).
+ * DuckDB (the views have no period or filter, so neither has the check). The
+ * preview is the file's first KPI view.
  */
-function SqlPanel() {
+function SqlCard() {
   const fmt = useFmt();
   const summary = useWorkspace((s) => s.summary);
   const context = useWorkspace((s) => s.context);
@@ -1274,6 +983,7 @@ function SqlPanel() {
     void engine().exportSql().then(setSql);
   }, [context]);
   const views = sql ? viewCounts(sql) : null;
+  const excerpt = React.useMemo(() => (sql ? sqlExcerpt(sql) : null), [sql]);
   const wholeFile = `Loupe's whole-file values (${formatCount(summary?.rowCount ?? 0, fmt.locale)} rows)`;
   // The page's DAX is measures.dax, so it asks the same question about the Date table's helper column.
   const downloadHtml = async () => {
@@ -1344,115 +1054,154 @@ function SqlPanel() {
     formatValue(v, context?.kpis.find((x) => x.id === id)?.format ?? "number", fmt);
   const matched = results?.filter((r) => r.match).length ?? 0;
   return (
-    <Panel icon={FileCode2} title="SQL" type="SQL">
+    <GalleryCard
+      title="SQL"
+      line="Every KPI as a view you can run."
+      full="kpis.sql holds every KPI as a SQL view over your whole file, with the same SQL and DAX in colour to read in a browser. Verify runs each query on your data in DuckDB, in this tab, and compares it with Loupe's value."
+      formats={questions.length ? ["SQL", "HTML", "PDF"] : ["SQL", "HTML"]}
+      preview={<SqlPreview excerpt={excerpt} />}
+      fact={
+        views
+          ? `${views.kpis} ${views.kpis === 1 ? "view" : "views"}, one per KPI${
+              views.helpers ? ` + ${views.helpers} ${views.helpers === 1 ? "helper" : "helpers"}` : ""
+            }`
+          : "Writing…"
+      }
+      actions={
+        <>
+          <Button
+            variant="secondary"
+            className="min-w-0 flex-1 px-3"
+            disabled={!sql}
+            onClick={() =>
+              sql && downloadBlob(sql, exportFileName(summary?.name, "kpis", "sql"), "application/sql")
+            }
+            aria-label="Download .sql: KPI views"
+          >
+            <Download aria-hidden /> Download .sql
+          </Button>
+          <Button
+            variant="secondary"
+            className="px-3"
+            onClick={() => void downloadHtml()}
+            aria-label="Download .html: SQL and DAX in colour"
+          >
+            <Download aria-hidden /> In colour
+          </Button>
+        </>
+      }
+    >
       {consent.dialog}
-      <FileRow
-        icon={Database}
-        title="KPI views"
-        fact={
-          views
-            ? `${views.kpis} ${views.kpis === 1 ? "view" : "views"}, one per KPI${
-                views.helpers ? ` + ${views.helpers} ${views.helpers === 1 ? "helper" : "helpers"}` : ""
-              }`
-            : "Writing…"
-        }
-        action=".sql"
-        disabled={!sql}
-        onAction={() =>
-          sql && downloadBlob(sql, exportFileName(summary?.name, "kpis", "sql"), "application/sql")
-        }
-      />
-      <FileRow
-        icon={Palette}
-        title="SQL and DAX in colour"
-        fact="To read in a browser"
-        action=".html"
-        onAction={() => void downloadHtml()}
-      />
-      {questions.length ? (
-        <FileRow
-          icon={FileText}
-          title="Your questions with their SQL"
-          fact={`${questions.length} ${questions.length === 1 ? "question" : "questions"} answered`}
-          action=".pdf"
-          disabled={pdfBusy}
-          onAction={() => void downloadQuestions()}
-        />
-      ) : null}
-      <div className="pt-3">
-        {results ? (
-          <details className="group/v">
-            <summary className="flex cursor-pointer list-none items-center gap-2 text-xs text-fg-muted select-none">
-              {matched === results.length ? (
-                <CheckCircle2 className="size-4 text-success" aria-hidden />
-              ) : (
-                <XCircle className="size-4 text-danger" aria-hidden />
-              )}
-              <span className="min-w-0">
-                {matched} of {results.length} KPI queries match · whole file
-              </span>
-              <span className="ml-auto shrink-0 text-fg-subtle underline-offset-2 group-open/v:hidden hover:underline">
-                Details
-              </span>
-            </summary>
-            <p className="mt-2 text-xs text-fg-subtle">Compared with {wholeFile}.</p>
-            {/* Scrolls in its own box, so a long list never pushes the rest of the page away. */}
-            <div
-              className="mt-2 max-h-64 overflow-y-auto"
-              // Focusable, so the list can be scrolled from the keyboard (the global focus ring shows it).
-              tabIndex={0}
-              role="region"
-              aria-label="Each KPI query's result"
-            >
-              <table className="w-full text-xs">
-                <thead className="sticky top-0 bg-surface-1 text-left text-fg-subtle">
-                  <tr>
-                    <th className="py-1 font-medium">KPI</th>
-                    <th className="py-1 pl-3 text-right font-medium">Loupe (whole file)</th>
-                    <th className="py-1 pl-3 text-right font-medium">DuckDB</th>
+      {results ? (
+        <details className="group/v">
+          <summary className="flex cursor-pointer list-none items-center gap-2 rounded-xs text-xs text-fg-muted outline-none select-none focus-visible:focus-ring">
+            {matched === results.length ? (
+              <CheckCircle2 className="size-4 shrink-0 text-success" aria-hidden />
+            ) : (
+              <XCircle className="size-4 shrink-0 text-danger" aria-hidden />
+            )}
+            <span className="tabular min-w-0">
+              {matched} of {results.length} KPI queries match · whole file
+            </span>
+            <span className="ml-auto shrink-0 text-fg-subtle underline-offset-2 group-open/v:hidden hover:underline">
+              Details
+            </span>
+          </summary>
+          <p className="mt-2 text-xs text-fg-subtle">Compared with {wholeFile}.</p>
+          {/* Scrolls in its own box, so a long list never pushes the rest of the page away. */}
+          <div
+            className="mt-2 max-h-64 overflow-y-auto"
+            // Focusable, so the list can be scrolled from the keyboard (the global focus ring shows it).
+            tabIndex={0}
+            role="region"
+            aria-label="Each KPI query's result"
+          >
+            <table className="w-full text-xs">
+              <thead className="sticky top-0 bg-surface-1 text-left text-fg-subtle">
+                <tr>
+                  <th className="py-1 font-medium">KPI</th>
+                  <th className="py-1 pl-3 text-right font-medium">Loupe (whole file)</th>
+                  <th className="py-1 pl-3 text-right font-medium">DuckDB</th>
+                </tr>
+              </thead>
+              <tbody>
+                {results.map((r) => (
+                  <tr key={r.id} className="border-t border-border-subtle">
+                    <td className="py-1 pr-2 text-fg">{r.name}</td>
+                    <td className="font-figures py-1 pl-3 text-right text-fg">{fmtKpi(r.id, r.engine)}</td>
+                    <td
+                      className={cn(
+                        "font-figures py-1 pl-3 text-right",
+                        r.match ? "text-fg" : "text-danger-text",
+                      )}
+                      title={r.error}
+                    >
+                      {r.error ? "error" : fmtKpi(r.id, r.duckdb)}
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {results.map((r) => (
-                    <tr key={r.id} className="border-t border-border-subtle">
-                      <td className="py-1 pr-2 text-fg">{r.name}</td>
-                      <td className="font-figures py-1 pl-3 text-right text-fg">{fmtKpi(r.id, r.engine)}</td>
-                      <td
-                        className={cn(
-                          "font-figures py-1 pl-3 text-right",
-                          r.match ? "text-fg" : "text-danger-text",
-                        )}
-                        title={r.error}
-                      >
-                        {r.error ? "error" : fmtKpi(r.id, r.duckdb)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </details>
-        ) : (
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </details>
+      ) : (
+        <Button
+          size="sm"
+          variant="ghost"
+          className="-ml-2 w-fit"
+          onClick={() => void verify()}
+          disabled={Boolean(status)}
+        >
+          {status ? <Loader2 className="animate-spin" aria-hidden /> : <BadgeCheck aria-hidden />}
+          {status ?? "Verify against your data"}
+        </Button>
+      )}
+      {questions.length ? (
+        <div className="flex items-center justify-between gap-3 border-t border-border-subtle pt-3">
+          <div className="min-w-0">
+            <p className="truncate text-ui text-fg">Your questions with their SQL</p>
+            <p className="tabular truncate text-xs text-fg-subtle">
+              {questions.length} {questions.length === 1 ? "question" : "questions"} answered
+            </p>
+          </div>
           <Button
             size="sm"
-            variant="ghost"
-            className="-ml-2"
-            onClick={() => void verify()}
-            disabled={Boolean(status)}
+            variant="secondary"
+            onClick={() => void downloadQuestions()}
+            disabled={pdfBusy}
+            aria-label=".pdf: Your questions with their SQL"
           >
-            {status ? <Loader2 className="animate-spin" aria-hidden /> : <BadgeCheck aria-hidden />}
-            {status ?? "Verify against your data"}
+            <DownloadIcon busy={pdfBusy} /> .pdf
           </Button>
-        )}
-      </div>
-    </Panel>
+        </div>
+      ) : null}
+    </GalleryCard>
   );
 }
 
 /** Data: the cleaned file (your headers, tidied values) and what each column means. */
-function DataPanel() {
+function DataCard({ alone }: { alone?: boolean }) {
   const summary = useWorkspace((s) => s.summary);
+  const profile = useWorkspace((s) => s.profile);
   const locale = useSettings((s) => s.numberLocale);
+  const [rows, setRows] = React.useState<Array<Array<string | null>> | null>(null);
+  // The first rows of the data, as the data grid shows them, under the file's own headers.
+  React.useEffect(() => {
+    let live = true;
+    engine()
+      .rows(0, 6)
+      .then(
+        (r) => {
+          if (live) setRows(r);
+        },
+        () => {
+          if (live) setRows([]);
+        },
+      );
+    return () => {
+      live = false;
+    };
+  }, [summary]);
   const name = (artefact: string, ext: string) => exportFileName(summary?.name, artefact, ext);
   // CSVs start with the byte-order mark so Excel reads them as UTF-8 (₹ and accents intact).
   const data = async () => {
@@ -1479,31 +1228,83 @@ function DataPanel() {
     }
   };
   if (!summary) return null;
+  const headers = profile?.columns.map((c) => c.name) ?? [];
   return (
-    <Panel icon={FileSpreadsheet} title="Data" type="CSV">
-      <FileRow
-        icon={FileSpreadsheet}
-        title="Cleaned data"
-        fact={`${formatCount(summary.rowCount, locale)} rows · your headers`}
-        action=".csv"
-        onAction={() => void data()}
-      />
-      <FileRow
-        icon={BookText}
-        title="Data dictionary"
-        fact={`${summary.columnCount} columns described`}
-        action=".csv"
-        onAction={() => void dictionary()}
-      />
-    </Panel>
+    <GalleryCard
+      alone={alone}
+      title="Data and dictionary"
+      line="Your cleaned rows, and what each column means."
+      full="The cleaned data as a CSV, with your own headers and tidied values, and a data dictionary describing every column: its type, role, unit, range and examples."
+      formats={["CSV"]}
+      // Only when the headers and the rows line up (the same columns, in the same order).
+      preview={
+        <DataPreview headers={headers} rows={rows && rows[0]?.length === headers.length ? rows : null} />
+      }
+      fact={`${formatCount(summary.rowCount, locale)} rows · ${summary.columnCount} columns described`}
+      actions={
+        <>
+          <Button
+            variant="secondary"
+            className="min-w-0 flex-1 px-3"
+            onClick={() => void data()}
+            aria-label=".csv: Cleaned data"
+          >
+            <Download aria-hidden /> Cleaned data
+          </Button>
+          <Button
+            variant="secondary"
+            className="min-w-0 flex-1 px-3"
+            onClick={() => void dictionary()}
+            aria-label=".csv: Data dictionary"
+          >
+            <Download aria-hidden /> Dictionary
+          </Button>
+        </>
+      }
+    />
   );
 }
 
+/** What the settings file remembers, in the dashboard's own words: the facts its preview lists. */
+function useSettingsFacts(): Array<{ label: string; value: string }> {
+  const context = useWorkspace((s) => s.context);
+  const widgets = useWorkspace((s) => s.widgets);
+  const customCharts = useWorkspace((s) => s.customCharts);
+  const mode = useWorkspace((s) => s.mode);
+  const datePreset = useWorkspace((s) => s.datePreset);
+  const customRange = useWorkspace((s) => s.customRange);
+  const filters = useWorkspace((s) => s.dimFilters.length);
+  const chartTheme = useSettings((s) => s.chartTheme);
+  return React.useMemo(() => {
+    if (!context) return [];
+    const shape = context.domain.subDomains.find((x) => x.id === context.subDomainId)?.name;
+    // The charts the dashboard shows now, counted as Customise counts them.
+    const specs = allSpecs({ context, customCharts });
+    const shown = widgets.filter(
+      (w) => !w.hidden && specs.find((x) => x.id === w.id)?.modes.includes(mode),
+    ).length;
+    const period =
+      datePreset === "custom" && customRange
+        ? formatRange(customRange.from, customRange.to)
+        : PRESET_LABEL[datePreset];
+    return [
+      { label: "Industry", value: [context.domain.name, shape].filter(Boolean).join(" · ") },
+      { label: "Charts", value: `${shown} on the dashboard` },
+      {
+        label: "Period",
+        value: `${period} · ${filters ? `${filters} filter${filters === 1 ? "" : "s"}` : "no filters"}`,
+      },
+      { label: "Colours", value: resolveTheme(chartTheme).name },
+    ];
+  }, [context, widgets, customCharts, mode, datePreset, customRange, filters, chartTheme]);
+}
+
 /** Save the dashboard's setup (no data rows) and load it again with the same file. */
-function SettingsBar() {
+function SettingsCard() {
   const applyConfig = useWorkspace((s) => s.applyConfig);
   const summary = useWorkspace((s) => s.summary);
   const profile = useWorkspace((s) => s.profile);
+  const facts = useSettingsFacts();
   const input = React.useRef<HTMLInputElement>(null);
   const download = () => {
     const cfg = buildConfig();
@@ -1537,42 +1338,33 @@ function SettingsBar() {
     toast.success(check.exact ? "Dashboard restored" : `Dashboard restored. ${check.problems[0] ?? ""}`);
   };
   return (
-    <section
-      aria-label="Dashboard settings"
-      className="mt-10 flex flex-wrap items-center justify-between gap-4 rounded-card border border-border bg-surface-1 px-5 py-4"
-    >
-      <div className="flex min-w-0 items-center gap-3">
-        <TileIcon icon={Settings2} />
-        <div className="min-w-0">
-          <p className="text-ui font-medium text-fg">Reopen this dashboard later</p>
-          <p className="text-xs text-fg-subtle">
-            <Brief
-              label="About saved settings"
-              full="Save its settings, then load them with the same file. No data rows are inside."
-            >
-              Settings only, no data rows.
-            </Brief>
-          </p>
-        </div>
-      </div>
-      <div className="flex items-center gap-2">
-        <Button size="sm" variant="secondary" onClick={download}>
-          <Download aria-hidden /> Save settings
-        </Button>
-        <Button size="sm" variant="ghost" onClick={() => input.current?.click()}>
-          <Upload aria-hidden /> Load
-        </Button>
-        {/* Reached through the Load button, so it takes no tab stop of its own. */}
-        <input
-          ref={input}
-          type="file"
-          accept=".json,application/json"
-          className="sr-only"
-          tabIndex={-1}
-          aria-label="Load Loupe settings"
-          onChange={(e) => void load(e.target.files?.[0])}
-        />
-      </div>
-    </section>
+    <GalleryCard
+      layout="wide"
+      title="Reopen this dashboard later"
+      line="Settings only, no data rows."
+      full="Save the dashboard's settings: the industry, your column choices, KPIs, charts, period, filters and colours. Load them with the same file to pick up where you left off. No data rows are inside."
+      formats={["JSON"]}
+      preview={<SettingsPreview items={facts} />}
+      actions={
+        <>
+          <Button variant="secondary" onClick={download}>
+            <Download aria-hidden /> Save settings
+          </Button>
+          <Button variant="ghost" onClick={() => input.current?.click()}>
+            <Upload aria-hidden /> Load
+          </Button>
+          {/* Reached through the Load button, so it takes no tab stop of its own. */}
+          <input
+            ref={input}
+            type="file"
+            accept=".json,application/json"
+            className="sr-only"
+            tabIndex={-1}
+            aria-label="Load Loupe settings"
+            onChange={(e) => void load(e.target.files?.[0])}
+          />
+        </>
+      }
+    />
   );
 }

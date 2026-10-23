@@ -174,7 +174,10 @@ export function SiteHeader() {
           })}
         </nav>
         <div className="ml-auto flex items-center gap-2">
-          <ThemeToggle compact />
+          {/* On touch screens the header's buttons are 44 px targets; from lg the pointer's 36 px. */}
+          <span className="flex [&>button]:size-11 lg:[&>button]:size-9">
+            <ThemeToggle compact />
+          </span>
           <Button asChild variant="primary" size="sm" className="hidden sm:inline-flex">
             <Link href="/app">
               Open workspace <ArrowRight aria-hidden />
@@ -183,7 +186,7 @@ export function SiteHeader() {
           <Button
             variant="ghost"
             size="icon"
-            className="lg:hidden"
+            className="size-11 lg:hidden"
             aria-expanded={open}
             aria-controls="site-menu"
             aria-label={open ? "Close menu" : "Open menu"}
@@ -224,7 +227,7 @@ export function SiteHeader() {
                     aria-current={current}
                     onClick={() => setOpen(false)}
                     className={cn(
-                      "flex items-center justify-between rounded-control px-3 py-2.5 text-sm hover:bg-surface-hover hover:text-fg active:bg-surface-active",
+                      "flex min-h-11 items-center justify-between rounded-control px-3 py-2.5 text-sm hover:bg-surface-hover hover:text-fg active:bg-surface-active",
                       current ? "bg-surface-selected text-fg" : "text-fg-muted",
                     )}
                   >
@@ -233,7 +236,7 @@ export function SiteHeader() {
                   </SectionLink>
                 );
               })}
-              <Button asChild variant="primary" size="md" className="mt-2">
+              <Button asChild variant="primary" size="md" className="mt-2 h-11">
                 <Link href="/app" onClick={() => setOpen(false)}>
                   Open workspace <ArrowRight aria-hidden />
                 </Link>

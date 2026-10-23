@@ -1,13 +1,16 @@
 "use client";
 
 /**
- * "How it works", played like a short film. Five steps take turns: the tab on
- * the left fills like a progress bar while the stage on the right plays that
- * step's motion graphic. Every graphic is drawn from the build-time engine
- * snapshot (preview-data.ts): the real demo file and its columns, its
- * detection and column mapping, the real number of chart types the builder
- * offers, and the finished dashboard's figures. Table cells that only suggest
- * rows are blank bars, never invented values.
+ * "How it works", played like a short film in the workspace's own four
+ * phases: Prepare (Upload, Detect, Check & map), Build (Customise,
+ * Dashboard), Analyse (Questions & SQL, Insights) and Share (Export). The tab
+ * on the left fills like a progress bar while the stage on the right plays
+ * that phase's motion graphic, drawn as the workspace draws it today. Every
+ * graphic is drawn from the build-time engine snapshot (preview-data.ts): the
+ * real demo file and the reading of it (what one row is, what moves the
+ * outcome, with its statistics), the dashboard's real KPI cards and trend
+ * with its takeaway, a question answered by the engine with its real SQL,
+ * the top insight with its score, and the export formats.
  *
  * It plays only while on screen, holds while the pointer or keyboard focus is
  * on it, has a Pause button (WCAG 2.2.2), and doesn't advance by itself under
@@ -22,97 +25,59 @@ import { AnimatePresence, motion, useInView, type Variants } from "framer-motion
 import {
   ArrowDownRight,
   ArrowUpRight,
-  CalendarDays,
-  ChartColumn,
-  ChartLine,
-  ChartScatter,
   Check,
-  Donut,
+  Code2,
   FileSpreadsheet,
-  Filter,
-  Gauge,
-  GitMerge,
-  Grid3x3,
-  GripVertical,
-  LayoutDashboard,
-  LayoutGrid,
+  FileText,
+  Lightbulb,
   Minus,
   Pause,
   Play,
-  Radar,
-  ScanSearch,
-  SlidersHorizontal,
-  Table,
-  Upload,
-  Waypoints,
+  Presentation,
+  TrendingDown,
+  TrendingUp,
+  TriangleAlert,
   type LucideIcon,
 } from "lucide-react";
-import { ConfidenceRing } from "@/ui/workspace/ConfidenceRing";
 import { cn } from "@/lib/utils";
-import { DrawOn, EASE, useCalm, useLive, useTicker } from "./motion";
-import type { LandingData, PreviewKpi, PreviewState } from "./preview-data";
+import { LoupeMark } from "@/ui/brand/logo";
+import { APP_PHASES, chipStyle, KPI_ICON, KPI_ICON_FALLBACK, type AppPhase } from "./appShell";
+import { DrawOn, EASE, useCalm } from "./motion";
+import type { LandingData, PreviewInsight, PreviewKpi, PreviewState } from "./preview-data";
 
-/** How long each step plays before the next, in ms. */
-const STEP_MS = 5600;
+/** How long each phase plays before the next, in ms. */
+const STEP_MS = 6400;
 
 export interface PipelineData {
   file: LandingData["file"];
-  detection: LandingData["detection"];
-  columns: LandingData["columns"];
+  understanding: LandingData["understanding"];
   health: LandingData["health"];
   chartTypes: number;
+  question: LandingData["showcase"]["question"];
   state: PreviewState;
 }
 
-interface StepDef {
-  id: "drop" | "detect" | "map" | "customise" | "present";
-  icon: LucideIcon;
-  title: string;
-  caption: (d: PipelineData) => string;
-}
-
-const STEPS: StepDef[] = [
-  {
-    id: "drop",
-    icon: Upload,
-    title: "Drop a file",
-    caption: () => "CSV, Excel or JSON, read inside this tab.",
-  },
-  {
-    id: "detect",
-    icon: ScanSearch,
-    title: "It reads the business",
-    caption: () => "Industry, grain and key fields, with a confidence score.",
-  },
-  {
-    id: "map",
-    icon: GitMerge,
-    title: "Check and map",
-    caption: () => "Every column matched to what it means.",
-  },
-  {
-    id: "customise",
-    icon: SlidersHorizontal,
-    title: "Make it yours",
-    caption: (d) => `Your KPIs, your layout, ${d.chartTypes} chart types.`,
-  },
-  {
-    id: "present",
-    icon: LayoutDashboard,
-    title: "Present it",
-    caption: () => "KPIs, trends and insights, ready to share.",
-  },
-];
+/** Each phase's one line, under its name and its steps. */
+const CAPTION: Record<AppPhase["id"], (d: PipelineData) => string> = {
+  prepare: () => "Drop a file. Loupe reads what each row is and what moves your numbers.",
+  build: (d) => `Your KPIs and charts, from ${d.chartTypes} chart types, laid out on one page.`,
+  analyse: () => "Ask in plain words, with the SQL behind every answer. Insights ranked by impact.",
+  share: () => "A PDF report, slides, a Power BI package, SQL and the data.",
+};
 
 /* ------------------------------------------------------------------ */
 /* Shared motion                                                       */
 /* ------------------------------------------------------------------ */
 
 /** A visual's root: its children play in sequence once it is on screen. */
-const ROOT: Variants = { hidden: {}, show: { transition: { staggerChildren: 0.09, delayChildren: 0.1 } } };
+const ROOT: Variants = { hidden: {}, show: { transition: { staggerChildren: 0.12, delayChildren: 0.1 } } };
 const RISE: Variants = {
   hidden: { opacity: 0, y: 14 },
   show: { opacity: 1, y: 0, transition: { duration: 0.55, ease: EASE } },
+};
+const POP: Variants = {
+  hidden: { opacity: 0, scale: 0.94, y: 8 },
+  show: { opacity: 1, scale: 1, y: 0, transition: { type: "spring", stiffness: 260, damping: 24 } },
 };
 
 function Root({ children, className }: { children: React.ReactNode; className?: string }) {
@@ -129,232 +94,103 @@ function Root({ children, className }: { children: React.ReactNode; className?: 
   );
 }
 
+/** A bar that grows from the left once its visual plays. */
+function GrowBar({ share, delay, className }: { share: number; delay: number; className: string }) {
+  return (
+    <motion.span
+      className={cn("block h-full origin-left rounded-r-xs", className)}
+      style={{ width: `${Math.max(0, Math.min(1, share)) * 100}%` }}
+      variants={{
+        hidden: { scaleX: 0 },
+        show: { scaleX: 1, transition: { duration: 0.8, delay, ease: EASE } },
+      }}
+    />
+  );
+}
+
 /* ------------------------------------------------------------------ */
-/* 1. Drop a file                                                      */
+/* 1. Prepare: the file, what it is about, what moves it               */
 /* ------------------------------------------------------------------ */
 
-function DropVisual({ data }: { data: PipelineData }) {
-  const cols = data.columns.slice(0, 4);
+function PrepareVisual({ data }: { data: PipelineData }) {
+  const { file, understanding: u, health } = data;
   return (
-    <Root className="max-w-[460px]">
-      <div className="relative rounded-card border border-dashed border-border-accent bg-accent-soft px-5 pt-6 pb-6">
-        <motion.div
-          variants={{
-            hidden: { opacity: 0, y: -80, rotate: -8, scale: 0.9 },
-            show: {
-              opacity: 1,
-              y: 0,
-              rotate: 0,
-              scale: 1,
-              transition: { type: "spring", stiffness: 200, damping: 19 },
-            },
-          }}
-          className="mx-auto flex w-fit max-w-full items-center gap-3 rounded-card border border-border bg-surface-overlay px-4 py-3 shadow-pop"
-        >
-          <FileSpreadsheet className="size-5 shrink-0 text-accent" aria-hidden />
-          <span className="min-w-0">
-            <span className="block truncate text-ui font-medium text-fg">{data.file.name}</span>
-            <span className="tabular block text-xs text-fg-subtle">
-              {data.file.rows} rows · {data.file.columns} columns
-            </span>
-          </span>
-        </motion.div>
-        <div className="mx-auto mt-5 h-1 w-full max-w-[240px] overflow-hidden rounded-full bg-surface-3">
-          <motion.div
-            className="h-full origin-left rounded-full bg-[image:var(--accent-gradient)]"
-            variants={{
-              hidden: { scaleX: 0 },
-              show: { scaleX: 1, transition: { duration: 1.1, delay: 0.5, ease: EASE } },
-            }}
-          />
-        </div>
-      </div>
-      {/* The file's real column names; the cells are placeholders that suggest rows, not values. A
-          phone shows three columns, so each name is read whole rather than cut short. */}
+    <Root className="grid max-w-[460px] gap-3">
       <motion.div
-        className="mt-4 overflow-hidden rounded-card border border-border bg-surface-2/70"
         variants={{
-          hidden: { opacity: 0, y: 12 },
-          show: { opacity: 1, y: 0, transition: { delay: 1.45, duration: 0.5, ease: EASE } },
+          hidden: { opacity: 0, y: -60, rotate: -6, scale: 0.92 },
+          show: {
+            opacity: 1,
+            y: 0,
+            rotate: 0,
+            scale: 1,
+            transition: { type: "spring", stiffness: 200, damping: 19 },
+          },
         }}
+        className="flex w-fit max-w-full items-center gap-3 rounded-card border border-border bg-surface-overlay px-4 py-2.5 shadow-pop"
       >
-        <div className="grid grid-cols-3 border-b border-border sm:grid-cols-4">
-          {cols.map((c, i) => (
-            <span
-              key={c.name}
-              className={cn("truncate px-3 py-2 text-xs font-medium text-fg", i === 3 && "max-sm:hidden")}
-            >
-              {c.name}
-            </span>
-          ))}
-        </div>
-        {[0, 1, 2, 3].map((r) => (
-          <motion.div
-            key={r}
-            className="grid grid-cols-3 sm:grid-cols-4"
-            variants={{
-              hidden: { opacity: 0, x: -10 },
-              show: { opacity: 1, x: 0, transition: { delay: 1.65 + r * 0.1, duration: 0.4 } },
-            }}
-          >
-            {cols.map((c, i) => (
-              <span key={c.name} className={cn("px-3 py-2", i === 3 && "max-sm:hidden")}>
-                <span
-                  className="block h-1.5 rounded-full bg-surface-3"
-                  style={{ width: `${40 + ((r * 7 + i * 13) % 50)}%` }}
-                />
-              </span>
-            ))}
-          </motion.div>
-        ))}
+        <FileSpreadsheet className="size-5 shrink-0 text-accent" aria-hidden />
+        <span className="min-w-0">
+          <span className="block truncate text-ui font-medium text-fg">{file.name}</span>
+          <span className="tabular block text-xs text-fg-subtle">
+            {file.rows} rows · {file.columns} columns
+          </span>
+        </span>
+        <motion.span
+          variants={{
+            hidden: { scale: 0 },
+            show: { scale: 1, transition: { delay: 0.55, type: "spring", stiffness: 420, damping: 20 } },
+          }}
+          className="grid size-5 shrink-0 place-items-center rounded-full bg-success-soft text-success"
+        >
+          <Check className="size-3" strokeWidth={3} aria-hidden />
+        </motion.span>
       </motion.div>
-    </Root>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/* 2. Detect                                                           */
-/* ------------------------------------------------------------------ */
-
-function DetectVisual({ data }: { data: PipelineData }) {
-  const { detection } = data;
-  return (
-    <Root className="grid max-w-[480px] gap-6">
-      {/* On the narrowest phones the ring and the name shrink, so the name keeps to one line. */}
-      <div className="flex items-center gap-4 sm:gap-5">
-        <div className="shrink-0 max-[379.98px]:[zoom:0.8]">
-          <ConfidenceRing value={detection.confidence} size={118} label="match" />
-        </div>
-        <motion.div variants={RISE} className="min-w-0">
-          <p className="eyebrow text-fg-subtle">Detected</p>
-          <p className="font-display text-display-xs text-fg sm:text-display-sm">{detection.domain}</p>
-          <p className="text-ui text-fg-muted">
-            {detection.subDomain} · one row per {detection.grain}
-          </p>
-        </motion.div>
-      </div>
-      <div className="grid gap-3">
-        {detection.candidates.map((c, i) => (
-          <motion.div
-            key={c.name}
-            variants={RISE}
-            className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1.5 text-ui"
-          >
-            <span className={i === 0 ? "text-fg" : "text-fg-muted"}>{c.name}</span>
-            <span className="font-figures text-xs text-fg-muted">{c.confidence}%</span>
-            <span className="col-span-2 h-1.5 overflow-hidden rounded-full bg-surface-3">
-              <motion.span
-                className={cn(
-                  "block h-full origin-left rounded-full",
-                  i === 0 ? "bg-[image:var(--accent-gradient)]" : "bg-fg-subtle/50",
-                )}
-                style={{ width: `${c.confidence}%` }}
-                variants={{
-                  hidden: { scaleX: 0 },
-                  show: { scaleX: 1, transition: { duration: 0.9, delay: 0.45 + i * 0.12, ease: EASE } },
-                }}
-              />
-            </span>
-          </motion.div>
-        ))}
-      </div>
-    </Root>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/* 3. Check and map                                                    */
-/* ------------------------------------------------------------------ */
-
-const ROW = 36;
-const GAP = 10;
-
-function MapVisual({ data }: { data: PipelineData }) {
-  const pairs = data.detection.evidence.slice(0, 5);
-  const n = pairs.length;
-  // Each column lands in another row on the right, so the lines cross as a real mapping does.
-  const slotOf = pairs.map((_, i) => (i + 2) % n);
-  const bySlot = Array.from({ length: n }, (_, j) => pairs[slotOf.indexOf(j)]);
-  const yOf = (k: number) => k * (ROW + GAP) + ROW / 2;
-  const height = n * ROW + (n - 1) * GAP;
-  return (
-    <Root className="grid max-w-[500px] gap-5">
-      <div className="grid grid-cols-[minmax(0,1fr)_64px_minmax(0,1fr)] items-start">
-        <div className="grid" style={{ gap: GAP }}>
-          {pairs.map((p) => (
-            <motion.span
-              key={p.column}
-              variants={RISE}
-              className="flex items-center truncate rounded-control border border-border-strong bg-surface-2 px-3 text-xs font-medium text-fg"
-              style={{ height: ROW }}
-            >
-              {p.column}
-            </motion.span>
-          ))}
-        </div>
-        <svg viewBox={`0 0 64 ${height}`} width={64} height={height} aria-hidden className="overflow-visible">
-          {pairs.map((p, i) => {
-            const y1 = yOf(i);
-            const y2 = yOf(slotOf[i] ?? i);
-            return (
-              <motion.path
-                key={p.column}
-                d={`M0,${y1} C32,${y1} 32,${y2} 64,${y2}`}
-                fill="none"
-                stroke="var(--accent)"
-                strokeWidth={1.5}
-                strokeLinecap="round"
-                variants={{
-                  hidden: { pathLength: 0, opacity: 0 },
-                  show: {
-                    pathLength: 1,
-                    opacity: 0.8,
-                    transition: { duration: 0.7, delay: 0.7 + i * 0.16, ease: EASE },
-                  },
-                }}
-              />
-            );
-          })}
-        </svg>
-        <div className="grid" style={{ gap: GAP }}>
-          {bySlot.map((p) =>
-            p ? (
-              <motion.span
-                key={p.field}
-                variants={RISE}
-                className="flex items-center justify-between gap-2 rounded-control border border-border bg-surface-1 px-3 text-xs text-fg-muted"
-                style={{ height: ROW }}
+      <motion.div
+        variants={RISE}
+        className="rounded-card border border-border bg-surface-1 px-4 py-3 shadow-card"
+      >
+        <p className="eyebrow text-fg-subtle">What this data is about</p>
+        <p className="mt-1 text-lg leading-snug font-semibold text-fg">{u.title}</p>
+        <p className="tabular text-ui text-fg-muted">
+          {u.rowMeaning} · {u.dates}
+        </p>
+      </motion.div>
+      {u.outcome && u.drivers.length ? (
+        <motion.div
+          variants={RISE}
+          className="rounded-card border border-border bg-surface-1 px-4 py-3 shadow-card"
+        >
+          <p className="text-ui font-medium text-fg">What moves {u.outcome}</p>
+          <ul className="mt-2.5 grid gap-2" aria-label={`What moves ${u.outcome}`}>
+            {u.drivers.map((d, i) => (
+              <li
+                key={d.column}
+                className="grid grid-cols-[minmax(0,7.5rem)_minmax(0,1fr)_auto] items-center gap-3 text-xs"
               >
-                <span className="truncate">{p.field}</span>
-                <motion.span
-                  variants={{
-                    hidden: { scale: 0, opacity: 0 },
-                    show: {
-                      scale: 1,
-                      opacity: 1,
-                      transition: {
-                        delay: 1.25 + pairs.indexOf(p) * 0.16,
-                        type: "spring",
-                        stiffness: 420,
-                        damping: 20,
-                      },
-                    },
-                  }}
-                  className="grid size-4 shrink-0 place-items-center rounded-full bg-success-soft text-success"
-                >
-                  <Check className="size-2.5" strokeWidth={3} aria-hidden />
-                </motion.span>
-              </motion.span>
-            ) : null,
-          )}
-        </div>
-      </div>
-      <motion.div variants={RISE} className="flex flex-wrap items-center gap-2 text-ui">
-        <span className="rounded-full border border-border-accent bg-accent-soft px-3 py-1 text-accent-text">
-          Data health <span className="font-figures">{data.health.score}/100</span>
+                <span className="truncate text-fg-muted">{d.column}</span>
+                <span className="h-1.5 overflow-hidden rounded-full bg-surface-3">
+                  <GrowBar
+                    share={d.strength}
+                    delay={0.5 + i * 0.12}
+                    className="rounded-full bg-[image:var(--accent-gradient)]"
+                  />
+                </span>
+                <span className="tabular text-fg">
+                  {d.symbol} = {d.value}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </motion.div>
+      ) : null}
+      <motion.div variants={RISE} className="flex flex-wrap items-center gap-2 text-xs">
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-success-border bg-success-soft px-2.5 py-1 text-success-text">
+          <Check className="size-3" strokeWidth={2.5} aria-hidden />
+          Data health <span className="tabular">{health.score}/100</span>
         </span>
-        <span className="rounded-full border border-border px-3 py-1 text-fg-muted">
-          <span className="font-figures">{data.columns.length}</span> columns profiled
+        <span className="rounded-full border border-border bg-surface-1 px-2.5 py-1 text-fg-muted">
+          Every column checked in Check & map
         </span>
       </motion.div>
     </Root>
@@ -362,86 +198,7 @@ function MapVisual({ data }: { data: PipelineData }) {
 }
 
 /* ------------------------------------------------------------------ */
-/* 4. Make it yours                                                    */
-/* ------------------------------------------------------------------ */
-
-const GALLERY: Array<{ icon: LucideIcon; name: string }> = [
-  { icon: ChartLine, name: "Line" },
-  { icon: ChartColumn, name: "Column" },
-  { icon: Donut, name: "Donut" },
-  { icon: ChartScatter, name: "Scatter" },
-  { icon: Grid3x3, name: "Heatmap" },
-  { icon: Waypoints, name: "Sankey" },
-  { icon: Radar, name: "Radar" },
-  { icon: Gauge, name: "Gauge" },
-  { icon: LayoutGrid, name: "Treemap" },
-  { icon: CalendarDays, name: "Calendar heatmap" },
-  { icon: Filter, name: "Funnel" },
-  { icon: Table, name: "Table" },
-];
-
-function CustomiseVisual({ data }: { data: PipelineData }) {
-  const { ref, live } = useLive<HTMLDivElement>(0.3);
-  const tick = useTicker(720, live);
-  const picked = tick % GALLERY.length;
-  // The KPI order shuffles every few beats, as it would when dragged into place.
-  const names = data.state.kpis.slice(0, 3).map((k) => k.name);
-  const turn = Math.floor(tick / 3) % Math.max(1, names.length);
-  const order = names.map((_, i) => names[(i + turn) % names.length] as string);
-  return (
-    // Flat tiles keep the whole visual, with its third KPI row, inside the stage and clear of the Pause button.
-    <Root className="grid max-w-[480px] gap-4">
-      <div ref={ref} className="grid grid-cols-4 gap-2.5">
-        {GALLERY.map((g, i) => {
-          const on = i === picked;
-          return (
-            <motion.span
-              key={g.name}
-              variants={{
-                hidden: { opacity: 0, scale: 0.8 },
-                show: { opacity: 1, scale: 1, transition: { duration: 0.4, ease: EASE } },
-              }}
-              className={cn(
-                "grid aspect-[5/2] place-items-center rounded-card border transition-[border-color,background-color,color,box-shadow] duration-slow",
-                on
-                  ? "border-border-accent bg-accent-soft text-accent shadow-[0_0_0_4px_var(--accent-soft)]"
-                  : "border-border bg-surface-2/70 text-fg-subtle",
-              )}
-              aria-hidden
-            >
-              <g.icon className="size-5" />
-            </motion.span>
-          );
-        })}
-      </div>
-      <motion.div variants={RISE} className="flex items-center justify-between gap-3 text-ui">
-        <span className="text-fg-muted">
-          <span className="font-figures text-fg">{data.chartTypes}</span> chart types, each explained
-        </span>
-        {/* As wide as the longest name, so the pill doesn't move as the names change. */}
-        <span className="min-w-36 shrink-0 rounded-full border border-border-accent bg-accent-soft px-3 py-1 text-center text-accent-text">
-          {GALLERY[picked]?.name}
-        </span>
-      </motion.div>
-      <motion.ul variants={RISE} className="grid gap-1.5" aria-label="Your headline KPIs">
-        {order.map((name) => (
-          <motion.li
-            key={name}
-            layout
-            transition={{ type: "spring", stiffness: 380, damping: 32 }}
-            className="flex items-center gap-2 rounded-control border border-border bg-surface-2/70 px-3 py-2 text-ui text-fg"
-          >
-            <GripVertical className="size-3.5 text-fg-subtle" aria-hidden />
-            {name}
-          </motion.li>
-        ))}
-      </motion.ul>
-    </Root>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/* 5. Present it                                                       */
+/* 2. Build: the KPI cards and a chart with its takeaway               */
 /* ------------------------------------------------------------------ */
 
 function Delta({ kpi }: { kpi: PreviewKpi }) {
@@ -455,7 +212,7 @@ function Delta({ kpi }: { kpi: PreviewKpi }) {
   return (
     <span
       className={cn(
-        "font-figures inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-xs font-medium",
+        "tabular inline-flex h-5 shrink-0 items-center gap-0.5 rounded-full px-1.5 text-xs font-medium",
         tone,
       )}
     >
@@ -465,88 +222,293 @@ function Delta({ kpi }: { kpi: PreviewKpi }) {
   );
 }
 
-function PresentVisual({ data }: { data: PipelineData }) {
+function BuildVisual({ data }: { data: PipelineData }) {
   const { state } = data;
   const values = state.trend.values;
   const max = Math.max(...values, 1);
   const W = 300;
-  const H = 92;
+  const H = 64;
   const line = values
     .map(
       (v, i) =>
         `${i ? "L" : "M"}${((i / Math.max(1, values.length - 1)) * W).toFixed(1)},${(H - (v / max) * H).toFixed(1)}`,
     )
     .join("");
+  const gradId = `build-${React.useId().replace(/[^\w-]/g, "")}`;
+  return (
+    <Root className="grid max-w-[460px] gap-3">
+      <div className="grid grid-cols-2 gap-2.5">
+        {state.kpis.slice(0, 4).map((k, i) => {
+          const Icon = KPI_ICON[k.icon] ?? KPI_ICON_FALLBACK;
+          return (
+            <motion.div
+              key={k.id}
+              variants={POP}
+              className="min-w-0 rounded-card border border-border bg-surface-1 px-3.5 py-3 shadow-card"
+            >
+              <span className="flex min-w-0 items-center gap-2">
+                <span
+                  aria-hidden
+                  className="grid size-5 shrink-0 place-items-center rounded-xs"
+                  style={chipStyle(i)}
+                >
+                  <Icon className="size-3" />
+                </span>
+                <span className="truncate text-xs font-medium text-fg-muted">{k.name}</span>
+              </span>
+              <span className="mt-2 flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+                <span className="font-figures text-xl leading-none font-semibold text-fg">{k.display}</span>
+                <Delta kpi={k} />
+              </span>
+            </motion.div>
+          );
+        })}
+      </div>
+      <motion.figure
+        variants={RISE}
+        className="rounded-card border border-border bg-surface-1 px-4 pt-3 pb-3.5 shadow-card"
+      >
+        <figcaption>
+          <span className="block truncate text-ui font-medium text-fg">{state.trend.title}</span>
+          {state.trend.takeaway ? (
+            <span className="mt-0.5 line-clamp-2 block text-xs text-fg-muted">{state.trend.takeaway}</span>
+          ) : null}
+        </figcaption>
+        <svg
+          viewBox={`0 -4 ${W} ${H + 8}`}
+          className="mt-2.5 block h-auto w-full overflow-visible"
+          aria-hidden
+        >
+          <defs>
+            <linearGradient id={gradId} x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0%" stopColor="var(--chart-1)" stopOpacity={0.2} />
+              <stop offset="100%" stopColor="var(--chart-1)" stopOpacity={0} />
+            </linearGradient>
+          </defs>
+          <line x1={0} x2={W} y1={H} y2={H} stroke="var(--chart-grid)" strokeWidth={1} />
+          <DrawOn box={[-4, -10, W + 8, H + 20]} transition={{ duration: 1.3, delay: 0.7, ease: EASE }}>
+            <path d={`${line}L${W},${H}L0,${H}Z`} fill={`url(#${gradId})`} />
+            <path
+              d={line}
+              fill="none"
+              stroke="var(--chart-1)"
+              strokeWidth={2}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              vectorEffect="non-scaling-stroke"
+            />
+          </DrawOn>
+        </svg>
+      </motion.figure>
+    </Root>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* 3. Analyse: a question answered with its SQL, and the top insight   */
+/* ------------------------------------------------------------------ */
+
+const TONE: Record<PreviewInsight["tone"], { icon: LucideIcon; chip: string }> = {
+  positive: { icon: TrendingUp, chip: "bg-success-soft text-success" },
+  negative: { icon: TrendingDown, chip: "bg-danger-soft text-danger" },
+  warning: { icon: TriangleAlert, chip: "bg-warning-soft text-warning" },
+  neutral: { icon: Lightbulb, chip: "bg-accent-soft text-accent" },
+};
+
+function AnalyseVisual({ data }: { data: PipelineData }) {
+  const q = data.question;
+  const top = data.state.insights[0];
+  const [sql, setSql] = React.useState(false);
+  const sqlId = React.useId();
+  const largest = Math.max(...(q?.rows ?? []).map((r) => r.share), 0.0001);
+  const tone = top ? (TONE[top.tone] ?? TONE.neutral) : null;
+  return (
+    <Root className="grid max-w-[480px] gap-3">
+      {q ? (
+        <>
+          <motion.p
+            variants={RISE}
+            className="ml-auto max-w-[88%] rounded-panel rounded-tr-sm bg-surface-3 px-4 py-2 text-ui text-fg"
+          >
+            <span className="sr-only">You asked: </span>
+            {q.text}
+          </motion.p>
+          <motion.div variants={RISE} className="flex gap-2.5">
+            <span
+              aria-hidden
+              className="mt-0.5 grid size-7 shrink-0 place-items-center rounded-full border border-border bg-surface-1 shadow-card max-sm:hidden"
+            >
+              <LoupeMark decorative className="size-4" />
+            </span>
+            <div className="min-w-0 flex-1 rounded-card border border-border bg-surface-1 px-4 py-3 shadow-card">
+              <p className="text-ui text-fg">{q.answer}</p>
+              {sql ? (
+                // Focusable, so keyboard users can scroll the query. Code wears the code face from
+                // <pre> and <code> themselves.
+                <pre
+                  id={sqlId}
+                  tabIndex={0}
+                  aria-label="The SQL behind this answer"
+                  className="mt-2.5 h-[104px] overflow-auto rounded-control border border-border bg-bg p-2.5 text-xs leading-relaxed whitespace-pre text-fg-muted outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-inset"
+                >
+                  <code>{q.sql}</code>
+                </pre>
+              ) : (
+                <ul
+                  id={sqlId}
+                  className="mt-2.5 grid h-[104px] content-center gap-2"
+                  aria-label={q.understood}
+                >
+                  {q.rows.map((r, i) => (
+                    <li
+                      key={r.label}
+                      className="grid grid-cols-[minmax(0,7.5rem)_minmax(0,1fr)_auto] items-center gap-2.5 text-xs"
+                    >
+                      <span className="truncate text-fg-muted">{r.label}</span>
+                      <span className="h-2.5">
+                        <GrowBar
+                          share={r.share / largest}
+                          delay={0.6 + i * 0.08}
+                          className="h-full bg-[var(--chart-1)]"
+                        />
+                      </span>
+                      <span className="font-figures text-fg">{r.display}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <button
+                type="button"
+                aria-expanded={sql}
+                aria-controls={sqlId}
+                onClick={() => setSql((s) => !s)}
+                className="mt-2 inline-flex items-center gap-1.5 rounded-sm text-xs font-medium text-accent-text hover:underline focus-visible:focus-ring"
+              >
+                <Code2 className="size-3.5" aria-hidden />
+                {sql ? "Show the answer" : "Show SQL"}
+              </button>
+            </div>
+          </motion.div>
+        </>
+      ) : null}
+      {top && tone ? (
+        <motion.div
+          variants={RISE}
+          className="flex min-w-0 items-center gap-3 rounded-card border border-border bg-surface-1 px-3.5 py-2.5 shadow-card"
+        >
+          <span className="tabular shrink-0 text-xs font-medium text-fg-subtle">#1</span>
+          <span className={cn("grid size-6 shrink-0 place-items-center rounded-full", tone.chip)}>
+            <tone.icon className="size-3.5" aria-hidden />
+          </span>
+          <span className="min-w-0 flex-1 truncate text-ui font-medium text-fg">{top.title}</span>
+          {/* The insight's own ranking score (0–100), as the Insights feed draws it. */}
+          <span
+            className="h-1.5 w-12 shrink-0 overflow-hidden rounded-full bg-surface-3"
+            title={`Impact ${Math.round(top.impact)} of 100`}
+          >
+            <GrowBar share={top.impact / 100} delay={1.1} className="rounded-full bg-accent" />
+          </span>
+        </motion.div>
+      ) : null}
+    </Root>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* 4. Share: the export gallery                                        */
+/* ------------------------------------------------------------------ */
+
+/** A miniature of the one-page dashboard, from the real KPI values and category shares. */
+function MiniPage({ state }: { state: PreviewState }) {
   const cats = state.categories.slice(0, 4);
   const top = Math.max(...cats.map((c) => c.share), 0.0001);
   return (
-    <Root className="grid max-w-[500px] gap-3">
-      <div className="grid grid-cols-2 gap-2.5">
-        {state.kpis.slice(0, 4).map((k, i) => (
-          <motion.div
+    <div aria-hidden className="grid h-full grid-rows-[auto_minmax(0,1fr)] gap-1.5 rounded-sm bg-bg p-2">
+      {/* Two figures on a phone's narrower card, three from sm, each whole rather than cut. */}
+      <div className="grid grid-cols-2 gap-1 sm:grid-cols-3">
+        {state.kpis.slice(0, 3).map((k, i) => (
+          <span
             key={k.id}
-            variants={{
-              hidden: { opacity: 0, scale: 0.9, y: 10 },
-              show: {
-                opacity: 1,
-                scale: 1,
-                y: 0,
-                transition: { type: "spring", stiffness: 260, damping: 22 },
-              },
-            }}
-            // On a phone two cards are enough: with four, the wrapped names and changes push the
-            // visual past the stage and under the Pause button.
             className={cn(
-              "rounded-card border border-border bg-surface-2/80 px-3.5 py-3",
-              i >= 2 && "max-sm:hidden",
+              "rounded-xs border border-border bg-surface-1 px-1.5 py-0.5",
+              i === 2 && "max-sm:hidden",
             )}
           >
-            <p className="eyebrow text-fg-subtle">{k.name}</p>
-            <p className="mt-1 flex flex-wrap items-baseline justify-between gap-x-2 gap-y-1">
-              <span className="font-figures text-xl leading-none font-medium text-fg">{k.display}</span>
-              <Delta kpi={k} />
-            </p>
+            <span className="font-figures block truncate text-2xs leading-4 font-semibold text-fg">
+              {k.display}
+            </span>
+          </span>
+        ))}
+      </div>
+      <div className="grid grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] gap-1.5">
+        <span className="grid content-center gap-1 rounded-xs border border-border bg-surface-1 px-1.5">
+          {cats.map((c, i) => (
+            <span key={c.label} className="block h-1.5">
+              <GrowBar share={c.share / top} delay={0.5 + i * 0.06} className="h-full bg-[var(--chart-1)]" />
+            </span>
+          ))}
+        </span>
+        <span className="grid content-center gap-1 rounded-xs border border-border bg-surface-1 px-1.5">
+          {[0, 1, 2].map((i) => (
+            <span
+              key={i}
+              className="block h-1 rounded-full bg-surface-3"
+              style={{ width: `${90 - i * 18}%` }}
+            />
+          ))}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+const SHARE: Array<{ icon: LucideIcon; title: string; types: string }> = [
+  { icon: FileText, title: "Report", types: "PDF" },
+  { icon: Presentation, title: "Slides", types: "PDF · PNG" },
+  { icon: Lightbulb, title: "Insights", types: "PDF" },
+];
+const FURTHER = ["Power BI package", "SQL", "Data dictionary", "CSV"];
+
+function ShareVisual({ data }: { data: PipelineData }) {
+  return (
+    <Root className="grid max-w-[460px] gap-2.5">
+      <motion.div
+        variants={POP}
+        className="grid grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] items-center gap-3.5 rounded-card border border-border-accent bg-surface-1 p-3 shadow-card"
+      >
+        <div className="aspect-video overflow-hidden rounded-control border border-border">
+          <MiniPage state={data.state} />
+        </div>
+        <div className="min-w-0">
+          <p className="text-ui font-medium text-fg">One-page dashboard</p>
+          <p className="mt-0.5 text-xs text-fg-muted">The page as you see it, ready to send.</p>
+          <span className="mt-2 inline-flex rounded-full border border-border-strong px-2 py-0.5 text-2xs font-medium text-fg-subtle">
+            PNG · PDF
+          </span>
+        </div>
+      </motion.div>
+      <div className="grid grid-cols-3 gap-2.5">
+        {SHARE.map((s) => (
+          <motion.div
+            key={s.title}
+            variants={POP}
+            className="min-w-0 rounded-card border border-border bg-surface-1 px-3 py-2.5 shadow-card"
+          >
+            <s.icon className="size-4 text-accent" aria-hidden />
+            <p className="mt-1.5 truncate text-ui font-medium text-fg">{s.title}</p>
+            <p className="text-2xs font-medium text-fg-subtle">{s.types}</p>
           </motion.div>
         ))}
       </div>
-      <motion.div
-        variants={RISE}
-        className="grid grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] gap-4 rounded-card border border-border bg-surface-2/80 p-3.5"
-      >
-        <figure className="min-w-0" aria-label={`${state.trend.title}, ${state.label}`}>
-          <figcaption className="truncate text-xs text-fg-subtle">{state.trend.title}</figcaption>
-          <svg viewBox={`0 -4 ${W} ${H + 8}`} className="mt-2 h-auto w-full overflow-visible" aria-hidden>
-            <DrawOn box={[-4, -10, W + 8, H + 20]} transition={{ duration: 1.4, delay: 0.7, ease: EASE }}>
-              <path
-                d={line}
-                fill="none"
-                stroke="var(--chart-1)"
-                strokeWidth={2}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                vectorEffect="non-scaling-stroke"
-              />
-            </DrawOn>
-          </svg>
-        </figure>
-        <ul className="grid content-center gap-2" aria-label={`Net revenue by category, ${state.label}`}>
-          {cats.map((c, i) => (
-            <li key={c.label} className="grid gap-1 text-xs">
-              {/* The name may wrap; the figure keeps its place at the end. */}
-              <span className="flex items-baseline justify-between gap-2">
-                <span className="min-w-0 text-fg-muted">{c.label}</span>
-                <span className="font-figures shrink-0 text-fg">{c.display}</span>
-              </span>
-              <span className="h-1.5 overflow-hidden rounded-full bg-surface-3">
-                <motion.span
-                  className="block h-full origin-left rounded-full bg-[var(--chart-1)]"
-                  style={{ width: `${(c.share / top) * 100}%` }}
-                  variants={{
-                    hidden: { scaleX: 0 },
-                    show: { scaleX: 1, transition: { duration: 0.8, delay: 0.9 + i * 0.1, ease: EASE } },
-                  }}
-                />
-              </span>
+      <motion.div variants={RISE} className="grid gap-1.5">
+        <p className="eyebrow text-fg-subtle">Take it further</p>
+        <ul className="flex flex-wrap gap-1.5">
+          {FURTHER.map((f) => (
+            <li
+              key={f}
+              className="rounded-full border border-border bg-surface-1 px-2.5 py-1 text-xs text-fg"
+            >
+              {f}
             </li>
           ))}
         </ul>
@@ -555,18 +517,16 @@ function PresentVisual({ data }: { data: PipelineData }) {
   );
 }
 
-function StepVisual({ id, data }: { id: StepDef["id"]; data: PipelineData }) {
+function PhaseVisual({ id, data }: { id: AppPhase["id"]; data: PipelineData }) {
   switch (id) {
-    case "drop":
-      return <DropVisual data={data} />;
-    case "detect":
-      return <DetectVisual data={data} />;
-    case "map":
-      return <MapVisual data={data} />;
-    case "customise":
-      return <CustomiseVisual data={data} />;
-    case "present":
-      return <PresentVisual data={data} />;
+    case "prepare":
+      return <PrepareVisual data={data} />;
+    case "build":
+      return <BuildVisual data={data} />;
+    case "analyse":
+      return <AnalyseVisual data={data} />;
+    case "share":
+      return <ShareVisual data={data} />;
   }
 }
 
@@ -584,14 +544,14 @@ export function Pipeline({ data }: { data: PipelineData }) {
   const tabs = React.useRef<Array<HTMLButtonElement | null>>([]);
   const auto = !reduce;
   const playing = auto && inView && !held && !paused;
-  const step = STEPS[active] ?? STEPS[0];
+  const phase = APP_PHASES[active] ?? (APP_PHASES[0] as AppPhase);
 
   const select = (i: number, focus = false) => {
     setActive(i);
     if (focus) tabs.current[i]?.focus();
   };
   const onKey = (e: React.KeyboardEvent, i: number) => {
-    const last = STEPS.length - 1;
+    const last = APP_PHASES.length - 1;
     const to =
       e.key === "ArrowDown" || e.key === "ArrowRight"
         ? i === last
@@ -626,26 +586,26 @@ export function Pipeline({ data }: { data: PipelineData }) {
         role="tablist"
         aria-label="How Loupe works"
         aria-orientation="vertical"
-        className="grid content-start gap-1.5"
+        className="grid content-start gap-1.5 lg:self-center"
       >
-        {STEPS.map((s, i) => {
+        {APP_PHASES.map((p, i) => {
           const selected = i === active;
           return (
             <button
-              key={s.id}
+              key={p.id}
               ref={(el) => {
                 tabs.current[i] = el;
               }}
               type="button"
               role="tab"
-              id={`how-tab-${s.id}`}
+              id={`how-tab-${p.id}`}
               aria-selected={selected}
               aria-controls="how-stage"
               tabIndex={selected ? 0 : -1}
               onClick={() => select(i)}
               onKeyDown={(e) => onKey(e, i)}
               className={cn(
-                "relative grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-3.5 overflow-hidden rounded-card border px-4 py-3.5 text-left transition-[background-color,border-color,box-shadow] duration-slow",
+                "relative grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-3.5 overflow-hidden rounded-card border px-4 py-3.5 text-left transition-[background-color,border-color,box-shadow] duration-slow focus-visible:focus-ring",
                 selected
                   ? "border-border-strong bg-surface-1 shadow-card"
                   : "border-transparent hover:bg-surface-hover",
@@ -659,19 +619,19 @@ export function Pipeline({ data }: { data: PipelineData }) {
                     : "border-border text-fg-subtle",
                 )}
               >
-                <s.icon className="size-4" aria-hidden />
+                <p.icon className="size-4" aria-hidden />
               </span>
               <span className="min-w-0 self-center">
-                <span className="flex items-baseline gap-2.5">
-                  <span className="font-figures text-2xs text-fg-subtle">0{i + 1}</span>
+                <span className="flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5">
                   <span
                     className={cn(
                       "text-md font-medium transition-colors",
                       selected ? "text-fg" : "text-fg-muted",
                     )}
                   >
-                    {s.title}
+                    {p.label}
                   </span>
+                  <span className="text-xs text-fg-subtle">{p.steps.map((s) => s.label).join(" · ")}</span>
                 </span>
                 {/* From lg the caption opens with a CSS grid-row transition, not Framer's `height: auto`,
                     which resets the scroll position to measure and so would stop a smooth scroll mid-way.
@@ -684,7 +644,7 @@ export function Pipeline({ data }: { data: PipelineData }) {
                   )}
                 >
                   <span className="overflow-hidden">
-                    <span className="block pt-1 text-sm text-fg-muted">{s.caption(data)}</span>
+                    <span className="block pt-1 text-sm text-fg-muted">{CAPTION[p.id](data)}</span>
                   </span>
                 </span>
               </span>
@@ -693,7 +653,7 @@ export function Pipeline({ data }: { data: PipelineData }) {
                   aria-hidden
                   className="absolute inset-x-4 bottom-0 h-0.5 overflow-hidden rounded-full bg-border"
                 >
-                  {/* The fill is the timer: when its animation ends, the next step plays. */}
+                  {/* The fill is the timer: when its animation ends, the next phase plays. */}
                   <span
                     className="block h-full origin-left bg-[image:var(--accent-gradient)]"
                     style={
@@ -704,7 +664,7 @@ export function Pipeline({ data }: { data: PipelineData }) {
                           }
                         : { transform: "scaleX(1)" }
                     }
-                    onAnimationEnd={auto ? () => setActive((a) => (a + 1) % STEPS.length) : undefined}
+                    onAnimationEnd={auto ? () => setActive((a) => (a + 1) % APP_PHASES.length) : undefined}
                   />
                 </span>
               ) : null}
@@ -716,8 +676,8 @@ export function Pipeline({ data }: { data: PipelineData }) {
       <div
         id="how-stage"
         role="tabpanel"
-        aria-labelledby={`how-tab-${step.id}`}
-        className="relative isolate h-[440px] overflow-hidden rounded-panel border border-border-strong bg-surface-1 shadow-lift sm:h-[460px]"
+        aria-labelledby={`how-tab-${phase.id}`}
+        className="relative isolate h-[460px] overflow-hidden rounded-panel border border-border-strong bg-bg shadow-lift sm:h-[470px]"
       >
         <div aria-hidden className="grid-lines absolute inset-0 -z-10 opacity-80" />
         <div
@@ -726,15 +686,15 @@ export function Pipeline({ data }: { data: PipelineData }) {
         />
         <AnimatePresence mode="wait" initial={false}>
           <motion.div
-            key={step.id}
+            key={phase.id}
             // One column as wide as the stage: an auto column would grow to a visual's widest line.
-            className="absolute inset-0 grid grid-cols-[minmax(0,1fr)] place-items-center p-5 sm:p-8"
+            className="absolute inset-0 grid grid-cols-[minmax(0,1fr)] place-items-center px-4 pt-11 pb-5 sm:px-8 sm:pt-12 sm:pb-8"
             initial={{ opacity: 0, y: 16, filter: "blur(8px)" }}
             animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
             exit={{ opacity: 0, y: -12, filter: "blur(8px)" }}
             transition={{ duration: 0.45, ease: EASE }}
           >
-            <StepVisual id={step.id} data={data} />
+            <PhaseVisual id={phase.id} data={data} />
           </motion.div>
         </AnimatePresence>
         {auto ? (
@@ -742,7 +702,7 @@ export function Pipeline({ data }: { data: PipelineData }) {
             type="button"
             onClick={() => setPaused((p) => !p)}
             aria-pressed={paused}
-            className="absolute top-3 right-3 inline-flex items-center gap-1.5 rounded-full border border-border bg-surface-2/80 px-2.5 py-1 text-xs text-fg-muted backdrop-blur transition-colors duration-fast hover:border-border-hover hover:text-fg"
+            className="absolute top-3 right-3 inline-flex items-center gap-1.5 rounded-full border border-border bg-surface-2/80 px-2.5 py-1 text-xs text-fg-muted backdrop-blur transition-colors duration-fast hover:border-border-hover hover:text-fg focus-visible:focus-ring"
           >
             {paused ? <Play className="size-3" aria-hidden /> : <Pause className="size-3" aria-hidden />}
             {paused ? "Play" : "Pause"}

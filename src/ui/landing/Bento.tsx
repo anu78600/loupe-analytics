@@ -4,11 +4,14 @@
  * The features grid: seven tiles, each a title, one short line and a small
  * motion graphic in place of a paragraph.
  *
- * - The KPI's real SQL and DAX type themselves out, alternating.
+ * - The KPI's real SQL and DAX type themselves out, alternating, coloured as
+ *   the workspace colours code.
  * - The proof checklist ticks itself off.
  * - The real category breakdown changes form: sorted bars, a donut, a treemap.
- * - A scanning light reads the real columns and tags their roles.
- * - The real headline insight, over its real trend.
+ * - A scanning light reads the real columns and tags how each is read, as
+ *   Check & map does.
+ * - The top insights, ranked as the Insights feed ranks them, each with a bar
+ *   of its real impact score.
  * - The export formats burst out of the package.
  * - A request typed in words becomes the real breakdown.
  *
@@ -18,23 +21,27 @@
  * their [data-loop] host (PauseOffscreen).
  */
 import * as React from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { animate, AnimatePresence, motion } from "framer-motion";
 import {
   BadgeCheck,
   Braces,
-  Database,
   FileDown,
+  Lightbulb,
   LineChart,
   MessageSquareText,
   Package,
   Sparkles,
   Table2,
+  TrendingDown,
   TrendingUp,
+  TriangleAlert,
   type LucideIcon,
 } from "lucide-react";
+import type { CodeLanguage } from "@/engine/compile/codeTokens";
 import { cn } from "@/lib/utils";
-import { DrawOn, EASE, Reveal, Spotlight, Typewriter, useLive, useTicker } from "./motion";
-import type { LandingData, PreviewState } from "./preview-data";
+import { HighlightedCode } from "@/ui/common/code";
+import { EASE, Reveal, Spotlight, Typewriter, useCalm, useLive, useTicker } from "./motion";
+import type { LandingData, PreviewInsight, PreviewState } from "./preview-data";
 
 export interface BentoData {
   showcase: LandingData["showcase"];
@@ -97,6 +104,37 @@ function Tile({
 /* SQL and DAX                                                         */
 /* ------------------------------------------------------------------ */
 
+/**
+ * Code typed out once `active`, coloured as it is typed (a keyword takes its colour when it is
+ * complete). The server HTML and reduced motion show it whole; assistive technology reads it whole.
+ */
+function TypedCode({ code, lang, active }: { code: string; lang: CodeLanguage; active: boolean }) {
+  const calm = useCalm();
+  // Whole in the server HTML; a replay (a new key while playing) starts empty, so it never flashes whole.
+  const [count, setCount] = React.useState(() => (active && !calm ? 0 : code.length));
+  React.useEffect(() => {
+    if (!active || calm) return;
+    const controls = animate(0, code.length, {
+      duration: code.length / 260,
+      ease: "linear",
+      onUpdate: (v) => setCount(Math.round(v)),
+    });
+    return () => controls.stop();
+  }, [active, calm, code]);
+  const shown = calm ? code.length : count;
+  return (
+    <>
+      <span aria-hidden>
+        <HighlightedCode code={code.slice(0, shown)} lang={lang} />
+        {shown < code.length ? (
+          <span className="ml-px inline-block h-[1.05em] w-[2px] translate-y-[0.15em] animate-[caret-blink_1s_steps(1)_infinite] bg-accent" />
+        ) : null}
+      </span>
+      <span className="sr-only">{code}</span>
+    </>
+  );
+}
+
 function CodeTile({ kpi }: { kpi: LandingData["showcase"]["kpi"] }) {
   const { ref, live } = useLive<HTMLDivElement>(0.4);
   const tick = useTicker(9000, live);
@@ -119,7 +157,7 @@ function CodeTile({ kpi }: { kpi: LandingData["showcase"]["kpi"] }) {
                 aria-pressed={lang === l}
                 onClick={() => setChosen(l)}
                 className={cn(
-                  "eyebrow rounded-sm px-2 py-0.5 transition-colors duration-fast focus-visible:focus-ring",
+                  "eyebrow rounded-sm px-2 py-1 transition-colors duration-fast focus-visible:focus-ring",
                   lang === l
                     ? "bg-surface-selected text-accent-text"
                     : "text-fg-subtle hover:bg-surface-hover hover:text-fg",
@@ -133,21 +171,14 @@ function CodeTile({ kpi }: { kpi: LandingData["showcase"]["kpi"] }) {
             {lang === "sql" ? "DuckDB · PostgreSQL" : `[${kpi.daxName}]`}
           </span>
         </div>
-        {/* Focusable so keyboard users can scroll long code. The code face comes from <pre> and
-            <code> themselves (Tailwind's base styles set them in the monospace), so only code wears it. */}
+        {/* Focusable so keyboard users can scroll long code. The code sits in the well its colours
+            are checked against (--bg-subtle), coloured as the workspace colours it (ui/common/code). */}
         <pre
           tabIndex={0}
           aria-label={`${kpi.name} in ${lang === "sql" ? "SQL" : "DAX"}`}
-          className="h-[208px] overflow-auto p-3 text-xs leading-relaxed [overflow-wrap:anywhere] whitespace-pre-wrap text-fg-muted outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-inset"
+          className="h-[208px] overflow-auto bg-bg-subtle p-3 text-xs leading-relaxed [overflow-wrap:anywhere] whitespace-pre-wrap text-fg-muted outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-inset"
         >
-          <code>
-            <Typewriter
-              key={chosen ? lang : `${lang}-${tick}`}
-              text={code}
-              active={live}
-              charsPerSecond={260}
-            />
-          </code>
+          <TypedCode key={chosen ? lang : `${lang}-${tick}`} code={code} lang={lang} active={live} />
         </pre>
       </div>
     </div>
@@ -358,7 +389,8 @@ function MorphTile({ state }: { state: PreviewState }) {
     <div ref={ref} className="mt-auto grid gap-3">
       <div className="flex items-center justify-between gap-2 text-xs">
         <span className="text-fg-subtle">Net revenue by category · {state.label}</span>
-        <span className="shrink-0 rounded-full border border-border-accent bg-accent-soft px-2 py-0.5 text-accent-text">
+        {/* As wide as the longest name, so the caption beside it wraps the same way for every form. */}
+        <span className="min-w-24 shrink-0 rounded-full border border-border-accent bg-accent-soft px-2 py-0.5 text-center text-accent-text">
           {form}
         </span>
       </div>
@@ -425,7 +457,7 @@ function ProfileTile({
                   show: { opacity: 1, x: 0, transition: { duration: 0.35, ease: EASE } },
                 }}
               >
-                {c.type} · {c.role}
+                {c.type} · {c.readAs}
               </motion.span>
             </li>
           ))}
@@ -442,73 +474,65 @@ function ProfileTile({
 /* Insight                                                             */
 /* ------------------------------------------------------------------ */
 
-function InsightTile({ state, title }: { state: PreviewState; title: string }) {
-  const values = state.trend.values;
-  const max = Math.max(...values, 1);
-  const W = 260;
-  const H = 84;
-  const pts = values.map((v, i) => [(i / Math.max(1, values.length - 1)) * W, H - (v / max) * H] as const);
-  const line = pts.map(([x, y], i) => `${i ? "L" : "M"}${x.toFixed(1)},${y.toFixed(1)}`).join("");
-  const last = pts[pts.length - 1];
+const TONE: Record<PreviewInsight["tone"], { icon: LucideIcon; chip: string; label: string }> = {
+  positive: { icon: TrendingUp, chip: "bg-success-soft text-success", label: "Positive" },
+  negative: { icon: TrendingDown, chip: "bg-danger-soft text-danger", label: "Negative" },
+  warning: { icon: TriangleAlert, chip: "bg-warning-soft text-warning", label: "Watch" },
+  neutral: { icon: Lightbulb, chip: "bg-accent-soft text-accent", label: "Note" },
+};
+
+/**
+ * The top findings as the Insights feed ranks them: each with its rank, its tone and a thin bar
+ * of its impact, the engine's own score (0–100), never one made up for the picture.
+ */
+function InsightTile({ state }: { state: PreviewState }) {
   return (
-    <motion.div
-      className="mt-auto grid gap-3 rounded-card border border-border bg-surface-2/60 p-4"
+    <motion.ol
+      className="mt-auto grid gap-2"
+      aria-label={`Top insights, ${state.label}`}
       initial="hidden"
       whileInView="show"
       viewport={{ once: true, amount: 0.5 }}
+      variants={{ hidden: {}, show: { transition: { staggerChildren: 0.16, delayChildren: 0.1 } } }}
     >
-      <p className="flex gap-2.5 text-ui font-medium text-fg">
-        <TrendingUp className="mt-0.5 size-4 shrink-0 text-success" aria-hidden />
-        {title}
-      </p>
-      <div data-loop className="relative">
-        <svg
-          viewBox={`-4 -6 ${W + 8} ${H + 12}`}
-          className="block h-auto w-full overflow-visible"
-          aria-hidden
-        >
-          <DrawOn box={[-8, -12, W + 16, H + 24]} transition={{ duration: 1.4, ease: EASE }}>
-            <path
-              d={line}
-              fill="none"
-              stroke="var(--chart-1)"
-              strokeWidth={2}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              vectorEffect="non-scaling-stroke"
-            />
-          </DrawOn>
-          {last ? (
-            <motion.circle
-              cx={last[0]}
-              cy={last[1]}
-              r={4}
-              fill="var(--chart-1)"
-              variants={{
-                hidden: { scale: 0 },
-                show: { scale: 1, transition: { delay: 1.3, type: "spring" } },
-              }}
-            />
-          ) : null}
-        </svg>
-        {last ? (
-          // The pulse is an HTML layer over the end point, the size of the dot: a CSS loop on an
-          // SVG shape is restyled and laid out every frame, a layer's is only composited.
-          <span
-            aria-hidden
-            className="absolute aspect-square -translate-x-1/2 -translate-y-1/2 animate-[ping-soft_2.2s_ease-out_infinite] rounded-full bg-[var(--chart-1)]"
-            style={{
-              left: `${((last[0] + 4) / (W + 8)) * 100}%`,
-              top: `${((last[1] + 6) / (H + 12)) * 100}%`,
-              width: `${(8 / (W + 8)) * 100}%`,
+      {state.insights.slice(0, 3).map((ins, i) => {
+        const tone = TONE[ins.tone] ?? TONE.neutral;
+        return (
+          <motion.li
+            key={ins.title}
+            className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-3 rounded-card border border-border bg-surface-2/60 px-3 py-2.5"
+            variants={{
+              hidden: { opacity: 0, y: 10 },
+              show: { opacity: 1, y: 0, transition: { duration: 0.45, ease: EASE } },
             }}
-          />
-        ) : null}
-      </div>
-      <p className="text-xs text-fg-subtle">
-        From the chart: {state.trend.title} · {state.label}
-      </p>
-    </motion.div>
+          >
+            <span className={cn("grid size-6 place-items-center rounded-full", tone.chip)}>
+              <tone.icon className="size-3.5" aria-hidden />
+              <span className="sr-only">{tone.label}: </span>
+            </span>
+            <span className="min-w-0">
+              <span className="flex min-w-0 items-baseline gap-2">
+                <span className="tabular shrink-0 text-xs font-medium text-fg-subtle">#{i + 1}</span>
+                <span className="line-clamp-2 text-ui font-medium text-fg">{ins.title}</span>
+              </span>
+              <span
+                className="mt-1.5 block h-1 overflow-hidden rounded-full bg-surface-3"
+                title={`Impact ${Math.round(ins.impact)} of 100`}
+              >
+                <motion.span
+                  className="block h-full origin-left rounded-full bg-accent"
+                  style={{ width: `${Math.max(0, Math.min(100, ins.impact))}%` }}
+                  variants={{
+                    hidden: { scaleX: 0 },
+                    show: { scaleX: 1, transition: { duration: 0.8, delay: 0.2, ease: EASE } },
+                  }}
+                />
+              </span>
+            </span>
+          </motion.li>
+        );
+      })}
+    </motion.ol>
   );
 }
 
@@ -516,33 +540,21 @@ function InsightTile({ state, title }: { state: PreviewState; title: string }) {
 /* Exports                                                             */
 /* ------------------------------------------------------------------ */
 
-/** What the Export step makes (ui/workspace/ExportStep.tsx), by its names there. */
+/** What the Export step makes (ui/workspace/ExportStep.tsx): what to share, then what to build on. */
 const FORMATS = [
-  "Power BI package",
-  "SQL",
+  "One-page dashboard",
   "PDF report",
   "Presentation slides",
+  "Power BI package",
+  "SQL",
   "Data dictionary",
-  "Settings file",
 ];
 
 function ExportTile() {
   const { ref, live } = useLive<HTMLDivElement>(0.45);
   const tick = useTicker(6000, live);
-  // The orbit is as wide as the tile allows, so the labels never leave it on a phone.
-  const [width, setWidth] = React.useState(480);
-  React.useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const ro = new ResizeObserver(([entry]) => {
-      if (entry) setWidth(entry.contentRect.width);
-    });
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [ref]);
-  const rx = Math.max(90, Math.min(170, width / 2 - 64));
   return (
-    <div ref={ref} className="relative mt-auto grid h-[210px] place-items-center">
+    <div ref={ref} className="relative mt-auto grid h-[224px] place-items-center">
       <div
         aria-hidden
         className="absolute size-40 rounded-full bg-[radial-gradient(circle,var(--glow-accent),transparent_70%)] blur-xl"
@@ -553,12 +565,21 @@ function ExportTile() {
       <ul key={`${tick}-${live}`} className="absolute inset-0" aria-label="Export formats">
         {FORMATS.map((f, i) => {
           const a = (i / FORMATS.length) * Math.PI * 2 - Math.PI / 2;
+          const cos = Math.cos(a);
+          const sin = Math.sin(a);
           return (
+            // Each label rests at its place on the orbit, set in CSS: as wide as the tile allows (so
+            // the labels never leave it on a phone), and right without JavaScript, when the page's
+            // <noscript> rule lifts the transforms. The burst only moves it there from the middle.
             <motion.li
               key={f}
-              className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
-              initial={{ opacity: 0, scale: 0.4, x: 0, y: 0 }}
-              animate={{ opacity: 1, scale: 1, x: Math.cos(a) * rx, y: Math.sin(a) * 78 }}
+              className="absolute -translate-x-1/2 -translate-y-1/2"
+              style={{
+                left: `calc(50% + ${cos.toFixed(3)} * clamp(5.5rem, 50% - 4rem, 10.5rem))`,
+                top: `calc(50% + ${(sin * 92).toFixed(1)}px)`,
+              }}
+              initial={{ opacity: 0, scale: 0.4, x: -cos * 120, y: -sin * 92 }}
+              animate={{ opacity: 1, scale: 1, x: 0, y: 0 }}
               transition={{ type: "spring", stiffness: 140, damping: 16, delay: 0.15 + i * 0.09 }}
             >
               <span className="block rounded-full border border-border-strong bg-surface-1 px-3 py-1 text-xs whitespace-nowrap text-fg shadow-card">
@@ -620,7 +641,6 @@ function AskTile({ state }: { state: PreviewState }) {
 /* ------------------------------------------------------------------ */
 
 export function Bento({ data }: { data: BentoData }) {
-  const insight = data.showcase.insight?.title ?? data.state.insights[0]?.title ?? "";
   return (
     <div className="grid gap-4 lg:grid-cols-6">
       <Tile
@@ -651,25 +671,25 @@ export function Bento({ data }: { data: BentoData }) {
       <Tile
         icon={Table2}
         title="Every column profiled"
-        line="Type, role and data health, checked first."
+        line="How each column is read, and its health, checked first."
         className="lg:col-span-2"
         delay={0.08}
       >
         <ProfileTile columns={data.columns} health={data.health} />
       </Tile>
       <Tile
-        icon={Database}
+        icon={Lightbulb}
         title="Insights that cite their numbers"
-        line="Ranked by impact and linked to their chart."
+        line="Ranked by impact, each with its figures and its chart."
         className="lg:col-span-2"
         delay={0.16}
       >
-        {insight ? <InsightTile state={data.state} title={insight} /> : null}
+        {data.state.insights.length ? <InsightTile state={data.state} /> : null}
       </Tile>
       <Tile
         icon={FileDown}
         title="Exports that fit your stack"
-        line="Power BI, SQL, a PDF report and presentation slides."
+        line="A page, a report or slides to share; Power BI and SQL to build on."
         className="lg:col-span-3"
       >
         <ExportTile />

@@ -168,6 +168,15 @@ The dashboard (version 50.3, `ui/workspace/dashboard`) has two views that share 
 - **Insights beside the charts**: a column next to them on the one page, and in All charts from a content width of 1536 px; below that, the top three as a row above the charts.
 - **The one page** keeps its 16:9 shape and is still exactly what downloads (PNG or PDF): banner, filter pills, six KPIs, four charts and the insights column.
 
+## Analyse and Share
+
+The last steps (version 50.4) open with the same `StepHeader` as the rest of the workspace.
+
+- **Questions & SQL is a conversation** (`ui/workspace/analyse`): each question is your message, each answer an analyst's card with the sentence that carries its figures, the chart or table, the SQL behind "Show SQL", and its actions (copy, check against your data in DuckDB, add to the dashboard, remove). The composer is pinned at the foot of the page above the phone's bottom bar; an empty thread offers the file's own suggested questions, and "Ask next" chips follow the answers.
+- **Insights is a ranked feed**: compact cards with their rank, tone, figures and a thin impact bar (the engine's own score), filtered by kind. From 1280 px the chosen insight opens beside the feed with its full text, how it was found and its linked chart, drawn from the dashboard's own data.
+- **Export is a gallery** (`ui/workspace/export/gallery`): every format has a preview drawn from the real export (the one page as it downloads, the report's pages, the deck's first slides, the Power BI model with its measures, the first lines of the SQL, the first rows of the data), its options and its download. The one page is featured and holds the page's one primary button; "Share" and "Take it further" group the rest.
+- **The landing page** shows the app as it is: the hero's preview is the dashboard with its sidebar rail, filter pills, KPI cards, charts and insights, and "How it works" walks the four phases, every figure from the demo's own engine output (`landing/preview-data.ts`).
+
 ## Charts
 
 - Pick the form from the question: trend → line or area; ranked categories → sorted horizontal bars; composition → stacked bars or a donut with at most 6 slices; distribution → histogram; two measures → scatter with a trend line; weekday × hour → heatmap; states → tile map.

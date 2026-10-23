@@ -56,13 +56,14 @@ export function SiteFooter() {
           </p>
         </div>
         {COLUMNS.map((col) => (
-          <nav key={col.title} aria-label={col.title} className="grid content-start gap-3">
-            <p className="eyebrow text-fg-subtle">{col.title}</p>
+          // On a phone each link is a full 44 px row to tap; from sm the list is set closer.
+          <nav key={col.title} aria-label={col.title} className="grid content-start sm:gap-3">
+            <p className="eyebrow mb-1 text-fg-subtle sm:mb-0">{col.title}</p>
             {col.links.map((l) => (
               <SectionLink
                 key={l.href}
                 href={l.href}
-                className="w-fit text-ui text-fg-muted transition-colors duration-fast hover:text-fg"
+                className="flex min-h-11 w-fit items-center text-ui text-fg-muted transition-colors duration-fast hover:text-fg sm:min-h-0"
               >
                 {l.label}
               </SectionLink>

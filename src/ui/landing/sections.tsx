@@ -110,7 +110,7 @@ function Section({
       id={id}
       aria-labelledby={labelledBy}
       data-loop
-      className={cn("relative scroll-mt-20 py-24 sm:py-32", className)}
+      className={cn("relative scroll-mt-20 py-20 sm:py-32", className)}
     >
       {/* A hairline that fades out at both ends, instead of a hard rule between sections. */}
       <div
@@ -148,7 +148,7 @@ export function Hero({ data }: { data: LandingData }) {
   return (
     <section aria-labelledby="hero-title" data-loop className="relative isolate overflow-hidden">
       <Atmosphere />
-      <div className="mx-auto max-w-6xl px-4 pt-16 pb-20 sm:px-6 sm:pt-24 sm:pb-28">
+      <div className="mx-auto max-w-6xl px-4 pt-14 pb-20 sm:px-6 sm:pt-20 sm:pb-28">
         <div className="mx-auto max-w-4xl text-center">
           <SectionLink
             href="#privacy"
@@ -204,24 +204,20 @@ export function Hero({ data }: { data: LandingData }) {
             ))}
           </ul>
         </div>
-        {/* Only what the panel renders crosses into the client bundle. */}
+        {/* Only what the panel renders crosses into the client bundle; the industry's mark is drawn here. */}
         <HeroStage
-          data={{
-            file: data.file,
-            detection: data.detection,
-            columns: data.columns,
-            states: data.states,
-            tiles: data.tiles,
-          }}
+          data={{ file: data.file, dashboard: data.dashboard, states: data.states, tiles: data.tiles }}
+          icon={<DomainIcon name={data.dashboard.icon} className="size-5" />}
         />
-        <p className="mt-5 text-center text-xs text-fg-subtle">
-          Live engine output from the bundled demo file: synthetic orders from an Indian D2C brand.{" "}
+        <p className="mx-auto mt-6 max-w-xl text-center text-xs text-fg-subtle">
+          The demo file run through the engine: synthetic orders from an Indian D2C brand. Try the period, or{" "}
           <Link
             href={demoHref("ecommerce")}
             className="text-accent-text underline decoration-accent-text/40 underline-offset-4 transition-colors duration-fast hover:decoration-accent-text"
           >
-            Open it live
+            open it live
           </Link>
+          .
         </p>
       </div>
     </section>
@@ -242,10 +238,10 @@ export function HowItWorks({ data }: { data: LandingData }) {
         <Pipeline
           data={{
             file: data.file,
-            detection: data.detection,
-            columns: data.columns,
+            understanding: data.understanding,
             health: data.health,
             chartTypes: data.chartTypes,
+            question: data.showcase.question,
             state,
           }}
         />
@@ -544,21 +540,22 @@ export function Samples({ data }: { data: LandingData }) {
                 s.flagship ? "border-border-accent" : "border-border hover:border-border-hover",
               )}
             >
-              <Link href={demoHref(s.id)} className="group flex h-full flex-col gap-4 rounded-panel p-5">
-                <div className="flex items-center justify-between gap-3">
-                  <span className="grid size-10 place-items-center rounded-control border border-border bg-surface-2 text-fg-muted transition-colors duration-fast group-hover:border-border-accent group-hover:text-accent">
+              <Link
+                href={demoHref(s.id)}
+                className="group flex h-full flex-col gap-3 rounded-panel p-4 focus-visible:focus-ring sm:p-5"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="grid size-10 shrink-0 place-items-center rounded-control border border-border bg-surface-2 text-fg-muted transition-colors duration-fast group-hover:border-border-accent group-hover:text-accent">
                     <DomainIcon name={iconOf(s.domain)} className="size-4" />
                   </span>
+                  <h3 className="min-w-0 flex-1 text-md font-medium text-fg">{s.name}</h3>
                   {s.flagship ? (
-                    <span className="rounded-full border border-border-accent bg-accent-soft px-2 py-0.5 text-2xs font-medium text-accent-text">
+                    <span className="shrink-0 rounded-full border border-border-accent bg-accent-soft px-2 py-0.5 text-2xs font-medium text-accent-text">
                       Flagship
                     </span>
                   ) : null}
                 </div>
-                <div>
-                  <h3 className="text-md font-medium text-fg">{s.name}</h3>
-                  <p className="mt-1 line-clamp-3 text-sm text-fg-muted">{s.description}</p>
-                </div>
+                <p className="line-clamp-3 text-sm text-fg-muted">{s.description}</p>
                 <p className="mt-auto flex items-center justify-between text-xs text-fg-subtle">
                   <span className="tabular">
                     {data.samples[s.id]
@@ -610,7 +607,7 @@ const FAQ: Array<{ q: string; a: React.ReactNode }> = [
   },
   {
     q: "How do I know the numbers are right?",
-    a: "Every KPI shows its definition, formula, columns, SQL and DAX. If a column is missing it says so instead of guessing. “Verify against your data” (Export › SQL) and “Check this SQL on your data” (Questions & SQL) run the SQL in DuckDB inside your browser and compare every result with the numbers on screen.",
+    a: "Every KPI shows its definition, formula, columns, SQL and DAX. If a column is missing it says so instead of guessing. In Questions & SQL and in Export, the SQL can be run in DuckDB inside your browser, and every result is compared with the numbers on screen.",
   },
   {
     q: "Do I need an AI key?",
