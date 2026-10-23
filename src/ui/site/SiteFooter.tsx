@@ -3,7 +3,8 @@
  * and the current version from the version log (src/content/changelog.ts) so
  * visitors can see what changed and when. Its links to the home page's
  * sections are SectionLinks, so they scroll in place there (see
- * SectionLink.tsx). The Learn column leads into the glossary (/glossary).
+ * SectionLink.tsx). The Learn column leads into the glossary (/glossary),
+ * and the Trust column ends with "Send feedback" (the feedback dialog).
  */
 import Link from "next/link";
 import { ShieldCheck } from "lucide-react";
@@ -11,6 +12,7 @@ import { Wordmark } from "@/ui/brand/logo";
 import { CURRENT_RELEASE } from "@/content/changelog";
 import { AUTHOR, copyrightLine } from "@/content/credits";
 import { SectionLink } from "./SectionLink";
+import { FeedbackLink } from "@/ui/common/feedback/FeedbackLink";
 
 const COLUMNS: Array<{ title: string; links: Array<{ href: string; label: string }> }> = [
   {
@@ -68,6 +70,10 @@ export function SiteFooter() {
                 {l.label}
               </SectionLink>
             ))}
+            {/* Trust ends with the way to tell us about a problem or an idea (it opens the feedback dialog). */}
+            {col.title === "Trust" ? (
+              <FeedbackLink className="flex min-h-11 w-fit items-center rounded-sm text-left text-ui text-fg-muted transition-colors duration-fast hover:text-fg focus-visible:focus-ring sm:min-h-0" />
+            ) : null}
           </nav>
         ))}
       </div>

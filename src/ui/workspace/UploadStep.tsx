@@ -22,6 +22,8 @@
  * first rows or a column subset). Explanations are one short line, with the
  * full text behind hover, a long press or the ⓘ (ui/primitives/reveal.tsx).
  */
+import { openFeedback } from "@/ui/common/feedback/store";
+import { reportError } from "./feedbackPlace";
 import * as React from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { toast } from "sonner";
@@ -121,6 +123,13 @@ function ErrorBanner({ message }: { message: string }) {
       <div className="min-w-0">
         <p className="text-sm font-medium text-fg">That file couldn&apos;t be read</p>
         <p className="mt-0.5 text-sm break-words text-fg-muted">{message}</p>
+        <button
+          type="button"
+          onClick={() => openFeedback(reportError(message))}
+          className="mt-1.5 rounded-sm text-xs font-medium text-accent-text hover:underline focus-visible:focus-ring"
+        >
+          Report this problem
+        </button>
       </div>
     </div>
   );

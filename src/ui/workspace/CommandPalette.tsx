@@ -23,6 +23,7 @@ import {
   Hash,
   History,
   LayoutGrid,
+  MessageSquareHeart,
   Moon,
   Palette,
   Search,
@@ -38,6 +39,8 @@ import { useDialogFocus } from "@/ui/primitives/dialog";
 import { useChartColoursPanel } from "./ChartColours";
 import { openDemo, stepEnabled } from "./Shell";
 import { PHASES, STEP_ICON, stepLabel } from "./shell/phases";
+import { openFeedback } from "@/ui/common/feedback/store";
+import { workspacePlace } from "./feedbackPlace";
 
 const itemClass =
   "flex cursor-default select-none items-center gap-2.5 rounded-control px-2.5 py-2 text-ui text-fg outline-none data-[selected=true]:bg-surface-hover [&_svg]:size-4 [&_svg]:text-fg-subtle";
@@ -213,6 +216,13 @@ function PaletteBody({ onClose, onOpenSettings }: { onClose: () => void; onOpenS
           >
             <Hash aria-hidden /> Number format: switch to{" "}
             {locale === "IN" ? "international (M/B)" : "Indian (lakh/crore)"}
+          </Command.Item>
+          <Command.Item
+            value="send feedback report a problem suggest an idea bug"
+            className={itemClass}
+            onSelect={() => run(() => openFeedback({ place: workspacePlace() }))}
+          >
+            <MessageSquareHeart aria-hidden /> Send feedback
           </Command.Item>
           <Command.Item value="settings ai" className={itemClass} onSelect={() => run(onOpenSettings)}>
             <Settings2 aria-hidden /> Open settings

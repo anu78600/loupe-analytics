@@ -30,6 +30,7 @@ import { themeBootScript } from "@/store/settings";
 import { chartThemeBootScript } from "@/ui/charts/palette/apply";
 import { sidebarBootScript } from "@/ui/workspace/shell/sidebarState";
 import { AUTHOR } from "@/content/credits";
+import { CURRENT_VERSION } from "@/content/changelog";
 import "./globals.css";
 
 // next/font reads its options at build time, so they must be literals. The unicode-range values are
@@ -129,7 +130,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         >
           Skip to content
         </a>
-        <Providers>{children}</Providers>
+        <Providers version={CURRENT_VERSION}>{children}</Providers>
       </body>
     </html>
   );

@@ -41,6 +41,38 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "51.0",
+    kind: "major",
+    date: "2026-10-23T18:17:51Z",
+    title: "Send feedback: report a problem or suggest an idea in a few taps",
+    summary:
+      "A new way to tell the maker what went wrong or what would help. Pick a problem or an idea, tap a ready-made topic and add a line or two; Loupe writes the rest, including the details that help fix it, and opens it in your own email, ready to send.",
+    changes: [
+      "“Send feedback” is in the sidebar, the menus, the search palette and the site's footer, and every error message now has a Report button that writes the error into the message for you.",
+      "Ready-made topics so you only add the specifics: a number looks wrong, a column was read wrong, the wrong industry was detected, a chart is wrong or missing, an export didn't work, it's slow; or ideas such as a chart, a KPI or an industry you'd like.",
+      "Loupe adds the details that help fix a problem: the version, the step you were on, your data's size and how it was read, and your browser and window. You can see all of it before sending, and leave it out with one tick. Your data's values and your own file's name are never included.",
+      "Nothing is sent from Loupe: the message opens in your email app or in Gmail, or you can copy it. It goes to universe.airen@gmail.com.",
+    ],
+    tags: ["Feature"],
+    files: [
+      "src/lib/feedback.ts",
+      "src/ui/common/feedback/FeedbackDialog.tsx",
+      "src/ui/common/feedback/FeedbackLink.tsx",
+      "src/ui/common/feedback/store.ts",
+      "src/ui/workspace/feedbackPlace.ts",
+      "src/ui/common/providers.tsx",
+      "src/app/layout.tsx",
+      "src/ui/workspace/shell/Sidebar.tsx",
+      "src/ui/workspace/shell/TopBar.tsx",
+      "src/ui/workspace/CommandPalette.tsx",
+      "src/ui/workspace/Workspace.tsx",
+      "src/ui/workspace/UploadStep.tsx",
+      "src/ui/site/SiteFooter.tsx",
+      "docs/DESIGN.md",
+      "tests/feedback.test.ts",
+    ],
+  },
+  {
     version: "50.4",
     kind: "minor",
     date: "2026-10-23T17:21:26Z",

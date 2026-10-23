@@ -3,8 +3,9 @@
 /**
  * App-wide client providers, mounted once in the root layout: Framer Motion
  * honours the OS reduced-motion setting, one shared TooltipProvider (moving
- * between tooltips skips the delay), theme and chart-colour syncing and the
- * toast host. Toasts sit on the overlay plane like menus and popovers
+ * between tooltips skips the delay), theme and chart-colour syncing, the
+ * toast host, and the feedback dialog (feedback/FeedbackDialog.tsx), which
+ * any page opens through useFeedback. Toasts sit on the overlay plane like menus and popovers
  * (--surface-overlay, the pop shadow, the card radius); their classes use `!`
  * so the design tokens override sonner's built-in styles.
  */
@@ -15,6 +16,7 @@ import { TooltipProvider } from "@/ui/primitives/tooltip";
 import { applyTheme, useSettings } from "@/store/settings";
 import { applyChartTheme } from "@/ui/charts/palette/apply";
 import { resolveTheme } from "@/ui/charts/palette/themes";
+import { FeedbackDialog } from "./feedback/FeedbackDialog";
 
 /** Applies the theme preference, and while it is "system", follows OS light/dark changes live. */
 function ThemeSync() {
@@ -39,13 +41,15 @@ function ChartThemeSync() {
   return null;
 }
 
-export function Providers({ children }: { children: React.ReactNode }) {
+/** `version` is the current release (the layout reads the version log on the server), for the feedback's details. */
+export function Providers({ children, version }: { children: React.ReactNode; version: string }) {
   return (
     <MotionConfig reducedMotion="user">
       <TooltipProvider delayDuration={250} skipDelayDuration={150}>
         <ThemeSync />
         <ChartThemeSync />
         {children}
+        <FeedbackDialog version={version} />
         <Toaster
           position="bottom-right"
           gap={8}

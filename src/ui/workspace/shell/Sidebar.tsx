@@ -19,7 +19,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { BookOpen, Check, History, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { BookOpen, Check, History, MessageSquareHeart, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { STEPS, useWorkspace, type Step } from "@/store/workspace";
 import { cn } from "@/lib/utils";
 import { LoupeMark, Wordmark } from "@/ui/brand/logo";
@@ -27,6 +27,8 @@ import { Tooltip } from "@/ui/primitives/tooltip";
 import { stepEnabled } from "../Shell";
 import { PHASES, STEP_ICON, stepLabel } from "./phases";
 import { setSidebarOpen, useRailCollapsed } from "./sidebarState";
+import { openFeedback } from "@/ui/common/feedback/store";
+import { workspacePlace } from "../feedbackPlace";
 
 /** The steps where the charts need the width: the sidebar starts as the icon rail there. */
 const CANVAS_STEPS: ReadonlySet<Step> = new Set<Step>(["customise", "dashboard"]);
@@ -192,6 +194,16 @@ export function Sidebar() {
         </nav>
 
         <div className="grid shrink-0 gap-0.5 border-t border-border p-3">
+          <Tooltip content={rail ? "Send feedback" : "A problem or an idea? Tell us"} side="right">
+            <button
+              type="button"
+              onClick={() => openFeedback({ place: workspacePlace() })}
+              className="flex h-9 w-full items-center justify-center gap-2.5 rounded-control px-2.5 text-ui text-fg-muted transition-colors duration-fast hover:bg-surface-hover hover:text-fg focus-visible:focus-ring @min-[12rem]/sidebar:justify-start"
+            >
+              <MessageSquareHeart aria-hidden className="size-4 shrink-0" />
+              <span className="sr-only @min-[12rem]/sidebar:not-sr-only">Send feedback</span>
+            </button>
+          </Tooltip>
           <FooterLink href="/glossary" label="Glossary" rail={rail}>
             <BookOpen aria-hidden className="size-4 shrink-0" />
           </FooterLink>

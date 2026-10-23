@@ -22,6 +22,7 @@ import {
   Check,
   ChevronRight,
   Database,
+  MessageSquareHeart,
   Moon,
   MoreHorizontal,
   RotateCcw,
@@ -49,6 +50,8 @@ import { countOf } from "@/ui/common/words";
 import { describeModel, modelLabel } from "@/engine/core/model";
 import { confirmStartOver, stepEnabled } from "../Shell";
 import { phaseOf, STEP_ICON, stepLabel } from "./phases";
+import { openFeedback } from "@/ui/common/feedback/store";
+import { workspacePlace } from "../feedbackPlace";
 
 /** No-op subscription: the platform never changes while the page is open. */
 const subscribePlatform = () => () => {};
@@ -124,6 +127,18 @@ export function TopBar({
               </Button>
             </Tooltip>
           ) : null}
+          {/* Tablets: no sidebar (where feedback sits from lg) and no phone menu, so a button of its own. */}
+          <Tooltip content="Send feedback">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => openFeedback({ place: workspacePlace() })}
+              aria-label="Send feedback"
+              className="max-sm:hidden lg:hidden"
+            >
+              <MessageSquareHeart aria-hidden />
+            </Button>
+          </Tooltip>
           <Tooltip content="Settings">
             <Button
               variant="ghost"
@@ -289,6 +304,9 @@ function MoreMenu({ hasData, onOpenSettings }: { hasData: boolean; onOpenSetting
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-52">
+        <DropdownMenuItem onSelect={() => openFeedback({ place: workspacePlace() })}>
+          <MessageSquareHeart aria-hidden /> Send feedback
+        </DropdownMenuItem>
         <DropdownMenuItem onSelect={onOpenSettings}>
           <Settings2 aria-hidden /> Settings
         </DropdownMenuItem>

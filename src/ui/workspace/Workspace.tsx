@@ -17,6 +17,8 @@ import { toast } from "sonner";
 import { STEPS, useWorkspace } from "@/store/workspace";
 import { useSettings } from "@/store/settings";
 import { openDemo } from "./Shell";
+import { openFeedback } from "@/ui/common/feedback/store";
+import { reportError } from "./feedbackPlace";
 import { Sidebar } from "./shell/Sidebar";
 import { TopBar } from "./shell/TopBar";
 import { BottomBar } from "./shell/BottomBar";
@@ -90,7 +92,10 @@ export function Workspace({ version }: { version: string }) {
   // Errors after the upload step surface as toasts (the upload step shows them inline).
   React.useEffect(() => {
     if (error && step !== "upload") {
-      toast.error(error);
+      // "Report" opens feedback on this problem with the error and where it happened already written.
+      toast.error(error, {
+        action: { label: "Report", onClick: () => openFeedback(reportError(error)) },
+      });
       useWorkspace.setState({ error: null });
     }
   }, [error, step]);

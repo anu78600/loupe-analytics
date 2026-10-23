@@ -177,6 +177,10 @@ The last steps (version 50.4) open with the same `StepHeader` as the rest of the
 - **Export is a gallery** (`ui/workspace/export/gallery`): every format has a preview drawn from the real export (the one page as it downloads, the report's pages, the deck's first slides, the Power BI model with its measures, the first lines of the SQL, the first rows of the data), its options and its download. The one page is featured and holds the page's one primary button; "Share" and "Take it further" group the rest.
 - **The landing page** shows the app as it is: the hero's preview is the dashboard with its sidebar rail, filter pills, KPI cards, charts and insights, and "How it works" walks the four phases, every figure from the demo's own engine output (`landing/preview-data.ts`).
 
+## Feedback
+
+"Send feedback" (version 51.0) is in the sidebar's foot, the phone's More menu, the top bar on tablets, the command palette, every error toast ("Report") and the upload's error, and the site footer. One dialog (`ui/common/feedback/FeedbackDialog.tsx`, mounted by the root Providers) asks three quick things: a problem or an idea, a ready-made topic, and a line or two in the user's words, with an example. Loupe writes the rest: the subject, and, unless the user unticks it, the details that help (the version, the step and view, the data's size and how it was read, the browser and window), which the user can see in full. Nothing is sent from Loupe: the message opens in the user's email app or Gmail, or is copied, to `universe.airen@gmail.com`.
+
 ## Charts
 
 - Pick the form from the question: trend → line or area; ranked categories → sorted horizontal bars; composition → stacked bars or a donut with at most 6 slices; distribution → histogram; two measures → scatter with a trend line; weekday × hour → heatmap; states → tile map.
