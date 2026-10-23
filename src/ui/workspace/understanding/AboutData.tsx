@@ -1,41 +1,54 @@
 "use client";
 
 /**
- * "What this data is about" (version 49.0): the top of the Detect step, where
- * Loupe says what it read the table to be before anything is designed from
- * it. The industry choice follows it.
+ * The story Detect tells about the data (version 49.0; in chapters since
+ * 50.2): what Loupe read the table to be before anything is designed from
+ * it. After the opening card each chapter is a flow/Chapter (an eyebrow, a
+ * heading, its content), so the page reads as one account; the industry
+ * chapter, a label on this reading, is DetectStep's.
  *
- * - The title an analyst would give the dashboard ("Wine quality analysis"),
- *   what one row is with the counts and dates, and two to four plain
- *   sentences, clamped to two lines with the rest on hover, focus or a long
- *   press (ClampText, version 47.0's rule: less text on screen).
- * - The outcome the table is measured by, in a compact select: Loupe's choice,
- *   the other candidates and "No outcome". A change goes to the store's
- *   setOutcome, which reads the table again (or rebuilds the analysis once
- *   it is built), so the drivers follow it.
- * - What moves the outcome: the strongest drivers, each with its statistic
- *   and a strength bar, its sentence with the figures behind it (Brief).
- * - The columns grouped by kind as chips; each chip's menu reads the column
- *   as another kind ("Read as …"), through roleForKind and setRoleOverride.
- *   The outcome is set only by the select. A wide table folds each group to
- *   a few chips, with "Show all N columns".
- * - Up to three data issues, in the warning tokens.
- * - The industry as a label: its match and how many columns it explains,
- *   in the warning tone when too few for its template to lead. The cards
- *   below (DetectStep) hold its evidence and the choice itself.
+ * - AboutHero, "What this data is about": one card with the title an analyst
+ *   would give the dashboard ("Wine quality analysis"), what one row is, a
+ *   band of four figures (rows, columns, the dates the rows span, what the
+ *   table is measured by) and two to four plain sentences, clamped to two
+ *   lines with the rest on hover, focus or a long press (ClampText, version
+ *   47.0's rule).
+ * - OutcomeChapter: the outcome select at the end of the heading row
+ *   (Loupe's choice, the other candidates and "No outcome"), its reason under
+ *   the heading, and what moves it: the strongest drivers, each with its
+ *   statistic and a strength bar, its sentence behind it (Brief). A change
+ *   goes to the store's setOutcome, which reads the table again (or rebuilds
+ *   the analysis once it is built), so the drivers follow it.
+ * - ColumnsChapter: the columns grouped by kind as chips; each chip's menu
+ *   reads the column as another kind ("Read as …"), through roleForKind and
+ *   setRoleOverride. The outcome is set only by the select. A wide table
+ *   folds each group to a few chips, with "Show all N columns".
+ * - IssuesChapter, "Before you continue": up to three data issues, each with
+ *   Review (to Check & map), or one line saying none were found.
  *
- * Every figure is the engine's (engine/understand); aboutWords.ts words it.
+ * Every figure is the engine's (engine/understand, the health report);
+ * aboutWords.ts words it.
  */
 import * as React from "react";
-import { AlertTriangle, ArrowDownRight, ArrowUpRight, ChevronDown, Loader2, RotateCcw } from "lucide-react";
+import {
+  AlertOctagon,
+  AlertTriangle,
+  ArrowDownRight,
+  ArrowUpRight,
+  CheckCircle2,
+  ChevronDown,
+  Info,
+  Loader2,
+  RotateCcw,
+} from "lucide-react";
 import type { ColumnUnderstanding, DataUnderstanding, Driver } from "@/engine/understand/types";
 import { KIND_LABEL, roleForKind } from "@/engine/understand/kinds";
-import type { NumberLocale } from "@/engine/core/format";
+import { formatCount, type NumberLocale } from "@/engine/core/format";
 import { useWorkspace } from "@/store/workspace";
 import { useSettings } from "@/store/settings";
 import { cn } from "@/lib/utils";
-import { DomainIcon } from "@/ui/common/domain-icon";
 import { Badge } from "@/ui/primitives/badge";
+import { Button } from "@/ui/primitives/button";
 import { Card } from "@/ui/primitives/card";
 import {
   DropdownMenu,
@@ -56,186 +69,244 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/ui/primitives/select";
+import { Chapter } from "../flow/Chapter";
 import {
   DRIVERS_SHOWN,
   FOLD_ABOVE,
   FOLDED_PER_GROUP,
   OUTCOME_TYPE_LABEL,
+  dateTile,
   directionWords,
   groupColumns,
-  industryWords,
+  issueRows,
+  kindsLine,
+  noProblemsLine,
   outcomeFromValue,
   outcomeOptions,
   outcomeValue,
   readAsKinds,
-  rowLine,
   statLabel,
   strengthPct,
+  type IssueRow,
 } from "./aboutWords";
 
-export function AboutData({ className }: { className?: string }) {
+/** A correction is being read (Detect) or built (once the analysis exists). */
+const useBusy = () => useWorkspace((s) => s.understandingPending || s.configuring);
+
+/**
+ * "What this data is about", the story's opening: one card with the title, what one row is, a band
+ * of four figures (rows, columns, the dates, what it is measured by) and the sentences.
+ */
+export function AboutHero() {
   const u = useWorkspace((s) => s.understanding);
   const columns = useWorkspace((s) => s.summary?.columnCount);
-  // A correction is being read (Detect) or built (once the analysis exists).
-  const busy = useWorkspace((s) => s.understandingPending || s.configuring);
+  const hidden = useWorkspace((s) => s.hiddenColumns.length);
+  const busy = useBusy();
   const locale = useSettings((s) => s.numberLocale);
   const titleId = React.useId();
   if (!u || columns === undefined) return null;
   const sentences = u.sentences.join(" ");
+  const span = dateTile(u.time);
+  const kinds = kindsLine(u.columns);
   return (
-    <Card role="region" aria-labelledby={titleId} aria-busy={busy} className={cn("p-5 md:p-6", className)}>
-      <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-4">
-        <div className="min-w-0 flex-[1_1_22rem]">
+    <section aria-labelledby={titleId} aria-busy={busy || undefined}>
+      <Card className="overflow-hidden">
+        <div className="px-5 pt-6 pb-5 md:px-6">
           <p className="eyebrow flex items-center gap-2 text-fg-subtle">
             What this data is about
-            {/* The region is aria-busy meanwhile; the spinner is only for the eye. */}
+            {/* The section is aria-busy meanwhile; the spinner is only for the eye. */}
             {busy ? <Loader2 className="size-3 animate-spin text-accent" aria-hidden /> : null}
           </p>
-          <h2 id={titleId} className="mt-2 font-display text-display-xs text-fg">
+          <h2 id={titleId} className="mt-2 font-display text-display-xs text-balance text-fg">
             {u.title}
           </h2>
-          <p className="tabular mt-1 text-sm text-fg-muted">{rowLine(u, columns, locale)}</p>
-          {sentences ? (
-            <ClampText key={sentences} lines={2} className="mt-2 max-w-3xl text-sm text-fg">
+          <p className="mt-1 text-md text-fg-muted">{u.subject.rowMeaning}</p>
+        </div>
+        {/* A band of figures across the card: four in a row from lg, two by two below it. */}
+        {/* The dates and the outcome take more of the row than the two counts, so a range stays on one line. */}
+        <dl className="grid grid-cols-2 border-y border-border-subtle lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.4fr)_minmax(0,1.2fr)]">
+          <Figure
+            label="Rows"
+            value={formatCount(u.subject.rows, locale)}
+            caption={u.subject.plural}
+            figure
+          />
+          <Figure
+            label="Columns"
+            value={formatCount(columns, locale)}
+            caption={hidden ? `${kinds} · ${formatCount(hidden, locale)} hidden` : kinds}
+            figure
+            className="border-l border-border-subtle"
+          />
+          <Figure
+            label="Dates"
+            value={span ? keepDates(span.value) : "No dates"}
+            caption={span?.caption ?? "No date column found"}
+            quiet={!span}
+            className="border-border-subtle max-lg:border-t lg:border-l"
+          />
+          <Figure
+            label="Measured by"
+            value={u.outcome?.column ?? "No outcome"}
+            caption={u.outcome ? OUTCOME_TYPE_LABEL[u.outcome.type] : "Designed from its shape"}
+            quiet={!u.outcome}
+            className="border-l border-border-subtle max-lg:border-t"
+          />
+        </dl>
+        {sentences ? (
+          <div className="px-5 py-5 md:px-6">
+            <ClampText key={sentences} lines={2} className="max-w-4xl text-sm text-fg-muted">
               {sentences}
             </ClampText>
-          ) : null}
-        </div>
-        <IndustryTag u={u} locale={locale} />
-      </div>
-
-      <div className="mt-5 grid gap-x-8 gap-y-5 border-t border-border-subtle pt-5 lg:grid-cols-12">
-        <OutcomePicker u={u} className="lg:col-span-5" />
-        <Drivers u={u} locale={locale} busy={busy} className="lg:col-span-7 lg:row-span-2" />
-        <Issues issues={u.issues} className="lg:col-span-5 lg:self-start" />
-      </div>
-
-      <ColumnKinds u={u} className="mt-5 border-t border-border-subtle pt-5" />
-    </Card>
+          </div>
+        ) : null}
+      </Card>
+    </section>
   );
 }
 
-/**
- * The industry as a label on the reading: its name and icon, its match and
- * the columns it explains (warning tone when too few for it to lead), and
- * why behind the ⓘ.
- */
-function IndustryTag({ u, locale }: { u: DataUnderstanding; locale: NumberLocale }) {
-  const domainId = useWorkspace((s) => s.domainId);
-  const domains = useWorkspace((s) => s.domains);
-  const words = industryWords(u.industry, domainId, locale);
-  const icon =
-    u.industry && domainId !== "generic" ? domains.find((d) => d.id === u.industry?.id)?.icon : undefined;
+/** "Oct 2024 – Sep 2026" breaks only at the dash: each date's month and year stay together. */
+const keepDates = (range: string) =>
+  range
+    .split(" – ")
+    .map((d) => d.replace(/ /g, "\u00a0"))
+    .join(" – ");
+
+/** One figure of the overview's band: a label, the value and a short caption. */
+function Figure({
+  label,
+  value,
+  caption,
+  figure = false,
+  quiet = false,
+  className,
+}: {
+  label: string;
+  value: string;
+  caption: string;
+  /** A count, set in the figures face. */
+  figure?: boolean;
+  /** Nothing to show (no dates, no outcome): the value in the muted ink. */
+  quiet?: boolean;
+  className?: string;
+}) {
   return (
-    <div
-      className={cn(
-        "flex max-w-full min-w-0 items-start gap-2.5 rounded-control border px-3 py-2.5",
-        words.weak ? "border-warning-border bg-warning-soft" : "border-border",
-      )}
-    >
-      <span className="grid size-8 shrink-0 place-items-center rounded-control border border-border-accent bg-accent-soft">
-        <DomainIcon name={icon ?? "table"} className="size-4 text-accent" />
-      </span>
-      <div className="min-w-0">
-        <p className="eyebrow text-fg-subtle">Industry</p>
-        <p className="flex min-w-0 items-center gap-1 text-ui font-medium text-fg">
-          <span className="truncate">{words.name}</span>
-          <InfoTip label="About the industry">{words.full}</InfoTip>
-        </p>
-        <p className={cn("tabular text-xs", words.weak ? "text-warning-text" : "text-fg-muted")}>
-          {words.detail}
-        </p>
-      </div>
+    <div className={cn("flex min-w-0 flex-col px-5 py-4 md:px-6", className)}>
+      <dt className="eyebrow text-fg-subtle">{label}</dt>
+      <dd
+        className={cn(
+          "mt-1.5 text-xl font-semibold break-words",
+          figure && "font-figures",
+          quiet ? "text-fg-muted" : "text-fg",
+        )}
+      >
+        {value}
+      </dd>
+      <dd className="mt-auto min-w-0 pt-0.5 text-xs text-fg-muted">
+        <ClampText>{caption}</ClampText>
+      </dd>
     </div>
+  );
+}
+
+/** "What moves <outcome>": the outcome select and its reason, then the drivers. */
+export function OutcomeChapter() {
+  const u = useWorkspace((s) => s.understanding);
+  const busy = useBusy();
+  const locale = useSettings((s) => s.numberLocale);
+  if (!u) return null;
+  const outcome = u.outcome?.column ?? null;
+  return (
+    <Chapter
+      eyebrow="Outcome"
+      title={outcome ? `What moves ${outcome}` : "What it's measured by"}
+      tip={
+        outcome ? (
+          <InfoTip label="About the drivers">
+            How strongly each column moves with {outcome}, strongest first: r is a correlation between two
+            numbers, η compares {outcome}&apos;s average across a column&apos;s groups, and V is the
+            association between two sets of categories.
+          </InfoTip>
+        ) : null
+      }
+      sub={
+        u.outcome ? (
+          <ClampText key={u.outcome.why}>{u.outcome.why}</ClampText>
+        ) : (
+          <Brief
+            label="About no outcome"
+            full="With no outcome the dashboard is designed from the table's shape: its totals, trends and breakdowns. Pick a column with “Measured by” if the table is measured by one."
+          >
+            No outcome: designed from the table&apos;s shape.
+          </Brief>
+        )
+      }
+      aside={<OutcomePicker u={u} />}
+      busy={busy}
+    >
+      <Card className={cn("p-5 transition-opacity duration-base md:p-6", busy && "opacity-60")}>
+        <Drivers u={u} locale={locale} />
+      </Card>
+    </Chapter>
   );
 }
 
 /**
  * The outcome select: Loupe's choice, the other candidates and "No outcome",
- * with the kind of outcome beside it and the reason it was chosen below.
+ * with the kind of outcome beside it.
  */
-function OutcomePicker({ u, className }: { u: DataUnderstanding; className?: string }) {
+function OutcomePicker({ u }: { u: DataUnderstanding }) {
   const chosen = useWorkspace((s) => s.outcome);
   const remembered = useWorkspace((s) => s.outcomeChoices);
   const setOutcome = useWorkspace((s) => s.setOutcome);
   const id = React.useId();
   const options = outcomeOptions(u, chosen, remembered);
   return (
-    <div className={cn("min-w-0", className)}>
-      <label htmlFor={id} className="eyebrow block text-fg-subtle">
+    <div className="flex min-w-0 items-center gap-2">
+      <label htmlFor={id} className="shrink-0 text-ui text-fg-muted">
         Measured by
       </label>
-      <div className="mt-2 flex min-w-0 items-center gap-2">
-        <Select value={outcomeValue(chosen)} onValueChange={(v) => setOutcome(outcomeFromValue(v))}>
-          <SelectTrigger id={id} size="sm" className="w-full max-w-64 min-w-0">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {options.map((o) => (
-              <SelectItem key={o.value} value={o.value} hint={o.hint}>
-                {o.label}
-              </SelectItem>
-            ))}
-            <SelectSeparator />
-            <SelectItem value="none">No outcome</SelectItem>
-          </SelectContent>
-        </Select>
-        {u.outcome ? (
-          <Badge tone="neutral" className="shrink-0">
-            {OUTCOME_TYPE_LABEL[u.outcome.type]}
-          </Badge>
-        ) : null}
-      </div>
+      <Select value={outcomeValue(chosen)} onValueChange={(v) => setOutcome(outcomeFromValue(v))}>
+        <SelectTrigger id={id} size="sm" className="w-44 min-w-0 sm:w-52">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map((o) => (
+            <SelectItem key={o.value} value={o.value} hint={o.hint}>
+              {o.label}
+            </SelectItem>
+          ))}
+          <SelectSeparator />
+          <SelectItem value="none">No outcome</SelectItem>
+        </SelectContent>
+      </Select>
       {u.outcome ? (
-        <ClampText key={u.outcome.why} className="mt-2 text-xs text-fg-muted">
-          {u.outcome.why}
-        </ClampText>
-      ) : (
-        <p className="mt-2 text-xs text-fg-muted">
-          <Brief
-            label="About no outcome"
-            full="With no outcome the dashboard is designed from the table's shape: its totals, trends and breakdowns. Pick a column above if the table is measured by one."
-          >
-            No outcome: designed from the table&apos;s shape.
-          </Brief>
-        </p>
-      )}
+        <Badge tone="neutral" className="shrink-0">
+          {OUTCOME_TYPE_LABEL[u.outcome.type]}
+        </Badge>
+      ) : null}
     </div>
   );
 }
 
 /** What moves the outcome: the strongest drivers, each with its statistic, a strength bar and its sentence. */
-function Drivers({
-  u,
-  locale,
-  busy,
-  className,
-}: {
-  u: DataUnderstanding;
-  locale: NumberLocale;
-  busy: boolean;
-  className?: string;
-}) {
+function Drivers({ u, locale }: { u: DataUnderstanding; locale: NumberLocale }) {
   const outcome = u.outcome?.column ?? null;
   const top = u.drivers.slice(0, DRIVERS_SHOWN);
+  if (!outcome)
+    return <p className="text-sm text-fg-muted">Choose an outcome to see which columns move it.</p>;
+  if (!top.length)
+    return <p className="text-sm text-fg-muted">No other column moves {outcome} noticeably.</p>;
   return (
-    <div className={cn("min-w-0 transition-opacity duration-base", busy && "opacity-60", className)}>
-      <p className="eyebrow text-fg-subtle">{outcome ? `What moves ${outcome}` : "What moves it"}</p>
-      {!outcome ? (
-        <p className="mt-2 text-sm text-fg-muted">Choose an outcome to see which columns move it.</p>
-      ) : !top.length ? (
-        <p className="mt-2 text-sm text-fg-muted">No other column moves {outcome} noticeably.</p>
-      ) : (
-        <ol className="mt-2.5 grid gap-3" aria-label={`What moves ${outcome}, strongest first`}>
-          {top.map((d) => (
-            <DriverRow key={d.column} driver={d} outcome={outcome} locale={locale} />
-          ))}
-        </ol>
-      )}
-    </div>
+    <ol className="grid gap-4" aria-label={`What moves ${outcome}, strongest first`}>
+      {top.map((d) => (
+        <DriverRow key={d.column} driver={d} outcome={outcome} locale={locale} />
+      ))}
+    </ol>
   );
 }
 
+/** One driver: its name (the sentence behind it), the strength bar and the statistic; stacked on a phone. */
 function DriverRow({
   driver: d,
   outcome,
@@ -247,49 +318,37 @@ function DriverRow({
 }) {
   const Arrow = d.direction === "up" ? ArrowUpRight : d.direction === "down" ? ArrowDownRight : null;
   return (
-    <li className="min-w-0">
-      <div className="flex items-baseline justify-between gap-3">
-        <p className="min-w-0 text-ui break-words text-fg">
-          <Brief full={d.sentence} label={`How ${d.column} moves with ${outcome}`}>
-            <span className="font-medium">{d.column}</span>
-          </Brief>
-        </p>
-        <p className="tabular inline-flex shrink-0 items-center gap-1 text-xs text-fg-muted">
-          {Arrow ? <Arrow className="size-3.5 text-fg-subtle" aria-hidden /> : null}
-          <span className="sr-only">{directionWords(d, outcome)}, </span>
-          {statLabel(d, locale)}
-        </p>
-      </div>
-      <div aria-hidden className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-surface-3">
+    <li className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1.5 md:grid-cols-[minmax(0,14rem)_minmax(0,1fr)_6rem]">
+      <p className="min-w-0 text-ui break-words text-fg">
+        <Brief full={d.sentence} label={`How ${d.column} moves with ${outcome}`}>
+          <span className="font-medium">{d.column}</span>
+        </Brief>
+      </p>
+      {/* After the statistic on a phone (a row of its own); between the name and it from md. */}
+      <div
+        aria-hidden
+        className="order-last col-span-2 h-2 overflow-hidden rounded-full bg-surface-3 md:order-none md:col-span-1"
+      >
         <div
           className="h-full rounded-full bg-accent transition-[width] duration-slow ease-out-quint"
           style={{ width: `${strengthPct(d.strength)}%` }}
         />
       </div>
+      <p className="tabular inline-flex items-center justify-end gap-1 text-xs text-fg-muted">
+        {Arrow ? <Arrow className="size-3.5 text-fg-subtle" aria-hidden /> : null}
+        <span className="sr-only">{directionWords(d, outcome)}, </span>
+        {statLabel(d, locale)}
+      </p>
     </li>
   );
 }
 
-/** Up to three data issues in plain words, each one line with the whole sentence behind it. */
-function Issues({ issues, className }: { issues: readonly string[]; className?: string }) {
-  if (!issues.length) return null;
-  return (
-    <div
-      role="note"
-      aria-label="Data issues"
-      className={cn(
-        "grid min-w-0 gap-1.5 rounded-control border border-warning-border bg-warning-soft px-3 py-2.5",
-        className,
-      )}
-    >
-      {issues.slice(0, 3).map((issue) => (
-        <p key={issue} className="flex min-w-0 items-start gap-2 text-sm text-fg">
-          <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden />
-          <ClampText className="min-w-0 flex-1">{issue}</ClampText>
-        </p>
-      ))}
-    </div>
-  );
+/** "How each column is read": the columns grouped by kind, each chip opening its "Read as …" menu. */
+export function ColumnsChapter() {
+  const u = useWorkspace((s) => s.understanding);
+  const busy = useBusy();
+  if (!u) return null;
+  return <ColumnKinds u={u} busy={busy} />;
 }
 
 /**
@@ -297,7 +356,7 @@ function Issues({ issues, className }: { issues: readonly string[]; className?: 
  * menu. Focus is kept where the keyboard was: "+N more" hands it to the first chip it reveals, and a
  * chip read as another kind moves to its new group once the table is read again, so focus follows it.
  */
-function ColumnKinds({ u, className }: { u: DataUnderstanding; className?: string }) {
+function ColumnKinds({ u, busy }: { u: DataUnderstanding; busy: boolean }) {
   const [all, setAll] = React.useState(false);
   const listId = React.useId();
   const list = React.useRef<HTMLDListElement>(null);
@@ -326,61 +385,76 @@ function ColumnKinds({ u, className }: { u: DataUnderstanding; className?: strin
   const folds = total > FOLD_ABOVE;
   const groups = groupColumns(u.columns, folds && !all ? FOLDED_PER_GROUP : Infinity);
   return (
-    <div className={cn("min-w-0", className)}>
-      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
-        <p className="flex items-center gap-1.5">
-          <span className="eyebrow text-fg-subtle">Columns by kind</span>
-          <InfoTip label="About the column kinds">
-            How Loupe reads each column. Open one to read it as another kind; what is built from it follows.
-          </InfoTip>
-        </p>
-        {folds ? (
+    <Chapter
+      eyebrow="Columns"
+      title="How each column is read"
+      sub={
+        <Brief
+          label="About the column kinds"
+          full="How Loupe reads each column, from its values. Open one to read it as another kind; everything built from it follows."
+        >
+          Open one to read it as another kind.
+        </Brief>
+      }
+      aside={
+        folds ? (
           <button
             type="button"
             aria-expanded={all}
             aria-controls={listId}
             onClick={() => setAll((v) => !v)}
-            className="rounded-xs text-ui text-accent-text underline-offset-2 hover:underline focus-visible:focus-ring"
+            className="inline-flex min-h-6 items-center gap-1 rounded-xs text-ui font-medium text-accent-text hover:underline focus-visible:focus-ring"
           >
             {all ? "Show fewer" : `Show all ${total} columns`}
+            <ChevronDown
+              className={cn("size-3.5 transition-transform duration-base", all && "rotate-180")}
+              aria-hidden
+            />
           </button>
-        ) : null}
-      </div>
-      <dl id={listId} ref={list} className="mt-3 grid gap-x-4 gap-y-2 sm:grid-cols-[9rem_minmax(0,1fr)]">
-        {groups.map((g) => (
-          <React.Fragment key={g.kind}>
-            <dt className="text-xs font-medium text-fg-muted sm:pt-1.5">
-              {g.label}{" "}
-              <span className="tabular font-normal text-fg-subtle">{g.columns.length + g.more}</span>
-            </dt>
-            <dd className="flex min-w-0 flex-wrap items-center gap-1.5">
-              {g.columns.map((c) => (
-                <KindChip
-                  key={c.name}
-                  column={c}
-                  onCorrect={() => {
-                    moved.current = c.name;
-                  }}
-                />
-              ))}
-              {g.more ? (
-                <button
-                  type="button"
-                  aria-label={`+${g.more} more ${g.label.toLowerCase()}`}
-                  onClick={() => {
-                    revealed.current = g.kind;
-                    setAll(true);
-                  }}
-                  className="tabular h-7 rounded-full px-2 text-xs text-fg-subtle hover:text-fg focus-visible:focus-ring"
-                >
-                  +{g.more} more
-                </button>
-              ) : null}
-            </dd>
-          </React.Fragment>
-        ))}
-      </dl>
-    </div>
+        ) : null
+      }
+      busy={busy}
+    >
+      <Card className="px-5 py-2 md:px-6">
+        <dl id={listId} ref={list} className="divide-y divide-border-subtle">
+          {groups.map((g) => (
+            <div
+              key={g.kind}
+              className="grid gap-x-6 gap-y-2 py-3.5 sm:grid-cols-[9rem_minmax(0,1fr)] sm:items-start"
+            >
+              <dt className="text-ui font-medium text-fg sm:pt-1">
+                {g.label}{" "}
+                <span className="tabular font-normal text-fg-subtle">{g.columns.length + g.more}</span>
+              </dt>
+              <dd className="flex min-w-0 flex-wrap items-center gap-1.5">
+                {g.columns.map((c) => (
+                  <KindChip
+                    key={c.name}
+                    column={c}
+                    onCorrect={() => {
+                      moved.current = c.name;
+                    }}
+                  />
+                ))}
+                {g.more ? (
+                  <button
+                    type="button"
+                    aria-label={`+${g.more} more ${g.label.toLowerCase()}`}
+                    onClick={() => {
+                      revealed.current = g.kind;
+                      setAll(true);
+                    }}
+                    className="tabular h-7 rounded-full px-2 text-xs text-fg-subtle hover:text-fg focus-visible:focus-ring"
+                  >
+                    +{g.more} more
+                  </button>
+                ) : null}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      </Card>
+    </Chapter>
   );
 }
 
@@ -403,7 +477,7 @@ function KindChip({ column, onCorrect }: { column: ColumnUnderstanding; onCorrec
           data-column={column.name}
           data-kind={column.kind}
           aria-label={`${column.name}: ${KIND_LABEL[column.kind]}${override ? ", set by you" : ""}`}
-          className="inline-flex h-7 max-w-full min-w-0 items-center gap-1.5 rounded-full border border-border-strong bg-surface-2 pr-2 pl-3 text-xs text-fg transition-colors duration-fast hover:border-border-hover hover:bg-surface-hover focus-visible:focus-ring data-[state=open]:border-border-hover data-[state=open]:bg-surface-hover"
+          className="inline-flex h-7 max-w-full min-w-0 items-center gap-1.5 rounded-full border border-border bg-surface-2 pr-2 pl-3 text-xs text-fg transition-colors duration-fast hover:border-border-hover hover:bg-surface-hover focus-visible:focus-ring data-[state=open]:border-border-hover data-[state=open]:bg-surface-hover"
         >
           <span className="truncate font-medium">{column.name}</span>
           {override ? <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-accent" /> : null}
@@ -462,5 +536,71 @@ function KindChip({ column, onCorrect }: { column: ColumnUnderstanding; onCorrec
         )}
       </DropdownMenuContent>
     </DropdownMenu>
+  );
+}
+
+const SEVERITY: Record<
+  IssueRow["severity"],
+  { icon: typeof AlertTriangle; tint: string; ink: string; label: string }
+> = {
+  critical: { icon: AlertOctagon, tint: "bg-danger-soft", ink: "text-danger", label: "Problem" },
+  warning: { icon: AlertTriangle, tint: "bg-warning-soft", ink: "text-warning", label: "Worth a look" },
+  info: { icon: Info, tint: "bg-info-soft", ink: "text-info", label: "Note" },
+};
+
+/**
+ * "Before you continue": the reading's data issues (at most three), each with Review, which opens
+ * Check & map; or one line saying nothing was found.
+ */
+export function IssuesChapter({ onReview, disabled }: { onReview: () => void; disabled?: boolean }) {
+  const u = useWorkspace((s) => s.understanding);
+  const health = useWorkspace((s) => s.health);
+  const locale = useSettings((s) => s.numberLocale);
+  if (!u) return null;
+  const rows = issueRows(u.issues, health?.issues ?? []);
+  return (
+    <Chapter
+      eyebrow="Data health"
+      title="Before you continue"
+      sub={rows.length ? "Each one can be checked in Check & map." : undefined}
+    >
+      <Card className="divide-y divide-border-subtle">
+        {rows.length ? (
+          rows.map((r) => {
+            const s = SEVERITY[r.severity];
+            return (
+              <div key={r.title} className="flex min-w-0 items-center gap-3 px-4 py-3.5 md:px-5">
+                <span className={cn("grid size-8 shrink-0 place-items-center rounded-full", s.tint)}>
+                  <s.icon className={cn("size-4", s.ink)} aria-hidden />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium break-words text-fg">
+                    <span className="sr-only">{s.label}: </span>
+                    {r.title}
+                  </p>
+                  {r.detail ? <ClampText className="text-xs text-fg-muted">{r.detail}</ClampText> : null}
+                </div>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={disabled}
+                  onClick={onReview}
+                  aria-label={`Review ${r.title} in Check & map`}
+                >
+                  Review
+                </Button>
+              </div>
+            );
+          })
+        ) : (
+          <p className="flex items-center gap-3 px-4 py-3.5 text-sm text-fg md:px-5">
+            <span className="grid size-8 shrink-0 place-items-center rounded-full bg-success-soft">
+              <CheckCircle2 className="size-4 text-success" aria-hidden />
+            </span>
+            {noProblemsLine(u.subject.rows, locale)}
+          </p>
+        )}
+      </Card>
+    </Chapter>
   );
 }

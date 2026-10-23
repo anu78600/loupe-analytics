@@ -1,14 +1,16 @@
 /**
- * The words and groupings of "What this data is about" on Detect
+ * The words and groupings of the story Detect tells about the data
  * (AboutData.tsx), kept as plain functions so tests/about-data.test.ts reads
- * them without the component:
+ * them without the components:
  *
- * - the line saying what one row is, how many there are and the dates they span;
+ * - the line saying what one row is, how many there are and the dates they span,
+ *   and the overview's date tile ("Oct 2024 – Sep 2026") and kinds line;
  * - the outcome select's options: Loupe's choice, the other candidates, none;
  * - each driver's statistic as the analyst standards write it ("r = −0.31",
  *   with a true minus sign) and its direction in words;
  * - the columns grouped by kind, folded to a few chips a group on a wide table;
  * - the "Read as …" choices for a column;
+ * - the problems "Before you continue" lists, or the line saying there are none;
  * - the industry as a label: its match, how many columns it explains, and
  *   whether its template leads.
  *
@@ -219,11 +221,72 @@ export function readAsKinds(
     : [{ kind: current, label: KIND_LABEL[current], settable: false }, ...settable];
 }
 
+/**
+ * The date tile of Detect's overview: the dates the rows span, short enough for a tile
+ * ("Oct 2024 – Sep 2026"; the days only within one month, "3–28 Jan 2025"), and the column they
+ * come from. Null without a date column.
+ */
+export function dateTile(time: DataUnderstanding["time"]): { value: string; caption: string } | null {
+  if (!time || !Number.isFinite(time.from) || !Number.isFinite(time.to)) return null;
+  const fine = time.grain === "day" || time.grain === "week";
+  const a = bucketLabel(time.from, fine ? "month" : time.grain);
+  const b = bucketLabel(time.to, fine ? "month" : time.grain);
+  // Within one month the month alone says too little: the days, as the analyst standards write them.
+  const value = a !== b ? `${a} – ${b}` : fine ? formatRange(time.from, time.to) : a;
+  return { value, caption: time.column };
+}
+
+/** "in 7 kinds": how many kinds the columns are read as (the groups of the Columns chapter). */
+export function kindsLine(columns: readonly ColumnUnderstanding[]): string {
+  const kinds = new Set(columns.map((c) => c.kind)).size;
+  return `in ${kinds} ${kinds === 1 ? "kind" : "kinds"}`;
+}
+
+/** One problem in "Before you continue": the reading's words, with the health check's detail when known. */
+export interface IssueRow {
+  title: string;
+  detail: string | null;
+  severity: "info" | "warning" | "critical";
+  column: string | null;
+}
+
+/**
+ * The problems "Before you continue" lists: the reading's own (at most three, most serious first),
+ * each with the detail, severity and column of the health check it came from (matched by its
+ * title); one the report doesn't hold stays a warning with no detail.
+ */
+export function issueRows(
+  issues: readonly string[],
+  health: ReadonlyArray<{
+    title: string;
+    detail: string;
+    severity: IssueRow["severity"];
+    column?: string;
+  }>,
+): IssueRow[] {
+  return issues.slice(0, 3).map((title) => {
+    const h = health.find((i) => i.title === title);
+    return {
+      title,
+      detail: h?.detail ?? null,
+      severity: h?.severity ?? "warning",
+      column: h?.column ?? null,
+    };
+  });
+}
+
+/** The positive line when nothing needs a look: "No problems found in 49,037 rows". */
+export function noProblemsLine(rows: number, locale: NumberLocale): string {
+  return `No problems found in ${countOf(rows, "row", locale)}`;
+}
+
 /** The industry as a label on the reading: its name, a short detail and the full reason. */
 export interface IndustryWords {
   name: string;
   /** "92% match · explains 9 of 12 columns", or what the dashboard is built from instead. */
   detail: string;
+  /** "Explains 9 of 12 columns", for a card that shows the match beside it; null without an industry. */
+  explains: string | null;
   /** The industry explains few of the columns, so the data-led charts lead (shown in the warning tone). */
   weak: boolean;
   /** The whole explanation, behind the label's ⓘ. */
@@ -244,6 +307,7 @@ export function industryWords(
     return {
       name: "No industry",
       detail: "designed from the columns",
+      explains: null,
       weak: false,
       full: "You chose the general dashboard: it is designed from the columns themselves, with no industry's KPIs assumed.",
     };
@@ -251,6 +315,7 @@ export function industryWords(
     return {
       name: "No industry fits",
       detail: "designed from the columns",
+      explains: null,
       weak: false,
       full: "No industry matches these columns well enough to lead, so the dashboard is designed from the columns themselves. Pick an industry below if one fits.",
     };
@@ -262,6 +327,7 @@ export function industryWords(
   return {
     name: industry.name,
     detail: `${industry.confidence}% match · ${explains}`,
+    explains: `${explains.charAt(0).toUpperCase()}${explains.slice(1)}`,
     weak,
     full: weak
       ? `${industry.name} scores ${industry.confidence}% and ${explains}: too few to lead. The dashboard is designed from the data, with ${industry.name}'s KPIs where they fit.`

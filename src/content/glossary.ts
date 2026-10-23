@@ -64,7 +64,7 @@ export const GLOSSARY: GlossarySection[] = [
         body: "Everything Loupe shows starts from one dataset. It works best when every row describes one thing of the same kind (one order, one employee) and every column holds one kind of value.",
         example:
           "An export of last year's orders: one row per order line, with columns for date, product, quantity and amount.",
-        inLoupe: "Upload, then Check & map › Your columns.",
+        inLoupe: "Upload, then Check & map › Columns.",
         related: ["row", "column", "grain"],
       },
       {
@@ -297,7 +297,7 @@ export const GLOSSARY: GlossarySection[] = [
         level: "intermediate",
         short: "Which column of your file fills which business field: “Net Amount” is the net revenue field.",
         body: "KPIs are written in business fields, so they work on any file once its columns are mapped. Loupe maps them automatically and lets you correct any of them.",
-        inLoupe: "Check & map › Field mapping.",
+        inLoupe: "Check & map › Matched to, in each column's row, or the Fields view.",
         related: ["industry", "kpi"],
       },
     ],
@@ -980,7 +980,7 @@ export const GLOSSARY: GlossarySection[] = [
         level: "beginner",
         short: "A score out of 100 for how ready a file is for analysis.",
         body: "It counts problems such as blanks, duplicates, mixed types and inconsistent spellings, weighted by how much each matters. Problems in hidden columns don't count.",
-        inLoupe: "Check & map › Data health.",
+        inLoupe: "Check & map › the Data health tile, and the File report.",
         related: ["missing-value", "duplicate", "data-cleaning"],
       },
       {
@@ -1053,7 +1053,7 @@ export const GLOSSARY: GlossarySection[] = [
         level: "intermediate",
         short: "A column kept in the file but taken out of the analysis.",
         body: "Hide a raw column when a cleaned copy exists, or one that would mislead. It stays in the data grid and every export, but no KPI, chart, filter or question uses it.",
-        inLoupe: "Check & map › Your columns › Hide.",
+        inLoupe: "Check & map › Columns › the eye at the start of a column's row.",
         related: ["data-health", "data-cleaning"],
       },
       {

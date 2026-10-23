@@ -41,6 +41,51 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "50.2",
+    kind: "minor",
+    date: "2026-10-23T09:51:52Z",
+    title: "From file to first dashboard in one guided flow (redesign stage 3 of 5)",
+    summary:
+      "Upload, Detect and Check & map now read as one guided sequence, each page opening the same way and ending with a small floating bar that always shows the next step. Upload shows the drop zone and the demos side by side, Detect tells your data's story before naming its industry, and Check & map is one review table with every fix in its row.",
+    changes: [
+      "Upload: a large drop zone and the six demos side by side, both in view at once, with a short “How it works” under them. Your file still never leaves the browser, and the page says so.",
+      "Detect is now a story in five short chapters: what your data is about (with its rows, columns, dates and what it is measured by), what moves that measure, how each column is read, which industry it belongs to, and anything to fix before you continue.",
+      "The industry choice is one card: the match and the other close matches on the left, your choice on the right, with the business details folded away until you want them.",
+      "Check & map is one review table: a row per column with its example values, how it is read, the field it fills, what it feeds on the dashboard and any problem, each changeable in place. A row opens to say why it was read that way, with its value meanings, the advanced settings and the rows to check.",
+      "Four tiles sum up the review (KPIs available, columns used, rows to check, data health), and each one opens the right place. The whole file, KPI availability, the industry's fields and the file report sit beside the table as views.",
+      "Every page of the flow ends with a floating bar that shows where things stand and the next step: Review columns, then Open the dashboard (Customise stays one click away).",
+      "On phones the review table becomes cards, and the bar sits just above the bottom bar.",
+      "The sidebar's background now runs the full height of long pages.",
+    ],
+    tags: ["Design"],
+    files: [
+      "src/ui/workspace/flow/StepHeader.tsx",
+      "src/ui/workspace/flow/FlowDock.tsx",
+      "src/ui/workspace/flow/Chapter.tsx",
+      "src/ui/workspace/flow/prepareWords.ts",
+      "src/ui/workspace/UploadStep.tsx",
+      "src/ui/workspace/DetectStep.tsx",
+      "src/ui/workspace/understanding/AboutData.tsx",
+      "src/ui/workspace/understanding/aboutWords.ts",
+      "src/ui/workspace/MapStep.tsx",
+      "src/ui/workspace/DataCheckPanel.tsx",
+      "src/ui/workspace/HiddenColumns.tsx",
+      "src/ui/workspace/review/model.ts",
+      "src/ui/workspace/review/ReviewTable.tsx",
+      "src/ui/workspace/review/RowDetails.tsx",
+      "src/ui/workspace/review/SummaryStrip.tsx",
+      "src/ui/workspace/review/FieldMapping.tsx",
+      "src/ui/workspace/review/ValueMeanings.tsx",
+      "src/ui/workspace/review/KpiAvailability.tsx",
+      "src/ui/workspace/shell/Sidebar.tsx",
+      "src/content/glossary.ts",
+      "docs/DESIGN.md",
+      "tests/prepare-flow.test.ts",
+      "tests/review-table.test.ts",
+      "tests/about-data.test.ts",
+    ],
+  },
+  {
     version: "50.1",
     kind: "minor",
     date: "2026-10-23T08:53:15Z",
@@ -2924,11 +2969,6 @@ export const RELEASES: Release[] = [
  * Remove an item when its version ships.
  */
 export const PLANNED: Array<{ title: string; detail: string }> = [
-  {
-    title: "Redesign stage 3: from file to first dashboard in one guided flow",
-    detail:
-      "A full-width upload with the demos as cards, Detect told as a story (what the data is about first, the industry second), and Check & map as one clean review table with fixes in place.",
-  },
   {
     title: "Redesign stage 4: the dashboard",
     detail:

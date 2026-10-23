@@ -2,8 +2,9 @@
  * Plain-language descriptions of a column, read from its profile: what kind
  * of values it holds ("Number", "Date", "Time of day", "Text"…) and what is
  * actually in it (its range or most common values, distinct count, blanks).
- * Shared by Detect's "Columns in your file" and Check & map's column table,
- * so both describe a column the same way.
+ * Check & map's review table shows the first as a row's "Type" and the second
+ * in the row's details (ui/workspace/review), so every place that describes
+ * a column describes it the same way.
  *
  * Numbers follow the number-format setting (Indian 3,21,000 or international
  * 321,000) with a true minus sign; percentages read as percentages ("0% to

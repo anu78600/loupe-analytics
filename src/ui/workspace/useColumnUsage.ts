@@ -2,9 +2,9 @@
 
 /**
  * The column-usage summary for the current analysis (engine/charts/
- * columnUsage over the recommended and user-built charts), shared by the
- * mapping step's "Used by" column and the dashboard header's "Uses N of your
- * M columns" line. `derived` is true after an unpivot the user agreed to,
+ * columnUsage over the recommended and user-built charts), shared by Check &
+ * map's review table ("Feeds", the summary strip and the "none added" note)
+ * and the dashboard header's "Uses N of your M columns" line. `derived` is true after an unpivot the user agreed to,
  * the only way the dataset can hold columns that weren't in the file.
  * Hidden columns (step 3) are counted in `total` and `hidden`, never in
  * `used`: the analysis profile leaves them out.

@@ -4,11 +4,13 @@
  * (store/workspace.ts), with the worker client replaced by a real Session on
  * this thread.
  *
- * The words: what one row is with the counts and dates, the outcome select's
- * options (Loupe's choice, the other candidates, kept after the user picks
- * another or none, never a hidden column), each driver's statistic with a
- * true minus sign, the columns grouped by kind and folded on a wide table,
- * the "Read as …" kinds and the industry label.
+ * The words: what one row is with the counts and dates, the overview's date
+ * tile and kinds line (version 50.2), the outcome select's options (Loupe's
+ * choice, the other candidates, kept after the user picks another or none,
+ * never a hidden column), each driver's statistic with a true minus sign, the
+ * columns grouped by kind and folded on a wide table, the "Read as …" kinds,
+ * the problems "Before you continue" lists (or the line saying there are
+ * none) and the industry label.
  *
  * The store: the reading comes with the load; on Detect, before anything is
  * built, choosing the outcome, reading a column as another kind, hiding a
@@ -26,9 +28,13 @@ import { parseConfig } from "@/engine/export/config";
 import {
   FOLDED_PER_GROUP,
   KIND_ORDER,
+  dateTile,
   directionWords,
   groupColumns,
   industryWords,
+  issueRows,
+  kindsLine,
+  noProblemsLine,
   outcomeFromValue,
   outcomeOptions,
   outcomeValue,
@@ -137,6 +143,51 @@ describe("the panel's words", () => {
     );
   });
 
+  it("fit the dates and the kinds into the overview's figures", () => {
+    const time = { column: "Order Date", from: Date.UTC(2024, 9, 1), to: Date.UTC(2026, 8, 30) };
+    // Daily dates over months read as months; within one month, as days.
+    expect(dateTile({ ...time, grain: "day" })).toEqual({
+      value: "Oct 2024 – Sep 2026",
+      caption: "Order Date",
+    });
+    expect(dateTile({ ...time, to: Date.UTC(2024, 9, 28), grain: "day" })?.value).toBe("1–28 Oct 2024");
+    expect(dateTile({ ...time, grain: "quarter" })?.value).toBe("Q4 2024 – Q3 2026");
+    expect(dateTile({ ...time, to: Date.UTC(2024, 9, 20), grain: "month" })?.value).toBe("Oct 2024");
+    expect(dateTile(null)).toBeNull();
+    expect(kindsLine(reading().columns)).toBe("in 4 kinds");
+    expect(kindsLine([col("a", "id")])).toBe("in 1 kind");
+  });
+
+  it("list the problems to look at with the health check's detail, or say there are none", () => {
+    const health = [
+      { title: "939 exact duplicate rows", detail: "19.2% of rows repeat.", severity: "warning" as const },
+      {
+        title: 'Heavy tail in "MRP"',
+        detail: "2,642 values sit outside the fences.",
+        severity: "info" as const,
+        column: "MRP",
+      },
+    ];
+    expect(issueRows(['Heavy tail in "MRP"', "939 exact duplicate rows", "Something else"], health)).toEqual([
+      {
+        title: 'Heavy tail in "MRP"',
+        detail: "2,642 values sit outside the fences.",
+        severity: "info",
+        column: "MRP",
+      },
+      {
+        title: "939 exact duplicate rows",
+        detail: "19.2% of rows repeat.",
+        severity: "warning",
+        column: null,
+      },
+      { title: "Something else", detail: null, severity: "warning", column: null },
+    ]);
+    expect(issueRows(["a", "b", "c", "d"], [])).toHaveLength(3);
+    expect(noProblemsLine(49037, "INTL")).toBe("No problems found in 49,037 rows");
+    expect(noProblemsLine(1, "INTL")).toBe("No problems found in 1 row");
+  });
+
   it("write each statistic as the analyst standards do, with a true minus sign", () => {
     const d = (method: Driver["method"], value: number) => ({ method, value });
     expect(statLabel(d("correlation", 0.4412), "INTL")).toBe("r = 0.44");
@@ -229,6 +280,7 @@ describe("the panel's words", () => {
     expect(strong).toMatchObject({
       name: "E-commerce",
       detail: "92% match · explains 9 of 12 columns",
+      explains: "Explains 9 of 12 columns",
       weak: false,
     });
     const weak = industryWords(
@@ -241,8 +293,14 @@ describe("the panel's words", () => {
     expect(industryWords({ id: "x", name: "X", confidence: 40, fit: fit(0, true) }, "x", "INTL").detail).toBe(
       "40% match · explains none of 12 columns",
     );
-    expect(industryWords(null, "ecommerce", "INTL").name).toBe("No industry fits");
-    expect(industryWords(strong as never, "generic", "INTL").name).toBe("No industry");
+    expect(industryWords(null, "ecommerce", "INTL")).toMatchObject({
+      name: "No industry fits",
+      explains: null,
+    });
+    expect(industryWords(strong as never, "generic", "INTL")).toMatchObject({
+      name: "No industry",
+      explains: null,
+    });
   });
 });
 

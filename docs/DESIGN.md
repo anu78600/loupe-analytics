@@ -150,6 +150,14 @@ The workspace (version 50.1, `src/ui/workspace/shell`) groups its eight steps in
 - **Below 1024 px** there is no sidebar. The top bar shows the phase over the step, with a second row of the current phase's steps, and a bottom bar holds the four phases within the thumb's reach. A phase opens where you last were in it. The content and the toasts clear the bottom bar and the home indicator.
 - A step that can't be opened yet (no data, no industry) stays visible and focusable, dimmed, and says why.
 
+## The guided flow
+
+The Prepare phase (version 50.2) reads as one sequence from a file to the first dashboard. Every step opens with the same header (`ui/workspace/flow/StepHeader.tsx`: "Prepare · Step 2 of 8", the page's question, one short lead) and ends with the same floating dock (`flow/FlowDock.tsx`): where things stand on the left, the way on at the right. The dock holds the page's one primary button; it is sticky at the foot of the page, so at the end it rests under the content instead of covering it, and on phones it floats above the bottom bar.
+
+- **Upload** puts the drop zone and the demos side by side, both in view at 1440 × 900, with a quiet four-step "How it works" under them.
+- **Detect** tells the data's story in chapters (`flow/Chapter.tsx`): what it is about, with its key figures; what it is measured by and what moves it; how each column is read; which industry it belongs to (the business details folded away); and what to fix before continuing.
+- **Check & map** is one review table (`ui/workspace/review`): a row per column with the eye, its examples, how it is read, the field it fills, what it feeds and its problems, each fixable in place, and its details a click away. Four tiles sum it up (KPIs available, columns used, rows to check, data health), and the whole file, KPI availability, the template's fields and the file report are views beside it. Below 768 px the rows become cards.
+
 ## Charts
 
 - Pick the form from the question: trend → line or area; ranked categories → sorted horizontal bars; composition → stacked bars or a donut with at most 6 slices; distribution → histogram; two measures → scatter with a trend line; weekday × hour → heatmap; states → tile map.

@@ -1,165 +1,68 @@
 "use client";
 
 /**
- * Step 3, Check & map. First the whole file ("Your data", DataCheckPanel),
- * so the user can confirm the upload is right, with every problem marked.
- * Then the mapping: which column fills each domain field, what category
- * values mean (value classes, e.g. which order statuses count as RTO), each
- * column's role and additivity, and KPI names, with which KPIs are available
- * or what they still need. "File report" says how the file was read and its
- * health score. Every mapping change reconfigures the session in the worker
- * and regenerates the dashboard.
+ * Step 3, Check & map (version 50.2, the guided flow): review how each
+ * column was read, and fix it; the dashboard follows every change (each one
+ * reconfigures the session in the worker).
  *
- * The "Your columns" tab lists every column of the file with what it feeds
- * (KPIs, charts, filters), so it is visible that the dashboard is built from
- * the file's own columns and adds none; a filter shows the used, unused or
- * hidden ones, and each unused column says why (whyUnused). The header's two
- * counts ("4 of 11 KPIs available", "12 of 15 columns used") open the same
- * answers in place: which KPIs need what, which columns are left out and why.
- * A facts line under the title says what the file was read as: industry and
- * data shape, rows and columns, the date span and the grain.
+ * The page opens with the flow's StepHeader: the facts line under it says
+ * what the file was read as (industry and data shape, rows and columns, the
+ * date span and the grain; one clamped line on a phone), and the data-shape
+ * select sits beside it. Then LearnedNotice when a learned rule is in use,
+ * and the summary strip: KPIs available, columns used, rows to check and
+ * data health, each opening where its answer is (review/SummaryStrip.tsx).
+ * The hidden-columns notes follow: columns that look replaced by a cleaned
+ * copy, and the columns the user hid (HiddenColumns).
  *
- * Any column can be hidden from the analysis (HiddenColumns above the tabs,
- * the eye on each grid header, the switch in "Your columns"), typically a raw
- * column kept beside its cleaned copy. It stays in the file; nothing
- * computes from it.
+ * The main view is the review table (review/ReviewTable.tsx): one row per
+ * column of the file, in file order, with the eye that hides it, what it
+ * holds, the kind it is read as, the field it fills on an industry's
+ * dashboard, what it feeds or why nothing reads it, and its health badges;
+ * each row opens its details (why, value meanings, Remember …, role and
+ * additivity under Advanced). Beside it, in a segmented control:
+ * - Rows: the whole file with every problem marked (DataCheckPanel);
+ * - KPIs: which KPIs the file supports and what the others need;
+ * - Fields (industry dashboards): the mapping by field and value meanings;
+ * - File report: how the file was read and its health score.
+ * A health badge opens the Rows view on its rows, or the File report.
  *
- * A column fills one field at most, so mapping a column that another field
- * uses takes it from that field: the column list says which field each
- * column fills, and the change says which field lost its column, with Undo.
+ * The page ends with the flow's dock: where things stand ("26 of 28 columns
+ * used · 37 of 39 KPIs"), "Open the dashboard" and "Customise first".
  *
  * Corrections made here are learned for files like this one
- * (store/learned.ts); LearnedNotice says when a learned rule is in use. A
- * column mapped by hand offers "Remember '<header>' as <field> for future
- * files" (RememberWord), which teaches detection the header as a synonym.
- *
- * Explanations are one short line with the full text behind hover, a long
- * press or the ⓘ, and long values in the tables (a column's contents, why a
- * role was chosen, why a column isn't used) are clamped with the whole text
- * on demand (ui/primitives/reveal.tsx). On a phone the facts line is one
- * clamped line.
+ * (store/learned.ts). Explanations are one short line with the full text
+ * behind hover, a long press or the ⓘ (ui/primitives/reveal.tsx).
  */
 import * as React from "react";
-import { toast } from "sonner";
-import {
-  ArrowRight,
-  CalendarRange,
-  Check,
-  ChevronDown,
-  CircleSlash,
-  Columns3,
-  Eye,
-  EyeOff,
-  Loader2,
-  RotateCcw,
-  Rows3,
-  Tags,
-  BookMarked,
-} from "lucide-react";
-import { stepNumber, useWorkspace } from "@/store/workspace";
-import { useSettings } from "@/store/settings";
-import { useLearned } from "@/store/learned";
-import { formatCount } from "@/engine/core/format";
+import { CalendarRange, Columns3, FileText, Gauge, ListTree, Rows3 } from "lucide-react";
 import { formatRange } from "@/engine/core/dates";
+import { formatCount } from "@/engine/core/format";
 import { friendly } from "@/engine/core/labels";
-import { ROLE_LABEL, type Additivity, type ColumnProfile, type SemanticRole } from "@/engine/profile/types";
-import { cn } from "@/lib/utils";
+import { useSettings } from "@/store/settings";
+import { useWorkspace } from "@/store/workspace";
 import { Button } from "@/ui/primitives/button";
-import { Badge } from "@/ui/primitives/badge";
 import { Card } from "@/ui/primitives/card";
-import { Checkbox, Eyebrow } from "@/ui/primitives/misc";
-import { Popover, PopoverClose, PopoverContent, PopoverTrigger } from "@/ui/primitives/popover";
-import { Segmented } from "@/ui/primitives/segmented";
-import { Switch } from "@/ui/primitives/switch";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectSeparator,
-  SelectTrigger,
-  SelectValue,
-} from "@/ui/primitives/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/primitives/tabs";
-import { Tooltip } from "@/ui/primitives/tooltip";
-import { Brief, ClampText, InfoTip } from "@/ui/primitives/reveal";
-import { phrase } from "@/engine/charts/ask";
-import { isUsed, whyUnused, type ColumnUse, type UnusedReason } from "@/engine/charts/columnUsage";
-import { useColumnUsage } from "./useColumnUsage";
-import { dataSummary, kindLabel } from "./columnSummary";
+import { ClampText } from "@/ui/primitives/reveal";
+import { Segmented, type SegmentedOption } from "@/ui/primitives/segmented";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/ui/primitives/select";
 import { DataCheckPanel } from "./DataCheckPanel";
+import { FileIdentity } from "./FileIdentity";
+import { FlowDock } from "./flow/FlowDock";
+import { StepHeader } from "./flow/StepHeader";
 import { HealthPanel, ParseReportPanel } from "./HealthPanel";
 import { HiddenColumns } from "./HiddenColumns";
-import { KpiNameInput } from "./customise/KpiNameInput";
-import { useFileColumns } from "./useFileColumns";
 import { LearnedNotice } from "./LearnedNotice";
+import { FieldsView } from "./review/FieldMapping";
+import { KpiAvailability } from "./review/KpiAvailability";
+import type { ReviewFilter } from "./review/model";
+import { ReviewTable } from "./review/ReviewTable";
+import { SummaryStrip } from "./review/SummaryStrip";
+import { useCheckViews } from "./review/useCheckViews";
+import { useMediaQuery } from "./review/useMediaQuery";
+import { useReviewRows } from "./review/useReviewRows";
 
-const ROLES: SemanticRole[] = [
-  "identifier",
-  "datetime",
-  "time",
-  "dimension",
-  "measure",
-  "currency",
-  "rate",
-  "percentage",
-  "geo",
-  "text",
-  "boolean",
-];
-const NONE = "__none__";
-
-type ColumnStatus = "used" | "unused" | "hidden";
-type ColumnFilter = "all" | ColumnStatus;
-
-/** One column of the file as this step shows it: what it feeds, or why it feeds nothing. */
-interface ColumnRow {
-  column: ColumnProfile;
-  status: ColumnStatus;
-  use?: ColumnUse;
-  /** Set for a column nothing reads: why, and what the user could do. */
-  why?: UnusedReason;
-}
-
-/**
- * Every column of the file in file order, with its status: used (it feeds a
- * KPI, chart or filter), not used (with the reason) or hidden by the user.
- * The header's "N of M columns used", "Your columns" and its filter all read
- * this one list, so they always agree.
- */
-function useColumnRows(): ColumnRow[] | null {
-  const context = useWorkspace((s) => s.context);
-  const locale = useSettings((s) => s.numberLocale);
-  const file = useFileColumns();
-  const usage = useColumnUsage();
-  return React.useMemo(() => {
-    if (!context || !file || !usage) return null;
-    // Column → the template field it is read as, for the "read as … but not needed" reason.
-    const fieldOf = new Map<string, string>();
-    for (const [fieldId, column] of Object.entries(context.mapping.fields))
-      fieldOf.set(column, context.domain.fields.find((f) => f.id === fieldId)?.label ?? fieldId);
-    return file.columns.map((c): ColumnRow => {
-      if (file.hidden.has(c.name)) return { column: c, status: "hidden" };
-      const use = usage.usage.get(c.name);
-      if (isUsed(use)) return { column: c, status: "used", use };
-      return {
-        column: c,
-        status: "unused",
-        use,
-        why: whyUnused(c, { dateColumn: context.dateColumn, mappedTo: fieldOf.get(c.name), locale }),
-      };
-    });
-  }, [context, file, usage, locale]);
-}
-
-/** "2 KPIs · 5 charts · Date filter": what a used column feeds, in one line. */
-function feedsText(use: ColumnUse | undefined): string {
-  if (!use) return "";
-  const parts: string[] = [];
-  if (use.kpis.length) parts.push(use.kpis.length === 1 ? "1 KPI" : `${use.kpis.length} KPIs`);
-  if (use.charts.length) parts.push(use.charts.length === 1 ? "1 chart" : `${use.charts.length} charts`);
-  if (use.filters.length) parts.push(...use.filters);
-  return parts.join(" · ");
-}
+/** The page's views: the review table first, then the rest of what the step can show. */
+type MapView = "columns" | "rows" | "kpis" | "fields" | "file";
 
 export function MapStep() {
   const context = useWorkspace((s) => s.context);
@@ -168,11 +71,14 @@ export function MapStep() {
   const setSubDomain = useWorkspace((s) => s.setSubDomain);
   const summary = useWorkspace((s) => s.summary);
   const locale = useSettings((s) => s.numberLocale);
-  const usage = useColumnUsage();
-  const rows = useColumnRows();
-  // The header's counts open their tab (KPI availability, or Your columns at the right filter).
-  const [tab, setTab] = React.useState("data");
-  const [columnFilter, setColumnFilter] = React.useState<ColumnFilter>("all");
+  const checkViews = useCheckViews();
+  const rows = useReviewRows(checkViews);
+  const [view, setView] = React.useState<MapView>("columns");
+  const [filter, setFilter] = React.useState<ReviewFilter>("all");
+  // The Rows view's open check view: all rows, the rows to check, one problem or one column's blanks.
+  const [checkView, setCheckView] = React.useState("all");
+  const phone = useMediaQuery("(max-width: 639px)", false);
+  const viewsRef = React.useRef<HTMLDivElement>(null);
   if (!context) {
     return (
       <div className="mx-auto max-w-3xl px-4 py-24 text-center">
@@ -185,14 +91,26 @@ export function MapStep() {
       </div>
     );
   }
+
+  /** Shows a view, bringing its switcher into sight when the click came from far down the table. */
+  const show = (next: MapView) => {
+    setView(next);
+    viewsRef.current?.scrollIntoView({ block: "nearest" });
+  };
+  /** A health badge or the strip: the Rows view on a check view, or the File report (null). */
+  const openCheck = (id: string | null) => {
+    if (id) setCheckView(id);
+    show(id ? "rows" : "file");
+  };
+
+  const fieldsView = !context.domain.generic;
   const subName = context.domain.subDomains.find((s) => s.id === context.subDomainId)?.name;
   // What Loupe read the file as, in words: on a phone the facts line is one clamped line of this.
   const readAs = `${context.domain.name}${subName && !context.domain.generic ? ` · ${subName}` : ""}${context.domain.generic ? ` · ${context.domain.description}` : ""}`;
+  const columnCount = rows?.length ?? summary?.columnCount ?? 0;
   const facts = [
     readAs,
-    summary
-      ? `${formatCount(summary.rowCount, locale)} rows · ${rows?.length ?? summary.columnCount} columns`
-      : "",
+    summary ? `${formatCount(summary.rowCount, locale)} rows · ${columnCount} columns` : "",
     context.dateColumn && context.dateBounds
       ? `${formatRange(context.dateBounds.min, context.dateBounds.max)} by ${friendly(context.dateColumn)}`
       : "",
@@ -200,346 +118,118 @@ export function MapStep() {
   ]
     .filter(Boolean)
     .join(" · ");
-  const openColumns = (filter: ColumnFilter) => {
-    setColumnFilter(filter);
-    setTab("roles");
-  };
+
+  const kpis = context.kpis.filter((k) => !k.hidden);
+  const kpisOn = kpis.filter((k) => k.available).length;
+  const used = rows?.filter((r) => r.status === "used").length ?? 0;
+
+  const options: Array<SegmentedOption<MapView>> = [
+    { value: "columns", label: "Columns", icon: phone ? undefined : <Columns3 aria-hidden /> },
+    { value: "rows", label: "Rows", icon: phone ? undefined : <Rows3 aria-hidden /> },
+    { value: "kpis", label: "KPIs", icon: phone ? undefined : <Gauge aria-hidden /> },
+    ...(fieldsView
+      ? [{ value: "fields" as const, label: "Fields", icon: phone ? undefined : <ListTree aria-hidden /> }]
+      : []),
+    { value: "file", label: "File report", icon: phone ? undefined : <FileText aria-hidden /> },
+  ];
+
   return (
-    <div className="mx-auto w-full max-w-[1400px] px-4 py-8 md:px-6">
-      <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
-        <div className="min-w-0">
-          <Eyebrow>Step {stepNumber("map")} · Check & map</Eyebrow>
-          <h1 className="mt-2 font-display text-display-sm text-fg">
-            Is this your data? Check it, then map it.
-          </h1>
-          <p className="mt-2 max-w-2xl text-sm text-fg-muted">
-            <Brief
-              label="About this step"
-              full="Scroll the whole file to confirm it is right; anything that looks wrong is marked. Then check how the columns were read: change any mapping, value meaning or role and everything regenerates."
-            >
-              Check the whole file, then how each column was read.
-            </Brief>
-          </p>
-          {/* What Loupe read the file as: industry and shape, size, date span, grain. One clamped line on a phone. */}
-          <ClampText className="mt-3 text-xs text-fg-subtle sm:hidden">{facts}</ClampText>
-          <p className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-fg-subtle max-sm:hidden">
-            <span className="text-fg-muted">{readAs}</span>
-            {summary ? (
-              <span className="inline-flex items-center gap-1">
-                <Rows3 className="size-3.5" aria-hidden />
-                {formatCount(summary.rowCount, locale)} rows · {rows?.length ?? summary.columnCount} columns
-              </span>
-            ) : null}
-            {context.dateColumn && context.dateBounds ? (
-              <span className="inline-flex items-center gap-1">
-                <CalendarRange className="size-3.5" aria-hidden />
-                {formatRange(context.dateBounds.min, context.dateBounds.max)} by{" "}
-                {friendly(context.dateColumn)}
-              </span>
-            ) : null}
-            <span>{context.grainLabel}</span>
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-3">
-          {configuring ? (
-            <Loader2 className="size-4 animate-spin text-fg-subtle" aria-label="Updating" />
+    <div className="mx-auto w-full max-w-[1400px] px-4 py-8 md:px-6 lg:py-10">
+      <StepHeader
+        step="map"
+        title="Review how each column was read"
+        lead="What you fix here, the dashboard follows."
+        leadFull="Each column of your file, how Loupe read it and what it feeds. Change how a column is read, the field it fills or what its values mean, and the dashboard is rebuilt to match. Hide a column to leave it out: it stays in your file. Rows shows the whole file with every problem marked."
+        aside={
+          context.domain.subDomains.length > 1 ? (
+            <span className="flex items-center gap-2">
+              <span className="text-xs text-fg-subtle max-sm:sr-only">Data shape</span>
+              <Select value={context.subDomainId} onValueChange={setSubDomain}>
+                <SelectTrigger className="w-56" size="sm" aria-label="Data shape">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {context.domain.subDomains.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </span>
+          ) : null
+        }
+      >
+        {/* From lg the top bar's breadcrumb names the file (shell/TopBar.tsx). */}
+        {summary ? <FileIdentity summary={summary} className="mt-3 lg:hidden" /> : null}
+        {/* What Loupe read the file as: industry and shape, size, date span, grain. One clamped line on a phone. */}
+        <ClampText className="mt-3 text-xs text-fg-subtle sm:hidden">{facts}</ClampText>
+        <p className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-fg-subtle max-sm:hidden">
+          <span className="text-fg-muted">{readAs}</span>
+          {summary ? (
+            <span className="inline-flex items-center gap-1">
+              <Rows3 className="size-3.5" aria-hidden />
+              <span className="tabular">{formatCount(summary.rowCount, locale)}</span> rows ·{" "}
+              <span className="tabular">{columnCount}</span> columns
+            </span>
           ) : null}
-          <KpisChip onOpen={() => setTab("kpis")} />
-          {rows && usage ? <ColumnsChip rows={rows} onOpen={openColumns} /> : null}
-          {context.domain.subDomains.length > 1 ? (
-            <Select value={context.subDomainId} onValueChange={setSubDomain}>
-              <SelectTrigger className="w-56" size="sm" aria-label="Data shape">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {context.domain.subDomains.map((s) => (
-                  <SelectItem key={s.id} value={s.id}>
-                    {s.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          {context.dateColumn && context.dateBounds ? (
+            <span className="inline-flex items-center gap-1">
+              <CalendarRange className="size-3.5" aria-hidden />
+              {formatRange(context.dateBounds.min, context.dateBounds.max)} by {friendly(context.dateColumn)}
+            </span>
           ) : null}
-          <Button variant="ghost" onClick={() => setStep("dashboard")}>
-            Skip to dashboard
-          </Button>
-          <Button variant="primary" onClick={() => setStep("customise")}>
-            Next: customise <ArrowRight aria-hidden />
-          </Button>
-        </div>
+          <span>{context.grainLabel}</span>
+        </p>
+      </StepHeader>
+      <LearnedNotice className="mb-6" />
+      <SummaryStrip
+        rows={rows}
+        views={checkViews}
+        className="mb-8"
+        onKpis={() => show("kpis")}
+        onColumns={(anyUnused) => {
+          setFilter(anyUnused ? "unused" : "all");
+          show("columns");
+        }}
+        onRows={() => openCheck("problems")}
+        onReport={() => show("file")}
+      />
+      <HiddenColumns className="mb-6" />
+      <div ref={viewsRef} className="mb-4 max-w-full scroll-mt-20 overflow-x-auto lg:scroll-mt-24">
+        <Segmented<MapView>
+          ariaLabel="View"
+          size={phone ? "sm" : "md"}
+          value={view === "fields" && !fieldsView ? "columns" : view}
+          onChange={setView}
+          options={options}
+        />
       </div>
-      <LearnedNotice className="mb-5" />
-      <HiddenColumns />
-      <Tabs value={tab} onValueChange={setTab}>
-        {/* Six tabs are wider than a phone: they scroll sideways here instead of widening the page. */}
-        <div className="mb-5 max-w-full overflow-x-auto">
-          <TabsList className="min-w-max">
-            <TabsTrigger value="data">Your data</TabsTrigger>
-            {!context.domain.generic ? <TabsTrigger value="fields">Field mapping</TabsTrigger> : null}
-            {!context.domain.generic && Object.keys(context.domain.valueClasses).length ? (
-              <TabsTrigger value="values">Value meanings</TabsTrigger>
-            ) : null}
-            <TabsTrigger value="roles">Your columns</TabsTrigger>
-            <TabsTrigger value="kpis">KPI availability</TabsTrigger>
-            <TabsTrigger value="file">File report</TabsTrigger>
-          </TabsList>
-        </div>
-        <TabsContent value="data">
-          <DataCheckPanel />
-        </TabsContent>
-        <TabsContent value="fields">
-          <FieldMapping />
-        </TabsContent>
-        <TabsContent value="values">
-          <ValueMeanings />
-        </TabsContent>
-        <TabsContent value="roles">
-          {usage && rows ? (
-            <ColumnsNote
-              used={usage.used}
-              total={usage.total}
-              hidden={usage.hidden}
-              derived={usage.derived}
-              unused={rows.filter((r) => r.status === "unused").map((r) => r.column.name)}
-            />
-          ) : null}
-          {rows ? <ColumnRoles rows={rows} filter={columnFilter} onFilter={setColumnFilter} /> : null}
-        </TabsContent>
-        <TabsContent value="kpis">
-          <KpiAvailability />
-        </TabsContent>
-        <TabsContent value="file">
-          <FileReport />
-        </TabsContent>
-      </Tabs>
+      {view === "rows" ? (
+        <DataCheckPanel views={checkViews} selected={checkView} onSelect={setCheckView} />
+      ) : view === "kpis" ? (
+        <KpiAvailability />
+      ) : view === "fields" && fieldsView ? (
+        <FieldsView />
+      ) : view === "file" ? (
+        <FileReport />
+      ) : rows ? (
+        <ReviewTable rows={rows} filter={filter} onFilter={setFilter} onOpen={openCheck} />
+      ) : null}
+      <FlowDock
+        status={
+          <>
+            <span className="tabular text-fg">{used}</span> of{" "}
+            <span className="tabular">{rows?.length ?? 0}</span> columns used ·{" "}
+            <span className="tabular text-fg">{kpisOn}</span> of{" "}
+            <span className="tabular">{kpis.length}</span> KPIs
+          </>
+        }
+        busy={configuring}
+        secondary={{ label: "Customise first", onClick: () => setStep("customise") }}
+        primary={{ label: "Open the dashboard", onClick: () => setStep("dashboard") }}
+      />
     </div>
-  );
-}
-
-/**
- * The trigger look shared by the header's two counts: a quiet chip that
- * opens its breakdown. Its words are its accessible name (Radix adds that it
- * opens a dialog), so what is read out is what is shown.
- */
-const CHIP =
-  "inline-flex items-center gap-1.5 rounded-control border border-border bg-surface-1 px-3 py-1.5 text-left text-ui transition-colors hover:border-border-hover focus-visible:focus-ring data-[state=open]:border-border-hover";
-
-/**
- * A chip's breakdown panel. Each chip adds its width as min(width, 100vw −
- * 24px), so on a phone the panel fits inside the popover's 12px margins
- * instead of being cut off.
- */
-const CHIP_PANEL = "max-h-[70vh] overflow-y-auto p-0";
-
-/** A small uppercase section label inside a breakdown. */
-function SectionLabel({ children }: { children: React.ReactNode }) {
-  return <h3 className="eyebrow text-fg-subtle">{children}</h3>;
-}
-
-/**
- * "4 of 11 KPIs available", opening the list: which KPIs the file supports
- * and, for the others, the column each still needs.
- */
-function KpisChip({ onOpen }: { onOpen: () => void }) {
-  const context = useWorkspace((s) => s.context);
-  const headingId = React.useId();
-  if (!context) return null;
-  const visible = context.kpis.filter((k) => !k.hidden);
-  const on = visible.filter((k) => k.available);
-  const off = visible.filter((k) => !k.available);
-  const subName = context.domain.subDomains.find((s) => s.id === context.subDomainId)?.name;
-  return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <button type="button" className={CHIP}>
-          <span className="font-figures text-fg">{on.length}</span>{" "}
-          <span className="text-fg-muted">of {visible.length} KPIs available</span>
-          <ChevronDown className="size-3.5 text-fg-subtle" aria-hidden />
-        </button>
-      </PopoverTrigger>
-      <PopoverContent
-        align="end"
-        aria-labelledby={headingId}
-        className={cn(CHIP_PANEL, "w-[min(420px,calc(100vw-24px))]")}
-      >
-        <div className="border-b border-border-subtle px-4 py-3">
-          <p id={headingId} className="text-ui font-medium text-fg">
-            KPIs for {context.domain.name}
-            {subName && !context.domain.generic ? ` · ${subName}` : ""}
-          </p>
-          <p className="mt-0.5 text-xs leading-relaxed text-fg-subtle">
-            {on.length} can be computed from your columns
-            {off.length ? `; ${off.length} need a column your file doesn't have` : ""}. Nothing is estimated.
-          </p>
-        </div>
-        {off.length ? (
-          <section className="border-b border-border-subtle px-4 py-3">
-            <SectionLabel>Not available · {off.length}</SectionLabel>
-            <ul className="mt-2 grid gap-2.5">
-              {off.map((k) => (
-                <li key={k.id} className="flex gap-2">
-                  <CircleSlash className="mt-0.5 size-3.5 shrink-0 text-fg-subtle" aria-hidden />
-                  <div className="min-w-0">
-                    <p className="text-ui text-fg">{k.name}</p>
-                    <p className="text-xs leading-relaxed text-fg-muted">
-                      {/* Already under "Not available": the word isn't repeated. */}
-                      {k.unavailableReason?.replace(/^Unavailable:\s*/, "")}
-                      {k.substitute ? ` ${k.substitute}` : ""}
-                    </p>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </section>
-        ) : null}
-        <section className="px-4 py-3">
-          <SectionLabel>Available · {on.length}</SectionLabel>
-          <ul className="mt-2 grid gap-1.5">
-            {on.map((k) => (
-              <li key={k.id} className="flex items-start gap-2 text-ui text-fg">
-                <Check className="mt-0.5 size-3.5 shrink-0 text-success" aria-hidden />
-                <span className="min-w-0">
-                  {k.name}
-                  {k.fieldsUsed.length ? (
-                    <span className="block text-xs text-fg-subtle">
-                      From {[...new Set(k.fieldsUsed.map((f) => f.column))].join(", ")}
-                    </span>
-                  ) : null}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </section>
-        <div className="border-t border-border-subtle px-4 py-2.5">
-          <PopoverClose asChild>
-            <Button size="sm" variant="secondary" onClick={onOpen}>
-              Open KPI availability <ArrowRight aria-hidden />
-            </Button>
-          </PopoverClose>
-        </div>
-      </PopoverContent>
-    </Popover>
-  );
-}
-
-/**
- * "12 of 15 columns used", opening the breakdown: each column nothing reads,
- * with the reason and what to do about it; the hidden ones; and what each
- * used column feeds. A column can be hidden or brought back from here.
- */
-function ColumnsChip({ rows, onOpen }: { rows: ColumnRow[]; onOpen: (filter: ColumnFilter) => void }) {
-  const setHidden = useWorkspace((s) => s.setColumnsHidden);
-  const headingId = React.useId();
-  const used = rows.filter((r) => r.status === "used");
-  const unused = rows.filter((r) => r.status === "unused");
-  const hidden = rows.filter((r) => r.status === "hidden");
-  return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <button type="button" className={CHIP}>
-          <span className="font-figures text-fg">{used.length}</span>{" "}
-          <span className="text-fg-muted">
-            of {rows.length} columns used
-            {unused.length ? ` · ${unused.length} not used` : ""}
-            {hidden.length ? ` · ${hidden.length} hidden` : ""}
-            <span className="max-sm:hidden"> · none added</span>
-          </span>
-          <ChevronDown className="size-3.5 shrink-0 text-fg-subtle" aria-hidden />
-        </button>
-      </PopoverTrigger>
-      <PopoverContent
-        align="end"
-        aria-labelledby={headingId}
-        className={cn(CHIP_PANEL, "w-[min(440px,calc(100vw-24px))]")}
-      >
-        <div className="border-b border-border-subtle px-4 py-3">
-          <p id={headingId} className="text-ui font-medium text-fg">
-            The columns of your file
-          </p>
-          <p className="mt-0.5 text-xs leading-relaxed text-fg-subtle">
-            {used.length} feed the dashboard · {unused.length} not used · {hidden.length} hidden by you. Loupe
-            added none: everything is built from your own columns.
-          </p>
-        </div>
-        {unused.length ? (
-          <section className="border-b border-border-subtle px-4 py-3">
-            <SectionLabel>Not used · {unused.length}</SectionLabel>
-            <ul className="mt-1 divide-y divide-border-subtle">
-              {unused.map((r) => (
-                <li key={r.column.name} className="py-2.5">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="min-w-0 truncate text-ui font-medium text-fg" title={r.column.name}>
-                      {r.column.name}
-                    </span>
-                    <span className="flex shrink-0 items-center gap-1.5">
-                      <Badge tone="outline">{ROLE_LABEL[r.column.role]}</Badge>
-                      <Button
-                        size="xs"
-                        variant="ghost"
-                        onClick={() => setHidden([r.column.name], true)}
-                        aria-label={`Hide ${r.column.name}`}
-                      >
-                        <EyeOff aria-hidden /> Hide
-                      </Button>
-                    </span>
-                  </div>
-                  <p className="mt-1 text-xs leading-relaxed text-fg-muted">{r.why?.reason}</p>
-                  {r.why?.hint ? (
-                    <p className="mt-0.5 text-xs leading-relaxed text-fg-subtle">{r.why.hint}</p>
-                  ) : null}
-                </li>
-              ))}
-            </ul>
-          </section>
-        ) : (
-          <p className="border-b border-border-subtle px-4 py-3 text-xs text-fg-muted">
-            Every column you kept feeds a KPI, a chart or a filter.
-          </p>
-        )}
-        {hidden.length ? (
-          <section className="border-b border-border-subtle px-4 py-3">
-            <SectionLabel>Hidden by you · {hidden.length}</SectionLabel>
-            <ul className="mt-1 divide-y divide-border-subtle">
-              {hidden.map((r) => (
-                <li key={r.column.name} className="flex items-center justify-between gap-2 py-2">
-                  <span className="min-w-0 truncate text-ui text-fg-muted line-through" title={r.column.name}>
-                    {r.column.name}
-                  </span>
-                  <Button
-                    size="xs"
-                    variant="ghost"
-                    onClick={() => setHidden([r.column.name], false)}
-                    aria-label={`Use again: ${r.column.name}`}
-                  >
-                    <Eye aria-hidden /> Use again
-                  </Button>
-                </li>
-              ))}
-            </ul>
-          </section>
-        ) : null}
-        <section className="px-4 py-3">
-          <SectionLabel>Used · {used.length}</SectionLabel>
-          <ul className="mt-2 grid gap-1.5">
-            {used.map((r) => (
-              <li key={r.column.name} className="flex items-baseline justify-between gap-3 text-ui">
-                <span className="min-w-0 truncate text-fg" title={r.column.name}>
-                  {r.column.name}
-                </span>
-                <span className="shrink-0 text-xs text-fg-subtle">{feedsText(r.use)}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
-        <div className="border-t border-border-subtle px-4 py-2.5">
-          <PopoverClose asChild>
-            <Button size="sm" variant="secondary" onClick={() => onOpen(unused.length ? "unused" : "all")}>
-              Open Your columns <ArrowRight aria-hidden />
-            </Button>
-          </PopoverClose>
-        </div>
-      </PopoverContent>
-    </Popover>
   );
 }
 
@@ -552,652 +242,6 @@ function FileReport() {
     <div className="grid gap-5 lg:grid-cols-2">
       <Card className="p-6">{health ? <HealthPanel health={health} /> : null}</Card>
       <Card className="p-6">{report ? <ParseReportPanel report={report} timings={timings} /> : null}</Card>
-    </div>
-  );
-}
-
-/**
- * Which column fills each field Loupe looks for, how sure the match is, and
- * what the field feeds (its column's KPIs, charts and filters). A column
- * fills one field at most: the list says which field a column already
- * fills, and taking it says which field lost it, with Undo.
- */
-function FieldMapping() {
-  const context = useWorkspace((s) => s.context);
-  const setOverride = useWorkspace((s) => s.setMappingOverride);
-  const overrides = useWorkspace((s) => s.mappingOverrides);
-  // Learning is on for the user's own files, not demos.
-  const learning = useWorkspace((s) => Boolean(s.learned));
-  const usage = useColumnUsage();
-  if (!context) return null;
-  const labelOf = (fieldId: string) => context.domain.fields.find((f) => f.id === fieldId)?.label ?? fieldId;
-  // Column → the field it fills now.
-  const fills = new Map(Object.entries(context.mapping.fields).map(([f, c]) => [c, f]));
-  const choose = (fieldId: string, column: string | null) => {
-    const taken = column ? fills.get(column) : undefined;
-    const before = useWorkspace.getState().mappingOverrides;
-    setOverride(fieldId, column);
-    if (!column || !taken || taken === fieldId) return;
-    toast.warning(
-      `“${column}” now fills ${labelOf(fieldId)}, so ${labelOf(taken)} has no column. Map another column to it, or undo.`,
-      {
-        action: {
-          label: "Undo",
-          // Through the store's action, so what Loupe learned from the change is taken back too.
-          onClick: () => useWorkspace.getState().setMappingOverrides(before),
-        },
-      },
-    );
-  };
-  const fields = [...context.domain.fields].sort((a, b) => {
-    const am = context.mapping.fields[a.id] ? 1 : 0;
-    const bm = context.mapping.fields[b.id] ? 1 : 0;
-    return (b.core ? 1 : 0) - (a.core ? 1 : 0) || bm - am || b.weight - a.weight;
-  });
-  const columns = context.profile.columns;
-  return (
-    <Card className="overflow-hidden">
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[720px] border-separate border-spacing-0 text-ui">
-          <thead className="bg-surface-2 text-left text-fg-muted">
-            <tr>
-              <th scope="col" className="border-b border-border px-4 py-2.5 text-xs font-medium">
-                Field Loupe looks for
-              </th>
-              <th scope="col" className="border-b border-border px-4 py-2.5 text-xs font-medium">
-                Your column
-              </th>
-              <th scope="col" className="border-b border-border px-4 py-2.5 text-xs font-medium">
-                Match
-              </th>
-              <th scope="col" className="border-b border-border px-4 py-2.5 text-right text-xs font-medium">
-                Used by
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {fields.map((f) => {
-              const col = context.mapping.fields[f.id];
-              const score = context.mapping.scores[f.id];
-              const manual = f.id in overrides;
-              // A column the user chose by hand for a registry field (those list synonyms) can be taught.
-              const teachable = Boolean(manual && col && f.synonyms.length > 0 && learning);
-              return (
-                <tr key={f.id} className="hover:bg-surface-hover">
-                  <td className="border-b border-border-subtle px-4 py-2.5 align-top">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-fg">{f.label}</span>
-                      {f.core ? <Badge tone="outline">core</Badge> : null}
-                    </div>
-                    {f.description ? (
-                      <ClampText className="mt-0.5 max-w-[280px] text-xs text-fg-subtle">
-                        {f.description}
-                      </ClampText>
-                    ) : null}
-                  </td>
-                  <td className="border-b border-border-subtle px-4 py-2 align-top">
-                    <Select value={col ?? NONE} onValueChange={(v) => choose(f.id, v === NONE ? null : v)}>
-                      <SelectTrigger
-                        size="sm"
-                        className={cn("w-64", !col && "text-fg-subtle")}
-                        aria-label={`Column for ${f.label}`}
-                      >
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value={NONE}>Not mapped</SelectItem>
-                        <SelectSeparator />
-                        {columns.map((c) => {
-                          // A column another field uses is offered, saying which field would lose it.
-                          const other = fills.get(c.name);
-                          return (
-                            <SelectItem
-                              key={c.name}
-                              value={c.name}
-                              hint={
-                                other && other !== f.id
-                                  ? `${ROLE_LABEL[c.role]} · fills ${labelOf(other)}`
-                                  : ROLE_LABEL[c.role]
-                              }
-                            >
-                              {c.name}
-                            </SelectItem>
-                          );
-                        })}
-                      </SelectContent>
-                    </Select>
-                    {teachable && col ? (
-                      <RememberWord
-                        domainId={context.domain.id}
-                        fieldId={f.id}
-                        label={f.label}
-                        column={col}
-                      />
-                    ) : null}
-                  </td>
-                  <td className="border-b border-border-subtle px-4 py-2.5 align-top">
-                    {col ? (
-                      manual ? (
-                        <Badge tone="accent">set by you</Badge>
-                      ) : (
-                        <Badge
-                          tone={(score ?? 0) >= 0.9 ? "success" : (score ?? 0) >= 0.7 ? "accent" : "warning"}
-                        >
-                          {Math.round((score ?? 0) * 100)}%
-                        </Badge>
-                      )
-                    ) : (
-                      <span className="text-xs text-fg-subtle">—</span>
-                    )}
-                  </td>
-                  <td className="border-b border-border-subtle px-4 py-2 align-top">
-                    {col ? (
-                      <div className="flex justify-end">
-                        <UsedBy use={usage?.usage.get(col)} />
-                      </div>
-                    ) : (
-                      // The select beside it already says "Not mapped": a dash, as in the Match column.
-                      // `relative` keeps the screen-reader text inside the table's scroll area.
-                      <p className="relative text-right text-xs text-fg-subtle">
-                        <span aria-hidden>—</span>
-                        <span className="sr-only">Feeds nothing: no column</span>
-                      </p>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-    </Card>
-  );
-}
-
-/**
- * "Remember 'Net Amt' as Net revenue for future files": teaches Loupe the
- * header as a synonym of the field, so later files are mapped (and their
- * industry detected) with it. Once taught, says so instead.
- */
-function RememberWord({
-  domainId,
-  fieldId,
-  label,
-  column,
-}: {
-  domainId: string;
-  fieldId: string;
-  label: string;
-  column: string;
-}) {
-  const remember = useWorkspace((s) => s.rememberWord);
-  const known = useLearned((s) =>
-    s.words.some(
-      (w) =>
-        w.domainId === domainId && w.fieldId === fieldId && w.header.toLowerCase() === column.toLowerCase(),
-    ),
-  );
-  if (known)
-    return (
-      <p className="mt-1.5 flex w-64 items-start gap-1.5 text-xs text-fg-subtle">
-        <Check className="mt-0.5 size-3.5 shrink-0 text-success" aria-hidden />
-        Loupe knows “{column}” as {label} in future files.
-      </p>
-    );
-  return (
-    <button
-      type="button"
-      onClick={() => {
-        remember(fieldId, column);
-        toast.success(`Loupe will read “${column}” as ${label} in future files`, {
-          description: "Stored in this browser only. Settings › What Loupe has learned lists it.",
-        });
-      }}
-      className="mt-1.5 flex w-64 items-start gap-1.5 rounded-control text-left text-xs text-accent-text underline-offset-4 hover:underline focus-visible:focus-ring"
-    >
-      <BookMarked className="mt-0.5 size-3.5 shrink-0" aria-hidden />
-      Remember “{column}” as {label} for future files
-    </button>
-  );
-}
-
-function ValueMeanings() {
-  const context = useWorkspace((s) => s.context);
-  const setClass = useWorkspace((s) => s.setClassOverride);
-  const locale = useSettings((s) => s.numberLocale);
-  if (!context) return null;
-  const entries = Object.entries(context.domain.valueClasses).filter(
-    ([field]) => context.mapping.fields[field],
-  );
-  if (!entries.length)
-    return (
-      <p className="text-sm text-fg-muted">Map a status or payment column to edit what its values mean.</p>
-    );
-  return (
-    <div className="grid gap-4 lg:grid-cols-2">
-      {entries.map(([fieldId, classes]) => {
-        const column = context.mapping.fields[fieldId] as string;
-        const label = context.domain.fields.find((f) => f.id === fieldId)?.label ?? fieldId;
-        const values = context.profile.columns.find((c) => c.name === column)?.categorical?.all ?? [];
-        return (
-          <Card key={fieldId} className="p-5">
-            <div className="flex items-center gap-2">
-              <Tags className="size-4 text-accent" aria-hidden />
-              <h3 className="text-sm font-medium text-fg">{label}</h3>
-              <span className="min-w-0 truncate text-xs text-fg-subtle" title={column}>
-                column “{column}”
-              </span>
-            </div>
-            <ul className="mt-4 grid gap-3">
-              {classes.map((c) => {
-                const key = `${fieldId}.${c.id}`;
-                const chosen = context.mapping.classes[key] ?? [];
-                return (
-                  <li key={c.id} className="flex flex-wrap items-center justify-between gap-2">
-                    <span className="text-ui text-fg">{c.label}</span>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <button
-                          type="button"
-                          className="relative inline-flex min-h-8 max-w-[70%] flex-wrap items-center justify-end gap-1 rounded-control border border-border-strong bg-surface-2 px-2 py-1 text-left transition-colors hover:border-border-hover focus-visible:focus-ring data-[state=open]:border-border-hover"
-                        >
-                          {/* Read out with what the values mean, not only as the values themselves. */}
-                          <span className="sr-only">Values that mean {phrase(c.label)}: </span>
-                          {chosen.length ? (
-                            chosen.slice(0, 4).map((v, i) => (
-                              // The space keeps the values apart when read out; between flex items it isn't drawn.
-                              <React.Fragment key={v}>
-                                {i ? " " : null}
-                                <Badge tone="neutral" className="font-data">
-                                  {v}
-                                </Badge>
-                              </React.Fragment>
-                            ))
-                          ) : (
-                            <span className="text-xs text-fg-subtle">
-                              No values: KPIs needing this are unavailable
-                            </span>
-                          )}
-                          {chosen.length > 4 ? (
-                            <>
-                              {" "}
-                              <Badge>
-                                +{chosen.length - 4}
-                                <span className="sr-only"> more</span>
-                              </Badge>
-                            </>
-                          ) : null}
-                          <ChevronDown className="size-3.5 text-fg-subtle" aria-hidden />
-                        </button>
-                      </PopoverTrigger>
-                      <PopoverContent
-                        align="end"
-                        aria-label={`Values of ${column} that mean ${phrase(c.label)}`}
-                        className="max-h-80 w-72 overflow-y-auto p-2"
-                      >
-                        <p className="px-2 pt-1 pb-1.5 text-xs text-fg-subtle">
-                          Values of “{column}” that mean {phrase(c.label)}
-                        </p>
-                        {values.map((v) => {
-                          const on = chosen.includes(v.value);
-                          return (
-                            <label
-                              key={v.value}
-                              className="flex cursor-pointer items-center gap-2 rounded-xs px-2 py-1.5 text-ui text-fg hover:bg-surface-hover"
-                            >
-                              <Checkbox
-                                checked={on}
-                                onCheckedChange={(x) =>
-                                  setClass(
-                                    key,
-                                    x ? [...chosen, v.value] : chosen.filter((y) => y !== v.value),
-                                  )
-                                }
-                              />
-                              <span className="font-data min-w-0 flex-1 truncate" title={v.value}>
-                                {v.value}
-                              </span>
-                              <span className="font-figures shrink-0 text-xs text-fg-subtle">
-                                {formatCount(v.count, locale)}
-                              </span>
-                            </label>
-                          );
-                        })}
-                      </PopoverContent>
-                    </Popover>
-                  </li>
-                );
-              })}
-            </ul>
-          </Card>
-        );
-      })}
-    </div>
-  );
-}
-
-/** States the "your columns only" rule above the column table. */
-function ColumnsNote({
-  used,
-  total,
-  hidden,
-  derived,
-  unused,
-}: {
-  used: number;
-  total: number;
-  hidden: number;
-  derived: boolean;
-  /** Columns nothing reads, named so the count is never a puzzle. */
-  unused: string[];
-}) {
-  return (
-    <p className="mb-4 flex gap-2 rounded-card border border-border bg-surface-1 px-4 py-3 text-sm leading-relaxed text-fg-muted">
-      <Columns3 className="mt-0.5 size-4 shrink-0 text-accent" aria-hidden />
-      <Brief
-        label="About your columns"
-        full={
-          <>
-            <span className="text-fg">
-              The dashboard is built from {used} of your {total} columns
-              {hidden
-                ? `; you hid ${hidden === 1 ? "1 column" : `${hidden} columns`}, which nothing reads`
-                : ""}
-              .{unused.length ? ` Not used: ${unused.join(", ")} (the reason is beside each one below).` : ""}
-            </span>{" "}
-            Loupe never adds a column on its own: every KPI, chart and filter below reads a column from your
-            file
-            {derived ? " (including the two unpivot columns you agreed to)" : ""}, and anything that would
-            need a new one asks you first. Switch a column off to hide it from the analysis: it stays in your
-            file.
-          </>
-        }
-      >
-        <span className="text-fg">
-          Built from {used} of your {total} columns{hidden ? `, ${hidden} hidden` : ""}; none added.
-        </span>
-      </Brief>
-    </p>
-  );
-}
-
-/** "Used by" cell: counts with the names in a tooltip, or "Not used". */
-function UsedBy({ use }: { use: ColumnUse | undefined }) {
-  if (!use || (!use.kpis.length && !use.charts.length && !use.filters.length))
-    return <span className="text-xs text-fg-subtle">Not used</span>;
-  const parts: Array<{ label: string; names: string[] }> = [];
-  if (use.kpis.length)
-    parts.push({ label: use.kpis.length === 1 ? "1 KPI" : `${use.kpis.length} KPIs`, names: use.kpis });
-  if (use.charts.length)
-    parts.push({
-      label: use.charts.length === 1 ? "1 chart" : `${use.charts.length} charts`,
-      names: use.charts,
-    });
-  if (use.filters.length) parts.push({ label: use.filters.join(", "), names: [] });
-  return (
-    <div className="flex flex-wrap gap-1">
-      {parts.map((p) =>
-        p.names.length ? (
-          <Tooltip key={p.label} content={p.names.join(" · ")}>
-            <button
-              type="button"
-              className="rounded-full focus-visible:focus-ring"
-              aria-label={`${p.label}: ${p.names.join(", ")}`}
-            >
-              <Badge tone="outline">{p.label}</Badge>
-            </button>
-          </Tooltip>
-        ) : (
-          <Badge key={p.label} tone="outline">
-            {p.label}
-          </Badge>
-        ),
-      )}
-    </div>
-  );
-}
-
-/**
- * Every column of the file, hidden ones included (so one can be switched back
- * on here), filtered by status. A column nothing reads says why beside it.
- */
-function ColumnRoles({
-  rows,
-  filter,
-  onFilter,
-}: {
-  rows: ColumnRow[];
-  filter: ColumnFilter;
-  onFilter: (f: ColumnFilter) => void;
-}) {
-  const context = useWorkspace((s) => s.context);
-  const overrides = useWorkspace((s) => s.roleOverrides);
-  const setRole = useWorkspace((s) => s.setRoleOverride);
-  const setHidden = useWorkspace((s) => s.setColumnsHidden);
-  const locale = useSettings((s) => s.numberLocale);
-  if (!context) return null;
-  const count = (s: ColumnStatus) => rows.filter((r) => r.status === s).length;
-  const shown = filter === "all" ? rows : rows.filter((r) => r.status === filter);
-  return (
-    <>
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-        <Segmented<ColumnFilter>
-          ariaLabel="Show columns"
-          size="sm"
-          value={filter}
-          onChange={onFilter}
-          options={[
-            { value: "all", label: `All ${rows.length}` },
-            { value: "used", label: `Used ${count("used")}` },
-            { value: "unused", label: `Not used ${count("unused")}` },
-            { value: "hidden", label: `Hidden ${count("hidden")}` },
-          ]}
-        />
-        <InfoTip label="About this table">
-          Hover a KPI or chart count to see the names; a column that isn&apos;t used says why.
-        </InfoTip>
-      </div>
-      <Card className="overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[1260px] border-separate border-spacing-0 text-ui">
-            <thead className="bg-surface-2 text-left text-fg-muted">
-              <tr>
-                {[
-                  "Use",
-                  "Column",
-                  "In your data",
-                  "Used by",
-                  "Stored as",
-                  "Semantic role",
-                  "Aggregation",
-                  "Why",
-                ].map((h) => (
-                  <th key={h} scope="col" className="border-b border-border px-4 py-2.5 text-xs font-medium">
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {shown.map(({ column: c, status, use, why }) => {
-                const o = overrides[c.name];
-                const numeric = c.storage === "number";
-                const off = status === "hidden";
-                return (
-                  <tr key={c.name} className={cn("hover:bg-surface-hover", off && "bg-surface-2")}>
-                    <td className="border-b border-border-subtle px-4 py-2">
-                      <Tooltip
-                        content={
-                          off
-                            ? "Hidden: kept in your file, but nothing computes from it. Switch on to use it again."
-                            : "Switch off to hide this column from every KPI, chart, filter and question. It stays in your file."
-                        }
-                      >
-                        {/* The tooltip marks its trigger with its own data-state, which would
-                          override the switch's checked state, so it gets a wrapper. */}
-                        <span className="inline-flex">
-                          <Switch
-                            checked={!off}
-                            onCheckedChange={(on) => setHidden([c.name], !on)}
-                            aria-label={`Use ${c.name} in the analysis`}
-                          />
-                        </span>
-                      </Tooltip>
-                    </td>
-                    <td
-                      className={cn(
-                        "min-w-36 border-b border-border-subtle px-4 py-2 font-medium",
-                        off ? "text-fg-subtle line-through" : "text-fg",
-                      )}
-                    >
-                      {c.name}
-                    </td>
-                    <td className="font-data max-w-[240px] border-b border-border-subtle px-4 py-2 text-xs leading-relaxed text-fg-muted">
-                      <ClampText lines={2}>{dataSummary(c, locale)}</ClampText>
-                    </td>
-                    <td className="border-b border-border-subtle px-4 py-1.5">
-                      {off ? (
-                        <Badge tone="neutral">
-                          <EyeOff aria-hidden /> Hidden
-                        </Badge>
-                      ) : status === "unused" ? (
-                        // Not used, and why: the answer to "which columns did it leave out?".
-                        <div className="max-w-[280px]">
-                          <Badge tone="outline">Not used</Badge>
-                          <ClampText lines={2} className="mt-1 text-xs leading-relaxed text-fg-muted">
-                            {why?.reason}
-                          </ClampText>
-                        </div>
-                      ) : (
-                        <UsedBy use={use} />
-                      )}
-                    </td>
-                    <td className="border-b border-border-subtle px-4 py-2 whitespace-nowrap text-fg-muted">
-                      {kindLabel(c)}
-                    </td>
-                    <td className="border-b border-border-subtle px-4 py-1.5">
-                      <div className="flex items-center gap-1.5">
-                        <Select
-                          value={c.role}
-                          disabled={off}
-                          onValueChange={(v) => setRole(c.name, v as SemanticRole, o?.additivity)}
-                        >
-                          <SelectTrigger size="sm" className="w-40" aria-label={`Role for ${c.name}`}>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {ROLES.map((r) => (
-                              <SelectItem key={r} value={r}>
-                                {ROLE_LABEL[r]}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        {o && !off ? (
-                          <Tooltip content="Reset to detected">
-                            <Button
-                              size="icon-sm"
-                              variant="ghost"
-                              aria-label={`Reset role for ${c.name}`}
-                              onClick={() => setRole(c.name, null)}
-                            >
-                              <RotateCcw aria-hidden />
-                            </Button>
-                          </Tooltip>
-                        ) : null}
-                      </div>
-                    </td>
-                    <td className="border-b border-border-subtle px-4 py-1.5">
-                      {numeric && ["measure", "currency", "rate", "percentage"].includes(c.role) ? (
-                        <Select
-                          value={c.additivity ?? "additive"}
-                          disabled={off}
-                          onValueChange={(v) => setRole(c.name, c.role, v as Additivity)}
-                        >
-                          {/* Wide enough for "Non-additive (average)" in full. */}
-                          <SelectTrigger size="sm" className="w-56" aria-label={`Aggregation for ${c.name}`}>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="additive">Additive (sum)</SelectItem>
-                            <SelectItem value="semi-additive">Semi-additive (latest)</SelectItem>
-                            <SelectItem value="non-additive">Non-additive (average)</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      ) : (
-                        <span className="text-xs text-fg-subtle">
-                          {c.defaultAgg === "countDistinct"
-                            ? "Count distinct"
-                            : c.defaultAgg === "count"
-                              ? "Count"
-                              : "—"}
-                        </span>
-                      )}
-                    </td>
-                    <td className="max-w-[360px] border-b border-border-subtle px-4 py-2 text-xs leading-relaxed text-fg-muted">
-                      <ClampText lines={2}>{c.roleReason}</ClampText>
-                    </td>
-                  </tr>
-                );
-              })}
-              {shown.length ? null : (
-                <tr>
-                  <td colSpan={8} className="px-4 py-6 text-center text-ui text-fg-muted">
-                    {filter === "unused"
-                      ? "Every column you kept feeds a KPI, a chart or a filter."
-                      : filter === "hidden"
-                        ? "No hidden columns."
-                        : "No columns."}
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </Card>
-    </>
-  );
-}
-
-/** Every KPI of the industry, grouped, with what it is computed with or what it still needs; names can be changed here. */
-function KpiAvailability() {
-  const context = useWorkspace((s) => s.context);
-  if (!context) return null;
-  const visible = context.kpis.filter((k) => !k.hidden);
-  const groups = [...new Set(visible.map((k) => k.group))];
-  return (
-    <div className="grid gap-4 lg:grid-cols-2">
-      {groups.map((g) => (
-        <Card key={g} className="p-5">
-          <h3 className="eyebrow text-fg-subtle">{g}</h3>
-          <ul className="mt-3 grid gap-2.5">
-            {visible
-              .filter((k) => k.group === g)
-              .map((k) => (
-                <li key={k.id} className="flex items-start gap-2.5">
-                  {k.available ? (
-                    <Check className="mt-0.5 size-4 shrink-0 text-success" aria-label="available" />
-                  ) : (
-                    <CircleSlash className="mt-0.5 size-4 shrink-0 text-fg-subtle" aria-label="unavailable" />
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <KpiNameInput id={k.id} name={k.name} title={k.definition} />
-                    {k.available ? (
-                      <ClampText className="px-1 text-xs text-fg-subtle">
-                        {k.variantLabel}
-                        {k.caveat ? ` · ${k.caveat}` : ""}
-                      </ClampText>
-                    ) : (
-                      <p className="px-1 text-xs text-fg-muted">
-                        {k.unavailableReason} {k.substitute}
-                      </p>
-                    )}
-                  </div>
-                </li>
-              ))}
-          </ul>
-        </Card>
-      ))}
     </div>
   );
 }

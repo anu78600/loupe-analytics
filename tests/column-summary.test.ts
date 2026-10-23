@@ -1,6 +1,6 @@
 /**
  * Column summaries (ui/workspace/columnSummary.ts), shown in Check & map's
- * column table and Detect's "In your data": numbers follow the number-format
+ * review table and its row details: numbers follow the number-format
  * setting with a true minus sign, percentages read as percentages whether
  * stored as fractions ("22.39%" in the file) or as points, and years, IDs
  * and postal codes keep their digits as written.
