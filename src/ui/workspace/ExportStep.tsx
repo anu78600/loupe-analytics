@@ -362,7 +362,7 @@ function TileIcon({
  * Shared surface of the export cards: lifts a little on hover and glows
  * faintly in its corner. Clipped, not hidden: an overflow-hidden box can be
  * scrolled, so focusing a button inside slid the content under the glow.
- * The featured cards keep their brass edge on hover (FEATURED).
+ * The featured cards keep their accent edge on hover (FEATURED).
  */
 const SURFACE =
   "group relative flex min-w-0 flex-col overflow-clip rounded-card border border-border bg-surface-1 shadow-card transition-[border-color,box-shadow,transform] duration-base hover:border-border-hover motion-safe:hover:-translate-y-0.5";

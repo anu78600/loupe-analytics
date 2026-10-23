@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Gauge-style ring for detection confidence (0–100). Brass at 70 and above
+ * Gauge-style ring for detection confidence (0–100). The accent at 70 and above
  * (the confirmation threshold), warning below 70 and danger below 50. The
  * figure counts up and the arc springs into place; both respect reduced
  * motion.

@@ -1,21 +1,22 @@
 /*
  * Loupe light theme: the semantic tokens (tier 2) for light. The same names as theme-dark.css,
- * with values designed for paper rather than inverted from dark.
+ * with values designed for a bright screen rather than inverted from dark.
  *
- * - Depth is surface plus shadow. A warm paper canvas with a darker sunken tint for wells and side
- *   areas; white raised cards, defined by a hairline ring and a soft two-layer shadow; overlays
+ * - Depth is surface plus shadow. A cool off-white canvas with a darker sunken tint for wells and
+ *   side areas; white raised cards, defined by a hairline ring and a soft two-layer shadow; overlays
  *   (menus, popovers, tooltips, dialogs, sheets) white too, with a ring and a deeper layered shadow.
- *   Fills inside a card are a little darker than it, never lighter: surface-2 by 1.8 OKLCH L, the
- *   hover and chip fill surface-3 by 6.
- * - Lines are the warm ink at 6–15 % (26 % on hover), so they take on the paper's warmth.
- * - Text is three levels of one warm ink, never pure black: primary ≥ 14:1 on every plane, muted
- *   ≥ 7:1, subtle ≥ 4.5:1, each at least 7 OKLCH L from the next so the levels read apart.
- * - The accent fill is a deep bronze that carries white text; text in the accent uses a darker
- *   bronze, and the focus ring is solid bronze.
+ *   Fills inside a card are a little darker than it, never lighter.
+ * - Lines are the slate ink at 6–15 % (26 % on hover), so they carry the same cool cast as the text.
+ * - Text is three levels of one blue-black ink, never pure black: primary ≥ 14:1 on every plane,
+ *   muted ≥ 7:1, subtle ≥ 4.5:1, each at least 7 OKLCH L from the next so the levels read apart.
+ * - The accent fill is a deep indigo that carries white text (6.2:1); text in the accent uses a
+ *   darker indigo, and the focus ring is solid indigo.
  * tests/theme-contrast.test.ts holds every one of these figures.
  *
- * The chart colours are the built-in "Loupe" chart theme (see theme-dark.css). The categorical
- * palette's worst adjacent CVD ΔE is 18.0 and normal ΔE 20.2, every mark ≥ 3:1 on --surface-1.
+ * The chart colours are the built-in "Loupe" chart theme (see theme-dark.css): indigo first, then
+ * orange, violet, rose, sky, green, teal and gold, in the order that keeps neighbours furthest
+ * apart. The categorical palette's worst adjacent CVD ΔE is 14.0 and normal ΔE 16.7, every mark
+ * ≥ 3:1 on --surface-1.
  */
 
 :root[data-theme="light"],
@@ -23,57 +24,56 @@
   color-scheme: light;
 
   /* Planes */
-  --bg: var(--base-stone-2);
-  --bg-subtle: var(--base-stone-3);
+  --bg: var(--base-slate-2);
+  --bg-subtle: var(--base-slate-3);
   --surface-1: var(--base-white);
-  --surface-2: var(--base-stone-1);
-  --surface-3: var(--base-stone-4);
+  --surface-2: var(--base-slate-1);
+  --surface-3: var(--base-slate-4);
   --surface-overlay: var(--base-white);
-  /* State layers in the warm ink, laid over any plane. Hover is 6 %, about 4 OKLCH L below the
-     plane, so the highlighted row of a menu or the command palette shows at a glance on white (4 %
-     was under 3 L and read as nothing); pressed is 10 %. Selected is the bronze at 11 %: a step
-     stronger than hover, and warm, so the chosen row never looks merely hovered. */
-  --surface-hover: rgb(27 24 21 / 0.06);
-  --surface-active: rgb(27 24 21 / 0.1);
-  --surface-selected: rgb(129 98 38 / 0.11);
+  /* State layers in the slate ink, laid over any plane. Hover is 6 %, about 4 OKLCH L below the
+     plane, so the highlighted row of a menu or the command palette shows at a glance; pressed is
+     10 %. Selected is the indigo at 10 %: a step stronger than hover, and tinted, so the chosen row
+     never looks merely hovered. */
+  --surface-hover: rgb(20 23 30 / 0.06);
+  --surface-active: rgb(20 23 30 / 0.1);
+  --surface-selected: rgb(80 75 221 / 0.1);
   /* Controls. A raised key (the segmented control's chosen option, the secondary button) is the
-     cards' white: on paper, raised means white plus an edge. A well (the segmented control's track)
-     is the ink at 6.5 %, so it sits about 4 L below whatever plane holds it: the paper, a card, an
-     overlay. */
+     cards' white: raised means white plus an edge. A well (the segmented control's track) is the
+     ink at 6.5 %, so it sits about 4 L below whatever plane holds it. */
   --surface-raised-control: var(--base-white);
-  --surface-inset: rgb(27 24 21 / 0.065);
+  --surface-inset: rgb(20 23 30 / 0.065);
   --surface-glass: rgb(255 255 255 / 0.74);
-  --overlay: rgb(27 24 21 / 0.32);
+  --overlay: rgb(20 23 30 / 0.36);
 
-  /* Lines: the warm ink (--base-stone-12) at low alpha. */
-  --border-subtle: rgb(27 24 21 / 0.06);
-  --border: rgb(27 24 21 / 0.085);
-  --border-strong: rgb(27 24 21 / 0.15);
-  --border-hover: rgb(27 24 21 / 0.26);
-  --border-accent: rgb(129 98 38 / 0.4);
+  /* Lines: the slate ink (--base-slate-12) at low alpha. */
+  --border-subtle: rgb(20 23 30 / 0.06);
+  --border: rgb(20 23 30 / 0.085);
+  --border-strong: rgb(20 23 30 / 0.15);
+  --border-hover: rgb(20 23 30 / 0.26);
+  --border-accent: rgb(80 75 221 / 0.4);
 
-  /* Ink. On the canvas: 16.3:1 (Lc 99) / 7.9:1 (Lc 84) / 5.2:1 (Lc 73); disabled 3.5:1. */
-  --fg: var(--base-stone-12);
-  --fg-muted: var(--base-stone-11);
-  --fg-subtle: var(--base-stone-10);
-  --fg-disabled: var(--base-stone-9);
-  --fg-inverse: var(--base-stone-2);
+  /* Ink. */
+  --fg: var(--base-slate-12);
+  --fg-muted: var(--base-slate-11);
+  --fg-subtle: var(--base-slate-10);
+  --fg-disabled: var(--base-slate-9);
+  --fg-inverse: var(--base-slate-2);
 
-  /* Bronze: white text on the fill 5.7:1. Hover and pressed are darker; --accent-strong and
-     --accent-deep are their older names. Accent text is the darker bronze (8.5:1 on white). */
-  --accent: var(--base-brass-9);
-  --accent-hover: var(--base-brass-10);
-  --accent-active: var(--base-brass-11);
+  /* Indigo: white text on the fill 6.2:1. Hover and pressed are darker; --accent-strong and
+     --accent-deep are their older names. Accent text is the darker indigo (8.8:1 on white). */
+  --accent: var(--base-iris-9);
+  --accent-hover: var(--base-iris-10);
+  --accent-active: var(--base-iris-11);
   --accent-strong: var(--accent-hover);
   --accent-deep: var(--accent-active);
-  --accent-text: var(--base-brass-11);
+  --accent-text: var(--base-iris-11);
   --accent-fg: var(--base-white);
-  --accent-soft: rgb(129 98 38 / 0.09);
+  --accent-soft: rgb(80 75 221 / 0.08);
   /* A halo, not a ring on its own: --focus is the focus ring. Strong enough (≥ 3:1 on white) for
      the controls that still draw their focus ring with it. */
-  --accent-ring: rgb(129 98 38 / 0.8);
-  /* The focus ring: solid bronze, ≥ 4.5:1 on every plane. */
-  --focus: var(--base-brass-9);
+  --accent-ring: rgb(80 75 221 / 0.8);
+  /* The focus ring: solid indigo, ≥ 5:1 on every plane. */
+  --focus: var(--base-iris-9);
 
   /* Status: the fill (also icons), its text, its tint and its border. The text keeps ≥ 6:1 on its
      tint; the fill itself ≥ 4.5:1 there. */
@@ -94,71 +94,73 @@
   --info-soft: var(--base-blue-3);
   --info-border: var(--base-blue-7);
 
-  --chart-1: #ac7c26;
-  --chart-2: #4a91f8;
-  --chart-3: #008879;
-  --chart-4: #9778f5;
-  --chart-5: #1e7729;
-  --chart-6: #299fcd;
-  --chart-7: #c95b0a;
-  --chart-8: #8c3f91;
-  --chart-other: var(--base-stone-8);
+  --chart-1: #5b5ce2;
+  --chart-2: #e57429;
+  --chart-3: #a855f7;
+  --chart-4: #db2777;
+  --chart-5: #009dde;
+  --chart-6: #348100;
+  --chart-7: #27a497;
+  --chart-8: #b8860b;
+  --chart-other: var(--base-slate-8);
   --chart-spark: var(--accent);
   --chart-dim: 0.35;
 
-  /* Sequential: light to dark, so the largest value is the darkest. Step 1 is 1.55:1 against the
-     card, so the smallest values still show. */
-  --seq-1: #e1cda9;
-  --seq-2: #d2b689;
-  --seq-3: #c3a068;
-  --seq-4: #b48a4a;
-  --seq-5: #a3742e;
-  --seq-6: #906018;
-  --seq-7: #7c4e06;
-  --seq-8: #663d00;
+  /* Sequential (indigo): light to dark, so the largest value is the darkest. Step 1 still shows
+     against the card, so the smallest values do too. */
+  --seq-1: #c4ccff;
+  --seq-2: #aab4fd;
+  --seq-3: #929df6;
+  --seq-4: #7d87eb;
+  --seq-5: #6971db;
+  --seq-6: #585dc5;
+  --seq-7: #484bac;
+  --seq-8: #393b8e;
 
+  /* Diverging (blue ← neutral → orange) */
   --div-1: #1c5cab;
   --div-2: #4f8fe0;
   --div-3: #a9c9f2;
-  --div-4: var(--base-stone-4);
-  --div-5: #e3c89a;
-  --div-6: #c08f3c;
-  --div-7: #8a5c0e;
+  --div-4: var(--base-slate-4);
+  --div-5: #f5c6a0;
+  --div-6: #e07b39;
+  --div-7: #a9480c;
 
-  --chart-grid: var(--base-stone-4);
-  --chart-axis: var(--base-stone-7);
+  --chart-grid: var(--base-slate-4);
+  --chart-axis: var(--base-slate-7);
   --chart-label: var(--fg-subtle);
   --chart-tooltip: var(--surface-overlay);
 
-  /* Depth: shadows in the warm ink, layered with negative spread so they grow by blur and offset
-     rather than darkness. Cards: a hairline ring and a soft two-layer shadow (2–9 %); overlays and
-     dialogs: the ring and a deeper, longer shadow. */
+  /* Depth: shadows in the slate ink, layered with negative spread so they grow by blur and offset
+     rather than darkness. Cards: a hairline ring and a soft two-layer shadow; overlays and dialogs:
+     the ring and a deeper, longer shadow. */
   --shadow-card:
-    0 0 0 1px rgb(27 24 21 / 0.035), 0 1px 2px -1px rgb(27 24 21 / 0.08), 0 6px 16px -8px rgb(27 24 21 / 0.09);
+    0 0 0 1px rgb(20 23 30 / 0.04), 0 1px 2px -1px rgb(20 23 30 / 0.08), 0 6px 16px -8px rgb(20 23 30 / 0.08);
   --shadow-pop:
-    0 0 0 1px rgb(27 24 21 / 0.06), 0 2px 4px -2px rgb(27 24 21 / 0.08), 0 8px 16px -6px rgb(27 24 21 / 0.1),
-    0 20px 36px -12px rgb(27 24 21 / 0.12);
+    0 0 0 1px rgb(20 23 30 / 0.06), 0 2px 4px -2px rgb(20 23 30 / 0.08), 0 8px 16px -6px rgb(20 23 30 / 0.1),
+    0 20px 36px -12px rgb(20 23 30 / 0.12);
   --shadow-lift:
-    0 0 0 1px rgb(27 24 21 / 0.06), 0 4px 8px -4px rgb(27 24 21 / 0.08),
-    0 16px 32px -12px rgb(27 24 21 / 0.14), 0 40px 80px -24px rgb(27 24 21 / 0.18);
+    0 0 0 1px rgb(20 23 30 / 0.06), 0 4px 8px -4px rgb(20 23 30 / 0.08),
+    0 16px 32px -12px rgb(20 23 30 / 0.14), 0 40px 80px -24px rgb(20 23 30 / 0.18);
 
-  --grain-opacity: 0.04;
-  --mesh-1: rgb(172 124 38 / 0.14);
-  --mesh-2: rgb(74 145 248 / 0.1);
-  --mesh-3: rgb(0 136 121 / 0.06);
+  /* No paper texture: the surfaces are clean. */
+  --grain-opacity: 0;
+  --mesh-1: rgb(91 92 226 / 0.13);
+  --mesh-2: rgb(0 157 222 / 0.1);
+  --mesh-3: rgb(159 75 237 / 0.07);
 
-  /* Every stop keeps white text at ≥ 5:1. */
-  --accent-gradient: linear-gradient(135deg, #8c6a2b 0%, #816226 50%, #6f5422 100%);
-  --glow-accent: rgb(129 98 38 / 0.22);
-  --sheen: rgb(255 255 255 / 0.28);
-  --grid-line: rgb(27 24 21 / 0.055);
-  --spot: rgb(129 98 38 / 0.07);
-  --spot-border: rgb(129 98 38 / 0.42);
+  /* Every stop keeps white text at ≥ 4.9:1. */
+  --accent-gradient: linear-gradient(135deg, #5c5fe6 0%, #504bdd 50%, #443fc4 100%);
+  --glow-accent: rgb(80 75 221 / 0.26);
+  --sheen: rgb(255 255 255 / 0.24);
+  --grid-line: rgb(20 23 30 / 0.055);
+  --spot: rgb(80 75 221 / 0.07);
+  --spot-border: rgb(80 75 221 / 0.42);
 
   --code-keyword: #2c56c9;
   --code-function: #7535b0;
   --code-name: #835600;
   --code-string: #1a7239;
   --code-number: #a84d05;
-  --code-comment: #636a73;
+  --code-comment: #5f6670;
 }

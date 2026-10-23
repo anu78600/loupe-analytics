@@ -295,7 +295,7 @@ function IndustryPill({ d }: { d: Domain }) {
     >
       <DomainIcon name={d.icon} className="size-4 text-accent" />
       {d.name}
-      {/* On the flagship's brass tint, the tint's own text colour (grey on colour reads dull). */}
+      {/* On the flagship's accent tint, the tint's own text colour (grey on colour reads dull). */}
       <span className={cn("text-xs", d.flagship ? "text-accent-text" : "text-fg-muted")}>{d.kpis} KPIs</span>
       {d.flagship ? (
         <span className="rounded-full bg-[image:var(--accent-gradient)] px-2 py-0.5 text-2xs font-medium text-accent-fg">
@@ -424,7 +424,7 @@ function FlowNode({
   );
 }
 
-/** A hairline with brass dots travelling along it (decorative). */
+/** A hairline with accent dots travelling along it (decorative). */
 function Connector() {
   return (
     <div
@@ -673,7 +673,7 @@ function LensLayer({ spin, children }: { spin?: string; children: React.ReactNod
 }
 
 /**
- * The Loupe lens as a slow instrument: a ticked bezel and a brass arc turning
+ * The Loupe lens as a slow instrument: a ticked bezel and a accent arc turning
  * round a glowing focus. Each turning ring is an HTML layer of its own: a CSS
  * rotation of an SVG group is restyled and laid out every frame, a layer's is
  * only composited.

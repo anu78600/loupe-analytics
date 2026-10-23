@@ -5,6 +5,28 @@ Every step of building Loupe, newest first. Generated from `src/content/changelo
 - **MAJOR** (`x.0`): a new capability, subsystem or page.
 - **MINOR** (`x.y`): a refinement, fix or follow-up to that major version.
 
+## Up next
+
+1. **Redesign stage 2: a new app shell.** A sidebar in place of the eight-step bar along the top, the steps grouped into four phases (Prepare, Build, Analyse, Share), a slim top bar with the file, search and actions, and a bottom bar on phones.
+2. **Redesign stage 3: from file to first dashboard in one guided flow.** A full-width upload with the demos as cards, Detect told as a story (what the data is about first, the industry second), and Check & map as one clean review table with fixes in place.
+3. **Redesign stage 4: the dashboard.** KPI cards with sparklines and trends, a bento grid of charts, a filter bar above the charts instead of the side rail, new chart cards with their takeaway and actions on hover, and insights beside the charts.
+4. **Redesign stage 5: analysis, sharing and the landing page.** Questions as a conversation with an analyst, Insights as a ranked feed, Export as a gallery with previews, the landing page in the new look, and motion, empty and loading states polished on phones and in both themes.
+
+## 50.0 · A new look: indigo, slate and one sans voice (redesign stage 1 of 5)
+
+*Major · 2026-10-23 07:50 UTC · Design*
+
+The first of five redesign stages. Loupe's whole identity changes: warm paper, bronze and an editorial serif give way to cool slate surfaces, one indigo accent and bold sans-serif headings, in both the light and the dark theme, on every screen, chart, logo and icon.
+
+- New colours everywhere: crisp cool backgrounds, white cards and one indigo accent in light; a blue-black canvas with a periwinkle accent in dark. Every text level, button, focus ring and status colour was re-checked for contrast in both themes.
+- Headings are now set in Inter SemiBold at its display cut, with tight spacing, instead of the serif: one modern sans voice across the app, the landing page and the share image.
+- New chart colours, indigo first, then orange, violet, rose, sky, green, teal and gold, in the order that keeps neighbouring series furthest apart for colour-blind readers (twice the margin the checks require). Gradients and heatmaps follow the indigo.
+- A cleaner finish: the paper texture is gone, and the landing page's background glow is indigo and sky.
+- A new logo, wordmark, browser icon and share image in the new colours and type.
+- The four remaining redesign stages are listed under Planned below.
+
+Files: `src/styles/primitives.css`, `src/styles/theme-light.css`, `src/styles/theme-dark.css`, `src/app/globals.css`, `src/app/layout.tsx`, `src/app/opengraph-image.tsx`, `src/app/icon.svg`, `src/app/favicon.ico`, `public/brand/loupe-mark-dark.svg`, `public/brand/loupe-mark-light.svg`, `public/brand/loupe-wordmark-dark.svg`, `public/brand/loupe-wordmark-light.svg`, `scripts/brand-wordmark.py`, `src/ui/charts/palette/themes.ts`, `src/ui/charts/palette/check.ts`, `src/ui/charts/tokens.ts`, `docs/DESIGN.md`, `tests/chart-themes.test.ts`, `tests/typography.test.ts`
+
 ## 49.0 · Reads your data first, then designs the dashboard from it
 
 *Major · 2026-10-21 18:25 UTC · Feature, Data, Design, Tests*

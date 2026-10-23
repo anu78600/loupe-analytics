@@ -1,9 +1,10 @@
 /**
- * The type system (version 39.0; docs/DESIGN.md "Type"): three families with
- * one job each (Inter for the interface and figures, Instrument Serif for
- * display headings, Geist Mono for code) and one scale of named sizes in
- * globals.css. These checks keep components on it: no hand-picked pixel sizes
- * or letter-spacing, the serif only at display sizes, monospace only for
+ * The type system (version 39.0, one sans voice since 50.0; docs/DESIGN.md
+ * "Type"): Inter for the interface and figures, and semibold at its display
+ * optical size for headings (font-display), Geist Mono for code, and one
+ * scale of named sizes in globals.css. These checks keep components on it: no
+ * hand-picked pixel sizes or letter-spacing, the display face only at display
+ * sizes, monospace only for
  * code, chart text no smaller than 11 px, and the self-hosted font files
  * present and cut to the ranges the layout declares.
  */
@@ -102,7 +103,7 @@ describe("the type scale", () => {
 });
 
 describe("the families", () => {
-  it("set the serif only at display sizes", () => {
+  it("set the display face only at display sizes", () => {
     const offenders: string[] = [];
     for (const path of UI) {
       if (FIXED_CANVAS.has(path)) continue;

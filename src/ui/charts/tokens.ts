@@ -37,7 +37,7 @@ export interface ChartTokens {
   warning: string;
   /**
    * Opacity of the marks a selection leaves out (cross-filtering): --chart-dim, lower in dark
-   * (a faded colour still glows on graphite) than on paper.
+   * (a faded colour still glows on dark) than on light.
    */
   dim: number;
   /** The interface face for words: titles, axis names, categories, legends. */
@@ -50,21 +50,21 @@ export interface ChartTokens {
 // (styles/theme-dark.css) with its aliases resolved, as getComputedStyle reports them.
 const FALLBACK_DARK: ChartTokens = {
   dark: true,
-  palette: ["#b98b3d", "#3c79d1", "#33a998", "#7057ba", "#317f38", "#35a0cc", "#bf5914", "#934b98"],
-  other: "#4f4d49",
-  seq: ["#4e3b1f", "#654c28", "#7c5f31", "#95723b", "#ad8646", "#c79b52", "#e0b060", "#f9c76f"],
-  div: ["#86b6ef", "#4d84d6", "#2b4f80", "#35322f", "#7a5a25", "#b88a3e", "#e9c27e"],
-  grid: "#22201e",
-  axis: "#35322f",
-  label: "#a19e9a",
-  fg: "#f0eeeb",
-  muted: "#c0bdb9",
-  subtle: "#a19e9a",
-  surface: "#151311",
-  surface2: "#1b1a18",
+  palette: ["#5a5be1", "#d06107", "#9d48ea", "#d31c71", "#008dc7", "#358203", "#27a598", "#a77800"],
+  other: "#4a4e56",
+  seq: ["#363b62", "#464c7e", "#575e9c", "#6971ba", "#7b85d9", "#8e99f9", "#a7b2ff", "#c3ccff"],
+  div: ["#86b6ef", "#4d84d6", "#2b4f80", "#30333b", "#7a3d12", "#c26a2c", "#f0a46b"],
+  grid: "#1e2026",
+  axis: "#30333b",
+  label: "#9b9fa7",
+  fg: "#edeff3",
+  muted: "#bbbec5",
+  subtle: "#9b9fa7",
+  surface: "#111318",
+  surface2: "#171a1f",
   border: "rgba(255,255,255,0.13)",
-  tooltip: "#292724",
-  accent: "#d6b47a",
+  tooltip: "#25282e",
+  accent: "#8995f4",
   success: "#3fb68b",
   danger: "#f06a6d",
   warning: "#e8833a",
@@ -128,8 +128,8 @@ export const LABEL_MIN_CONTRAST = 4.5;
 
 // Label inks for text inside a fill. These are canvas colours, not theme
 // tokens: the right ink depends on the fill behind the label, not on the theme.
-/** Warm near-black that sits well on the brass ramps. */
-export const INK_DARK = "#14110a";
+/** Blue-black that sits well on the indigo ramps. */
+export const INK_DARK = "#0b0d12";
 export const INK_LIGHT = "#ffffff";
 /** Last resort for mid-tone fills, where neither ink above reaches 4.5:1. */
 export const INK_BLACK = "#000000";
@@ -154,7 +154,7 @@ export function contrastRatio(a: number, b: number): number {
 /**
  * Label colour for text inside a coloured fill (treemap tiles, funnel stages),
  * chosen by the actual contrast ratios rather than a luminance cut-off: the
- * warm ink or white, whichever contrasts more with the fill. Around a relative
+ * dark ink or white, whichever contrasts more with the fill. Around a relative
  * luminance of 0.18 neither reaches 4.5:1; pure black then does (when white
  * falls short of 4.5:1, black always clears about 4.58:1), so a label never
  * drops below AA. Non-hex input returns the theme foreground.

@@ -1,5 +1,5 @@
 /**
- * Button with design-token variants and sizes. Primary is the brass gradient
+ * Button with design-token variants and sizes. Primary is the accent gradient
  * with a soft glow and a sheen that sweeps across on hover or keyboard focus
  * (the `sheen` utility in globals.css). `asChild` renders the child element
  * instead (e.g. a link) via Radix Slot; buttonVariants gives other elements
@@ -20,8 +20,8 @@ import { cn } from "@/lib/utils";
 
 /**
  * The hover and pressed state layers drawn over a filled button's own colour (a translucent
- * gradient image sits above background-color), so a filled button lightens on graphite and
- * darkens on paper by the same step whatever surface it sits on.
+ * gradient image sits above background-color), so a filled button lightens on dark and
+ * darkens on light by the same step whatever surface it sits on.
  */
 const STATE_LAYERS =
   "hover:[background-image:linear-gradient(var(--surface-hover),var(--surface-hover))] active:[background-image:linear-gradient(var(--surface-active),var(--surface-active))]";
@@ -36,20 +36,20 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        // The brass gradient: a lit top edge (--sheen), a tight shadow and a glow in the accent.
-        // Hover brightens it on graphite (light ink on brass) and deepens it on paper (white on
-        // bronze), so the label always gains contrast.
+        // The accent gradient: a lit top edge (--sheen), a tight shadow and a glow in the accent.
+        // Hover brightens it on dark (dark ink on periwinkle) and deepens it on light (white on
+        // indigo), so the label always gains contrast.
         primary:
           "sheen bg-accent bg-[image:var(--accent-gradient)] text-accent-fg shadow-[inset_0_1px_0_0_var(--sheen),0_1px_2px_-1px_var(--glow-accent),0_8px_22px_-10px_var(--glow-accent)] hover:brightness-95 hover:shadow-[inset_0_1px_0_0_var(--sheen),0_0_0_1px_var(--border-accent),0_12px_32px_-10px_var(--glow-accent)] dark:hover:brightness-105",
-        // A raised key (--surface-raised-control): white on paper; on graphite a translucent white
+        // A raised key (--surface-raised-control): white on light; on dark a translucent white
         // step, so it stands lighter than whatever it sits on (the canvas, a card, or a sheet on the
         // overlay plane, where a solid fill would look sunken).
         secondary: `border border-border-strong bg-surface-raised-control text-fg hover:border-border-hover ${STATE_LAYERS}`,
         ghost: "text-fg-muted hover:bg-surface-hover hover:text-fg active:bg-surface-active",
         outline:
           "border border-border-strong bg-transparent text-fg hover:border-border-hover hover:bg-surface-hover active:bg-surface-active",
-        // Ink that reads on the danger fill in both themes: dark ink on graphite's lighter red,
-        // light ink on paper's deeper red.
+        // Ink that reads on the danger fill in both themes: dark ink on dark's lighter red,
+        // light ink on light's deeper red.
         danger: `bg-danger text-fg-inverse ${STATE_LAYERS}`,
         link: "h-auto px-0 text-accent-text underline-offset-4 hover:underline",
       },

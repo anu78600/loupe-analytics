@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * On/off switch (Radix); turns brass when checked. Has the `peer` class so a sibling label can react
+ * On/off switch (Radix); turns accent when checked. Has the `peer` class so a sibling label can react
  * to its state. Its edge steps up to --border-hover under the pointer, keyboard focus draws the
  * focus ring, the thumb slides over the fast duration (120 ms), and a disabled switch takes the one
  * disabled opacity.

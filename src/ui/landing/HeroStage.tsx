@@ -2,7 +2,7 @@
 
 /**
  * The hero's product shot: the live dashboard preview (HeroPreview) tilted
- * back in perspective, straightening as it scrolls into place, with a brass
+ * back in perspective, straightening as it scrolls into place, with a accent
  * beam running round its frame. On very wide screens three of its real KPI
  * figures float in the margins beside it, drifting at their own pace as the
  * page scrolls. They show the date range chosen in the panel and say which

@@ -3,26 +3,24 @@
  * names (through the utilities in app/globals.css), never the primitives they point at.
  *
  * Dark is designed on its own terms, not inverted from light:
- * - Depth is lightness. A warm graphite canvas (never #000) with a deeper sunken tint below it,
- *   then each raised level about 3 OKLCH L lighter: canvas 15.9 < surface-1 18.8 < surface-2 21.8
- *   < surface-3 24.5 < surface-overlay 27.4, so menus, popovers, tooltips and dialogs are clearly
- *   the closest plane. Surface-1 stays at the old card's luminance: the chart palettes were
- *   validated against it.
+ * - Depth is lightness. A blue-black canvas (never #000) with a deeper sunken tint below it, then
+ *   each raised level about 3 OKLCH L lighter: canvas 15.6 < surface-1 18.7 < surface-2 21.7 <
+ *   surface-3 24.5 < surface-overlay 27.6, so menus, popovers, tooltips and dialogs are clearly
+ *   the closest plane. The chart palettes are validated against surface-1.
  * - Lines are white at 6–13 % (20 % on hover), so one value works on every plane. Shadows are deep
  *   and carry a white top highlight, the lit edge that shadows alone can't show on dark.
  * - Text is never pure white. Its levels are set with APCA, which judges light text on dark more
  *   strictly than WCAG 2: on every plane, the overlay included, primary text reaches Lc 90 and
  *   12:1, muted Lc 60 and 7:1, subtle Lc 45 and 4.5:1.
- * - The accent's text step is lighter and lower in chroma than its fill, which stays the brass of
- *   the brand. Status tints are very dark, low-chroma solids rather than bright colours at low alpha.
+ * - The accent is a periwinkle indigo light enough to carry dark ink (7.4:1) and to read as text on
+ *   its own tint; its text step is lighter and calmer still. Status tints are very dark, low-chroma solids rather than bright colours at low alpha.
  * tests/theme-contrast.test.ts holds every one of these figures.
  *
  * The chart colours (--chart-1…8, --seq-1…8, --chart-spark) are the built-in "Loupe" chart theme.
  * Another chart theme redefines them from a <style id="loupe-chart-theme"> (ui/charts/palette/apply.ts)
  * while <html> carries data-chart-theme; nothing else changes. The categorical palette was validated
  * with an OKLab colour-vision-deficiency check (protan/deutan, Machado 2009): worst adjacent CVD
- * ΔE 17.7, normal ΔE 18.3, every mark ≥ 3:1 on --surface-1; the first three slots also pass the
- * all-pairs test (scatter, maps).
+ * ΔE 14.1, normal ΔE 16.7, every mark ≥ 3:1 on --surface-1.
  *
  * Dark is the default: :root carries these values until data-theme says otherwise.
  */
@@ -33,12 +31,12 @@
   color-scheme: dark;
 
   /* Planes, sunken to closest. */
-  --bg-subtle: var(--base-stone-dark-1);
-  --bg: var(--base-stone-dark-2);
-  --surface-1: var(--base-stone-dark-3);
-  --surface-2: var(--base-stone-dark-4);
-  --surface-3: var(--base-stone-dark-5);
-  --surface-overlay: var(--base-stone-dark-6);
+  --bg-subtle: var(--base-slate-dark-1);
+  --bg: var(--base-slate-dark-2);
+  --surface-1: var(--base-slate-dark-3);
+  --surface-2: var(--base-slate-dark-4);
+  --surface-3: var(--base-slate-dark-5);
+  --surface-overlay: var(--base-slate-dark-6);
   /* State layers, laid over any plane; selected is the accent tint. */
   --surface-hover: rgb(255 255 255 / 0.045);
   --surface-active: rgb(255 255 255 / 0.075);
@@ -51,37 +49,38 @@
   --surface-raised-control: rgb(255 255 255 / 0.06);
   --surface-inset: rgb(0 0 0 / 0.25);
   /* Sticky headers: surface-1 under a blur. */
-  --surface-glass: rgb(21 19 17 / 0.72);
+  --surface-glass: rgb(17 19 24 / 0.72);
   /* The scrim behind dialogs and sheets: heavier in dark. */
-  --overlay: rgb(4 3 2 / 0.7);
+  --overlay: rgb(3 4 6 / 0.7);
 
   /* Lines */
   --border-subtle: rgb(255 255 255 / 0.06);
   --border: rgb(255 255 255 / 0.085);
   --border-strong: rgb(255 255 255 / 0.13);
   --border-hover: rgb(255 255 255 / 0.2);
-  --border-accent: rgb(214 180 122 / 0.38);
+  --border-accent: rgb(137 149 244 / 0.4);
 
   /* Ink. On the canvas: 16.8:1 (Lc 97) / 10.4:1 (Lc 67) / 7.3:1 (Lc 50); disabled 4.5:1. */
-  --fg: var(--base-stone-dark-12);
-  --fg-muted: var(--base-stone-dark-11);
-  --fg-subtle: var(--base-stone-dark-10);
-  --fg-disabled: var(--base-stone-dark-9);
-  --fg-inverse: var(--base-stone-dark-2);
+  --fg: var(--base-slate-dark-12);
+  --fg-muted: var(--base-slate-dark-11);
+  --fg-subtle: var(--base-slate-dark-10);
+  --fg-disabled: var(--base-slate-dark-9);
+  --fg-inverse: var(--base-slate-dark-2);
 
-  /* Signature accent: brass. Hover is lighter, pressed deeper; --accent-strong and --accent-deep
-     are their older names. Text in the accent uses --accent-text, a lighter, calmer brass. */
-  --accent: var(--base-brass-dark-9);
-  --accent-hover: var(--base-brass-dark-10);
-  --accent-active: var(--base-brass-dark-8);
+  /* Signature accent: periwinkle indigo with dark ink. Hover is lighter, pressed deeper;
+     --accent-strong and --accent-deep are their older names. Text in the accent uses
+     --accent-text, a lighter, calmer step. */
+  --accent: var(--base-iris-dark-9);
+  --accent-hover: var(--base-iris-dark-10);
+  --accent-active: var(--base-iris-dark-8);
   --accent-strong: var(--accent-hover);
   --accent-deep: var(--accent-active);
-  --accent-text: var(--base-brass-dark-11);
-  --accent-fg: var(--base-brass-dark-1);
-  --accent-soft: rgb(214 180 122 / 0.11);
-  --accent-ring: rgb(214 180 122 / 0.5);
-  /* The focus ring: solid brass, ≥ 7.5:1 on every plane. */
-  --focus: var(--base-brass-dark-9);
+  --accent-text: var(--base-iris-dark-11);
+  --accent-fg: var(--base-iris-dark-1);
+  --accent-soft: rgb(137 149 244 / 0.12);
+  --accent-ring: rgb(137 149 244 / 0.72);
+  /* The focus ring: solid periwinkle, ≥ 5:1 on every plane. */
+  --focus: var(--base-iris-dark-9);
 
   /* Status (always paired with an icon and a label): the fill (also icons), its text, its tint and
      its border. The text keeps ≥ 8:1 on its tint; the fill itself ≥ 5.3:1 there. */
@@ -103,45 +102,45 @@
   --info-border: var(--base-blue-dark-7);
 
   /* Categorical chart palette (fixed order, never cycled) */
-  --chart-1: #b98b3d;
-  --chart-2: #3c79d1;
-  --chart-3: #33a998;
-  --chart-4: #7057ba;
-  --chart-5: #317f38;
-  --chart-6: #35a0cc;
-  --chart-7: #bf5914;
-  --chart-8: #934b98;
-  --chart-other: var(--base-stone-dark-8);
+  --chart-1: #5a5be1;
+  --chart-2: #d06107;
+  --chart-3: #9d48ea;
+  --chart-4: #d31c71;
+  --chart-5: #008dc7;
+  --chart-6: #358203;
+  --chart-7: #27a598;
+  --chart-8: #a77800;
+  --chart-other: var(--base-slate-dark-8);
   /* KPI sparklines: the accent, or a chart theme's first colour */
   --chart-spark: var(--accent);
   /* Opacity of the marks a selection leaves out (cross-filtering): lower than light's, because a
      faded colour still glows on dark. */
   --chart-dim: 0.3;
 
-  /* Sequential (brass, low → high): dark to light, so the largest value is the lightest. Step 1
-     is 1.7:1 against the card, so the smallest values still show. */
-  --seq-1: #4e3b1f;
-  --seq-2: #654c28;
-  --seq-3: #7c5f31;
-  --seq-4: #95723b;
-  --seq-5: #ad8646;
-  --seq-6: #c79b52;
-  --seq-7: #e0b060;
-  --seq-8: #f9c76f;
+  /* Sequential (indigo, low → high): dark to light, so the largest value is the lightest. Step 1
+     still shows against the card, so the smallest values do too. */
+  --seq-1: #363b62;
+  --seq-2: #464c7e;
+  --seq-3: #575e9c;
+  --seq-4: #6971ba;
+  --seq-5: #7b85d9;
+  --seq-6: #8e99f9;
+  --seq-7: #a7b2ff;
+  --seq-8: #c3ccff;
 
-  /* Diverging (blue ← neutral → brass) */
+  /* Diverging (blue ← neutral → orange) */
   --div-1: #86b6ef;
   --div-2: #4d84d6;
   --div-3: #2b4f80;
-  --div-4: var(--base-stone-dark-7);
-  --div-5: #7a5a25;
-  --div-6: #b88a3e;
-  --div-7: #e9c27e;
+  --div-4: var(--base-slate-dark-7);
+  --div-5: #7a3d12;
+  --div-6: #c26a2c;
+  --div-7: #f0a46b;
 
   /* Chart chrome: a grid that barely shows, an axis a step stronger, labels in the subtle ink and
      tooltips on the overlay plane. */
-  --chart-grid: var(--base-stone-dark-5);
-  --chart-axis: var(--base-stone-dark-7);
+  --chart-grid: var(--base-slate-dark-5);
+  --chart-axis: var(--base-slate-dark-7);
   --chart-label: var(--fg-subtle);
   --chart-tooltip: var(--surface-overlay);
 
@@ -155,22 +154,23 @@
     inset 0 1px 0 0 rgb(255 255 255 / 0.06), 0 4px 12px -2px rgb(0 0 0 / 0.45),
     0 32px 72px -20px rgb(0 0 0 / 0.8);
 
-  --grain-opacity: 0.06;
-  --mesh-1: rgb(214 180 122 / 0.16);
-  --mesh-2: rgb(60 121 209 / 0.12);
-  --mesh-3: rgb(51 169 152 / 0.08);
+  /* No film grain: the surfaces are clean. */
+  --grain-opacity: 0;
+  --mesh-1: rgb(91 92 226 / 0.2);
+  --mesh-2: rgb(0 141 199 / 0.12);
+  --mesh-3: rgb(149 62 226 / 0.1);
 
-  /* Finish: the brass gradient on primary actions (dark ink on it ≥ 5.4:1), its glow, the sheen
+  /* Finish: the indigo gradient on primary actions (dark ink on it ≥ 5.5:1), its glow, the sheen
      that sweeps across on hover, the hero grid, and the pointer spotlight on landing cards. */
-  --accent-gradient: linear-gradient(135deg, #f0dab0 0%, #d6b47a 45%, #b08c50 100%);
-  --glow-accent: rgb(214 180 122 / 0.3);
-  --sheen: rgb(255 255 255 / 0.32);
+  --accent-gradient: linear-gradient(135deg, #a5b1fd 0%, #8995f4 45%, #727beb 100%);
+  --glow-accent: rgb(117 127 235 / 0.32);
+  --sheen: rgb(255 255 255 / 0.3);
   --grid-line: rgb(255 255 255 / 0.045);
-  --spot: rgb(214 180 122 / 0.09);
-  --spot-border: rgb(214 180 122 / 0.5);
+  --spot: rgb(137 149 244 / 0.09);
+  --spot-border: rgb(137 149 244 / 0.5);
 
   /* SQL and DAX: the language in blue and violet, the user's own table and column names in
-     brass, values from their data in green, numbers in orange, notes in grey (≥ 4.5:1 on --bg-subtle). */
+     gold, values from their data in green, numbers in orange, notes in grey (≥ 4.5:1 on --bg-subtle). */
   --code-keyword: #7aa2f7;
   --code-function: #bb9af7;
   --code-name: #e3b766;

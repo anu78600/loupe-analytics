@@ -1,7 +1,7 @@
 /**
  * Palette generators for chart themes, all in OKLCH and all deterministic:
  * - rampFrom(): the 8-step gradient (sequential ramp) of one colour, shaped
- *   like the built-in brass ramp, used for heatmaps, cohort grids, the RFM
+ *   like the built-in indigo ramp, used for heatmaps, cohort grids, the RFM
  *   treemap and funnels;
  * - shadesFrom(): series colours that are shades of one colour, ordered so
  *   neighbouring series sit far apart in lightness;
@@ -32,7 +32,7 @@ import {
 /** Series colours per theme: charts assign them in order and never cycle (a ninth series folds into "Others"). */
 export const SLOTS = 8;
 
-// The built-in brass ramp's shape (--seq-1…8 in styles/theme-light.css and theme-dark.css,
+// The built-in indigo ramp's shape (--seq-1…8 in styles/theme-light.css and theme-dark.css,
 // measured in OKLCH): lightness per step and chroma as a share of the ramp's strongest chroma.
 // Step 1 sits next to the background, far enough from it to show (≥ 1.5:1 on the card).
 const RAMP_L: Record<ThemeMode, number[]> = {

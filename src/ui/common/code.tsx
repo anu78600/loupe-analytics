@@ -3,7 +3,7 @@
  * data at a glance (tokens from engine/compile/codeTokens.ts, colours from the
  * --code-* tokens in tokens.css, both themes):
  * - blue: the language's words (SELECT, CASE, VAR…); violet: its functions;
- * - brass: your table, columns and measures;
+ * - gold: your table, columns and measures;
  * - green: values from your data ('Returned', "Yes"); orange: numbers;
  * - grey: notes (upright: Geist Mono ships no italic, and a slant the
  *   browser makes up looks broken).

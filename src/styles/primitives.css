@@ -7,15 +7,13 @@
  *   1–2 backgrounds · 3–5 interactive fills (rest, hover, pressed) · 6–8 borders (subtle, default,
  *   strong) · 9–10 solid fills (rest, hover) · 11–12 text (low contrast, high contrast).
  *
- * Light and dark are separate ramps, each tuned in OKLCH on its own terms (a dark ramp is not an
- * inverted light one): dark steps are further apart, and dark text steps are lighter and lower in
- * chroma. The values are written as hex because ECharts reads chart colours through
+ * Version 50.0 moved the identity from warm paper and brass to cool slate and one indigo accent
+ * (iris). Light and dark are separate ramps, each tuned in OKLCH on its own terms (a dark ramp is
+ * not an inverted light one): dark steps are further apart, and dark text steps are lighter and
+ * lower in chroma. The values are written as hex because ECharts reads chart colours through
  * getComputedStyle and cannot parse oklch(), and the label-ink check (ui/charts/tokens.ts inkOn)
  * reads #rrggbb only. The comment after each value gives its OKLCH lightness, chroma and hue.
- *
- * A few steps keep an existing value exactly: the bronze and brass fills (#816226, #d6b47a), the
- * bronze hover (#6f5422) and the status fills (light info a little deeper, so its text holds 4.5:1
- * on its tint). tests/theme-contrast.test.ts proves the contrast of every pairing the themes make.
+ * tests/theme-contrast.test.ts proves the contrast of every pairing the themes make.
  */
 
 :root {
@@ -23,73 +21,73 @@
   --base-white: #ffffff;
 
   /*
-   * Stone: the warm neutral. Light: warm paper. 1 the near-white inside cards, 2 the paper canvas, 3
-   * sunken wells, 4–5 hover and pressed fills, 6–8 solid lines, 9–12 ink (disabled, subtle, muted,
-   * primary).
+   * Slate: the cool neutral, a trace of blue (hue 265). Light: 1 the near-white inside cards, 2 the
+   * canvas, 3 sunken wells, 4–5 hover and pressed fills, 6–8 solid lines, 9–12 ink (disabled,
+   * subtle, muted, primary).
    */
-  --base-stone-1: #faf9f7; /* 98.2 0.003 85 */
-  --base-stone-2: #f7f6f2; /* 97.3 0.005 95 */
-  --base-stone-3: #f1efeb; /* 95.3 0.006 85 */
-  --base-stone-4: #eceae5; /* 93.7 0.007 89 */
-  --base-stone-5: #e6e3de; /* 91.7 0.007 81 */
-  --base-stone-6: #dedbd5; /* 89.2 0.009 85 */
-  --base-stone-7: #d3cfc9; /* 85.6 0.009 78 */
-  --base-stone-8: #bebab3; /* 79.0 0.011 82 */
-  --base-stone-9: #88837d; /* 61.3 0.011 73 */
-  --base-stone-10: #6b6761; /* 51.6 0.011 78 */
-  --base-stone-11: #504c47; /* 41.9 0.010 74 */
-  --base-stone-12: #1b1815; /* 21.1 0.007 67 */
+  --base-slate-1: #f9fafb; /* 98.5 0.002 265 */
+  --base-slate-2: #f5f6f8; /* 97.4 0.003 265 */
+  --base-slate-3: #eef0f2; /* 95.4 0.004 265 */
+  --base-slate-4: #e8eaed; /* 93.6 0.005 265 */
+  --base-slate-5: #e1e3e7; /* 91.5 0.006 265 */
+  --base-slate-6: #d8dadf; /* 88.9 0.007 265 */
+  --base-slate-7: #ccced4; /* 85.2 0.008 265 */
+  --base-slate-8: #b7bac1; /* 78.8 0.010 265 */
+  --base-slate-9: #80848c; /* 61.2 0.013 265 */
+  --base-slate-10: #636770; /* 51.4 0.015 265 */
+  --base-slate-11: #484c55; /* 41.6 0.016 265 */
+  --base-slate-12: #14171e; /* 20.6 0.014 265 */
 
   /*
-   * Dark: warm graphite, lighter with each raised level. 1 sunken, 2 canvas, 3–5 the three surfaces, 6
+   * Dark: blue-black, lighter with each raised level. 1 sunken, 2 canvas, 3–5 the three surfaces, 6
    * the overlay plane, 7–8 solid lines, 9–12 ink.
    */
-  --base-stone-dark-1: #080706; /* 13.0 0.004 70 */
-  --base-stone-dark-2: #0e0d0b; /* 15.9 0.004 85 */
-  --base-stone-dark-3: #151311; /* 18.8 0.005 68 */
-  --base-stone-dark-4: #1b1a18; /* 21.8 0.004 85 */
-  --base-stone-dark-5: #22201e; /* 24.5 0.005 68 */
-  --base-stone-dark-6: #292724; /* 27.4 0.006 78 */
-  --base-stone-dark-7: #35322f; /* 31.9 0.007 68 */
-  --base-stone-dark-8: #4f4d49; /* 42.1 0.007 85 */
-  --base-stone-dark-9: #7d7a76; /* 58.1 0.007 75 */
-  --base-stone-dark-10: #a19e9a; /* 70.1 0.007 75 */
-  --base-stone-dark-11: #c0bdb9; /* 80.0 0.007 75 */
-  --base-stone-dark-12: #f0eeeb; /* 95.0 0.005 78 */
+  --base-slate-dark-1: #060709; /* 12.8 0.006 265 */
+  --base-slate-dark-2: #0b0c10; /* 15.6 0.008 265 */
+  --base-slate-dark-3: #111318; /* 18.7 0.010 265 */
+  --base-slate-dark-4: #171a1f; /* 21.7 0.011 265 */
+  --base-slate-dark-5: #1e2026; /* 24.5 0.012 265 */
+  --base-slate-dark-6: #25282e; /* 27.6 0.013 265 */
+  --base-slate-dark-7: #30333b; /* 32.2 0.014 265 */
+  --base-slate-dark-8: #4a4e56; /* 42.3 0.015 265 */
+  --base-slate-dark-9: #767b84; /* 58.2 0.015 265 */
+  --base-slate-dark-10: #9b9fa7; /* 70.2 0.013 265 */
+  --base-slate-dark-11: #bbbec5; /* 80.2 0.010 265 */
+  --base-slate-dark-12: #edeff3; /* 95.2 0.005 265 */
 
   /*
-   * Brass: the one accent. Light: a deep bronze fill (9) that carries white text, darker for hover (10)
-   * and for text and the pressed fill (11).
+   * Iris: the one accent, an indigo leaning to violet (hue 277). Light: a deep indigo fill (9) that
+   * carries white text (6.2:1), darker for hover (10) and for text and the pressed fill (11).
    */
-  --base-brass-1: #fdfaf4; /* 98.6 0.009 85 */
-  --base-brass-2: #faf4e7; /* 96.8 0.018 86 */
-  --base-brass-3: #f7ebd5; /* 94.4 0.032 83 */
-  --base-brass-4: #f4e2c3; /* 91.9 0.045 81 */
-  --base-brass-5: #f0d8b1; /* 89.2 0.058 80 */
-  --base-brass-6: #e8cb9a; /* 85.5 0.072 81 */
-  --base-brass-7: #dcb87c; /* 80.1 0.088 80 */
-  --base-brass-8: #c99e58; /* 72.5 0.102 78 */
-  --base-brass-9: #816226; /* 51.6 0.087 81 */
-  --base-brass-10: #6f5422; /* 46.4 0.076 80 */
-  --base-brass-11: #634817; /* 42.1 0.074 79 */
-  --base-brass-12: #3c2a0e; /* 30.0 0.050 76 */
+  --base-iris-1: #f9faff; /* 98.6 0.008 277 */
+  --base-iris-2: #f2f4ff; /* 96.9 0.017 277 */
+  --base-iris-3: #e7ebff; /* 94.4 0.032 277 */
+  --base-iris-4: #dde2ff; /* 91.8 0.047 277 */
+  --base-iris-5: #d0d8ff; /* 88.8 0.062 277 */
+  --base-iris-6: #c0c9ff; /* 84.8 0.080 277 */
+  --base-iris-7: #abb6fb; /* 79.2 0.100 277 */
+  --base-iris-8: #8f9af3; /* 71.4 0.130 277 */
+  --base-iris-9: #504bdd; /* 51.2 0.215 277 */
+  --base-iris-10: #443fc4; /* 46.2 0.200 277 */
+  --base-iris-11: #3c39ae; /* 42.6 0.180 277 */
+  --base-iris-12: #212262; /* 29.5 0.110 277 */
 
   /*
-   * Dark: the brass fill (9) carries dark ink; lighter for hover (10); text (11) is lighter and lower in
-   * chroma than the fill.
+   * Dark: a periwinkle fill (9) that carries dark ink (7.4:1) and is also the focus ring, lighter
+   * for hover (10), deeper for the pressed fill (8); text (11) lighter and calmer than the fill.
    */
-  --base-brass-dark-1: #120f0b; /* 17.1 0.009 75 */
-  --base-brass-dark-2: #19140c; /* 19.5 0.017 79 */
-  --base-brass-dark-3: #231b0e; /* 22.8 0.026 79 */
-  --base-brass-dark-4: #2d2311; /* 26.3 0.034 81 */
-  --base-brass-dark-5: #392b13; /* 29.9 0.043 79 */
-  --base-brass-dark-6: #483616; /* 34.6 0.054 80 */
-  --base-brass-dark-7: #60491f; /* 42.1 0.066 80 */
-  --base-brass-dark-8: #a38045; /* 62.1 0.088 79 */
-  --base-brass-dark-9: #d6b47a; /* 78.7 0.085 80 */
-  --base-brass-dark-10: #e9cf9e; /* 86.4 0.070 83 */
-  --base-brass-dark-11: #dec8a0; /* 84.1 0.059 82 */
-  --base-brass-dark-12: #f1e7d0; /* 93.0 0.032 87 */
+  --base-iris-dark-1: #0c0e16; /* 16.6 0.018 277 */
+  --base-iris-dark-2: #111322; /* 19.2 0.032 277 */
+  --base-iris-dark-3: #161934; /* 22.6 0.052 277 */
+  --base-iris-dark-4: #1c1f44; /* 26.0 0.068 277 */
+  --base-iris-dark-5: #232755; /* 29.6 0.083 277 */
+  --base-iris-dark-6: #2d316b; /* 34.2 0.100 277 */
+  --base-iris-dark-7: #3d418b; /* 41.3 0.120 277 */
+  --base-iris-dark-8: #757feb; /* 64.0 0.160 277 */
+  --base-iris-dark-9: #8995f4; /* 70.0 0.140 277 */
+  --base-iris-dark-10: #9ca8fb; /* 75.5 0.120 277 */
+  --base-iris-dark-11: #b8c2fa; /* 82.5 0.080 277 */
+  --base-iris-dark-12: #e2e7ff; /* 93.2 0.035 277 */
 
   /*
    * Blue: info. The status families share one plan: 3 the soft tint, 7 the border, 9 the fill (also
@@ -176,7 +174,7 @@
   --base-red-dark-11: #f79fa1; /* 79.1 0.105 18 */
   --base-red-dark-12: #ffdfe0; /* 93.0 0.035 16 */
 
-  /* Amber: warning, an orange amber kept clear of the brass hue. */
+  /* Amber: warning, an orange amber. */
   --base-amber-1: #fef9f4; /* 98.5 0.009 68 */
   --base-amber-2: #fdf3e6; /* 96.8 0.020 75 */
   --base-amber-3: #feead5; /* 94.8 0.035 69 */

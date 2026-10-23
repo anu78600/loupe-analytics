@@ -1,8 +1,8 @@
 /**
- * Root layout for every route. Loads the three type families of the type
- * system (globals.css, docs/DESIGN.md): Inter for the interface, body copy and
- * figures; Instrument Serif for display headings and the wordmark; Geist Mono
- * for code only (SQL, DAX). Sets metadata, and runs themeBootScript in <head>
+ * Root layout for every route. Loads the two type families of the type
+ * system (globals.css, docs/DESIGN.md): Inter for the interface, body copy,
+ * figures and, semibold at its display optical size, the headings and the
+ * wordmark; Geist Mono for code only (SQL, DAX). Sets metadata, and runs themeBootScript in <head>
  * so the saved theme is applied before React hydrates (no light/dark flash).
  * Also renders the skip link and the client Providers (motion config,
  * tooltips, theme sync, toasts).
@@ -73,16 +73,6 @@ const geistMono = localFont({
   adjustFontFallback: false,
 });
 
-const instrumentSerif = localFont({
-  src: [
-    { path: "./fonts/InstrumentSerif-Regular.woff2", weight: "400", style: "normal" },
-    { path: "./fonts/InstrumentSerif-Italic.woff2", weight: "400", style: "italic" },
-  ],
-  variable: "--font-instrument-serif",
-  display: "swap",
-  fallback: ["Georgia", "Times New Roman", "serif"],
-});
-
 export const metadata: Metadata = {
   title: {
     default: "Loupe · Analyst-grade dashboards from clean data",
@@ -111,8 +101,8 @@ export const metadata: Metadata = {
 // a literal, because the meta tag is written before any stylesheet loads.
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: dark)", color: "#0e0d0b" },
-    { media: "(prefers-color-scheme: light)", color: "#f7f6f2" },
+    { media: "(prefers-color-scheme: dark)", color: "#0b0c10" },
+    { media: "(prefers-color-scheme: light)", color: "#f5f6f8" },
   ],
   width: "device-width",
   initialScale: 1,
@@ -124,7 +114,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       lang="en"
       data-theme="dark"
       suppressHydrationWarning
-      className={`${inter.variable} ${interExt.variable} ${geistMono.variable} ${instrumentSerif.variable}`}
+      className={`${inter.variable} ${interExt.variable} ${geistMono.variable}`}
     >
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeBootScript }} />

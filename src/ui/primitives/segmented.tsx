@@ -4,8 +4,8 @@
  * Segmented control on Radix ToggleGroup (arrow-key navigation) with a Framer Motion indicator that slides between options.
  *
  * The track is a well (--surface-inset) and the chosen option a raised key on it
- * (--surface-raised-control, with the card shadow). Both tokens are set per theme: on paper a
- * darker ink tint with the key in the cards' white; on graphite, where depth is lightness, a black
+ * (--surface-raised-control, with the card shadow). Both tokens are set per theme: on light a
+ * darker ink tint with the key in the cards' white; on dark, where depth is lightness, a black
  * step into whatever plane holds the control and a white step out of it, with the card shadow's lit
  * top edge. So the key stands up from its track on the canvas, on a card and inside a sheet alike,
  * with no theme-specific classes. Options sit at the small radius inside the track's control

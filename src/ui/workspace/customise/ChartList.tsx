@@ -223,7 +223,7 @@ function ChartRow({
     <li
       className={cn(
         "grid gap-2 rounded-control border bg-surface-1 px-3 py-2.5 lg:grid-cols-[auto_minmax(0,1fr)_auto] lg:items-center",
-        // Off: flat, with a dashed edge a step stronger so the dashes show on graphite too.
+        // Off: flat, with a dashed edge a step stronger so the dashes show on dark too.
         problem ? "border-warning-border" : w.hidden ? "border-border-strong" : "border-border",
         w.hidden && "border-dashed bg-transparent",
       )}

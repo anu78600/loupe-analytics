@@ -2,7 +2,7 @@
  * The picture a shared link shows (og:image, and Twitter's card through
  * Next's fallback) for every page: the Loupe wordmark, the headline and three
  * plain facts on the dark theme, set like the landing page: the headline in
- * the display serif (Instrument Serif), the facts in Inter. Drawn when the
+ * Inter SemiBold (the display voice), the facts in Inter. Drawn when the
  * site is built, from the brand files, the fonts and the colour tokens on disk
  * (brand-art.ts); its one number, the industries, is counted from the
  * registry.
@@ -38,15 +38,16 @@ export default function OpengraphImage() {
       }}
     >
       {/* eslint-disable-next-line @next/next/no-img-element -- an image renderer, not a page */}
-      <img src={brandImage("loupe-wordmark-dark.svg")} width={234} height={78} alt="" />
+      <img src={brandImage("loupe-wordmark-dark.svg")} width={285} height={78} alt="" />
       <div
         style={{
           display: "flex",
           flexDirection: "column",
-          fontFamily: "Instrument Serif",
-          fontSize: 88,
-          lineHeight: 1.02,
-          letterSpacing: "-0.02em",
+          fontFamily: "Inter",
+          fontWeight: 600,
+          fontSize: 80,
+          lineHeight: 1.04,
+          letterSpacing: "-0.034em",
         }}
       >
         <span>Analyst-grade dashboards,</span>
@@ -77,12 +78,7 @@ export default function OpengraphImage() {
       ...size,
       fonts: [
         { name: "Inter", data: brandFont("Inter-Regular.ttf"), weight: 400, style: "normal" },
-        {
-          name: "Instrument Serif",
-          data: brandFont("InstrumentSerif-Regular.ttf"),
-          weight: 400,
-          style: "normal",
-        },
+        { name: "Inter", data: brandFont("Inter-SemiBold.ttf"), weight: 600, style: "normal" },
       ],
     },
   );

@@ -6,7 +6,7 @@
 import { cn } from "@/lib/utils";
 
 /**
- * The Loupe mark: a lens rim (neutral ring), a brass measurement arc that reads
+ * The Loupe mark: a lens rim (neutral ring), a accent measurement arc that reads
  * as both light catching the rim and an instrument gauge, and the focal point.
  * On its own it is a labelled image (`title`); `decorative` hides it from
  * assistive technology where visible text already names it (the Wordmark).

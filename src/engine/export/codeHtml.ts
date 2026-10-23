@@ -6,7 +6,7 @@
  *
  * - The colours follow the app's code views (ui/common/code.tsx, tokens from
  *   compile/codeTokens.ts): the SQL/DAX language in blue and violet, the
- *   user's own table and columns in brass, values from their data in green,
+ *   user's own table and columns in gold, values from their data in green,
  *   numbers in orange, notes in grey. A key at the top says so.
  * - KPIs are grouped by topic with a contents list; each shows its meaning,
  *   formula, Loupe's value at export, and its SQL and DAX side by side.

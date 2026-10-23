@@ -80,8 +80,8 @@ describe("readability checks", () => {
     const light = checkPalette(loupe.light, "light");
     const dark = checkPalette(loupe.dark, "dark");
     // The figures recorded in the theme stylesheets (worst neighbouring ΔE: colour-blind, normal vision).
-    expect([dark.worstCvd.toFixed(1), dark.worstNormal.toFixed(1)]).toEqual(["17.7", "18.3"]);
-    expect([light.worstCvd.toFixed(1), light.worstNormal.toFixed(1)]).toEqual(["18.0", "20.2"]);
+    expect([dark.worstCvd.toFixed(1), dark.worstNormal.toFixed(1)]).toEqual(["14.1", "16.7"]);
+    expect([light.worstCvd.toFixed(1), light.worstNormal.toFixed(1)]).toEqual(["14.0", "16.7"]);
     expect(light.state).toBe("pass");
     expect(dark.state).toBe("pass");
   });

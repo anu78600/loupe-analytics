@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Underline-style tabs (Radix): the active trigger gets a brass underline
+ * Underline-style tabs (Radix): the active trigger gets a accent underline
  * that overlaps the list's bottom border. Keyboard focus is always visible:
  * the focus colour drawn inside the trigger (an inset ring, so a list that
  * scrolls sideways never clips it), and the focus ring around the panel,

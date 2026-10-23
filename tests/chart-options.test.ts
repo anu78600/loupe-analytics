@@ -298,7 +298,7 @@ describe("nothing dropped, nothing cut (34.2)", () => {
     const tn = tiles.find((t) => t.code === "TN");
     // The largest and smallest values sit on opposite ends of the ramp, so their text can differ;
     // each is one of the two inks, never the theme's default label colour.
-    for (const t of [mh, tn]) expect(["#14110a", "#ffffff", "#000000"]).toContain((t?.label as Obj).color);
+    for (const t of [mh, tn]) expect(["#0b0d12", "#ffffff", "#000000"]).toContain((t?.label as Obj).color);
   });
 
   it("keeps the Pareto 80% label inside the plot", () => {

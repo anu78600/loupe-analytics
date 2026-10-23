@@ -4,7 +4,7 @@
  * Styled Radix DropdownMenu. Content aligns to the trigger's end edge by
  * default, which suits icon buttons at the right of a header.
  * Items take an optional right-aligned `hint`; radio and checkbox items show
- * a brass check.
+ * a accent check.
  *
  * The menu sits on the overlay plane (--surface-overlay with the pop shadow)
  * at the card radius; its items take the control radius (12 − 4 px of
@@ -44,7 +44,7 @@ export const DropdownMenuContent = React.forwardRef<
 DropdownMenuContent.displayName = "DropdownMenuContent";
 
 // Icons inside items are greyed via [&_svg]:text-fg-subtle; the check marks
-// below use `!text-accent` to override that and stay brass.
+// below use `!text-accent` to override that and stay in the accent.
 const itemClass =
   "relative flex cursor-default select-none items-center gap-2 rounded-control px-2 py-1.5 text-ui outline-none data-[disabled]:pointer-events-none data-[highlighted]:bg-surface-hover data-[disabled]:opacity-disabled [&_svg]:size-3.5 [&_svg]:shrink-0 [&_svg]:text-fg-subtle";
 

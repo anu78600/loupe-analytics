@@ -4,9 +4,9 @@
  * Top navigation for the marketing pages (landing, glossary and version log).
  *
  * Transparent over the hero, then turns into a frosted bar with a hairline once
- * the page scrolls; a brass line along its bottom edge shows how far down the
+ * the page scrolls; a accent line along its bottom edge shows how far down the
  * page you are. A soft highlight (the hover state layer) slides between the
- * links under the pointer, and a brass underline marks the section you are
+ * links under the pointer, and a accent underline marks the section you are
  * reading.
  *
  * The section links and the logo are SectionLinks: on the home page they

@@ -81,13 +81,15 @@
      keeps components on it. Three families, each with one job:
      - sans (Inter, variable with optical sizes): every word of the interface, and every figure,
        with tabular numerals where figures line up (.font-figures, .tabular);
-     - display (Instrument Serif, one weight): page and section headings at 28 px and up, through
-       the display-* sizes only, and the wordmark;
+     - display (Inter again, semibold, at its display optical size): page and section headings at
+       28 px and up, through the display-* sizes only, and the wordmark (version 50.0 retired the
+       serif for one sans voice);
      - mono (Geist Mono): code only (SQL, DAX, TMDL), never figures. */
   --font-sans:
     var(--font-inter), var(--font-inter-ext), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
-  --font-display: var(--font-instrument-serif), ui-serif, Georgia, "Times New Roman", serif;
+  --font-display:
+    var(--font-inter), var(--font-inter-ext), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
 
   /* Text sizes. Each carries its line height, and its tracking where Inter needs it: a touch open
      at the smallest size, tighter as headings grow (the optical-size axis does the rest).
@@ -132,26 +134,26 @@
   --text-5xl--line-height: 1;
   --text-5xl--letter-spacing: -0.022em;
 
-  /* Display sizes, for the serif only (a roughly 1.2 step). Instrument Serif is already narrow, so
-     it tightens less than a sans would. */
-  --text-display-xs: 1.75rem;
-  --text-display-xs--line-height: 1.15;
-  --text-display-xs--letter-spacing: -0.005em;
-  --text-display-sm: 2.25rem;
-  --text-display-sm--line-height: 1.08;
-  --text-display-sm--letter-spacing: -0.01em;
-  --text-display-md: 2.75rem;
-  --text-display-md--line-height: 1.04;
-  --text-display-md--letter-spacing: -0.015em;
-  --text-display: 3.25rem;
-  --text-display--line-height: 1.02;
-  --text-display--letter-spacing: -0.02em;
-  --text-display-lg: 4rem;
-  --text-display-lg--line-height: 1;
-  --text-display-lg--letter-spacing: -0.025em;
-  --text-display-xl: 5.5rem;
-  --text-display-xl--line-height: 0.98;
-  --text-display-xl--letter-spacing: -0.03em;
+  /* Display sizes, for font-display only (a roughly 1.2 step). A semibold sans at these sizes needs
+     tight tracking, closing further as it grows. */
+  --text-display-xs: 1.625rem;
+  --text-display-xs--line-height: 1.2;
+  --text-display-xs--letter-spacing: -0.02em;
+  --text-display-sm: 2rem;
+  --text-display-sm--line-height: 1.12;
+  --text-display-sm--letter-spacing: -0.025em;
+  --text-display-md: 2.5rem;
+  --text-display-md--line-height: 1.08;
+  --text-display-md--letter-spacing: -0.03em;
+  --text-display: 3rem;
+  --text-display--line-height: 1.04;
+  --text-display--letter-spacing: -0.034em;
+  --text-display-lg: 3.75rem;
+  --text-display-lg--line-height: 1.02;
+  --text-display-lg--letter-spacing: -0.038em;
+  --text-display-xl: 5rem;
+  --text-display-xl--line-height: 1;
+  --text-display-xl--letter-spacing: -0.042em;
 
   /* Shape: one closed radius scale. Nested corners are concentric: an inner radius is the outer
      one minus the padding between them, and a child is never rounder than its parent.
@@ -567,6 +569,17 @@
 
   /* The prefixed line must come first: Lightning CSS keeps only the last of the pair, and with the
      prefixed one last Chrome, Edge and Firefox got no blur at all. */
+  /* The display voice: Inter semibold at its display optical size (the opsz axis follows the size).
+     Emphasis inside a heading is carried by colour (text-gradient-accent), never a slant: Inter
+     ships no italic, and a synthesised one looks broken. */
+  .font-display {
+    font-weight: 600;
+    font-optical-sizing: auto;
+  }
+  .font-display em {
+    font-style: normal;
+  }
+
   .glass {
     background: var(--surface-glass);
     -webkit-backdrop-filter: saturate(140%) blur(14px);
@@ -613,7 +626,7 @@
     mask-image: radial-gradient(68% 58% at 50% 32%, black, transparent 78%);
   }
 
-  /* Brass gradient ink for display words. */
+  /* Accent gradient ink for display words. */
   .text-gradient-accent {
     background: var(--accent-gradient);
     -webkit-background-clip: text;
@@ -660,7 +673,7 @@
   }
 
   /*
-   * A brass beam running round the border of its parent (positioned, and rounded like it): an
+   * A accent beam running round the border of its parent (positioned, and rounded like it): an
    * empty <span class="beam-ring">. The span is masked to a 1px ring; inside it an oversized
    * conic gradient (a square as wide as the box's diagonal) turns with a transform, which the
    * compositor animates on its own. Animating the gradient's angle instead (.beam-border below)

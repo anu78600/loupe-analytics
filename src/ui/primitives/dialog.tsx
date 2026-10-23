@@ -7,7 +7,7 @@
  * has no accessible title.
  *
  * Depth follows the token system: the dialog sits on the overlay plane
- * (--surface-overlay: white on paper, the lightest graphite in dark) with the
+ * (--surface-overlay: white on light, the lightest plane in dark) with the
  * lift shadow, over the --overlay scrim, at the panel radius. It fades and
  * grows in from 96 % (CSS @starting-style, so nothing runs in JavaScript);
  * closing is instant.

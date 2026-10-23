@@ -50,9 +50,9 @@ export const PRESETS: ThemePreset[] = [
   {
     id: "loupe",
     name: "Loupe",
-    description: "The default: brass first, then clear, balanced hues.",
-    light: ["#ac7c26", "#4a91f8", "#008879", "#9778f5", "#1e7729", "#299fcd", "#c95b0a", "#8c3f91"],
-    dark: ["#b98b3d", "#3c79d1", "#33a998", "#7057ba", "#317f38", "#35a0cc", "#bf5914", "#934b98"],
+    description: "The default: indigo first, then clear, balanced hues.",
+    light: ["#5b5ce2", "#e57429", "#a855f7", "#db2777", "#009dde", "#348100", "#27a497", "#b8860b"],
+    dark: ["#5a5be1", "#d06107", "#9d48ea", "#d31c71", "#008dc7", "#358203", "#27a598", "#a77800"],
   },
   {
     id: "ocean",
@@ -98,10 +98,10 @@ export const PRESETS: ThemePreset[] = [
   },
 ];
 
-/** --seq-1…8 of styles/theme-light.css and theme-dark.css, the built-in brass gradient. */
+/** --seq-1…8 of styles/theme-light.css and theme-dark.css, the built-in accent gradient. */
 const LOUPE_RAMP: Record<ThemeMode, string[]> = {
-  light: ["#e1cda9", "#d2b689", "#c3a068", "#b48a4a", "#a3742e", "#906018", "#7c4e06", "#663d00"],
-  dark: ["#4e3b1f", "#654c28", "#7c5f31", "#95723b", "#ad8646", "#c79b52", "#e0b060", "#f9c76f"],
+  light: ["#c4ccff", "#aab4fd", "#929df6", "#7d87eb", "#6971db", "#585dc5", "#484bac", "#393b8e"],
+  dark: ["#363b62", "#464c7e", "#575e9c", "#6971ba", "#7b85d9", "#8e99f9", "#a7b2ff", "#c3ccff"],
 };
 
 export interface ThemeColours {

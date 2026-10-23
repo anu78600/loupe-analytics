@@ -743,7 +743,7 @@ export function HeroPreview({
 
   return (
     <div ref={ref} className="relative">
-      {/* Brass glow behind the panel */}
+      {/* Accent glow behind the panel */}
       <div
         aria-hidden
         className="pointer-events-none absolute -inset-x-10 -top-16 bottom-0 -z-10 bg-[radial-gradient(60%_55%_at_50%_20%,var(--mesh-1),transparent_70%)]"
