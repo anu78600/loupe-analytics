@@ -59,6 +59,7 @@ import { assignFields, matchableColumns } from "@/engine/detect/match";
 import { buildMapping, type Mapping } from "@/engine/detect/mapping";
 import { buildGenericDomain, GENERIC_ID, genericFill, type GenericFill } from "@/engine/detect/generic";
 import { withPercentScales } from "@/engine/kpi/percentScale";
+import { withLedgerConventions } from "@/engine/kpi/ledger";
 import { checkFieldBounds, type RejectedMapping } from "@/engine/detect/relations";
 import { withLearnedSynonyms, type LearnedSynonym } from "@/engine/detect/learned";
 import { grainLabel } from "@/engine/profile/structure";
@@ -1097,7 +1098,10 @@ export class Session {
           req.mappingOverrides,
         )
       : null;
-    const industryMapping = bounded?.mapping ?? null;
+    // A ledger read the way the file writes it: classes written as negative numbers count as positive amounts,
+    // and a spend list has no revenue (kpi/ledger.ts).
+    const ledger = industry && bounded ? withLedgerConventions(industry, bounded.mapping, ds) : null;
+    const industryMapping = ledger?.mapping ?? bounded?.mapping ?? null;
     // How well the industry fits, read before the column and user KPIs add identity fields of their own.
     const industryFit = industry && industryMapping ? fitOf(industry, industryMapping, active) : null;
     // What the table is about, with the user's outcome and the chosen industry as its label: the
@@ -1124,7 +1128,7 @@ export class Session {
     if (industry && industryMapping) {
       // A percentage written on another scale than the template's formulas expect (a discount of 10 where
       // they multiply by 0.10) is converted in every formula that reads it (kpi/percentScale.ts).
-      domain = withPercentScales(industry, industryMapping, active);
+      domain = withPercentScales(ledger?.domain ?? industry, industryMapping, active);
       mapping = industryMapping;
     } else {
       // Designed around the understanding's outcome when it has one; the rows are read for the drivers.

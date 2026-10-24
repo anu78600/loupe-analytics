@@ -5,6 +5,21 @@ Every step of building Loupe, newest first. Generated from `src/content/changelo
 - **MAJOR** (`x.0`): a new capability, subsystem or page.
 - **MINOR** (`x.y`): a refinement, fix or follow-up to that major version.
 
+## 51.3 · Ledgers read the way your file writes them (computation fixes, stage 3)
+
+*Minor · 2026-10-24 17:43 UTC · Fix, Data, Tests*
+
+Finance files don't all write money the same way: a bank export writes spending as negative numbers, a trial balance writes revenue as negative credits, and a spend list calls operating spending “Revenue”. Loupe now reads each file's own convention before it works anything out, so revenue, expenses and margins come out right.
+
+- Spending written as negative numbers is counted as a positive cost. On a ledger tested from your own files, the operating margin was 141% and the net margin 163%; both are now 59.3%.
+- Revenue written as negative credits, as in a trial balance, is counted as positive revenue.
+- Transfers, share trades, savings, opening and closing balances, loan repayments and capital spending are neither income nor expense, so they are no longer counted as expenses.
+- On a cash-flow statement, the payments that fit no class follow the same convention as the rest of the file: total expenses were −1.8 million and the net margin 180%; they are now 1.8 million and 20.3%.
+- In a government spend list, a type of “Revenue” means operating spending, not income: revenue and the margins now say what they need instead of showing an operating margin of −6,426%.
+- Each figure that was read differently says why under it, and its SQL and DAX change with it, so they still give the same number.
+
+Files: `src/engine/kpi/ledger.ts`, `src/engine/session.ts`, `src/registry/domains/finance.json`, `tests/ledger.test.ts`
+
 ## 51.2 · Columns never used for the wrong kind of figure (computation fixes, stage 2)
 
 *Minor · 2026-10-24 04:32 UTC · Fix, Data, Tests*
