@@ -5,6 +5,21 @@ Every step of building Loupe, newest first. Generated from `src/content/changelo
 - **MAJOR** (`x.0`): a new capability, subsystem or page.
 - **MINOR** (`x.y`): a refinement, fix or follow-up to that major version.
 
+## 51.2 · Columns never used for the wrong kind of figure (computation fixes, stage 2)
+
+*Minor · 2026-10-24 04:32 UTC · Fix, Data, Tests*
+
+Tested on 125 public datasets, Loupe sometimes put a column to the wrong use: a discount rate as a discount amount, a reference code as a budget, a bank balance as the amount owed. Those columns are now refused for those uses, with the reason shown, and the figures are right.
+
+- A rate or share never fills a money field: on the classic Superstore data, Discount % is now 19.8% (it was 0.07%) and discounts given $566,734 (they were $1,561, the rates added up as dollars).
+- A header that names a rate heads an amount: “Tax 5%” holds the tax charged and is totalled, not averaged as a percentage.
+- A code is a label, never money: a ledger's “Budget Ref” holding fiscal years is no longer added up into a budget (it made a budget variance of −2,766%).
+- Paired figures are checked against each other on your rows: gross sales can't be below net sales, the amount owed can't exceed the invoice, money collected can't exceed money due. A column that breaks this on most rows isn't used for that figure, and Check & map says why; a column you choose yourself is always kept. This removed a Settled % of −490%, a collection efficiency of 3,906% and a Discount % of −2,000%.
+- A column of changes (“change”, “growth”, “delta”) never stands in for an amount, and per-person figures no longer stand in for totals.
+- E-commerce files with a discount % and no discount amount (Northwind) now get their discounts and Discount % (6.5%).
+
+Files: `src/engine/detect/match.ts`, `src/engine/detect/relations.ts`, `src/engine/profile/roles.ts`, `src/engine/session.ts`, `src/registry/schema.ts`, `src/registry/validate.ts`, `src/registry/domains/sales.json`, `src/registry/domains/ecommerce.json`, `src/registry/domains/finance.json`, `src/registry/domains/banking.json`, `src/registry/domains/nonprofit.json`, `src/registry/domains/energy_utilities.json`, `src/ui/workspace/review/useReviewRows.ts`, `tests/mapping-guards.test.ts`
+
 ## 51.1 · Percentages read on the scale they are written in (computation fixes, stage 1)
 
 *Minor · 2026-10-24 03:50 UTC · Fix, Data, Tests*

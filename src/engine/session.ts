@@ -59,6 +59,7 @@ import { assignFields, matchableColumns } from "@/engine/detect/match";
 import { buildMapping, type Mapping } from "@/engine/detect/mapping";
 import { buildGenericDomain, GENERIC_ID, genericFill, type GenericFill } from "@/engine/detect/generic";
 import { withPercentScales } from "@/engine/kpi/percentScale";
+import { checkFieldBounds, type RejectedMapping } from "@/engine/detect/relations";
 import { withLearnedSynonyms, type LearnedSynonym } from "@/engine/detect/learned";
 import { grainLabel } from "@/engine/profile/structure";
 import { friendly, friendlyStart } from "@/engine/core/labels";
@@ -373,6 +374,11 @@ export interface ContextResult {
    * mapped. The generic dashboard is built from every column, so it is never weak.
    */
   fit: ContextFit;
+  /**
+   * Columns found for a field by name but not used for it, because their values break the field's bound
+   * on the rows (detect/relations.ts), each with the reason, for the Check & map step.
+   */
+  rejectedMappings: RejectedMapping[];
   /**
    * What the table is about, read after the role overrides, without the hidden columns, with the
    * chosen industry and outcome: authoritative once configured.
@@ -1078,12 +1084,20 @@ export class Session {
     const industry = generic
       ? null
       : (withLearnedSynonyms([getDomain(req.domainId) as DomainDef], this.learned)[0] as DomainDef);
-    const industryMapping = industry
-      ? buildMapping(industry, active, assignFields(industry, matchableColumns(active)), {
-          fields: req.mappingOverrides,
-          classes: req.classOverrides,
-        })
+    // A column whose values break a paired field's bound (gross sales below net sales, an "amount owed"
+    // above the invoice) is not used for that field, unless the user chose it (detect/relations.ts).
+    const bounded = industry
+      ? checkFieldBounds(
+          industry,
+          buildMapping(industry, active, assignFields(industry, matchableColumns(active)), {
+            fields: req.mappingOverrides,
+            classes: req.classOverrides,
+          }),
+          ds,
+          req.mappingOverrides,
+        )
       : null;
+    const industryMapping = bounded?.mapping ?? null;
     // How well the industry fits, read before the column and user KPIs add identity fields of their own.
     const industryFit = industry && industryMapping ? fitOf(industry, industryMapping, active) : null;
     // What the table is about, with the user's outcome and the chosen industry as its label: the
@@ -1404,6 +1418,7 @@ export class Session {
       fit,
       understanding,
       plan: planned.plan,
+      rejectedMappings: bounded?.rejected ?? [],
     };
   }
 

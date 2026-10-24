@@ -61,11 +61,18 @@ export function useReviewRows(views: readonly CheckView[] | null): ReviewRow[] |
       };
       const use = usage.usage.get(c.name);
       if (isUsed(use)) return { ...base, status: "used", use };
+      // A column refused for a field because its values break the field's bound says so (detect/relations.ts).
+      const refused = context.rejectedMappings?.find((r) => r.column === c.name);
       return {
         ...base,
         status: "unused",
         ...(use ? { use } : {}),
-        why: whyUnused(c, { dateColumn: context.dateColumn, mappedTo: mapped?.label, locale }),
+        why: refused
+          ? {
+              reason: refused.reason,
+              hint: "If it is right, choose it under Matched to and Loupe will use it.",
+            }
+          : whyUnused(c, { dateColumn: context.dateColumn, mappedTo: mapped?.label, locale }),
       };
     });
   }, [context, understanding, health, file, usage, views, locale]);

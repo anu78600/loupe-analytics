@@ -40,6 +40,20 @@ import { tokenize } from "./names";
 
 const has = (tokens: readonly string[], set: ReadonlySet<string>): boolean => tokens.some((t) => set.has(t));
 
+/** Words that keep a code-named column an amount ("Code Amount", "Reference Value"). */
+const CODE_AMOUNT_WORDS = new Set([
+  "amount",
+  "value",
+  "total",
+  "price",
+  "cost",
+  "balance",
+  "sum",
+  "fee",
+  "revenue",
+  "sales",
+]);
+
 /** Name tokens that mark identifiers and codes. */
 const ID_TOKENS = new Set([
   "id",
@@ -1354,6 +1368,23 @@ function numericRole(x: RoleInput): RoleDecision {
       "ID-like name with many distinct whole numbers; never summed or averaged.",
     );
   }
+  // A code by name over a few whole numbers ("Budget Ref" holding fiscal years 23–26, "Fund Code"): a label to
+  // group rows by, never money, even beside a money word. Read as money, a ledger's budget references added
+  // up to a "budget" of 632,921.
+  if (
+    integer &&
+    idByName &&
+    !keyLike &&
+    x.distinct <= 12 &&
+    cardinality <= 0.25 &&
+    !has(t, CODE_AMOUNT_WORDS)
+  ) {
+    return decide(
+      "dimension",
+      0.8,
+      "A code by name over a few whole numbers: a label to group by, never added up.",
+    );
+  }
   // An entity's bare name over large whole numbers ("Order", "Invoice", "Billing Document", "Material") heads
   // the key column of an ERP or helpdesk export; in the plural ("Orders") it counts them instead.
   if (
@@ -1402,7 +1433,10 @@ function numericRole(x: RoleInput): RoleDecision {
       additivity: "non-additive",
       percentScale: 1,
     });
-  const percentByName = has(t, PERCENT_TOKENS) && !has(t, new Set(["amount", "value", "total"]));
+  // A header naming the rate itself ("Tax 5%", "GST @ 18%", "VAT 20%") heads the amount charged at that rate,
+  // not a percentage: Myanmar's "Tax 5%" holds the tax on each sale, 0.51–49.65.
+  const percentByName =
+    has(t, PERCENT_TOKENS) && !has(t, new Set(["amount", "value", "total"])) && !/\d\s*%/.test(x.name);
   if (percentByName && s && min >= -1 && max <= 1)
     return decide("percentage", 0.86, "Percentage by name, stored as fractions (0–1).", {
       additivity: "non-additive",

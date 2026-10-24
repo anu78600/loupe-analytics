@@ -184,6 +184,16 @@ export const fieldSchema = z
      * scale as written.
      */
     percentScale: z.union([z.literal(1), z.literal(100)]).optional(),
+    /**
+     * Another field this one can't fall below (`atLeast`) or rise above
+     * (`atMost`) on a row: gross sales ≥ net sales, the amount still owed ≤
+     * the invoice, the money collected ≤ the money due. Where both are
+     * mapped and over a fifth of the rows break it, the column found for
+     * this field is not used for it (detect/relations.ts): a column of gross
+     * profit is not gross sales, nor an account balance the amount owed.
+     */
+    atLeast: z.string().optional(),
+    atMost: z.string().optional(),
   })
   .strict();
 

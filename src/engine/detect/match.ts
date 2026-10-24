@@ -57,6 +57,25 @@ export interface FieldScore {
 const STRINGISH: SemanticRole[] = ["identifier", "dimension", "geo", "text"];
 const NUMERIC: SemanticRole[] = ["measure", "currency", "rate", "percentage"];
 
+/** Name tokens that make a number-coded category a code or reference rather than an amount. */
+const CODE_WORDS = new Set(["code", "reference", "key", "id"]);
+
+/**
+ * Name tokens of a column of changes ("Solar cons change TWh", "Sales growth", "Price delta"): a difference
+ * between two periods, never the level or amount a field holds, unless the field's own words say so.
+ */
+const CHANGE_WORDS = new Set([
+  "change",
+  "growth",
+  "delta",
+  "diff",
+  "difference",
+  "increase",
+  "decrease",
+  "yoy",
+  "mom",
+]);
+
 /**
  * How well a column's storage and inferred role suit a field's roles, 0–1:
  * 1 for a role match, 0 for impossible pairs (date vs non-date, text for a
@@ -66,6 +85,17 @@ const NUMERIC: SemanticRole[] = ["measure", "currency", "rate", "percentage"];
 function compatibility(field: FieldDef, col: ColumnProfile): number {
   const roles = field.roles as SemanticRole[];
   if (roles.includes(col.role)) return 1;
+  // A share is never an amount and an amount never a share: a percentage column fills no money or quantity
+  // field (Superstore's Discount of 0.2 became "Discounts given $1,561", its rates added up as dollars),
+  // and a money column no percentage field.
+  const wantsShare = roles.includes("percentage") || roles.includes("rate");
+  const wantsAmount = roles.includes("currency") || roles.includes("measure");
+  if (col.role === "percentage" && !wantsShare) return 0;
+  if (col.role === "currency" && wantsShare && !wantsAmount) return 0;
+  // A rate (an interest rate, a score, a per-capita figure) is never money: it fills a money field only on an
+  // exact name. A quantity field may still take one ("Data Benefit (GB/day)" is a data allowance).
+  if (col.role === "rate" && !wantsShare && roles.includes("currency") && !roles.includes("measure"))
+    return 0.4;
   const wantsDate = roles.includes("datetime");
   const wantsNumber = roles.some((r) => NUMERIC.includes(r));
   const wantsBool = roles.includes("boolean");
@@ -81,7 +111,11 @@ function compatibility(field: FieldDef, col: ColumnProfile): number {
     return 0;
   }
   if (col.storage === "number") {
-    if (wantsNumber) return col.role === "identifier" ? 0.4 : 0.85;
+    // A code (an ID, or a category named as a code or reference: "Budget Ref" holding fiscal years) is a label,
+    // not an amount: it fills a numeric field only on an exact name, never through a near one.
+    const code =
+      col.role === "identifier" || (col.role === "dimension" && col.tokens.some((t) => CODE_WORDS.has(t)));
+    if (wantsNumber) return code ? 0.4 : 0.85;
     if (roles.includes("identifier")) return col.role === "identifier" ? 1 : 0.55;
     if (wantsString) return col.role === "dimension" || col.role === "geo" ? 0.85 : 0.35;
     return 0.3;
@@ -343,6 +377,10 @@ export function scoreField(field: FieldDef, col: ColumnProfile): FieldScore {
     return { score: 0, nameScore: 0, valueScore: 0, strength: 0, generic: false, via: "name" };
   const excludeSet = field.exclude?.length ? new Set(field.exclude.flatMap((e) => phraseTokens(e))) : null;
   const excluded = excludeSet ? col.tokens.filter((t) => excludeSet.has(t)) : [];
+  // A column of changes fills a field only when the field's own words name a change (CHANGE_WORDS).
+  const fieldWords = new Set([field.label, ...field.synonyms].flatMap((x) => phraseTokens(x)));
+  for (const t of col.tokens)
+    if (CHANGE_WORDS.has(t) && !fieldWords.has(t) && !excluded.includes(t)) excluded.push(t);
   let nameScore = 0;
   let bestSynonym = "";
   let labelBest = false;

@@ -38,6 +38,9 @@ export function validateDomainRefs(d: DomainDef): string[] {
   for (const f of d.fields) {
     if (seenFields.has(f.id)) problems.push(`duplicate field id "${f.id}"`);
     seenFields.add(f.id);
+    for (const other of [f.atLeast, f.atMost])
+      if (other !== undefined && (!fieldIds.has(other) || other === f.id))
+        problems.push(`field ${f.id} is bounded by unknown field "${other}"`);
   }
   const seenKpis = new Set<string>();
   for (const k of d.kpis) {
