@@ -175,6 +175,15 @@ export const fieldSchema = z
     weight: z.number().min(0).max(5),
     /** Listed first and badged "core" on the mapping screen. */
     core: z.boolean().optional(),
+    /**
+     * For a percentage field, the scale its formulas expect: 1 for fractions
+     * (0.10 = 10%, multiplied straight into amounts or shown as percent), 100
+     * for points (4.2 = 4.2%). A column on the other scale is converted in
+     * every formula that reads the field (kpi/percentScale.ts), so a discount
+     * written as 10 is never taken as 10×. Unset: the field takes either
+     * scale as written.
+     */
+    percentScale: z.union([z.literal(1), z.literal(100)]).optional(),
   })
   .strict();
 

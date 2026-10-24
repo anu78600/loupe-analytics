@@ -58,6 +58,7 @@ import { detectDomain, type DetectionResult } from "@/engine/detect/detect";
 import { assignFields, matchableColumns } from "@/engine/detect/match";
 import { buildMapping, type Mapping } from "@/engine/detect/mapping";
 import { buildGenericDomain, GENERIC_ID, genericFill, type GenericFill } from "@/engine/detect/generic";
+import { withPercentScales } from "@/engine/kpi/percentScale";
 import { withLearnedSynonyms, type LearnedSynonym } from "@/engine/detect/learned";
 import { grainLabel } from "@/engine/profile/structure";
 import { friendly, friendlyStart } from "@/engine/core/labels";
@@ -1107,7 +1108,9 @@ export class Session {
     let domain: DomainDef;
     let mapping: Mapping;
     if (industry && industryMapping) {
-      domain = industry;
+      // A percentage written on another scale than the template's formulas expect (a discount of 10 where
+      // they multiply by 0.10) is converted in every formula that reads it (kpi/percentScale.ts).
+      domain = withPercentScales(industry, industryMapping, active);
       mapping = industryMapping;
     } else {
       // Designed around the understanding's outcome when it has one; the rows are read for the drivers.

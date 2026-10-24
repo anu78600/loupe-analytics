@@ -41,6 +41,36 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "51.1",
+    kind: "minor",
+    date: "2026-10-24T03:50:07Z",
+    title: "Percentages read on the scale they are written in (computation fixes, stage 1)",
+    summary:
+      "A discount written as 10 (meaning 10%) was used as if it meant ten times the price: Discount % showed 1,119%, and on another file revenue came out at −₹100 Cr. Every formula now reads a percentage on the scale your file writes it in, and says so.",
+    changes: [
+      "A percentage column written in points (10 = 10%) is converted wherever an industry formula expects a fraction (0.10): discounts, revenue rebuilt from a discount, win probability, availability and percent complete. The same works the other way for figures written in points, such as milk fat %.",
+      "The conversion is in the KPI itself, so the number on screen, its SQL and its DAX all agree, and each affected KPI's note says the column is written in points and is divided by 100.",
+      "On the owner's files: Discount % 11.6% (was 1,160%), discounts ₹1.08 Cr (was ₹108 Cr), revenue ₹8.18 Cr (was −₹100 Cr), average selling price ₹5,291 (was −₹65,099).",
+      "A percentage column with a few impossible values (110%, −5%) is still read as a percentage, never as money; the data check flags those values instead of letting them become rupees.",
+    ],
+    tags: ["Fix", "Data", "Tests"],
+    files: [
+      "src/engine/kpi/percentScale.ts",
+      "src/engine/session.ts",
+      "src/engine/profile/roles.ts",
+      "src/registry/schema.ts",
+      "src/registry/domains/sales.json",
+      "src/registry/domains/ecommerce.json",
+      "src/registry/domains/food_service.json",
+      "src/registry/domains/energy_utilities.json",
+      "src/registry/domains/telecom.json",
+      "src/registry/domains/project_management.json",
+      "src/registry/domains/education.json",
+      "src/registry/domains/agriculture.json",
+      "tests/percent-scale.test.ts",
+    ],
+  },
+  {
     version: "51.0",
     kind: "major",
     date: "2026-10-23T18:17:51Z",

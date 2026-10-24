@@ -1414,6 +1414,24 @@ function numericRole(x: RoleInput): RoleDecision {
       percentScale: 100,
     });
   }
+  // Named a percentage, with the middle half of its values in points but a few impossible ones beside them
+  // ("Discount_Pct" of 0–30 with a stray 110 or −5): still points. Read as money instead, its values were
+  // summed as rupees and multiplied into revenue as whole numbers; the data check flags the strays.
+  if (
+    percentByName &&
+    s &&
+    s.q1 >= 0 &&
+    s.q3 <= 100 &&
+    s.q3 > 1 &&
+    (!t.includes("margin") || t.includes("percent"))
+  ) {
+    return decide(
+      "percentage",
+      0.74,
+      "Percentage by name, stored as points (0–100); a few values fall outside 0–100.",
+      { additivity: "non-additive", percentScale: 100 },
+    );
+  }
   // Money, strongest evidence first. Additive by default, semi-additive for balances and snapshots,
   // non-additive per unit or on average: an explicit averaging word or a price rate always, an implicit
   // per-unit word ("Price") unless a total-like word overrides ("Total Price").
