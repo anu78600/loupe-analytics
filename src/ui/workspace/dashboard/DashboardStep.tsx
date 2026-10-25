@@ -6,8 +6,11 @@
  *
  * - the header: the industry, one quiet line of facts (the file below lg,
  *   where the breadcrumb doesn't name it; the period; the rows in view; the
- *   columns used; the rest behind an ⓘ) and the toolbar (the view, the layout
- *   mode, Build manually, Colours, and "Ask for a chart", the page's primary);
+ *   columns used; the rest behind an ⓘ) and the toolbar (the view, the
+ *   layout, Colours, and "Ask for a chart", the page's primary). Since
+ *   version 52.0 the layout is a menu that says what each mode shows and how
+ *   many charts, and "Build it yourself" sits in the menu beside "Ask for a
+ *   chart", the two ways to add a chart;
  * - the filter bar (FilterBar), sticky under the top bar from lg, in place of
  *   the 256 px filter rail, so the charts get the width back;
  * - the hero KPIs with sparklines, then the other KPIs as one compact panel
@@ -54,7 +57,6 @@ import { useSettings } from "@/store/settings";
 import { cn } from "@/lib/utils";
 import { Button } from "@/ui/primitives/button";
 import { Badge } from "@/ui/primitives/badge";
-import { Segmented } from "@/ui/primitives/segmented";
 import { Sheet, SheetContent } from "@/ui/primitives/sheet";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/ui/primitives/dialog";
 import { Brief, ClampText, InfoTip } from "@/ui/primitives/reveal";
@@ -252,8 +254,6 @@ function FullDashboard() {
 function DashboardHeader({ onBuild }: { onBuild: () => void }) {
   const context = useWorkspace((s) => s.context);
   const summary = useWorkspace((s) => s.summary);
-  const mode = useWorkspace((s) => s.mode);
-  const setMode = useWorkspace((s) => s.setMode);
   const computing = useWorkspace((s) => s.computing);
   const lastCompute = useWorkspace((s) => s.lastCompute);
   const period = useWorkspace((s) => s.kpiBatch?.period?.label);
@@ -335,16 +335,7 @@ function DashboardHeader({ onBuild }: { onBuild: () => void }) {
         <ViewToggle />
         {/* On a phone the layout, the builder and the colours share one menu, so the toolbar is one row. */}
         <div className="hidden flex-wrap items-center gap-2 sm:flex">
-          <Segmented<LayoutMode>
-            ariaLabel="Layout mode"
-            size="sm"
-            value={mode}
-            onChange={setMode}
-            options={LAYOUTS}
-          />
-          <Button variant="secondary" size="sm" onClick={onBuild}>
-            <Plus aria-hidden /> Build manually
-          </Button>
+          <LayoutMenu />
           <ChartColoursButton />
         </div>
         <DropdownMenu>
@@ -359,37 +350,116 @@ function DashboardHeader({ onBuild }: { onBuild: () => void }) {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent className="min-w-52">
-            <DropdownMenuLabel>Layout</DropdownMenuLabel>
-            <DropdownMenuRadioGroup value={mode} onValueChange={(v) => setMode(v as LayoutMode)}>
-              {LAYOUTS.map((l) => (
-                <DropdownMenuRadioItem key={l.value} value={l.value}>
-                  {l.label}
-                </DropdownMenuRadioItem>
-              ))}
-            </DropdownMenuRadioGroup>
+            <LayoutItems />
             <DropdownMenuSeparator />
             <DropdownMenuItem onSelect={onBuild}>
-              <Plus aria-hidden /> Build manually
+              <Plus aria-hidden /> Build it yourself
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => useChartColoursPanel.getState().setOpen(true)}>
               <Palette aria-hidden /> Chart colours
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-        <span className="ml-auto sm:ml-0">
-          <AskChartButton />
+        <span className="ml-auto flex sm:ml-0">
+          <AskChartButton className="sm:rounded-r-none" />
+          {/* The other way to add a chart, joined to the first; on a phone it is in the menu above. */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="primary"
+                size="sm"
+                className="hidden rounded-l-none border-l border-accent-fg/25 px-2 sm:inline-flex"
+                aria-label="More ways to add a chart"
+              >
+                <ChevronDown aria-hidden />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-72">
+              <DropdownMenuLabel>Add a chart</DropdownMenuLabel>
+              <DropdownMenuItem onSelect={onBuild} className="items-start">
+                <Plus aria-hidden className="mt-0.5" />
+                <span className="grid gap-0.5">
+                  <span>Build it yourself</span>
+                  <span className="text-xs text-fg-muted">Choose the chart, the measure and the axis.</span>
+                </span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </span>
       </div>
     </header>
   );
 }
 
-/** The layout modes: every chart (Analyst), the headline ones (Executive), or shorter cards (Compact). */
-const LAYOUTS: Array<{ value: LayoutMode; label: string }> = [
-  { value: "executive", label: "Executive" },
-  { value: "analyst", label: "Analyst" },
-  { value: "compact", label: "Compact" },
+/** The layout modes, each with what it shows: the headline charts (Executive), every chart (Analyst), or shorter cards (Compact). */
+const LAYOUTS: Array<{ value: LayoutMode; label: string; what: string }> = [
+  { value: "executive", label: "Executive", what: "The headline charts and main KPIs, for a quick read." },
+  { value: "analyst", label: "Analyst", what: "Every chart and KPI, at full size." },
+  { value: "compact", label: "Compact", what: "The key charts in shorter cards, so more fit on screen." },
 ];
+
+/** Charts each layout mode shows: the dashboard's charts not hidden whose spec lists that mode. */
+function useModeCounts(): Record<LayoutMode, number> | null {
+  const context = useWorkspace((s) => s.context);
+  const customCharts = useWorkspace((s) => s.customCharts);
+  const widgets = useWorkspace((s) => s.widgets);
+  return React.useMemo(() => {
+    if (!context) return null;
+    const specs = new Map(allSpecs({ context, customCharts }).map((x) => [x.id, x]));
+    const count = (m: LayoutMode) =>
+      widgets.filter((w) => !w.hidden && specs.get(w.id)?.modes.includes(m)).length;
+    return { executive: count("executive"), analyst: count("analyst"), compact: count("compact") };
+  }, [context, customCharts, widgets]);
+}
+
+/** The layout modes as menu items: each with what it shows and how many charts. */
+function LayoutItems() {
+  const mode = useWorkspace((s) => s.mode);
+  const setMode = useWorkspace((s) => s.setMode);
+  const counts = useModeCounts();
+  return (
+    <>
+      <DropdownMenuLabel>Layout</DropdownMenuLabel>
+      <DropdownMenuRadioGroup value={mode} onValueChange={(v) => setMode(v as LayoutMode)}>
+        {LAYOUTS.map((l) => (
+          <DropdownMenuRadioItem key={l.value} value={l.value} className="items-start">
+            <span className="grid min-w-0 flex-1 gap-0.5">
+              <span className="flex items-baseline justify-between gap-3">
+                {l.label}
+                {counts ? (
+                  <span className="tabular text-xs text-fg-subtle">
+                    {counts[l.value]} chart{counts[l.value] === 1 ? "" : "s"}
+                  </span>
+                ) : null}
+              </span>
+              <span className="text-xs text-fg-muted">{l.what}</span>
+            </span>
+          </DropdownMenuRadioItem>
+        ))}
+      </DropdownMenuRadioGroup>
+    </>
+  );
+}
+
+/** The layout as one button naming the mode in use, opening the modes with what each shows. */
+function LayoutMenu() {
+  const mode = useWorkspace((s) => s.mode);
+  const label = LAYOUTS.find((l) => l.value === mode)?.label ?? "Analyst";
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="secondary" size="sm" aria-label={`Layout: ${label}`}>
+          <LayoutGrid aria-hidden />
+          {label}
+          <ChevronDown aria-hidden className="text-fg-subtle" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-80">
+        <LayoutItems />
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
 
 /** The quiet separator between the header's facts. */
 function Dot() {

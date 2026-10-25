@@ -15,7 +15,16 @@
  * separation, distinctness, lightness, vividness, contrast) update as the
  * user chooses; "Improve readability" moves the lightness of the user's own
  * colours, never their hues, and leaves series 1 (the lead brand colour)
- * exactly as given. Nothing changes on the dashboard until Apply.
+ * exactly as given. Nothing is saved until Apply.
+ *
+ * Version 52.0 made it more useful:
+ * - "Show on dashboard" (on by default) paints the draft on the page behind
+ *   the panel as the user chooses, with the scrim left clear so the colours
+ *   are seen as they are; Cancel or closing puts the colours in use back
+ *   (palette/preview.ts, painted by ChartThemeSync without saving);
+ * - "Your colours" takes a brand's colours from a logo or brand-guide image,
+ *   read in the browser only (palette/fromImage.ts), or from a list of codes
+ *   pasted whole (hexesIn).
  * The choice is stored in settings and saved with the dashboard config.
  *
  * Opened from the dashboard toolbar (ChartColoursButton), Settings and the
@@ -29,7 +38,20 @@
 import * as React from "react";
 import { create } from "zustand";
 import { toast } from "sonner";
-import { AlertTriangle, CheckCircle2, Info, Pipette, Plus, Sparkles, Wand2, X, XCircle } from "lucide-react";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  ClipboardPaste,
+  ImagePlus,
+  Info,
+  Loader2,
+  Pipette,
+  Plus,
+  Sparkles,
+  Wand2,
+  X,
+  XCircle,
+} from "lucide-react";
 import { useSettings } from "@/store/settings";
 import { useThemeKey } from "@/ui/common/hooks";
 import { cn } from "@/lib/utils";
@@ -37,10 +59,13 @@ import { Button } from "@/ui/primitives/button";
 import { Badge } from "@/ui/primitives/badge";
 import { Input } from "@/ui/primitives/input";
 import { Segmented } from "@/ui/primitives/segmented";
+import { Switch } from "@/ui/primitives/switch";
 import { Sheet, SheetContent } from "@/ui/primitives/sheet";
 import { Tooltip } from "@/ui/primitives/tooltip";
 import { Brief } from "@/ui/primitives/reveal";
-import { normaliseHex } from "@/ui/charts/palette/colour";
+import { hexesIn, normaliseHex } from "@/ui/charts/palette/colour";
+import { coloursFromImage } from "@/ui/charts/palette/fromImage";
+import { useChartThemePreview } from "@/ui/charts/palette/preview";
 import { checkPalette, type CheckState, type PaletteReport, type ThemeMode } from "@/ui/charts/palette/check";
 import { improve, SLOTS } from "@/ui/charts/palette/generate";
 import {
@@ -105,6 +130,8 @@ export function ChartColoursButton({
 export function ChartColoursSheet() {
   const open = useChartColoursPanel((s) => s.open);
   const setOpen = useChartColoursPanel((s) => s.setOpen);
+  // While the page shows the draft, the scrim stays clear: a dimmed chart would misjudge the colours.
+  const live = useChartThemePreview((s) => s.live);
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetContent
@@ -112,6 +139,7 @@ export function ChartColoursSheet() {
         title="Chart colours"
         description="Colours for every chart, report and export. Kept in this browser and saved with your dashboard."
         className="max-w-[min(680px,100vw)]"
+        overlayClassName={live ? "bg-transparent" : undefined}
       >
         <Editor onClose={() => setOpen(false)} />
       </SheetContent>
@@ -170,6 +198,13 @@ function Editor({ onClose }: { onClose: () => void }) {
     [resolved],
   );
   const changed = !sameChoice(draft, current);
+  const live = useChartThemePreview((s) => s.live);
+  const setLive = useChartThemePreview((s) => s.setLive);
+  // The page behind shows the draft as it is chosen; closing the panel, by Apply or not, clears it.
+  React.useEffect(() => {
+    useChartThemePreview.getState().setDraft(JSON.parse(draftKey) as ChartThemeChoice);
+  }, [draftKey]);
+  React.useEffect(() => () => useChartThemePreview.getState().setDraft(null), []);
 
   const apply = () => {
     const before = current;
@@ -208,6 +243,10 @@ function Editor({ onClose }: { onClose: () => void }) {
             <h3 id="colours-preview" className="text-sm font-medium text-fg">
               Preview
             </h3>
+            <label className="ml-auto flex items-center gap-2 text-ui text-fg-muted">
+              <Switch checked={live} onCheckedChange={setLive} />
+              Show on dashboard
+            </label>
             <Segmented<ThemeMode>
               ariaLabel="Preview theme"
               size="sm"
@@ -396,6 +435,7 @@ function CustomColours({
           <Wand2 aria-hidden /> Improve readability
         </Button>
       </div>
+      <BrandSources colours={colours} onChange={onChange} />
       {filled.length ? (
         <div className="grid gap-1.5 rounded-control border border-border px-3 py-2.5">
           <p className="text-xs leading-relaxed text-fg-muted">
@@ -411,6 +451,96 @@ function CustomColours({
         </div>
       ) : null}
     </section>
+  );
+}
+
+/**
+ * Two quicker ways to a brand's colours: its logo or a page of its brand guide (an image read in the
+ * browser, never sent), or a list of codes pasted whole. Either replaces the list, with an Undo.
+ */
+function BrandSources({ colours, onChange }: { colours: string[]; onChange: (colours: string[]) => void }) {
+  const fileRef = React.useRef<HTMLInputElement>(null);
+  const [reading, setReading] = React.useState(false);
+  const [pasted, setPasted] = React.useState("");
+  const take = (found: string[], from: string, order: string) => {
+    const before = colours;
+    const next = found.slice(0, SLOTS);
+    onChange(next);
+    toast.success(`${next.length} colour${next.length === 1 ? "" : "s"} from ${from}`, {
+      description: order,
+      action: { label: "Undo", onClick: () => onChange(before) },
+    });
+  };
+  const fromImage = async (file: File) => {
+    setReading(true);
+    try {
+      const found = await coloursFromImage(file, SLOTS);
+      if (found.length) take(found, file.name, "Most used first, so series 1 is the main one.");
+      else toast("No colours found in that image apart from white, black and grey.");
+    } catch {
+      toast.error("That image couldn't be read. Try a PNG, JPEG or SVG.");
+    } finally {
+      setReading(false);
+    }
+  };
+  const paste = () => {
+    const found = hexesIn(pasted);
+    if (!found.length) {
+      toast("No colour codes found. Paste codes such as #1D4ED8.");
+      return;
+    }
+    take(found, "your list", "In the order you listed them.");
+    setPasted("");
+  };
+  return (
+    <div className="grid gap-2 rounded-control border border-border px-3 py-3">
+      <p className="text-xs text-fg-muted">
+        <Brief
+          label="About brand colours"
+          full="Pick your logo or a page of your brand guide and Loupe takes its main colours, most used first, leaving out white, black and grey. The image is read in this browser and never sent anywhere. Or paste a list of colour codes, in any format that has them, such as “Navy #1D4ED8, Gold #F59E0B”."
+        >
+          Or take them from your logo, or paste a list.
+        </Brief>
+      </p>
+      <div className="flex flex-wrap items-center gap-2">
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"
+          className="sr-only"
+          tabIndex={-1}
+          aria-hidden
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            e.target.value = "";
+            if (file) void fromImage(file);
+          }}
+        />
+        <Button variant="outline" size="sm" disabled={reading} onClick={() => fileRef.current?.click()}>
+          {reading ? <Loader2 className="animate-spin" aria-hidden /> : <ImagePlus aria-hidden />} From a logo
+          or image
+        </Button>
+        <form
+          className="flex min-w-0 flex-[1_1_220px] items-center gap-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            paste();
+          }}
+        >
+          <Input
+            value={pasted}
+            onChange={(e) => setPasted(e.target.value)}
+            placeholder="Paste codes: #1D4ED8 #F59E0B"
+            aria-label="Paste colour codes"
+            spellCheck={false}
+            className="font-data min-w-0 flex-1"
+          />
+          <Button type="submit" variant="secondary" size="sm" disabled={!pasted.trim()}>
+            <ClipboardPaste aria-hidden /> Use
+          </Button>
+        </form>
+      </div>
+    </div>
   );
 }
 

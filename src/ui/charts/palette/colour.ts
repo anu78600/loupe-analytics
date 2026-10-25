@@ -35,6 +35,22 @@ export function normaliseHex(input: string): string | null {
   return `#${h.length === 3 ? [...h].map((c) => c + c).join("") : h}`;
 }
 
+/**
+ * Every colour code in a piece of text, in order and without repeats, so a
+ * list copied from a brand guide ("Navy #1D4ED8 · Gold #F59E0B") can be
+ * pasted whole. A code without "#" counts only when it has a digit, so words
+ * such as "decade" or "facade" are never read as colours.
+ */
+export function hexesIn(text: string): string[] {
+  const out: string[] = [];
+  for (const m of text.matchAll(/(#)?\b([0-9a-f]{6}|[0-9a-f]{3})\b/gi)) {
+    if (!m[1] && !/\d/.test(m[2] as string)) continue;
+    const hex = normaliseHex(m[2] as string);
+    if (hex && !out.includes(hex)) out.push(hex);
+  }
+  return out;
+}
+
 /** #rrggbb → sRGB 0–1. Call with normalised hex only. */
 export function hexToRgb(hex: string): Rgb {
   const n = parseInt(hex.slice(1, 7), 16);

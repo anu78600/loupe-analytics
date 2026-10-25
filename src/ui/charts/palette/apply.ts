@@ -7,20 +7,23 @@
  * of the default colours. The built-in palette removes all three.
  *
  * Called by ChartThemeSync (ui/common/providers) whenever the setting
- * changes; nothing else writes these.
+ * changes, or the chart-colours panel previews a choice on the page
+ * (`persist` false: the page shows it, but nothing is stored, so a reload
+ * brings back the colours in use); nothing else writes these.
  */
 import { themeCss, type ResolvedTheme } from "./themes";
 
 export const CHART_THEME_STORAGE_KEY = "loupe-chart-theme";
 const STYLE_ID = "loupe-chart-theme";
 
-export function applyChartTheme(theme: ResolvedTheme): void {
+export function applyChartTheme(theme: ResolvedTheme, persist = true): void {
   if (typeof document === "undefined") return;
   const root = document.documentElement;
   const existing = document.getElementById(STYLE_ID);
   if (theme.builtIn) {
     existing?.remove();
     delete root.dataset.chartTheme;
+    if (!persist) return;
     try {
       localStorage.removeItem(CHART_THEME_STORAGE_KEY);
     } catch {
@@ -37,6 +40,7 @@ export function applyChartTheme(theme: ResolvedTheme): void {
   }
   if (el.textContent !== css) el.textContent = css;
   root.dataset.chartTheme = theme.key;
+  if (!persist) return;
   try {
     localStorage.setItem(CHART_THEME_STORAGE_KEY, JSON.stringify({ key: theme.key, css }));
   } catch {

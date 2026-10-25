@@ -167,11 +167,11 @@ export function AskChartDialog({
 }
 
 /** The dashboard-header button that opens the dialog. */
-export function AskChartButton() {
+export function AskChartButton({ className }: { className?: string }) {
   const [open, setOpen] = React.useState(false);
   return (
     <>
-      <Button variant="primary" size="sm" onClick={() => setOpen(true)}>
+      <Button variant="primary" size="sm" className={className} onClick={() => setOpen(true)}>
         <MessageSquarePlus aria-hidden /> Ask for a chart
       </Button>
       <AskChartDialog open={open} onOpenChange={setOpen} />

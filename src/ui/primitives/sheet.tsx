@@ -36,6 +36,8 @@ const sideClass = {
  * a `description`, the title is repeated as a visually hidden one, which
  * keeps Radix's missing-description warning quiet. `initialFocus` and
  * `returnFocus` work as on DialogContent (DialogFocusProps in dialog.tsx).
+ * `overlayClassName` changes the scrim, e.g. to leave the page undimmed
+ * while the chart-colours panel previews colours on it.
  */
 export const SheetContent = React.forwardRef<
   HTMLDivElement,
@@ -44,6 +46,7 @@ export const SheetContent = React.forwardRef<
       side?: keyof typeof sideClass;
       title: string;
       description?: React.ReactNode;
+      overlayClassName?: string;
     }
 >(
   (
@@ -57,6 +60,7 @@ export const SheetContent = React.forwardRef<
       returnFocus,
       onOpenAutoFocus,
       onCloseAutoFocus,
+      overlayClassName,
       ...props
     },
     ref,
@@ -64,7 +68,12 @@ export const SheetContent = React.forwardRef<
     const focus = useDialogFocus({ initialFocus, returnFocus, onOpenAutoFocus, onCloseAutoFocus });
     return (
       <SheetPrimitive.Portal>
-        <SheetPrimitive.Overlay className="fixed inset-0 z-50 bg-overlay transition-opacity duration-slow ease-out-quint starting:opacity-0" />
+        <SheetPrimitive.Overlay
+          className={cn(
+            "fixed inset-0 z-50 bg-overlay transition-[opacity,background-color] duration-slow ease-out-quint starting:opacity-0",
+            overlayClassName,
+          )}
+        />
         <SheetPrimitive.Content
           ref={ref}
           onOpenAutoFocus={focus.onOpenAutoFocus}

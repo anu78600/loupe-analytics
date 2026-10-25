@@ -5,6 +5,20 @@ Every step of building Loupe, newest first. Generated from `src/content/changelo
 - **MAJOR** (`x.0`): a new capability, subsystem or page.
 - **MINOR** (`x.y`): a refinement, fix or follow-up to that major version.
 
+## 52.0 · Chart colours you see on your dashboard, from your own logo
+
+*Major · 2026-10-25 04:37 UTC · Feature, Design, Tests*
+
+Choosing chart colours is now quicker and surer: your dashboard changes colour behind the panel as you choose, and your brand's colours can come straight from your logo or a pasted list. The dashboard toolbar is clearer too: the layout menu says what each layout shows, and both ways to add a chart sit on one button.
+
+- See it on your dashboard: while the colours panel is open, your real charts take the colours you are choosing, undimmed, so you judge them as they will look. Cancel puts your colours back; nothing is saved until you apply. Turn it off with “Show on dashboard”.
+- Colours from your logo: in “Your colours”, pick your logo or a page of your brand guide and Loupe takes its main colours, most used first, leaving out white, black and grey. The image is read in your browser and never sent anywhere.
+- Paste a list of colour codes, such as “Navy #1D4ED8, Gold #F59E0B”, and every code fills a series in order.
+- The layout is one menu that says what each layout shows and how many charts: Executive (the headline charts and main KPIs), Analyst (every chart) and Compact (the key charts in shorter cards).
+- “Build it yourself” now sits in the menu beside “Ask for a chart”, the two ways to add a chart, so the toolbar has room to breathe.
+
+Files: `src/ui/charts/palette/fromImage.ts`, `src/ui/charts/palette/preview.ts`, `src/ui/charts/palette/colour.ts`, `src/ui/charts/palette/apply.ts`, `src/ui/common/providers.tsx`, `src/ui/primitives/sheet.tsx`, `src/ui/workspace/ChartColours.tsx`, `src/ui/workspace/dashboard/DashboardStep.tsx`, `src/ui/workspace/dashboard/AskChart.tsx`, `tests/palette-sources.test.ts`
+
 ## 51.5 · Traps in the data cleared before anything is counted (computation fixes, stage 5)
 
 *Minor · 2026-10-25 04:11 UTC · Fix, Data, Tests*

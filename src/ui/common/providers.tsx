@@ -15,6 +15,7 @@ import { MotionConfig } from "framer-motion";
 import { TooltipProvider } from "@/ui/primitives/tooltip";
 import { applyTheme, useSettings } from "@/store/settings";
 import { applyChartTheme } from "@/ui/charts/palette/apply";
+import { useChartThemePreview } from "@/ui/charts/palette/preview";
 import { resolveTheme } from "@/ui/charts/palette/themes";
 import { FeedbackDialog } from "./feedback/FeedbackDialog";
 
@@ -35,9 +36,11 @@ function ThemeSync() {
 /** Puts the chosen chart colours on the page (palette/apply.ts) whenever the setting changes. */
 function ChartThemeSync() {
   const choice = useSettings((s) => s.chartTheme);
+  // While the chart-colours panel previews a choice, the page shows it unsaved (palette/preview.ts).
+  const draft = useChartThemePreview((s) => (s.live ? s.draft : null));
   React.useEffect(() => {
-    applyChartTheme(resolveTheme(choice));
-  }, [choice]);
+    applyChartTheme(resolveTheme(draft ?? choice), !draft);
+  }, [choice, draft]);
   return null;
 }
 
