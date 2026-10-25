@@ -202,6 +202,31 @@ export interface ParseReport {
   /** Columns left out via IngestOptions.columns (reported by every reader). */
   skippedColumns?: string[];
   durationMs: number;
+  /** Read against a saved dashboard's columns (IngestOptions.matchColumns): what changed. */
+  matched?: ColumnChanges;
+}
+
+/** A column as a saved dashboard knows it: its name and storage type (LoupeConfig fingerprint). */
+export interface SavedColumn {
+  name: string;
+  type: string;
+}
+
+/** How a renamed column was recognised (parse/matchColumns.ts), surest first. */
+export type RenameHow = "spelling" | "words" | "similar";
+
+/** A new file's columns against a saved dashboard's (parse/matchColumns.ts compareColumns). */
+export interface ColumnChanges {
+  /** Columns found under another name (`from`, in the new file), read under their saved name (`to`). */
+  renamed: Array<{ from: string; to: string; how: RenameHow }>;
+  /** Saved columns the new file doesn't have. */
+  missing: string[];
+  /** The new file's columns that the saved dashboard didn't have. */
+  added: string[];
+  /** Columns under the same name with another type (a number column now read as text). */
+  retyped: Array<{ name: string; was: string; now: string }>;
+  /** Columns found under the same name and type. */
+  same: number;
 }
 
 export interface IngestOptions {
@@ -220,6 +245,12 @@ export interface IngestOptions {
   preferDayFirst?: boolean;
   /** Explicit day/month order overrides chosen by the user, by column. */
   dateOrderOverrides?: Record<string, "DMY" | "MDY">;
+  /**
+   * The columns of the dashboard this file refreshes (version 55.0): a column
+   * found under another name is read under its saved name, and what changed is
+   * in ParseReport.matched (parse/matchColumns.ts). Applied by Session.ingest.
+   */
+  matchColumns?: SavedColumn[];
 }
 
 /**

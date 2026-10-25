@@ -5,6 +5,22 @@ Every step of building Loupe, newest first. Generated from `src/content/changelo
 - **MAJOR** (`x.0`): a new capability, subsystem or page.
 - **MINOR** (`x.y`): a refinement, fix or follow-up to that major version.
 
+## 55.0 · Refresh a dashboard with next month's file
+
+*Major · 2026-10-25 17:10 UTC · Feature*
+
+A dashboard you built can now take a new file, such as next month's export, and keep every chart, KPI, filter and colour it can. A short report says what changed: columns renamed, missing or new, and anything that couldn't be kept, with Undo.
+
+- “Refresh with new data” is in each saved project's menu on the upload page, in the quick menu and in the command palette; you can also drop the new file on the project's row.
+- The dashboard opens on the new file as you left it. Named periods move with the data, so “Last 12 months” now ends with the new month.
+- A column that was only renamed (“order_date” for “Order Date”, “Amount” for “Amt”, a small typo) is read under the dashboard's name, so nothing that uses it breaks.
+- Loupe never guesses a rename: a different column in the same place, or “Sales 2025” where “Sales 2024” was, is reported as missing and new instead.
+- Anything that needed a missing column is left out, never estimated, and the report names it with the reason; filters on a missing column are taken off.
+- The report shows the rows and how far the data runs, against before, and how many KPIs and charts were kept; “Undo refresh” puts the project back with its old file.
+- The project keeps the new file, so it reopens on it after a reload.
+
+Files: `src/engine/parse/matchColumns.ts`, `src/engine/core/types.ts`, `src/engine/session.ts`, `src/engine/export/refresh.ts`, `src/store/workspace.ts`, `src/ui/workspace/projects/store.ts`, `src/ui/workspace/projects/refresh.ts`, `src/ui/workspace/projects/RefreshReport.tsx`, `src/ui/workspace/projects/ProjectKeeper.tsx`, `src/ui/workspace/projects/RecentProjects.tsx`, `src/ui/workspace/projects/db.ts`, `src/ui/workspace/shell/QuickMenu.tsx`, `src/ui/workspace/CommandPalette.tsx`, `docs/ROADMAP.md`, `tests/refresh-project.test.ts`
+
 ## 54.1 · No negative hospital stays, and every name in full
 
 *Minor · 2026-10-25 16:49 UTC · Fix, Data, Design*

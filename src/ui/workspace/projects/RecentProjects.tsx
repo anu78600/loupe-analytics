@@ -6,10 +6,16 @@
  * Open brings it back as it was left, and its menu downloads it as a .loupe
  * file or deletes it. Under the list: that it stays in this browser, how much
  * the browser keeps, and "Clear all". Shown only when something is kept.
+ *
+ * A project with a dashboard can take a new file (version 55.0), such as next
+ * month's export: "Refresh with new data" in its menu, or the file dropped on
+ * its row. The dashboard opens on the new file with every chart, KPI, filter
+ * and colour it can keep, and a report of what changed (RefreshReport.tsx).
  */
 import * as React from "react";
-import { Download, FolderOpen, History, MoreHorizontal, Trash2 } from "lucide-react";
+import { Download, FolderOpen, History, MoreHorizontal, RefreshCw, Trash2 } from "lucide-react";
 import { formatBytes, formatCount } from "@/engine/core/format";
+import { cn } from "@/lib/utils";
 import { useSettings } from "@/store/settings";
 import { Button } from "@/ui/primitives/button";
 import { InfoTip } from "@/ui/primitives/reveal";
@@ -20,7 +26,15 @@ import {
   DropdownMenuTrigger,
 } from "@/ui/primitives/dropdown-menu";
 import { askConfirm } from "../confirm";
-import { clearAllProjects, downloadProject, openProject, removeProject, useProjects } from "./store";
+import {
+  clearAllProjects,
+  downloadProject,
+  openProject,
+  pickRefreshFile,
+  refreshProject,
+  removeProject,
+  useProjects,
+} from "./store";
 import type { ProjectMeta } from "./db";
 
 const subscribe = () => () => {};
@@ -101,8 +115,31 @@ function ProjectRow({
   locale: "IN" | "INTL";
 }) {
   const [busy, setBusy] = React.useState(false);
+  // A data file dragged over a project with a dashboard: dropping it refreshes that dashboard.
+  const [over, setOver] = React.useState(false);
+  const takesFiles = (e: React.DragEvent) => p.built && e.dataTransfer.types.includes("Files");
   return (
-    <li className="flex min-w-0 items-center gap-3 rounded-card border border-border bg-surface-1 py-2 pr-2 pl-3">
+    <li
+      onDragOver={(e) => {
+        if (!takesFiles(e)) return;
+        e.preventDefault();
+        e.stopPropagation();
+        setOver(true);
+      }}
+      onDragLeave={() => setOver(false)}
+      onDrop={(e) => {
+        if (!takesFiles(e)) return;
+        e.preventDefault();
+        e.stopPropagation();
+        setOver(false);
+        const file = e.dataTransfer.files[0];
+        if (file && !/\.loupe$/i.test(file.name)) void refreshProject(p.id, file);
+      }}
+      className={cn(
+        "flex min-w-0 items-center gap-3 rounded-card border bg-surface-1 py-2 pr-2 pl-3 transition-[border-color,box-shadow] duration-fast",
+        over ? "border-accent shadow-[0_0_0_3px_var(--accent-soft)]" : "border-border",
+      )}
+    >
       <History className="size-4 shrink-0 text-fg-subtle" aria-hidden />
       <div className="min-w-0 flex-1">
         <p className="truncate text-ui font-medium text-fg" title={p.fileName}>
@@ -112,6 +149,7 @@ function ProjectRow({
           ) : null}
         </p>
         <p className="tabular truncate text-xs text-fg-muted">
+          {over ? "Drop to refresh its dashboard with this file · " : ""}
           {formatCount(p.rows, locale)} rows
           {p.bytes ? ` · ${formatBytes(p.bytes)}` : ""}
           {p.built ? " · dashboard" : ""}
@@ -140,6 +178,11 @@ function ProjectRow({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
+          {p.built ? (
+            <DropdownMenuItem onSelect={() => pickRefreshFile(p.id)}>
+              <RefreshCw aria-hidden /> Refresh with new data…
+            </DropdownMenuItem>
+          ) : null}
           <DropdownMenuItem onSelect={() => void downloadProject(p.id)}>
             <Download aria-hidden /> Download as .loupe
           </DropdownMenuItem>

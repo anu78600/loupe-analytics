@@ -193,6 +193,11 @@ interface WorkspaceState {
   error: string | null;
   /** File waiting on a user decision (sheet choice or large-file mode). */
   pendingFile: File | null;
+  /**
+   * The options it was read with, kept for the read after the decision: a refreshed project's
+   * saved columns (IngestOptions.matchColumns) must survive the sheet choice (version 55.0).
+   */
+  pendingOptions: IngestOptions;
   /** Last successfully loaded file and options, kept so it can be re-parsed (e.g. a date-order fix). */
   lastFile: File | null;
   lastOptions: IngestOptions;
@@ -514,6 +519,7 @@ function initialData(): WorkspaceData {
     loading: null,
     error: null,
     pendingFile: null,
+    pendingOptions: {},
     lastFile: null,
     lastOptions: {},
     sheets: null,
@@ -1035,6 +1041,7 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
           progress.close();
           if (token !== loadSeq) return;
           if (res.status === "ok") set({ lastFile: file, lastOptions: merged });
+          else set({ pendingOptions: opts });
           if (mode === "reread") await adoptReread(res);
           else handleLoad(res, file);
         } catch (e) {
@@ -1187,7 +1194,7 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
       const file = get().pendingFile;
       if (!file) return;
       set({ sheets: null });
-      await readFile(file, { sheet }, "new");
+      await readFile(file, { ...get().pendingOptions, sheet }, "new");
     },
 
     pickOneSheet: async () => {
@@ -1195,7 +1202,7 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
       if (!file) return;
       try {
         const sheets = await engine().listSheets(file);
-        set({ sheets, pendingFile: file });
+        set({ sheets, pendingFile: file, pendingOptions: get().lastOptions });
       } catch (e) {
         set({ error: toError(e) });
       }
@@ -1208,7 +1215,7 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
         set({ pendingFile: null });
         return;
       }
-      await readFile(file, opts, "new");
+      await readFile(file, { ...get().pendingOptions, ...opts }, "new");
     },
 
     unpivot: () =>

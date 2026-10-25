@@ -13,31 +13,40 @@
  *   dashboard's settings (buildConfig) and the step are saved, only when
  *   they differ from what was saved.
  * - The dataset closes (Start over): no project is open; it stays kept.
+ * - A project is refreshed with a new file (version 55.0): the load
+ *   finishes the refresh (finishRefresh) instead of becoming a project.
  *
  * The open project's id is in sessionStorage, so a reload in this tab opens
  * it again (Workspace). Nothing is kept while Settings › "Keep projects in
  * this browser" is off, and nothing leaves the browser.
  */
 import * as React from "react";
-import { useWorkspace } from "@/store/workspace";
+import { allSpecs, kpiLayoutOf, useWorkspace } from "@/store/workspace";
 import { useSettings } from "@/store/settings";
 import { buildConfig } from "@/store/config";
-import { getProject, putProject, updateProject, type ProjectRecord } from "./db";
-import { OPEN_PROJECT_KEY, refreshProjects, storageFailed, useProjects } from "./store";
+import { getProject, putProject, updateProject, type ProjectRecord, type ProjectShown } from "./db";
+import { finishRefresh, refreshProjects, setCurrent, storageFailed, useProjects } from "./store";
+import { RefreshReportDialog } from "./RefreshReport";
 
 /** Saves run this long after the last change, so a burst of changes is one write. */
 const SAVE_AFTER = 1500;
 
 type WS = ReturnType<typeof useWorkspace.getState>;
 
-function setCurrent(id: string | null) {
-  useProjects.setState({ currentId: id });
-  try {
-    if (id) sessionStorage.setItem(OPEN_PROJECT_KEY, id);
-    else sessionStorage.removeItem(OPEN_PROJECT_KEY);
-  } catch {
-    /* sessionStorage can be unavailable; the project is still kept, only a reload won't reopen it */
-  }
+/** The dashboard's KPIs and charts by name, and its last date: what a refresh compares with. */
+function shownOf(s: WS): ProjectShown | undefined {
+  const ctx = s.context;
+  if (!ctx) return undefined;
+  const layout = kpiLayoutOf(s);
+  const kpiName = new Map(ctx.kpis.map((k) => [k.id, k.name]));
+  const specs = new Map(allSpecs(s).map((c) => [c.id, c.title]));
+  return {
+    kpis: [...layout.hero, ...layout.supporting].map((id) => ({ id, name: kpiName.get(id) ?? id })),
+    charts: s.widgets
+      .filter((w) => !w.hidden && specs.has(w.id))
+      .map((w) => ({ id: w.id, title: w.title ?? specs.get(w.id) ?? w.id })),
+    ...(ctx.dateBounds ? { dataTo: ctx.dateBounds.max } : {}),
+  };
 }
 
 /** The kept project this dataset already is (the same demo, or a file of the same name and size). */
@@ -56,6 +65,12 @@ function sameAs(s: WS): string | undefined {
 async function onDataset(s: WS, prev: WS): Promise<void> {
   const sum = s.summary;
   if (!sum) return;
+  // A project's new file: the refresh applies its dashboard and reports what changed.
+  const refreshing = useProjects.getState().refreshing;
+  if (refreshing && s.lastFile === refreshing.file) {
+    await finishRefresh();
+    return;
+  }
   const reopening = useProjects.getState().reopening;
   if (reopening) {
     setCurrent(reopening);
@@ -114,7 +129,13 @@ export function ProjectKeeper() {
         return;
       }
       try {
-        await updateProject(id, { config, step: s.step, savedAt: Date.now(), built: Boolean(config) });
+        await updateProject(id, {
+          config,
+          step: s.step,
+          savedAt: Date.now(),
+          built: Boolean(config),
+          shown: config ? shownOf(s) : undefined,
+        });
         lastSaved = snapshot;
         useProjects.setState({ dirty: false });
         void refreshProjects();
@@ -145,5 +166,5 @@ export function ProjectKeeper() {
       if (timer) window.clearTimeout(timer);
     };
   }, []);
-  return null;
+  return <RefreshReportDialog />;
 }

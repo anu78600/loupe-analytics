@@ -32,6 +32,7 @@ import {
   Megaphone,
   MessageSquareHeart,
   MessageSquarePlus,
+  RefreshCw,
   Search,
   Settings2,
   ShieldCheck,
@@ -49,6 +50,7 @@ import { openFeedback } from "@/ui/common/feedback/store";
 import { useAskChartPanel } from "../dashboard/AskChart";
 import { openDemo } from "../Shell";
 import { workspacePlace } from "../feedbackPlace";
+import { pickRefreshFile, useProjects } from "../projects/store";
 
 /** The last version whose menu the user opened, so a new one shows a dot (this browser only). */
 const SEEN_KEY = "loupe-seen-version";
@@ -71,6 +73,7 @@ interface Action {
 function useActions(): Action[] {
   const hasData = useWorkspace((s) => Boolean(s.summary));
   const hasContext = useWorkspace((s) => Boolean(s.context));
+  const project = useProjects((p) => p.currentId);
   const go = (step: Step) => () => useWorkspace.getState().setStep(step);
   if (!hasData)
     return [
@@ -93,6 +96,10 @@ function useActions(): Action[] {
       icon: Eye,
       run: toDashboard(() => useAskChartPanel.getState().show("charts")),
     },
+    // Next month's file into this dashboard (version 55.0); only for a project kept in this browser.
+    ...(project
+      ? [{ label: "Refresh with new data", icon: RefreshCw, run: () => pickRefreshFile(project) }]
+      : []),
   ];
 }
 

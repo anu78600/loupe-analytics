@@ -12,12 +12,23 @@
  * A .loupe file is a project to take elsewhere: a zip of the file as opened
  * and "loupe-project.json" (the project's facts and settings, never anything
  * else). It is checked before anything in it is used.
+ *
+ * Refreshing a project (version 55.0) gives its dashboard a new file, such as
+ * next month's export: the file is read against the columns the dashboard was
+ * built on (a renamed column keeps its saved name, parse/matchColumns.ts), the
+ * saved settings are fitted to it (export/refresh.ts) and applied, the project
+ * keeps the new file, and a report says what changed (refresh.ts). The
+ * project as it was is held until the report closes, for "Undo".
  */
 import { create } from "zustand";
 import { toast } from "sonner";
 import { z } from "zod";
 import { configSchema } from "@/engine/export/config";
-import { useWorkspace, STEPS, type Step } from "@/store/workspace";
+import { fitConfig } from "@/engine/export/refresh";
+import { allSpecs, kpiLayoutOf, useWorkspace, STEPS, type Step } from "@/store/workspace";
+import { buildConfig } from "@/store/config";
+import { useSettings } from "@/store/settings";
+import { engine } from "@/lib/engine-client";
 import { downloadBlob } from "@/lib/utils";
 import {
   clearProjects,
@@ -27,9 +38,11 @@ import {
   projectsSupported,
   putProject,
   storageUsed,
+  updateProject,
   type ProjectMeta,
   type ProjectRecord,
 } from "./db";
+import { buildRefreshReport, type RefreshReport } from "./refresh";
 
 /** The open project's id in this tab, so a reload opens it again (sessionStorage: this tab only). */
 export const OPEN_PROJECT_KEY = "loupe-open-project";
@@ -46,6 +59,10 @@ interface ProjectsState {
   dirty: boolean;
   /** Set once storage fails, so it is said once and the app carries on without it. */
   unavailable: boolean;
+  /** A project being refreshed: its id, the new file and the project as it was. */
+  refreshing: { id: string; file: File; previous: ProjectRecord } | null;
+  /** What the last refresh changed, shown until it is closed. */
+  report: RefreshReport | null;
 }
 
 export const useProjects = create<ProjectsState>()(() => ({
@@ -55,7 +72,20 @@ export const useProjects = create<ProjectsState>()(() => ({
   reopening: null,
   dirty: false,
   unavailable: !projectsSupported(),
+  refreshing: null,
+  report: null,
 }));
+
+/** Marks the project open in this tab, so a reload in it opens it again. */
+export function setCurrent(id: string | null): void {
+  useProjects.setState({ currentId: id });
+  try {
+    if (id) sessionStorage.setItem(OPEN_PROJECT_KEY, id);
+    else sessionStorage.removeItem(OPEN_PROJECT_KEY);
+  } catch {
+    /* sessionStorage can be unavailable; the project is still kept, only a reload won't reopen it */
+  }
+}
 
 /** Says once that the browser won't keep projects, then stops trying. */
 export function storageFailed(e: unknown): void {
@@ -137,6 +167,144 @@ export async function clearAllProjects(): Promise<void> {
   await refreshProjects();
 }
 
+// ---------------------------------------------------------------- refresh with a new file
+
+/** The files a project can be refreshed with: the upload page's data files (not a .loupe project). */
+const REFRESH_ACCEPT = ".csv,.tsv,.txt,.psv,.tab,.xlsx,.xlsm,.xlsb,.xls,.ods,.json,.ndjson,.jsonl";
+
+/** Opens the file picker and refreshes the project with the file chosen ("Refresh with new data"). */
+export function pickRefreshFile(id: string): void {
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = REFRESH_ACCEPT;
+  input.onchange = () => {
+    const file = input.files?.[0];
+    if (file) void refreshProject(id, file);
+  };
+  input.click();
+}
+
+/**
+ * Gives a project's dashboard a new file. The file is read against the dashboard's columns; the
+ * keeper hands the load to finishRefresh, now or once a sheet or a large file's sampling is chosen.
+ */
+export async function refreshProject(id: string, file: File): Promise<void> {
+  // The keeper finishes a refresh, and it only runs while projects are kept.
+  if (!useSettings.getState().keepProjects || useProjects.getState().unavailable) {
+    toast.error("Projects aren't kept in this browser", {
+      description:
+        "Turn on “Keep projects in this browser” in Settings to refresh a dashboard with a new file.",
+    });
+    return;
+  }
+  let rec: ProjectRecord | undefined;
+  try {
+    rec = await getProject(id);
+  } catch (e) {
+    storageFailed(e);
+    return;
+  }
+  if (!rec) {
+    toast.error("That project is no longer kept in this browser.");
+    void refreshProjects();
+    return;
+  }
+  const ws = useWorkspace.getState();
+  // The open project's latest settings, which the keeper may not have written yet.
+  if (useProjects.getState().currentId === id && ws.context)
+    rec = { ...rec, config: buildConfig() ?? rec.config };
+  const config = rec.config;
+  if (!config) {
+    toast.error(`${rec.name} has no dashboard yet`, {
+      description: "Open it and build its dashboard first; a new file then refreshes it.",
+    });
+    return;
+  }
+  // The same sheet as before, when the new workbook has one of that name; otherwise the user chooses.
+  let sheet: string | undefined;
+  const savedSheet = rec.options?.sheet;
+  if (savedSheet) {
+    const sheets = await engine()
+      .listSheets(file)
+      .catch(() => [] as string[]);
+    if (sheets.includes(savedSheet)) sheet = savedSheet;
+  }
+  useProjects.setState({ refreshing: { id, file, previous: rec }, report: null });
+  await ws.loadFile(file, {
+    ...(sheet ? { sheet } : {}),
+    ...(rec.options?.dateOrderOverrides ? { dateOrderOverrides: rec.options.dateOrderOverrides } : {}),
+    matchColumns: config.fingerprint.columns,
+  });
+  // Nothing loaded (an unreadable file) and no choice pending: the refresh is over.
+  const after = useWorkspace.getState();
+  if (
+    useProjects.getState().refreshing?.file === file &&
+    !after.sheets &&
+    !after.largeFile &&
+    after.lastFile !== file
+  )
+    useProjects.setState({ refreshing: null });
+}
+
+/** The new file has loaded: the project takes it, the saved dashboard is fitted and applied, and the report is made. */
+export async function finishRefresh(): Promise<void> {
+  const r = useProjects.getState().refreshing;
+  const ws = useWorkspace.getState();
+  const sum = ws.summary;
+  const config = r?.previous.config;
+  if (!r || !sum || !config) return;
+  setCurrent(r.id);
+  const changes = ws.report?.matched ?? { renamed: [], missing: [], added: [], retyped: [], same: 0 };
+  const fitted = fitConfig(config, changes);
+  try {
+    await updateProject(r.id, {
+      file: r.file,
+      fileName: sum.fileName,
+      rows: sum.rowCount,
+      columns: sum.columnCount,
+      bytes: r.file.size,
+      options: ws.lastOptions,
+      savedAt: Date.now(),
+    });
+    await ws.applyConfig(fitted.config);
+  } catch (e) {
+    useProjects.setState({ refreshing: null });
+    toast.error(`${r.previous.name} couldn't be refreshed`, { description: (e as Error).message });
+    return;
+  }
+  const s = useWorkspace.getState();
+  const ctx = s.context;
+  const layout = kpiLayoutOf(s);
+  const specs = new Set(allSpecs(s).map((c) => c.id));
+  const report = buildRefreshReport(r.previous, changes, fitted, {
+    fileName: sum.fileName,
+    rows: sum.rowCount,
+    dataTo: ctx?.dateBounds?.max ?? null,
+    kpis: ctx?.kpis ?? [],
+    customKpiIssues: ctx?.customKpiIssues ?? [],
+    layout: [...layout.hero, ...layout.supporting],
+    charts: s.widgets.filter((w) => !w.hidden && specs.has(w.id)).map((w) => w.id),
+    skippedCharts: ctx?.skippedCharts ?? [],
+  });
+  useProjects.setState({ refreshing: null, report });
+  void refreshProjects();
+}
+
+/** Puts the project back as it was before the refresh, with its old file, and opens it. */
+export async function undoRefresh(): Promise<void> {
+  const report = useProjects.getState().report;
+  if (!report) return;
+  useProjects.setState({ report: null });
+  try {
+    await putProject(report.previous);
+  } catch (e) {
+    storageFailed(e);
+    return;
+  }
+  await openProject(report.previous.id);
+  void refreshProjects();
+}
+
 // ---------------------------------------------------------------- .loupe files
 
 const MANIFEST = "loupe-project.json";
@@ -157,6 +325,11 @@ const manifestSchema = z.object({
       sampleEvery: z.number().positive().optional(),
       maxRows: z.number().positive().optional(),
       columns: z.array(z.string()).optional(),
+      dateOrderOverrides: z.record(z.string(), z.enum(["DMY", "MDY"])).optional(),
+      matchColumns: z
+        .array(z.object({ name: z.string().max(500), type: z.string().max(20) }))
+        .max(5000)
+        .optional(),
     })
     .optional(),
   config: configSchema.nullable().optional(),
@@ -183,6 +356,8 @@ export async function downloadProject(id: string): Promise<void> {
             ...(rec.options.sampleEvery ? { sampleEvery: rec.options.sampleEvery } : {}),
             ...(rec.options.maxRows ? { maxRows: rec.options.maxRows } : {}),
             ...(rec.options.columns ? { columns: rec.options.columns } : {}),
+            ...(rec.options.dateOrderOverrides ? { dateOrderOverrides: rec.options.dateOrderOverrides } : {}),
+            ...(rec.options.matchColumns ? { matchColumns: rec.options.matchColumns } : {}),
           },
         }
       : {}),

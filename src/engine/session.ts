@@ -40,6 +40,7 @@ import {
 import { currencySymbol, formatPlain, type FormatOptions, type NumberLocale } from "@/engine/core/format";
 import { ingestFile, ingestWorkbookModel, workbookSheets, type IngestProgress } from "@/engine/parse";
 import { fileKindFromName } from "@/engine/parse";
+import { compareColumns, withColumnNames } from "@/engine/parse/matchColumns";
 import { profileDataset } from "@/engine/profile/profile";
 import { assessHealth, type HealthReport } from "@/engine/profile/quality";
 import { DataCheck, type CheckedRow, type CheckView } from "@/engine/profile/dataCheck";
@@ -840,19 +841,29 @@ export class Session {
       if (sheets.length > 1) {
         const model = await ingestWorkbookModel(file, fileName, sheets, opts, onProgress);
         if (!model) return { status: "needs-sheet", sheets };
+        const read = Session.matched(model.dataset, model.report, opts);
         this.learned = [...learned];
-        return this.adopt(
-          model.dataset,
-          model.report,
-          { parse: Math.round(performance.now() - t0) },
-          onProgress,
-        );
+        return this.adopt(read.ds, read.report, { parse: Math.round(performance.now() - t0) }, onProgress);
       }
     }
     const out = await ingestFile(file, fileName, opts, onProgress);
     if (out.status === "needs-decision") return out;
     this.learned = [...learned];
-    return this.adopt(out.dataset, out.report, { parse: Math.round(performance.now() - t0) }, onProgress);
+    const read = Session.matched(out.dataset, out.report, opts);
+    return this.adopt(read.ds, read.report, { parse: Math.round(performance.now() - t0) }, onProgress);
+  }
+
+  /**
+   * A refreshed dashboard's new file (version 55.0): read against the columns the dashboard was
+   * built on (IngestOptions.matchColumns), so a renamed column keeps its saved name.
+   */
+  private static matched(ds: Dataset, report: ParseReport, opts: IngestOptions) {
+    if (!opts.matchColumns?.length) return { ds, report };
+    const changes = compareColumns(
+      opts.matchColumns,
+      ds.columns.map((c) => ({ name: c.name, type: c.kind })),
+    );
+    return withColumnNames(ds, report, changes);
   }
 
   /** Loads a deterministic generated demo dataset; its report carries a "demo data" warning. */

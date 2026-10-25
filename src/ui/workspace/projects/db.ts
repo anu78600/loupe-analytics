@@ -33,10 +33,23 @@ export interface ProjectMeta {
   built: boolean;
 }
 
+/**
+ * What the dashboard showed when last saved (version 55.0): its KPIs and
+ * charts by id and name, and the last date in the data, so a refresh with a
+ * new file can say what it kept and what it couldn't. Names only, no figures.
+ */
+export interface ProjectShown {
+  kpis: Array<{ id: string; name: string }>;
+  charts: Array<{ id: string; title: string }>;
+  /** The latest date in the data (wall-clock ms), when it has dates. */
+  dataTo?: number;
+}
+
 export interface ProjectRecord extends ProjectMeta {
   file?: Blob;
   options?: IngestOptions;
   config?: LoupeConfig | null;
+  shown?: ProjectShown;
 }
 
 const DB_NAME = "loupe-projects";

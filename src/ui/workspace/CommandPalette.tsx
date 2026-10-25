@@ -26,6 +26,7 @@ import {
   MessageSquareHeart,
   Moon,
   Palette,
+  RefreshCw,
   Search,
   Settings2,
   Sparkles,
@@ -41,6 +42,7 @@ import { openDemo, stepEnabled } from "./Shell";
 import { PHASES, STEP_ICON, stepLabel } from "./shell/phases";
 import { openFeedback } from "@/ui/common/feedback/store";
 import { workspacePlace } from "./feedbackPlace";
+import { pickRefreshFile, useProjects } from "./projects/store";
 
 const itemClass =
   "flex cursor-default select-none items-center gap-2.5 rounded-control px-2.5 py-2 text-ui text-fg outline-none data-[selected=true]:bg-surface-hover [&_svg]:size-4 [&_svg]:text-fg-subtle";
@@ -87,6 +89,7 @@ export function CommandPalette({
 
 function PaletteBody({ onClose, onOpenSettings }: { onClose: () => void; onOpenSettings: () => void }) {
   const ws = useWorkspace();
+  const project = useProjects((p) => p.currentId);
   const router = useRouter();
   const theme = useSettings((s) => s.theme);
   const setTheme = useSettings((s) => s.setTheme);
@@ -197,6 +200,15 @@ function PaletteBody({ onClose, onOpenSettings }: { onClose: () => void; onOpenS
               >
                 <FileDown aria-hidden /> Export (Power BI, PDF, PNG, SQL)
               </Command.Item>
+              {project ? (
+                <Command.Item
+                  value="refresh new data next month file update"
+                  className={itemClass}
+                  onSelect={() => run(() => pickRefreshFile(project))}
+                >
+                  <RefreshCw aria-hidden /> Refresh with new data…
+                </Command.Item>
+              ) : null}
             </>
           ) : null}
           <Command.Item
