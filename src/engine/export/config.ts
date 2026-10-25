@@ -166,6 +166,8 @@ export const configSchema = z.object({
    * column name, or null for none. Absent: Loupe chooses, as for older configs.
    */
   outcome: z.string().nullable().optional(),
+  /** The date column chosen with "Dates by" (version 52.2); absent = Loupe's choice. */
+  primaryDate: z.string().optional(),
   kpiRenames: z.record(z.string(), z.string()).default({}),
   kpiTargets: z.record(z.string(), z.number()).default({}),
   dashboard: z.object({

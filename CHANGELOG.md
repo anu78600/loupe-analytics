@@ -5,6 +5,21 @@ Every step of building Loupe, newest first. Generated from `src/content/changelo
 - **MAJOR** (`x.0`): a new capability, subsystem or page.
 - **MINOR** (`x.y`): a refinement, fix or follow-up to that major version.
 
+## 53.0 · Your work is kept: projects that reopen as you left them
+
+*Major · 2026-10-25 16:10 UTC · Feature, Data*
+
+Until now a reload lost everything. Each file you open is now kept as a project in this browser, with its dashboard, and opens again as you left it, after a reload or on your next visit. Nothing is uploaded: the browser keeps it on your computer, and you can delete one project or all of them.
+
+- Reload the page and your dashboard comes back as it was: the same file, industry, mapping, KPIs, charts, filters, colours and step, in about two seconds.
+- Recent projects on the upload page lists what is kept, newest first, with its rows, size and when it was saved; open one, download it or delete it.
+- Download a project as a .loupe file (the file as you opened it and your settings) and open it on another computer by dropping it on the upload page.
+- Everything saves by itself a moment after each change; Loupe no longer asks before you leave, unless a change hasn't been saved yet.
+- Opening the same file or demo again uses its project rather than making a copy.
+- Settings › Projects turns this off on a shared computer and clears what is kept. The demos are kept by name only, so they take almost no space.
+
+Files: `src/ui/workspace/projects/db.ts`, `src/ui/workspace/projects/store.ts`, `src/ui/workspace/projects/ProjectKeeper.tsx`, `src/ui/workspace/projects/RecentProjects.tsx`, `src/store/config.ts`, `src/store/settings.ts`, `src/store/workspace.ts`, `src/engine/export/config.ts`, `src/ui/workspace/Workspace.tsx`, `src/ui/workspace/UploadStep.tsx`, `src/ui/workspace/SettingsSheet.tsx`, `src/ui/workspace/Shell.tsx`, `src/ui/workspace/ExportStep.tsx`, `tests/project-config.test.ts`
+
 ## 52.4 · Less to wade through: focus, fewer choices, clearer places (roadmap stage 2)
 
 *Minor · 2026-10-25 07:00 UTC · Design, Performance*

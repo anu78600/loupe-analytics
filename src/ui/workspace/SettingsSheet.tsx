@@ -31,6 +31,7 @@ import { ThemeToggle } from "@/ui/common/theme-toggle";
 import { Brief, InfoTip } from "@/ui/primitives/reveal";
 import { ChartColoursButton } from "./ChartColours";
 import { LearnedSettings } from "./LearnedSettings";
+import { clearAllProjects, useProjects } from "./projects/store";
 
 /** `version` comes from the server page, so the client bundle doesn't carry the whole version log. */
 export function SettingsSheet({
@@ -198,6 +199,8 @@ export function SettingsSheet({
             </p>
           </section>
           <Separator />
+          <ProjectsSetting />
+          <Separator />
           <LearnedSettings />
           <Separator />
           <section className="grid gap-3">
@@ -294,5 +297,44 @@ export function SettingsSheet({
         </div>
       </SheetContent>
     </Sheet>
+  );
+}
+
+/**
+ * "Projects" (version 53.0): whether each dataset and its dashboard are kept in this browser, so a reload
+ * or a later visit opens them again (ui/workspace/projects). Off on a shared computer; Clear all deletes
+ * what is kept.
+ */
+function ProjectsSetting() {
+  const keep = useSettings((s) => s.keepProjects);
+  const setKeep = useSettings((s) => s.setKeepProjects);
+  const count = useProjects((p) => p.list.length);
+  return (
+    <section className="grid gap-3">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <Eyebrow>Projects</Eyebrow>
+          <p className="mt-1 text-ui text-fg">Keep projects in this browser</p>
+        </div>
+        <Switch checked={keep} onCheckedChange={setKeep} aria-label="Keep projects in this browser" />
+      </div>
+      <p className="text-sm leading-relaxed text-fg-muted">
+        <Brief
+          label="About projects"
+          full="Each file you open is kept with its dashboard in this browser's own storage, so a reload or your next visit opens it again as you left it. Nothing is uploaded. Turn this off on a shared computer."
+        >
+          {keep ? "Your files and dashboards reopen after a reload." : "Nothing new is kept after a reload."}
+        </Brief>
+      </p>
+      {count ? (
+        <button
+          type="button"
+          onClick={() => void clearAllProjects()}
+          className="w-fit rounded-sm text-xs font-medium text-accent-text underline-offset-2 hover:underline focus-visible:focus-ring"
+        >
+          Clear {count === 1 ? "the kept project" : `all ${count} kept projects`}
+        </button>
+      ) : null}
+    </section>
   );
 }

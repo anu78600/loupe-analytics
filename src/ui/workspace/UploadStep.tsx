@@ -53,6 +53,8 @@ import { LoupeMark } from "@/ui/brand/logo";
 import { Brief, ClampText, InfoTip } from "@/ui/primitives/reveal";
 import { StepHeader } from "./flow/StepHeader";
 import { HOW_IT_WORKS, demoIcon } from "./flow/prepareWords";
+import { RecentProjects } from "./projects/RecentProjects";
+import { importProjectFile } from "./projects/store";
 
 /** What the reader handles by itself, behind the ⓘ on the formats line. */
 const FEATURES = [
@@ -63,7 +65,7 @@ const FEATURES = [
 ];
 
 /** Every extension the parser reads (engine/parse fileKindFromName). */
-const ACCEPT = ".csv,.tsv,.txt,.psv,.tab,.xlsx,.xlsm,.xlsb,.xls,.ods,.json,.ndjson,.jsonl";
+const ACCEPT = ".csv,.tsv,.txt,.psv,.tab,.xlsx,.xlsm,.xlsb,.xls,.ods,.json,.ndjson,.jsonl,.loupe";
 
 export function UploadStep() {
   const loading = useWorkspace((s) => s.loading);
@@ -100,6 +102,7 @@ export function UploadStep() {
                 />
                 {error ? <ErrorBanner message={error} /> : null}
                 <Dropzone />
+                <RecentProjects />
               </div>
               <DemoList />
             </div>
@@ -154,7 +157,9 @@ function Dropzone() {
       toast.message(`Opened ${f.name}`, {
         description: `Loupe reads one file at a time, so the other ${others === 1 ? "file was" : `${others} files were`} not opened.`,
       });
-    void loadFile(f);
+    // A .loupe file is a saved project: kept in this browser and opened as it was left.
+    if (/\.loupe$/i.test(f.name)) void importProjectFile(f);
+    else void loadFile(f);
   };
   return (
     <div

@@ -872,8 +872,9 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
       mappingOverrides: choices.mappingOverrides,
       classOverrides: choices.classOverrides,
       roleOverrides: choices.roleOverrides,
-      // A new file: Loupe chooses its outcome, and the reading is the one it came with.
+      // A new file: Loupe chooses its outcome and its date, and the reading is the one it came with.
       outcome: undefined,
+      primaryDate: null,
       understanding: res.understanding ?? null,
       understandingPending: false,
       outcomeChoices: outcomeChoicesOf(res.understanding),
@@ -1898,6 +1899,7 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
         roleOverrides: cfg.roleOverrides,
         // A config saved before the outcome could be chosen has none: Loupe chooses, as it did then.
         outcome: cfg.outcome,
+        primaryDate: cfg.primaryDate ?? null,
         kpiRenames: cfg.kpiRenames,
         kpiTargets: cfg.kpiTargets,
         hiddenColumns: cfg.hiddenColumns,

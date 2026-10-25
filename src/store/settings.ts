@@ -63,6 +63,11 @@ interface SettingsState {
    * without one; null = no symbol. Persisted. A file whose values or headers name a currency keep it.
    */
   defaultCurrency: string | null;
+  /**
+   * Keep each dataset and its dashboard as a project in this browser (version 53.0), so a reload or a
+   * later visit opens it again. On by default; off on a shared computer. Persisted.
+   */
+  keepProjects: boolean;
   newColumns: NewColumnsPolicy;
   ai: AiSettings;
   setTheme: (theme: ThemePreference) => void;
@@ -75,6 +80,7 @@ interface SettingsState {
   applyAutoNumberLocale: (currency: string) => void;
   setCurrencyOverride: (code: string | null) => void;
   setDefaultCurrency: (code: string | null) => void;
+  setKeepProjects: (on: boolean) => void;
   setNewColumns: (policy: NewColumnsPolicy) => void;
   setAi: (patch: Partial<AiSettings>) => void;
 }
@@ -122,6 +128,7 @@ export const useSettings = create<SettingsState>()(
       numberFormatAuto: true,
       currencyOverride: null,
       defaultCurrency: null,
+      keepProjects: true,
       newColumns: "ask",
       ai: { enabled: false, model: "claude-opus-5-5", apiKey: "" },
       setTheme: (theme) => {
@@ -140,6 +147,7 @@ export const useSettings = create<SettingsState>()(
       },
       setCurrencyOverride: (currencyOverride) => set({ currencyOverride }),
       setDefaultCurrency: (defaultCurrency) => set({ defaultCurrency }),
+      setKeepProjects: (keepProjects) => set({ keepProjects }),
       setNewColumns: (newColumns) => set({ newColumns }),
       setAi: (patch) => set((s) => ({ ai: { ...s.ai, ...patch } })),
     }),
@@ -155,6 +163,7 @@ export const useSettings = create<SettingsState>()(
         numberLocale: s.numberLocale,
         numberFormatAuto: s.numberFormatAuto,
         defaultCurrency: s.defaultCurrency,
+        keepProjects: s.keepProjects,
         newColumns: s.newColumns,
         ai: { enabled: false, model: s.ai.model, apiKey: "" },
       }),

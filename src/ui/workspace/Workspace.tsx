@@ -11,7 +11,10 @@
  * session when the number format or currency changes (worker-side text such
  * as chart descriptions and exports depends on them). Hosts the quick menu
  * (shell/QuickMenu.tsx) and the one "Ask for a chart" dialog it and the
- * dashboard open (AskChartHost).
+ * dashboard open (AskChartHost). Since version 53.0 it keeps the open dataset
+ * as a project in this browser (projects/ProjectKeeper), opens it again after
+ * a reload in this tab, and only asks before leaving when a change isn't
+ * saved yet.
  */
 import * as React from "react";
 import { AnimatePresence, motion } from "framer-motion";
@@ -38,6 +41,8 @@ import { ChartColoursSheet } from "./ChartColours";
 import { ConfirmHost } from "./confirm";
 import { QuickMenu } from "./shell/QuickMenu";
 import { AskChartHost } from "./dashboard/AskChart";
+import { ProjectKeeper } from "./projects/ProjectKeeper";
+import { OPEN_PROJECT_KEY, openProject, useProjects } from "./projects/store";
 
 export function Workspace({ version }: { version: string }) {
   const step = useWorkspace((s) => s.step);
@@ -71,7 +76,17 @@ export function Workspace({ version }: { version: string }) {
   React.useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const sample = params.get("sample");
-    if (!sample) return;
+    if (!sample) {
+      // A reload in this tab opens the project that was open (kept in this browser), as it was left.
+      let open: string | null = null;
+      try {
+        open = sessionStorage.getItem(OPEN_PROJECT_KEY);
+      } catch {
+        /* no sessionStorage: nothing to reopen */
+      }
+      if (open && useSettings.getState().keepProjects) void openProject(open);
+      return;
+    }
     window.history.replaceState(window.history.state, "", window.location.pathname);
     const step = params.get("step");
     const goTo = STEPS.find((s) => s.id === step)?.id;
@@ -82,8 +97,11 @@ export function Workspace({ version }: { version: string }) {
   // it, so the browser asks first while one is loaded. Not under automation (navigator.webdriver),
   // where nobody could answer and every scripted reload would stall.
   const hasData = useWorkspace((s) => Boolean(s.summary));
+  // A kept project with every change saved can be left without a word: it opens again as it was.
+  const kept = useProjects((p) => Boolean(p.currentId) && !p.dirty && !p.unavailable);
+  const keepOn = useSettings((s) => s.keepProjects);
   React.useEffect(() => {
-    if (!hasData || navigator.webdriver) return;
+    if (!hasData || navigator.webdriver || (kept && keepOn)) return;
     const warn = (e: BeforeUnloadEvent) => {
       e.preventDefault();
       // Older browsers ask only when returnValue is set.
@@ -91,7 +109,7 @@ export function Workspace({ version }: { version: string }) {
     };
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
-  }, [hasData]);
+  }, [hasData, kept, keepOn]);
 
   // Errors after the upload step surface as toasts (the upload step shows them inline).
   React.useEffect(() => {
@@ -191,6 +209,7 @@ export function Workspace({ version }: { version: string }) {
       <SettingsSheet open={settingsOpen} onOpenChange={setSettingsOpen} version={version} />
       <ChartColoursSheet />
       <AskChartHost />
+      <ProjectKeeper />
       <QuickMenu
         version={version}
         onOpenCommand={() => setCommandOpen(true)}

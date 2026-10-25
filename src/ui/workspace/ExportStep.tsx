@@ -61,10 +61,14 @@ import { formatBytes, formatCount, formatValue } from "@/engine/core/format";
 import { formatRange, formatDay } from "@/engine/core/dates";
 import { PRESET_LABEL } from "@/engine/core/periods";
 import { describeFilter } from "@/engine/query/filter";
-import { compareFingerprints, fingerprintOf, parseConfig, type LoupeConfig } from "@/engine/export/config";
+import { compareFingerprints, fingerprintOf, parseConfig } from "@/engine/export/config";
 import type { PackageManifest } from "@/engine/export/powerbi";
 import { UTF8_BOM } from "@/engine/export/csv";
 import { allSpecs, kpiLayoutOf, useWorkspace } from "@/store/workspace";
+import { buildConfig } from "@/store/config";
+
+// Kept where earlier code and tests read it from; it lives with the store since version 53.0.
+export { buildConfig };
 import { useSettings } from "@/store/settings";
 import { powerBiTheme, resolveTheme } from "@/ui/charts/palette/themes";
 import { engine } from "@/lib/engine-client";
@@ -217,57 +221,6 @@ function useReportInput(): () => ReportInput | null {
       fmt,
     };
   }, [fmt]);
-}
-
-export function buildConfig(): LoupeConfig | null {
-  const s = useWorkspace.getState();
-  const settings = useSettings.getState();
-  if (!s.summary || !s.profile || !s.domainId) return null;
-  return {
-    app: "loupe",
-    version: 1,
-    createdAt: new Date().toISOString(),
-    fingerprint: fingerprintOf(
-      s.summary.fileName,
-      s.summary.rowCount,
-      s.profile.columns.map((c) => ({ name: c.name, type: c.storage })),
-    ),
-    domainId: s.domainId,
-    subDomainId: s.subDomainId ?? undefined,
-    business: s.business,
-    mappingOverrides: s.mappingOverrides,
-    classOverrides: s.classOverrides,
-    roleOverrides: s.roleOverrides,
-    // Only a choice the user made: without it, Loupe chooses the outcome again when the config is applied.
-    ...(s.outcome !== undefined ? { outcome: s.outcome } : {}),
-    hiddenColumns: s.hiddenColumns,
-    customKpis: s.customKpis,
-    ...(s.kpiLayout ? { kpiLayout: s.kpiLayout } : {}),
-    kpiRenames: s.kpiRenames,
-    kpiTargets: s.kpiTargets,
-    dashboard: {
-      mode: s.mode,
-      view: s.dashView,
-      ...(s.pageTitle ? { pageTitle: s.pageTitle } : {}),
-      widgets: s.widgets.map((w) => ({
-        id: w.id,
-        kind: w.kind,
-        w: w.w,
-        h: w.h,
-        hidden: w.hidden,
-        ...(w.title ? { title: w.title } : {}),
-        topN: w.topN,
-      })),
-      customCharts: s.customCharts,
-      datePreset: s.datePreset,
-      filters: s.filters(),
-    },
-    settings: {
-      chartTheme: settings.chartTheme,
-      numberLocale: settings.numberLocale,
-      currency: settings.currencyOverride ?? s.context?.currency ?? "INR",
-    },
-  };
 }
 
 export function ExportStep() {

@@ -9,6 +9,7 @@
  * drops the dataset and everything set up for it.
  */
 import { useWorkspace, type Step } from "@/store/workspace";
+import { useSettings } from "@/store/settings";
 import { SAMPLES } from "@/engine/samples/catalog";
 import { askConfirm } from "./confirm";
 
@@ -59,7 +60,11 @@ export async function confirmStartOver(): Promise<void> {
     body: s.summary.isDemo
       ? "This closes the demo and everything you set up for it: the industry, mappings, KPIs, charts and questions."
       : `This clears ${s.summary.fileName} from memory with everything you set up for it: the industry, mappings, hidden columns, KPIs, charts and questions.`,
-    note: s.summary.isDemo ? undefined : "Your file itself stays on your computer.",
+    note: useSettings.getState().keepProjects
+      ? "It stays in Recent projects on the upload page, so you can open it again as it is."
+      : s.summary.isDemo
+        ? undefined
+        : "Your file itself stays on your computer.",
     confirmLabel: "Start over",
     cancelLabel: "Keep working",
     tone: "danger",
