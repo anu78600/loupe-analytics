@@ -14,6 +14,7 @@ import { ingestJson } from "./json";
 import { MAX_MODEL_SHEETS } from "./limits";
 import { joinSheets, modelReport, relateSheets, type SheetTable } from "./relate";
 import { binaryKind, binaryMessage } from "./sniff";
+import { withoutTraps } from "./traps";
 
 export type { IngestOutcome, IngestProgress } from "./csv";
 export { listSheets };
@@ -66,6 +67,17 @@ export function fileKindFromName(name: string): DetectedFileKind | null {
  * "{" or "[" means JSON, and anything else is treated as delimited text.
  */
 export async function ingestFile(
+  file: Blob,
+  fileName: string,
+  opts: IngestOptions,
+  onProgress?: (p: IngestProgress) => void,
+): Promise<IngestOutcome> {
+  // Placeholder numbers and subtotal rows are cleared before anything reads the table (parse/traps.ts).
+  const out = await readFile(file, fileName, opts, onProgress);
+  return out.status === "ok" ? { status: "ok", ...withoutTraps(out.dataset, out.report) } : out;
+}
+
+async function readFile(
   file: Blob,
   fileName: string,
   opts: IngestOptions,

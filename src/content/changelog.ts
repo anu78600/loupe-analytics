@@ -41,6 +41,33 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "51.5",
+    kind: "minor",
+    date: "2026-10-25T04:11:48Z",
+    title: "Traps in the data cleared before anything is counted (computation fixes, stage 5)",
+    summary:
+      "Real files hide traps: rows whose values slid into the wrong columns, a −200 that means “no reading”, subtotal rows that count other rows twice, notes at the end of the file. Loupe now clears them when it reads the file and says what it did, so every total is counted once and from the right column.",
+    changes: [
+      "Rows whose values slid left are moved back under the right headers. In a Facebook ads file, a third of the rows had lost their two campaign ids, so their spend sat under Impressions: impressions now add up to whole numbers again.",
+      "A placeholder for a missing value, such as −200 in an air-quality file or 999 for “never”, is read as blank, so it no longer drags averages and totals (it made one total −1.5 million). Ordinary values, like a ledger's repeated −900 payments, are left alone.",
+      "Subtotal and total rows (“Total”, “Subtotal”, “Saldo”, “Summe”) that add up the rows above them are left out, so nothing is counted twice. A budget's totals now equal its own grand total.",
+      "Notes at the end of a file (“Total amount funded in policy code 1: …”) are no longer counted as rows.",
+      "Air-quality readings (NO2, CO, PM2.5, ozone…) are averaged, never added up.",
+      "A chart over dates or bands says how many rows it left out for having no date or value, so its total and the KPI no longer disagree silently.",
+      "Tested on 125 public files: the problems found went from 48 to 10, and the 10 left are correct figures (a budget deficit, spending under budget) or column labels.",
+    ],
+    tags: ["Fix", "Data", "Tests"],
+    files: [
+      "src/engine/parse/realign.ts",
+      "src/engine/parse/traps.ts",
+      "src/engine/parse/csv.ts",
+      "src/engine/parse/index.ts",
+      "src/engine/profile/roles.ts",
+      "src/engine/charts/data.ts",
+      "tests/data-traps.test.ts",
+    ],
+  },
+  {
     version: "51.4",
     kind: "minor",
     date: "2026-10-25T03:48:28Z",

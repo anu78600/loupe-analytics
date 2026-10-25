@@ -570,6 +570,16 @@ function chartDataFor(input: ChartDataInput, out: { info?: HeadlineTraits["group
   // Six slices plus Others would be seven: show the top five and a recomputed Others instead.
   if (donut && q.groups.length > MAX_DONUT_SLICES) q = query(MAX_DONUT_SLICES - 1);
   let groups: ResultGroup[] = q.groups;
+  // Rows with nothing on a date, band or date-part axis fall out of every group, so the chart adds up to
+  // less than the KPI over the same rows (version 51.5): the note says how many were left out.
+  if (x.kind === "time" || x.kind === "part" || x.kind === "bins") {
+    const left = q.totalRows - q.groups.reduce((a, g) => a + g.rows, 0);
+    const what = x.kind === "bins" ? x.label.replace(/\s+band$/i, "") : x.column;
+    if (left > 0)
+      notes.push(
+        `${formatCount(left, fmt.locale)} row${left === 1 ? "" : "s"} with no ${what} ${left === 1 ? "is" : "are"} left out of this chart.`,
+      );
+  }
   // Without topN, runQuery keeps first-seen order: sort by the first measure here.
   if (categorical && !topN)
     groups = [...groups].sort((a, b) => desc(finite(a.values[0]), finite(b.values[0])));

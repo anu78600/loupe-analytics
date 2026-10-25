@@ -25,6 +25,7 @@ import {
   type Accumulator,
   type ColumnPlan,
 } from "./builder";
+import { makeRealigner } from "./realign";
 import { FIRST_ROWS_LIMIT, LARGE_BYTE_LIMIT, LARGE_ROW_LIMIT } from "./limits";
 import {
   binaryKind,
@@ -173,7 +174,12 @@ export async function ingestDelimited(
     ? cleanHeaders(rawHeaders)
     : cleanHeaders(Array.from({ length: width }, (_, j) => `Column ${j + 1}`));
   const firstDataIndex = header.hasHeader ? header.headerIndex + 1 : header.headerIndex;
-  const sampleRows = sniffRows.slice(firstDataIndex, firstDataIndex + 5000);
+  // Rows whose values slid left (empty fields dropped, the row ending in empty ones) are moved back under
+  // their headers before anything is typed (parse/realign.ts).
+  const realign = makeRealigner(sniffRows.slice(firstDataIndex, firstDataIndex + 5000), width);
+  const sampleRows = sniffRows
+    .slice(firstDataIndex, firstDataIndex + 5000)
+    .map((r) => (realign ? (realign(r) ?? r) : r));
 
   // 2. Large-file assessment before committing memory.
   // Rows are extrapolated from the rows per byte of the sniffed text, measured in the file's own encoding
@@ -234,6 +240,8 @@ export async function ingestDelimited(
   let dataRow = -1;
   let kept = 0;
   let ragged = 0;
+  let moved = 0;
+  const movedColumns = new Set<string>();
   let parseErrors = 0;
   let stop = false;
   let bytesRead = 0;
@@ -258,10 +266,16 @@ export async function ingestDelimited(
             parser.abort();
             return;
           }
-          if (row.length !== width) ragged++;
+          const fixed = realign ? realign(row) : null;
+          if (fixed) {
+            moved++;
+            // The empty fields put back: blank in the fixed row, filled at that place in the row as read.
+            for (let j = 0; j < width; j++) if (!fixed[j] && row[j]) movedColumns.add(names[j] as string);
+          } else if (row.length !== width) ragged++;
+          const cells = fixed ?? row;
           for (let j = 0; j < width; j++) {
             const acc = accs[j];
-            if (acc) acc.push(row[j] ?? null);
+            if (acc) acc.push(cells[j] ?? null);
           }
           kept++;
         }
@@ -318,6 +332,12 @@ export async function ingestDelimited(
     columns.push(fin.column);
     if (fin.dateDecision) dateFormats.push(fin.dateDecision);
     if (fin.note) columnNotes.push(fin.note);
+  }
+  if (moved > 0) {
+    const cols = [...movedColumns];
+    warnings.push(
+      `${moved.toLocaleString("en-US")} ${moved === 1 ? "row was" : "rows were"} missing ${cols.length ? cols.slice(0, 3).join(", ") + (cols.length > 3 ? ", …" : "") : "some fields"}, so ${moved === 1 ? "its" : "their"} values had moved left; they were moved back under the right headers, with the missing fields left blank.`,
+    );
   }
   if (ragged > 0)
     warnings.push(

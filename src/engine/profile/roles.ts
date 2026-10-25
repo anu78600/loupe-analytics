@@ -585,6 +585,15 @@ const MEASUREMENT_TOKENS = new Set([
   "level",
   "reading",
 ]);
+/**
+ * A pollutant or air-quality reading by its formula or name: NO2, NOx, SO2, O3,
+ * NMHC, C6H6, PM2.5, PM10, ozone, benzene, AQI, and CO only as a formula in
+ * brackets or before one ("PT08.S1(CO)", "CO(GT)"). A sensor logs a reading
+ * per row: the UCI air-quality file's hourly NMHC was added up into a "total"
+ * (version 51.5).
+ */
+const POLLUTANT =
+  /(?:^|[^a-z0-9])(?:no2|nox|so2|o3|nmhc|c6h6|pm\s?2[.,_]?5|pm10|h2s|nh3|ozone|benzene|aqi)(?:[^a-z0-9]|$)|\(co\)|^co\s*\(/i;
 /** "pH" as a word of the raw name ("pH", "soil_pH", "PH Level"); its values must also lie within 0–14. */
 const PH_WORD = /(?:^|[^a-z])ph(?:[^a-z]|$)/i;
 /**
@@ -1660,9 +1669,12 @@ function numericRole(x: RoleInput): RoleDecision {
   }
 
   // A concentration, level or reading by name or unit ("Residual sugar", "pH", "Chlorides (g/L)",
-  // "Temperature (°C)"): each row's own reading, averaged, never summed.
+  // "Temperature (°C)", "NO2(GT)"): each row's own reading, averaged, never summed.
   const ph = PH_WORD.test(x.name) && s !== undefined && min >= 0 && max <= 14;
-  if (!amountNamed && (has(t, MEASUREMENT_TOKENS) || ph || MEASUREMENT_UNIT.test(x.name))) {
+  if (
+    !amountNamed &&
+    (has(t, MEASUREMENT_TOKENS) || ph || MEASUREMENT_UNIT.test(x.name) || POLLUTANT.test(x.name))
+  ) {
     return decide("measure", 0.8, MEASUREMENT_REASON, { additivity: "non-additive" });
   }
 
