@@ -312,10 +312,15 @@ export async function exportInsightsPdf(
     const basis = firstWith === undefined ? `Basis: ${ins.basis}` : `Basis: as for insight ${firstWith}.`;
     const see = chart && earlier !== undefined ? `Chart: Figure ${earlier} above (${chart.spec.title}).` : "";
     const notes = png && chart ? chart.data.notes.map((n) => `Note: ${n}`) : [];
+    // The finding as bullets, then in plain words, then the analyst's sentence (version 54.0).
+    const bullets = ins.points.map((p) => `•  ${p}`);
+    const detail = `Detail: ${ins.body}`;
     const height =
       doc.measureHeading(title, 3) +
       doc.measureParagraph(kind, { size: 8, after: 1 }) +
-      doc.measureParagraph(ins.body, { after: 1.5 }) +
+      bullets.reduce((h, b) => h + doc.measureParagraph(b, { after: 0.5 }), 0) +
+      doc.measureParagraph(ins.plain, { after: 1.5 }) +
+      doc.measureParagraph(detail, { size: 8.5, after: 1 }) +
       doc.measureParagraph(basis, { size: 8.5 }) +
       (see ? doc.measureParagraph(see, { size: 8.5 }) : 0) +
       (png ? doc.measureFigure(caption, FIGURE_W / FIGURE_H) : 0) +
@@ -324,7 +329,9 @@ export async function exportInsightsPdf(
     if (!doc.keep(height + (i ? 4 : 0)) && i) doc.divider();
     doc.heading(title, 3);
     doc.paragraph(kind, { tone: "subtle", size: 8, after: 1 });
-    doc.paragraph(ins.body, { after: 1.5 });
+    for (const b of bullets) doc.paragraph(b, { after: 0.5 });
+    doc.paragraph(ins.plain, { after: 1.5 });
+    doc.paragraph(detail, { tone: "muted", size: 8.5, after: 1 });
     doc.paragraph(basis, { tone: "muted", size: 8.5 });
     if (see) doc.paragraph(see, { tone: "subtle", size: 8.5 });
     if (png && chart && ins.chartId) {

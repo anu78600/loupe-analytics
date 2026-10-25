@@ -68,6 +68,11 @@ interface SettingsState {
    * later visit opens it again. On by default; off on a shared computer. Persisted.
    */
   keepProjects: boolean;
+  /**
+   * For analysts (version 54.0): hovering or focusing an insight shows the chart it describes beside it.
+   * Off by default. Persisted.
+   */
+  insightChartOnHover: boolean;
   newColumns: NewColumnsPolicy;
   ai: AiSettings;
   setTheme: (theme: ThemePreference) => void;
@@ -81,6 +86,7 @@ interface SettingsState {
   setCurrencyOverride: (code: string | null) => void;
   setDefaultCurrency: (code: string | null) => void;
   setKeepProjects: (on: boolean) => void;
+  setInsightChartOnHover: (on: boolean) => void;
   setNewColumns: (policy: NewColumnsPolicy) => void;
   setAi: (patch: Partial<AiSettings>) => void;
 }
@@ -129,6 +135,7 @@ export const useSettings = create<SettingsState>()(
       currencyOverride: null,
       defaultCurrency: null,
       keepProjects: true,
+      insightChartOnHover: false,
       newColumns: "ask",
       ai: { enabled: false, model: "claude-opus-5-5", apiKey: "" },
       setTheme: (theme) => {
@@ -148,6 +155,7 @@ export const useSettings = create<SettingsState>()(
       setCurrencyOverride: (currencyOverride) => set({ currencyOverride }),
       setDefaultCurrency: (defaultCurrency) => set({ defaultCurrency }),
       setKeepProjects: (keepProjects) => set({ keepProjects }),
+      setInsightChartOnHover: (insightChartOnHover) => set({ insightChartOnHover }),
       setNewColumns: (newColumns) => set({ newColumns }),
       setAi: (patch) => set((s) => ({ ai: { ...s.ai, ...patch } })),
     }),
@@ -164,6 +172,7 @@ export const useSettings = create<SettingsState>()(
         numberFormatAuto: s.numberFormatAuto,
         defaultCurrency: s.defaultCurrency,
         keepProjects: s.keepProjects,
+        insightChartOnHover: s.insightChartOnHover,
         newColumns: s.newColumns,
         ai: { enabled: false, model: s.ai.model, apiKey: "" },
       }),

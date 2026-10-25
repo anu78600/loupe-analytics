@@ -137,18 +137,18 @@ export function PageInsights({
                       </ClampText>
                       {/* Clamped at four lines rather than ClampText's two (tailwind-merge keeps the last). */}
                       <ClampText
-                        key={ins.body}
+                        key={ins.plain}
                         lines={2}
                         className="mt-0.5 line-clamp-4 text-xs text-fg-muted"
                       >
-                        {firstSentence(ins.body)}
+                        {firstSentence(ins.plain)}
                       </ClampText>
                     </>
                   ) : (
                     <>
                       <p className="truncate text-ui font-medium text-fg">{ins.title}</p>
                       <PrintClamp
-                        text={firstSentence(ins.body)}
+                        text={firstSentence(ins.plain)}
                         lines={4}
                         className="mt-0.5 text-xs text-fg-muted"
                       />

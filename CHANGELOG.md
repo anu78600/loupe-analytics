@@ -5,6 +5,21 @@ Every step of building Loupe, newest first. Generated from `src/content/changelo
 - **MAJOR** (`x.0`): a new capability, subsystem or page.
 - **MINOR** (`x.y`): a refinement, fix or follow-up to that major version.
 
+## 54.0 · Insights anyone can read, with the chart on hover for analysts
+
+*Major · 2026-10-25 16:26 UTC · Feature, Design*
+
+Insights read like an analyst's notes, dense and technical. Each one now comes as a few short bullet points, then in plain words with its numbers, and says whether it is good news; the technical detail is one click away for analysts, who can also switch on the chart behind each insight when they hover it.
+
+- Each insight shows its finding as short bullet points, one fact and its figure each (“Highest: COD, 16.3%”, “Lowest: Wallet, 1.9%”, “Gap: 14.4 pp”).
+- “In plain words” says it simply, with the numbers: “Net revenue went up by 40.5%: from ₹2.23Cr to ₹3.13Cr. That is good news.” No medians, ratios or statistics.
+- The full technical finding, its impact, its confidence and how it was found sit under “For analysts”, one click away.
+- Chart on hover, for analysts: switch it on beside the insight tabs (or in Settings) and hovering an insight opens the chart it describes beside it. It is off by default.
+- The dashboard's insights, the one-page download and the insights PDF use the plain words and the bullets too.
+- Every bullet and plain sentence is built from the same figures as the insight itself: nothing new is estimated.
+
+Files: `src/engine/insights/insights.ts`, `src/ui/workspace/analyse/InsightPeek.tsx`, `src/ui/workspace/analyse/InsightChart.tsx`, `src/ui/workspace/analyse/InsightDetail.tsx`, `src/ui/workspace/analyse/InsightFeed.tsx`, `src/ui/workspace/InsightsStep.tsx`, `src/ui/workspace/SettingsSheet.tsx`, `src/store/settings.ts`, `src/ui/workspace/dashboard/DashboardInsights.tsx`, `src/ui/workspace/dashboard/page/PageInsights.tsx`, `src/ui/workspace/export/documents.ts`, `tests/insight-words.test.ts`
+
 ## 53.0 · Your work is kept: projects that reopen as you left them
 
 *Major · 2026-10-25 16:10 UTC · Feature, Data*

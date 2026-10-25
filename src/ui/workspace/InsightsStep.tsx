@@ -44,6 +44,8 @@ import { StepHeader } from "./flow/StepHeader";
 import { FeedSkeleton, InsightCard, KIND } from "./analyse/InsightFeed";
 import { DetailSkeleton, InsightDetail } from "./analyse/InsightDetail";
 import { kindTabs, moveSelection, rankedFeed } from "./analyse/feed";
+import { Switch } from "@/ui/primitives/switch";
+import { InfoTip } from "@/ui/primitives/reveal";
 
 /** The selected period in words: "the last 12 months (1 Oct 2025 – 30 Sep 2026)", "all your data". */
 function periodWords(
@@ -212,20 +214,24 @@ export function InsightsStep() {
         <>
           {aiEnabled && !updating ? <AiSummary insights={all} /> : null}
           <Tabs value={activeKind} onValueChange={(v) => setKind(v as InsightKind | "all")}>
-            {/* A quiet row of the kinds found, each with its count; it scrolls sideways when it can't fit. */}
-            {tabs.length > 2 ? (
-              <TabsList
-                aria-label="Insight type"
-                className="mb-5 flex w-full [scrollbar-width:none] overflow-x-auto max-sm:-mx-4 max-sm:w-[calc(100%+2rem)] max-sm:[mask-image:linear-gradient(to_right,var(--bg)_calc(100%-2.5rem),transparent)] max-sm:px-4"
-              >
-                {tabs.map((t) => (
-                  <TabsTrigger key={t.kind} value={t.kind} className="shrink-0">
-                    {t.kind === "all" ? "All" : KIND[t.kind].label}
-                    <span className="tabular text-xs font-normal text-fg-subtle">{t.count}</span>
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-            ) : null}
+            {/* A quiet row of the kinds found, each with its count; it scrolls sideways when it can't fit. The
+                analyst's switch for the chart on hover sits at its end (version 54.0). */}
+            <div className="mb-5 flex min-w-0 flex-wrap items-end justify-between gap-x-4 gap-y-2">
+              {tabs.length > 2 ? (
+                <TabsList
+                  aria-label="Insight type"
+                  className="flex min-w-0 flex-1 [scrollbar-width:none] overflow-x-auto max-sm:-mx-4 max-sm:w-[calc(100%+2rem)] max-sm:[mask-image:linear-gradient(to_right,var(--bg)_calc(100%-2.5rem),transparent)] max-sm:px-4"
+                >
+                  {tabs.map((t) => (
+                    <TabsTrigger key={t.kind} value={t.kind} className="shrink-0">
+                      {t.kind === "all" ? "All" : KIND[t.kind].label}
+                      <span className="tabular text-xs font-normal text-fg-subtle">{t.count}</span>
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+              ) : null}
+              <ChartOnHoverSwitch />
+            </div>
             <TabsContent value={activeKind} tabIndex={-1}>
               {updating ? (
                 <p className="mb-3 flex items-center gap-2 text-xs text-fg-muted">
@@ -299,5 +305,24 @@ function EmptyState({
       </p>
       {actions ? <div className="mt-5 flex flex-wrap justify-center gap-2">{actions}</div> : null}
     </div>
+  );
+}
+
+/**
+ * "Chart on hover" (version 54.0): for analysts, hovering or focusing an insight shows the chart it
+ * describes beside it (analyse/InsightPeek.tsx). Off by default; the same switch is in Settings.
+ */
+function ChartOnHoverSwitch() {
+  const on = useSettings((s) => s.insightChartOnHover);
+  const setOn = useSettings((s) => s.setInsightChartOnHover);
+  return (
+    <label className="flex shrink-0 items-center gap-2 pb-2 text-ui text-fg-muted">
+      <Switch checked={on} onCheckedChange={setOn} />
+      Chart on hover
+      <InfoTip label="About the chart on hover">
+        For analysts: hover or focus an insight to see the chart it describes beside it, to check its figures
+        against the picture.
+      </InfoTip>
+    </label>
   );
 }

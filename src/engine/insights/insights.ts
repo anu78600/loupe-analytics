@@ -123,6 +123,16 @@ export interface Insight {
   chartId?: string;
   /** How the numbers were derived, in one sentence. */
   basis: string;
+  /**
+   * The finding as 2-5 short bullet points (MAX_POINTS), each one fact with its figure ("Electronics: 30.9%",
+   * "Gap: 22.0 pp"), for a reader who scans (version 54.0). Same figures as the body, never new ones.
+   */
+  points: string[];
+  /**
+   * The finding in everyday words with its numbers, one or two sentences, without analyst terms
+   * (no medians, ratios or p-values): what happened, by how much, and whether it is good news.
+   */
+  plain: string;
 }
 
 export interface InsightKpi {
@@ -225,6 +235,18 @@ function toneFor(direction: InsightKpi["direction"], change: number): Insight["t
 
 /** "an 85.8 pp gap", "a 5.2 pp gap". */
 const gapText = (pp: string) => `${article(pp)} ${pp} gap`;
+
+/**
+ * A plain verdict on a change by the KPI's direction (version 54.0): good news when it moved the way that
+ * is better, worth a look when it moved the other way, nothing for a KPI that is read in context.
+ */
+/** Insight.points never run longer than this, so they can be scanned. */
+const MAX_POINTS = 5;
+
+function verdict(k: Pick<InsightKpi, "direction">, change: number): string {
+  if (k.direction === "neutral" || change === 0) return "";
+  return change > 0 === (k.direction === "higher") ? " That is good news." : " That is worth a look.";
+}
 
 function chartFor(specs: ChartSpec[], predicate: (s: ChartSpec) => boolean): string | undefined {
   return specs.find(predicate)?.id;
@@ -610,6 +632,9 @@ interface TrendFinding {
   title: string;
   /** Body sentences in order; folding appends the co-moving totals. */
   sentences: string[];
+  /** Insight.points and Insight.plain; folding adds the co-moving totals to the points. */
+  points: string[];
+  plain: string;
   basis: string;
 }
 
@@ -699,6 +724,13 @@ function periodTrends(
       change,
       certainty: certaintyOf(t),
       title: `${k.name} ${change > 0 ? "up" : "down"} ${unsigned(text)} vs ${against}${daily ? " (per day)" : ""}`,
+      points: [
+        `${curInfo.label}: ${fa}${daily ? " a day" : ""}`,
+        `${batch.comparison?.label}: ${fb}${daily ? " a day" : ""}`,
+        `Change: ${text}`,
+        ...(t && t.n >= MIN_SIGN_TEST ? [`Held in ${t.agree} of ${t.n} ${t.unit}s`] : []),
+      ],
+      plain: `${k.name} went ${change > 0 ? "up" : "down"} by ${unsigned(text)}: from ${fb} to ${fa}${daily ? " a day" : ""}.${verdict(k, change)}`,
       sentences: [
         daily
           ? `${k.name} averaged ${fa} a day in ${curInfo.label}, ${text} vs ${fb} a day in ${batch.comparison?.label}; the data covers ${Math.round(curDays)} and ${Math.round(cmpDays)} days of the two periods.`
@@ -815,6 +847,18 @@ function monthTrends(
       title: yoy
         ? `${k.name} ${change > 0 ? "up" : "down"} ${unsigned(text)} year on year in ${lastLabel}`
         : `${k.name} ${change > 0 ? "up" : "down"} ${unsigned(text)} in ${lastLabel} vs ${baseLabel}`,
+      points: [
+        `${lastLabel}: ${fLast}`,
+        `${baseLabel}: ${fBase}`,
+        `Change: ${text}`,
+        ...(slope
+          ? [
+              `Trend over ${window.length} months: ${slope.perMonth > 0 ? "up" : "down"} about ${unsigned(formatDelta(slope.perMonth, fmt.locale))} a month`,
+            ]
+          : []),
+        ...(test && test.n >= MIN_SIGN_TEST ? [`Held in ${test.agree} of ${test.n} months`] : []),
+      ],
+      plain: `${k.name} went ${change > 0 ? "up" : "down"} by ${unsigned(text)}: from ${fBase} in ${baseLabel} to ${fLast} in ${lastLabel}.${verdict(k, change)}`,
       sentences: [
         `${k.name} ${wasWere(k.name)} ${fLast} in ${lastLabel}, ${text} vs ${baseLabel} (${fBase}).`,
         consistencyText(test, change > 0),
@@ -846,6 +890,7 @@ function foldCoMovers(input: InsightInput, findings: TrendFinding[]): TrendFindi
   const more = movers.length - named.length;
   if (more) named.push(`${more} other ${more > 1 ? "totals" : "total"}`);
   anchor.sentences.push(`${joinAnd(named)} moved the same way.`);
+  if (anchor.points.length < MAX_POINTS) anchor.points.push(`Moved the same way: ${joinAnd(named)}`);
   return findings.filter((f) => !movers.includes(f));
 }
 
@@ -881,6 +926,8 @@ function trendInsights(input: InsightInput): Insight[] {
     kind: "trend" as const,
     title: f.title,
     body: f.sentences.filter(Boolean).join(" "),
+    points: f.points,
+    plain: f.plain,
     tone: toneFor(f.k.direction, f.change),
     impact: impactScore(
       f.secondary ? RELEVANCE.momentum : f.k.id === lead ? RELEVANCE.headline : RELEVANCE.trend,
@@ -950,6 +997,14 @@ function anomalyInsights(input: InsightInput): Insight[] {
       id: `anomaly-${k.id}-${a.t}`,
       kind: "anomaly" as const,
       title: `Unusual ${spike ? "spike" : "dip"} in ${k.name} on ${formatDay(a.t)}`,
+      points: [
+        `${formatDay(a.t)}: ${fDay}`,
+        `A typical day: ${fMedian}`,
+        spike ? `${ratio.toFixed(1)}× the usual` : `${Math.round((1 - ratio) * 100)}% below the usual`,
+      ],
+      plain: spike
+        ? `On ${formatDay(a.t)}, ${inSentence(k.name)} was ${fDay}, about ${ratio.toFixed(1)} times a normal day (${fMedian}). Check what happened that day.`
+        : `On ${formatDay(a.t)}, ${inSentence(k.name)} was ${fDay}, ${Math.round((1 - ratio) * 100)}% below a normal day (${fMedian}). Check what happened that day.`,
       body: `${k.name} ${wasWere(k.name)} ${fDay} on ${formatDay(a.t)}, ${spike ? `${ratio.toFixed(1)}× the typical day` : `${Math.round((1 - ratio) * 100)}% below a typical day`} (28-day median ${fMedian}). ${spike ? "Check what happened that day: a one-off event, a bulk entry or a data error." : "Check what happened that day: an interruption, a one-off event or missing data."}`,
       tone: spike ? ("neutral" as const) : ("warning" as const),
       impact: impactScore(RELEVANCE.anomaly, weight(k), strength(Math.abs(a.z), 8), "medium"),
@@ -1005,6 +1060,15 @@ function concentrationInsights(input: InsightInput): Insight[] {
       id: `concentration-${concentration.column}`,
       kind: "concentration",
       title: `Top 20% of ${pluralOf(label)} drive ${Math.round(topShare * 100)}% of ${k.name}`,
+      points: [
+        `Top ${count(topCount)} of ${count(n)} ${pluralOf(label)}: ${(topShare * 100).toFixed(0)}% of ${k.name}`,
+        `${count(forEighty)} ${pluralOf(label)} make up 80%`,
+        `The largest one: ${(top1 * 100).toFixed(1)}%`,
+      ],
+      plain:
+        topShare >= 0.7
+          ? `Most of ${inSentence(k.name)} comes from a few ${pluralOf(label)}: the top ${count(topCount)} of ${count(n)} bring ${(topShare * 100).toFixed(0)}%. If one of them slips, the total feels it.`
+          : `${k.name} is spread out: the top ${count(topCount)} of ${count(n)} ${pluralOf(label)} bring ${(topShare * 100).toFixed(0)}%, so no single one carries the total.`,
       body: `${count(topCount)} of ${count(n)} ${pluralOf(label)} account for ${(topShare * 100).toFixed(0)}% of ${k.name}; ${count(forEighty)} ${pluralOf(label)} make up 80%. The single largest contributes ${(top1 * 100).toFixed(1)}%.${topShare >= 0.7 ? ` High concentration means a problem with a few of them hits ${k.name} hard.` : " It is reasonably spread, which limits dependence on any one item."}`,
       tone: topShare >= 0.7 ? "warning" : "neutral",
       impact: impactScore(RELEVANCE.concentration, weight(k), strength(topShare - 0.2, 0.4), "high"),
@@ -1076,6 +1140,12 @@ function seasonalityInsights(input: InsightInput): Insight[] {
         id: `seasonality-dow-${k.id}`,
         kind: "seasonality",
         title: `${maxDay} is the strongest day for ${k.name}`,
+        points: [
+          `Best day: ${maxDay}, ${f(max.v)} on average`,
+          `Quietest day: ${minDay}, ${f(min.v)}`,
+          `${maxDay} is ${Math.round(gap * 100)}% higher`,
+        ],
+        plain: `${maxDay}s bring about ${Math.round(gap * 100)}% more ${inSentence(k.name)} than ${minDay}s (${f(max.v)} against ${f(min.v)} a day on average). Plan staff and stock around it.`,
         body: `An average ${maxDay} brings ${Math.round(gap * 100)}% more ${inSentence(k.name)} than an average ${minDay}.${idleText} Plan capacity and timing around this weekly rhythm.`,
         tone: "neutral",
         impact: impactScore(
@@ -1114,6 +1184,12 @@ function seasonalityInsights(input: InsightInput): Insight[] {
           id: `seasonality-month-${k.id}`,
           kind: "seasonality",
           title: `${name} runs ${Math.round(lift * 100)}% above an average month`,
+          points: [
+            `Peak month: ${name}`,
+            `${Math.round(lift * 100)}% above an average month`,
+            "Repeats across the years in the data",
+          ],
+          plain: `${name} is usually the busiest month: about ${Math.round(lift * 100)}% more ${inSentence(k.name)} a day than an average month.`,
           body: `Across the years in the data, ${name} averages ${Math.round(lift * 100)}% more ${inSentence(k.name)} per day than the yearly mean, a recurring peak worth planning for.`,
           tone: "neutral",
           impact: impactScore(RELEVANCE.seasonality, weight(k), strength(lift, 0.4), "medium"),
@@ -1173,7 +1249,7 @@ function segmentInsights(input: InsightInput): Insight[] {
   };
   const out: Insight[] = [];
   /** The two segments each insight compares, and its sentence for a merged pair. */
-  const pairs = new Map<string, { column: string; a: string; b: string; also: string }>();
+  const pairs = new Map<string, { column: string; a: string; b: string; also: string; point: string }>();
   for (const seg of segments.slice(0, 6)) {
     const ks = rateKpis.filter(
       (k) =>
@@ -1229,11 +1305,23 @@ function segmentInsights(input: InsightInput): Insight[] {
         a: hi.label,
         b: lo.label,
         also: `${k.name} runs from ${between} as well.`,
+        point: `${k.name} too: ${between}`,
       });
       out.push({
         id,
         kind: "segment",
         title: `${k.name}: ${hi.label} ${Number.isFinite(ratio) && ratio < 50 ? `${ratio.toFixed(1)}×` : "far above"} ${lo.label}`,
+        points: [
+          `Highest: ${hi.label}, ${fHi}`,
+          `Lowest: ${lo.label}, ${fLo}`,
+          pct
+            ? `Gap: ${formatPointDelta(shownGap, fmt.locale).replace(/^\+/, "")}`
+            : Number.isFinite(ratio) && ratio < 50
+              ? `${hi.label} is ${ratio.toFixed(1)}× ${lo.label}`
+              : `${hi.label} is far above ${lo.label}`,
+          ...(k.direction !== "neutral" ? [`Look first at: ${worse.label}`] : []),
+        ],
+        plain: `${k.name} is ${fHi} for ${hi.label} but only ${fLo} for ${lo.label}.${k.direction !== "neutral" ? ` ${worse.label} is where to look first.` : ""}`,
         body: `Across ${segmentsWord(seg.label)}, ${inSentence(k.name)} ranges from ${between}${pct ? `, ${gapText(formatPointDelta(shownGap, fmt.locale).replace(/^\+/, ""))}` : ""}.${k.direction !== "neutral" ? ` ${worse.label} is the segment to look at first.` : ""}`,
         tone: k.direction === "neutral" ? "neutral" : "warning",
         impact: impactScore(RELEVANCE.segment, weight(k), gapStrength * reach, confidence),
@@ -1262,6 +1350,8 @@ function segmentInsights(input: InsightInput): Insight[] {
     const lead = byPair.get(key);
     if (lead && p) {
       lead.body = `${lead.body} ${p.also}`;
+      // Bullets stay few enough to scan: the sentence names every KPI, the points at most five.
+      if (lead.points.length < MAX_POINTS) lead.points.push(p.point);
       continue;
     }
     byPair.set(key, i);
@@ -1326,6 +1416,12 @@ function driverInsights(input: InsightInput): Insight[] {
       id: `driver-${spec.id}`,
       kind: "driver",
       title: `${m.label} ${gap > 0 ? "rises" : "falls"} with ${spec.x.label.toLowerCase()}`,
+      points: [
+        `${first.c.label}: ${f(first.v)}`,
+        `${last.c.label}: ${f(last.v)}`,
+        `Change: ${formatPointDelta(gap, fmt.locale)} across ${pts.length} bands`,
+      ],
+      plain: `As ${spec.x.label.toLowerCase()} goes up, ${inSentence(m.label)} goes ${gap > 0 ? "up" : "down"}: from ${f(first.v)} to ${f(last.v)}. It is a link, not proof of cause.`,
       body: `${m.label} moves from ${f(first.v)} at ${first.c.label} to ${f(last.v)} at ${last.c.label} (${formatPointDelta(gap, fmt.locale)}), consistently across ${pts.length} bands. This is a correlation; test before treating it as cause.`,
       tone: gap > 0 === (m.direction === "lower") ? "warning" : "neutral",
       impact: impactScore(
@@ -1440,6 +1536,13 @@ function outcomeDriverInsights(input: InsightInput, selected: Int32Array): Insig
         kind: "driver" as const,
         title,
         body: `${d.sentence} This is a link across the rows, not proof of cause; test it before acting on it.`,
+        // The sentence without its statistic ("(r = 0.21)"), which an everyday reader doesn't need.
+        points: [
+          d.sentence.replace(/\s*\((?:r|η|V|Cramér)[^)]*\)/g, "").replace(/\.$/, ""),
+          `Based on ${rows} rows`,
+          "A link, not proof of cause",
+        ],
+        plain: `${d.sentence.replace(/\s*\((?:r|η|V|Cramér)[^)]*\)/g, "")} It is a link, not proof of cause.`,
         tone: "neutral" as const,
         impact: impactScore(RELEVANCE.driver, 1, strength(d.strength, 0.3), certainty),
         confidence: certainty,
@@ -1530,6 +1633,12 @@ function mixInsights(input: InsightInput): Insight[] {
         id: `mix-${k.id}`,
         kind: "mix",
         title: `${k.name} ${value.delta > 0 ? "rose" : "fell"} overall, but not within most ${segmentsWord(seg.label)}`,
+        points: [
+          `Overall: ${formatDelta(value.delta, fmt.locale)}`,
+          `Went the other way in ${movedAgainst} of ${counted} ${segmentsWord(seg.label)}`,
+          `${biggestShift.label}: ${(biggestShift.from * 100).toFixed(1)}% → ${(biggestShift.to * 100).toFixed(1)}% of rows`,
+        ],
+        plain: `${k.name} ${value.delta > 0 ? "rose" : "fell"} overall, but in most ${segmentsWord(seg.label)} it went the other way. The overall change comes from the mix (${biggestShift.to > biggestShift.from ? "more" : "fewer"} ${biggestShift.label} rows), not from each one changing.`,
         body: `${k.name} changed ${formatDelta(value.delta, fmt.locale)} overall, yet it moved the other way in ${movedAgainst} of ${counted} ${segmentsWord(seg.label)}. The mix shifted: ${biggestShift.label} went from ${(biggestShift.from * 100).toFixed(1)}% to ${(biggestShift.to * 100).toFixed(1)}% of rows. Treat the headline change as a mix effect (Simpson's paradox), not a like-for-like change.`,
         tone: "warning",
         impact: impactScore(RELEVANCE.mix, weight(k), against / (against + withWeight), "medium"),
@@ -1580,6 +1689,12 @@ function caveatInsights(input: InsightInput, selected: Int32Array): Insight[] {
           id: "caveat-in-transit",
           kind: "caveat",
           title: "Recent return and RTO rates are understated",
+          points: [
+            `${Math.round((open / recent) * 100)}% of recent rows still in progress`,
+            `Since ${formatDay(since)}`,
+            "Return and RTO rates will rise as they settle",
+          ],
+          plain: `About ${Math.round((open / recent) * 100)}% of the last three weeks' rows haven't finished yet, so recent return and RTO rates look lower than they will be.`,
           body: `${Math.round((open / recent) * 100)}% of the ${formatValue(recent, "integer", input.fmt)} selected rows dated from ${formatDay(since)} (the data's last three weeks) are still in progress (${inProgress.values.slice(0, 3).join(", ")}). Some will become returns or RTO, so judge those rates on periods that have fully settled.`,
           tone: "warning",
           impact: impactScore(RELEVANCE.inProgress, 1, strength(open / recent, 0.2), "high"),
@@ -1596,6 +1711,8 @@ function caveatInsights(input: InsightInput, selected: Int32Array): Insight[] {
       id: "caveat-small",
       kind: "caveat",
       title: "Small selection",
+      points: [`Only ${rows} rows selected`, "Percentages can swing on a few rows"],
+      plain: `Only ${rows} rows match your filters, so treat percentages with care, or widen the filters.`,
       body: `Only ${rows} rows match the current filters. Percentages can swing widely on a few rows; widen the filters before drawing conclusions.`,
       tone: "warning",
       impact: impactScore(RELEVANCE.smallSelection, 1, 1, "high"),

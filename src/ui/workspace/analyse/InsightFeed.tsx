@@ -39,8 +39,9 @@ import { useWorkspace } from "@/store/workspace";
 import { cn } from "@/lib/utils";
 import { Button } from "@/ui/primitives/button";
 import { Skeleton } from "@/ui/primitives/misc";
-import { ClampText, InfoTip } from "@/ui/primitives/reveal";
+import { InfoTip } from "@/ui/primitives/reveal";
 import { impactPercent } from "./feed";
+import { InsightPeek, InsightPoints } from "./InsightPeek";
 
 /** Each kind's name and icon. */
 export const KIND: Record<InsightKind, { label: string; icon: LucideIcon }> = {
@@ -140,67 +141,67 @@ export function InsightCard({
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: Math.min(rank, 10) * 0.03, duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
     >
-      <article
-        aria-labelledby={`insight-title-${insight.id}`}
-        className={cn(
-          "relative flex gap-3.5 rounded-card border bg-surface-1 p-4 shadow-card transition-[border-color,background-color] duration-fast",
-          selectable && selected
-            ? "border-border-accent bg-[image:linear-gradient(var(--surface-selected),var(--surface-selected))]"
-            : "border-border",
-          selectable && !selected && "hover:border-border-hover",
-        )}
-      >
-        <div className="flex shrink-0 flex-col items-center gap-1.5">
-          <span className={cn("grid size-8 place-items-center rounded-control", tone.chip)}>
-            <tone.icon className="size-4" aria-hidden />
-          </span>
-          <span aria-hidden className="font-figures text-xs text-fg-subtle">
-            #{rank}
-          </span>
-        </div>
-        <div className="min-w-0 flex-1">
-          <h2 id={`insight-title-${insight.id}`} className="text-md font-medium text-pretty text-fg">
-            <span className="sr-only">
-              Rank {rank}, {tone.label}:{" "}
+      <InsightPeek insight={insight}>
+        <article
+          aria-labelledby={`insight-title-${insight.id}`}
+          className={cn(
+            "relative flex gap-3.5 rounded-card border bg-surface-1 p-4 shadow-card transition-[border-color,background-color] duration-fast",
+            selectable && selected
+              ? "border-border-accent bg-[image:linear-gradient(var(--surface-selected),var(--surface-selected))]"
+              : "border-border",
+            selectable && !selected && "hover:border-border-hover",
+          )}
+        >
+          <div className="flex shrink-0 flex-col items-center gap-1.5">
+            <span className={cn("grid size-8 place-items-center rounded-control", tone.chip)}>
+              <tone.icon className="size-4" aria-hidden />
             </span>
-            {selectable ? (
-              // The whole card answers the click (the button's box covers it); the controls inside sit above it.
-              <button
-                type="button"
-                id={`insight-select-${insight.id}`}
-                data-select
-                tabIndex={selected ? 0 : -1}
-                aria-current={selected ? "true" : undefined}
-                aria-controls="insight-detail"
-                onClick={onSelect}
-                className="text-left outline-none after:absolute after:inset-0 after:rounded-card after:content-[''] focus-visible:after:shadow-[var(--shadow-focus)]"
-              >
-                {insight.title}
-              </button>
-            ) : (
-              insight.title
-            )}
-          </h2>
-          {/* Two lines; below xl the rest opens on hover, focus or a long press, and from xl in the panel. */}
-          <ClampText key={insight.body} lines={2} className="mt-1 text-sm text-fg-muted">
-            {insight.body}
-          </ClampText>
-          <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
-            <ImpactMeter impact={insight.impact} />
-            <Tags insight={insight} />
-            {!selectable && insight.chartId ? (
-              <Button
-                size="xs"
-                variant="outline"
-                className="relative z-10 ml-auto"
-                onClick={() => focusChart(insight.chartId as string)}
-              >
-                View chart
-              </Button>
-            ) : null}
+            <span aria-hidden className="font-figures text-xs text-fg-subtle">
+              #{rank}
+            </span>
           </div>
-        </div>
-      </article>
+          <div className="min-w-0 flex-1">
+            <h2 id={`insight-title-${insight.id}`} className="text-md font-medium text-pretty text-fg">
+              <span className="sr-only">
+                Rank {rank}, {tone.label}:{" "}
+              </span>
+              {selectable ? (
+                // The whole card answers the click (the button's box covers it); the controls inside sit above it.
+                <button
+                  type="button"
+                  id={`insight-select-${insight.id}`}
+                  data-select
+                  tabIndex={selected ? 0 : -1}
+                  aria-current={selected ? "true" : undefined}
+                  aria-controls="insight-detail"
+                  onClick={onSelect}
+                  className="text-left outline-none after:absolute after:inset-0 after:rounded-card after:content-[''] focus-visible:after:shadow-[var(--shadow-focus)]"
+                >
+                  {insight.title}
+                </button>
+              ) : (
+                insight.title
+              )}
+            </h2>
+            {/* The finding as bullets (version 54.0); the plain words and the analyst's detail are in the panel. */}
+            <InsightPoints points={insight.points} max={3} className="mt-1.5" />
+            <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
+              <ImpactMeter impact={insight.impact} />
+              <Tags insight={insight} />
+              {!selectable && insight.chartId ? (
+                <Button
+                  size="xs"
+                  variant="outline"
+                  className="relative z-10 ml-auto"
+                  onClick={() => focusChart(insight.chartId as string)}
+                >
+                  View chart
+                </Button>
+              ) : null}
+            </div>
+          </div>
+        </article>
+      </InsightPeek>
     </motion.li>
   );
 }

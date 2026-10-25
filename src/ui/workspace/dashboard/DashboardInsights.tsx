@@ -81,8 +81,8 @@ function InsightItem({ insight, className }: { insight: Insight; className?: str
         <ClampText key={insight.title} className="text-ui font-medium text-fg">
           {insight.title}
         </ClampText>
-        <ClampText key={insight.body} lines={2} className="mt-0.5 text-xs text-fg-muted">
-          {insight.body}
+        <ClampText key={insight.plain} lines={2} className="mt-0.5 text-xs text-fg-muted">
+          {insight.plain}
         </ClampText>
         {insight.chartId ? (
           <button

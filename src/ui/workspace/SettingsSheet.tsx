@@ -201,6 +201,8 @@ export function SettingsSheet({
           <Separator />
           <ProjectsSetting />
           <Separator />
+          <InsightsSetting />
+          <Separator />
           <LearnedSettings />
           <Separator />
           <section className="grid gap-3">
@@ -335,6 +337,33 @@ function ProjectsSetting() {
           Clear {count === 1 ? "the kept project" : `all ${count} kept projects`}
         </button>
       ) : null}
+    </section>
+  );
+}
+
+/** "Insights" (version 54.0): the analyst's chart on hover, as on the Insights step. */
+function InsightsSetting() {
+  const on = useSettings((s) => s.insightChartOnHover);
+  const setOn = useSettings((s) => s.setInsightChartOnHover);
+  return (
+    <section className="grid gap-3">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <Eyebrow>Insights</Eyebrow>
+          <p className="mt-1 text-ui text-fg">Show the chart on hover</p>
+        </div>
+        <Switch checked={on} onCheckedChange={setOn} aria-label="Show an insight's chart on hover" />
+      </div>
+      <p className="text-sm leading-relaxed text-fg-muted">
+        <Brief
+          label="About the chart on hover"
+          full="For analysts: on the Insights step, hovering or focusing an insight shows the chart it describes beside it, so you can check its figures against the picture."
+        >
+          {on
+            ? "An insight's chart opens beside it on hover."
+            : "Off: insights show their chart in the panel."}
+        </Brief>
+      </p>
     </section>
   );
 }

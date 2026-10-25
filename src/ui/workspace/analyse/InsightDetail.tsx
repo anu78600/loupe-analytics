@@ -2,9 +2,11 @@
 
 /**
  * The Insights step's detail panel (version 50.4), beside the feed from xl:
- * the selected insight in full (its rank, kind and tone, its title, its whole
- * sentence of figures, its impact and confidence, and how it was found),
- * then the chart it describes and "Open on the dashboard" (focusChart).
+ * the selected insight: its rank, kind and tone, its title, then since
+ * version 54.0 its bullet points and the finding in plain words with its
+ * numbers, with the analyst's detail folded below (the whole sentence of
+ * figures, impact and confidence, how it was found); then the chart it
+ * describes (InsightChart) and "Open on the dashboard" (focusChart).
  *
  * The chart is the dashboard's own: its spec, its type and Top N as the user
  * set them, and its data from the dashboard's last refresh (the store's
@@ -19,23 +21,14 @@
 import * as React from "react";
 import { ArrowRight, LineChart } from "lucide-react";
 import type { Insight } from "@/engine/insights/insights";
-import type { ChartData, ChartKind, ChartSpec } from "@/engine/charts/types";
-import { allSpecs, useWorkspace } from "@/store/workspace";
-import { useFmt } from "@/ui/common/hooks";
-import { chartSubtitle } from "@/ui/charts/options";
+import { useWorkspace } from "@/store/workspace";
 import { Button } from "@/ui/primitives/button";
 import { Skeleton } from "@/ui/primitives/misc";
-import { ClampText } from "@/ui/primitives/reveal";
 import { cn } from "@/lib/utils";
-import { ChartView, useChartData } from "./AnswerChart";
+import { InsightChart } from "./InsightChart";
+import { InsightPoints } from "./InsightPeek";
 import { ImpactMeter, KIND, TONE } from "./InsightFeed";
 import { impactPercent } from "./feed";
-
-/** The trend grains the dashboard sends with its charts (the business context's period). */
-const GRAINS = ["day", "week", "month", "quarter"] as const;
-type Grain = (typeof GRAINS)[number];
-const isGrain = (v: unknown): v is Grain =>
-  typeof v === "string" && (GRAINS as readonly string[]).includes(v);
 
 export function InsightDetail({ insight, rank }: { insight: Insight; rank: number }) {
   const focusChart = useWorkspace((s) => s.focusChart);
@@ -64,19 +57,33 @@ export function InsightDetail({ insight, rank }: { insight: Insight; rank: numbe
         <h2 id="insight-detail-title" className="mt-3 text-lg font-semibold text-balance text-fg">
           {insight.title}
         </h2>
-        <p className="mt-1.5 text-sm text-fg-muted">{insight.body}</p>
-        <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-1 border-t border-border-subtle pt-3 text-xs">
-          <dt className="text-fg-subtle">Impact</dt>
-          <dt className="text-fg-subtle">Confidence</dt>
-          <dd className="flex items-center gap-2 text-fg">
-            <ImpactMeter impact={insight.impact} className="w-20" />
-            <span className="tabular">{Math.round(impactPercent(insight.impact))} of 100</span>
-          </dd>
-          <dd className="text-fg first-letter:uppercase">{insight.confidence}</dd>
-        </dl>
-        <ClampText key={insight.basis} lines={2} className="mt-3 text-xs text-fg-subtle">
-          {`How it was found: ${insight.basis}`}
-        </ClampText>
+        <InsightPoints points={insight.points} className="mt-3" />
+        <div className="mt-4 rounded-control bg-surface-2 px-3.5 py-3">
+          <p className="eyebrow text-fg-subtle">In plain words</p>
+          <p className="mt-1 text-sm leading-relaxed text-fg">{insight.plain}</p>
+        </div>
+        {/* What an analyst checks: the full sentence, how strong and how sure, and how it was found. */}
+        <details className="group mt-4 border-t border-border-subtle pt-3">
+          <summary className="cursor-pointer list-none text-xs font-medium text-fg-muted marker:hidden hover:text-fg focus-visible:focus-ring">
+            <span className="inline-flex items-center gap-1.5">
+              <span aria-hidden className="transition-transform duration-fast group-open:rotate-90">
+                ›
+              </span>
+              For analysts: the full finding and how it was found
+            </span>
+          </summary>
+          <p className="mt-2 text-sm text-fg-muted">{insight.body}</p>
+          <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+            <dt className="text-fg-subtle">Impact</dt>
+            <dt className="text-fg-subtle">Confidence</dt>
+            <dd className="flex items-center gap-2 text-fg">
+              <ImpactMeter impact={insight.impact} className="w-20" />
+              <span className="tabular">{Math.round(impactPercent(insight.impact))} of 100</span>
+            </dd>
+            <dd className="text-fg first-letter:uppercase">{insight.confidence}</dd>
+          </dl>
+          <p className="mt-3 text-xs text-fg-subtle">{`How it was found: ${insight.basis}`}</p>
+        </details>
       </div>
       {insight.chartId ? (
         <div className="border-t border-border-subtle p-4">
@@ -96,121 +103,6 @@ export function InsightDetail({ insight, rank }: { insight: Insight; rank: numbe
         </p>
       )}
     </section>
-  );
-}
-
-/** The insight's chart: the dashboard's own data when the chart is on it, else computed for its selection. */
-function InsightChart({ chartId, action }: { chartId: string; action: React.ReactNode }) {
-  const context = useWorkspace((s) => s.context);
-  const customCharts = useWorkspace((s) => s.customCharts);
-  const widget = useWorkspace((s) => s.widgets.find((w) => w.id === chartId));
-  const mode = useWorkspace((s) => s.mode);
-  const spec = React.useMemo(
-    () => allSpecs({ context, customCharts }).find((s) => s.id === chartId),
-    [context, customCharts, chartId],
-  );
-  if (!spec)
-    return (
-      <p className="py-6 text-center text-ui text-fg-muted">This chart is no longer on the dashboard.</p>
-    );
-  const title = widget?.title?.trim() || spec.title;
-  const onDashboard = Boolean(widget && !widget.hidden && spec.modes.includes(mode));
-  return onDashboard ? (
-    <StoredChart spec={spec} title={title} kind={widget?.kind} action={action} />
-  ) : (
-    <ComputedChart spec={spec} title={title} kind={widget?.kind} topN={widget?.topN} action={action} />
-  );
-}
-
-/** The chart with the data the dashboard computed for it. */
-function StoredChart({
-  spec,
-  title,
-  kind,
-  action,
-}: {
-  spec: ChartSpec;
-  title: string;
-  kind?: ChartKind;
-  action: React.ReactNode;
-}) {
-  const data = useWorkspace((s) => s.charts[spec.id]);
-  return <ChartFrame spec={spec} title={title} kind={kind} data={data} action={action} />;
-}
-
-/** The chart computed for the dashboard's selection, under an id of its own. */
-function ComputedChart({
-  spec,
-  title,
-  kind,
-  topN,
-  action,
-}: {
-  spec: ChartSpec;
-  title: string;
-  kind?: ChartKind;
-  topN?: number;
-  action: React.ReactNode;
-}) {
-  const filtersOf = useWorkspace((s) => s.filters);
-  const preset = useWorkspace((s) => s.datePreset);
-  const custom = useWorkspace((s) => s.customRange);
-  const dims = useWorkspace((s) => s.dimFilters);
-  const cross = useWorkspace((s) => s.crossFilter);
-  const period = useWorkspace((s) => s.business.period);
-  const filters = React.useMemo(() => {
-    // The selection is read through filters(); these are what it is made of.
-    void preset;
-    void custom;
-    void dims;
-    void cross;
-    return filtersOf();
-  }, [filtersOf, preset, custom, dims, cross]);
-  const own = React.useMemo(() => ({ ...spec, id: `insight_${spec.id}` }), [spec]);
-  const data = useChartData(own, filters, {
-    kind,
-    topN,
-    grain: spec.x.kind === "time" && isGrain(period) ? period : undefined,
-  });
-  return <ChartFrame spec={spec} title={title} kind={kind} data={data} action={action} />;
-}
-
-/** The chart's title with the way to it on the dashboard, its takeaway and unit line, then the plot. */
-function ChartFrame({
-  spec,
-  title,
-  kind,
-  data,
-  action,
-}: {
-  spec: ChartSpec;
-  title: string;
-  kind?: ChartKind;
-  data: ChartData | null | undefined;
-  action: React.ReactNode;
-}) {
-  const fmt = useFmt();
-  const subtitle = chartSubtitle(spec, data, fmt, kind ?? spec.kind);
-  return (
-    <figure className="grid gap-2">
-      <figcaption className="grid gap-0.5 px-1">
-        <span className="flex min-w-0 items-start justify-between gap-3">
-          <span className="min-w-0 pt-0.5 text-ui font-medium text-fg">
-            <ClampText key={title}>{title}</ClampText>
-          </span>
-          <span className="shrink-0">{action}</span>
-        </span>
-        {data === undefined ? (
-          <Skeleton className="mt-1 h-3.5 w-4/5" />
-        ) : data && !data.empty && data.headline ? (
-          <ClampText key={data.headline} lines={2} className="text-xs text-fg-muted">
-            {data.headline}
-          </ClampText>
-        ) : null}
-        {subtitle ? <span className="block text-xs text-fg-subtle">{subtitle}</span> : null}
-      </figcaption>
-      <ChartView spec={spec} kind={kind} data={data} className="h-60" />
-    </figure>
   );
 }
 
