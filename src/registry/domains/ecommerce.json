@@ -101,7 +101,7 @@
         { "id": "net_only", "label": "Net amount (no gross available)", "expr": { "agg": "sum", "of": { "field": "net_amount" } }, "caveat": "No gross, price or discount column, so GMV equals net sales here." }
       ],
       "pitfalls": ["GMV is not revenue: it includes orders that are later cancelled, returned or RTO'd."] },
-    { "id": "discounts", "name": "Discounts", "definition": "Value given away through coupons and markdowns.", "formula": "Sum of discount amount", "format": "currency", "direction": "lower", "tier": "detail", "priority": 40, "group": "Revenue",
+    { "id": "discounts", "name": "Discounts", "definition": "Value given away through coupons and markdowns.", "formula": "Sum of discount amount", "format": "currency", "direction": "lower", "tier": "detail", "priority": 40, "group": "Revenue", "limits": { "min": 0 },
       "variants": [
         { "id": "disc_col", "label": "Discount column", "expr": { "agg": "sum", "of": { "field": "discount_amount" } } },
         { "id": "gross_minus_net", "label": "Gross minus net", "expr": { "op": "sub", "args": [{ "agg": "sum", "of": { "field": "gross_amount" } }, { "agg": "sum", "of": { "field": "net_amount" } }] }, "caveat": "Derived as gross minus net, so it also includes any other deductions." },
@@ -143,7 +143,7 @@
       "variants": [{ "id": "ratio", "label": "Units ÷ orders", "expr": { "op": "div", "args": [{ "ref": "units" }, { "ref": "orders" }] } }] },
     { "id": "asp", "name": "Average selling price", "short": "ASP", "definition": "Net sales per unit sold, weighted by quantity.", "formula": "Net sales ÷ units ordered", "format": "currency", "direction": "higher", "tier": "detail", "priority": 43, "group": "Revenue",
       "variants": [{ "id": "ratio", "label": "Net sales ÷ units", "expr": { "op": "div", "args": [{ "ref": "net_sales" }, { "ref": "units" }] } }] },
-    { "id": "discount_rate", "name": "Discount %", "definition": "Share of gross sales given away as discounts.", "formula": "Discounts ÷ gross sales", "format": "percent", "direction": "lower", "tier": "supporting", "priority": 15, "group": "Revenue",
+    { "id": "discount_rate", "name": "Discount %", "definition": "Share of gross sales given away as discounts.", "formula": "Discounts ÷ gross sales", "format": "percent", "direction": "lower", "tier": "supporting", "priority": 15, "group": "Revenue", "limits": { "min": 0, "max": 1 },
       "variants": [{ "id": "ratio", "label": "Discounts ÷ gross sales", "expr": { "op": "div", "args": [{ "ref": "discounts" }, { "ref": "gross_sales" }] } }],
       "pitfalls": ["Averaging line-level discount % overweights cheap items; this KPI is a ratio of sums."] },
     { "id": "coupon_usage", "name": "Coupon usage rate", "aliases": ["coupon redemption rate", "coupon usage %", "promo usage rate"], "definition": "Share of orders that used a coupon code.", "formula": "Orders with a coupon ÷ orders", "format": "percent", "direction": "neutral", "tier": "supporting", "priority": 22, "group": "Revenue",
@@ -153,12 +153,12 @@
       "pitfalls": ["Coupon users self-select (e.g. larger planned baskets to hit a threshold); uplift is correlation, not causation."] },
     { "id": "shipping_cost_pct", "name": "Shipping cost %", "aliases": ["shipping cost % of revenue", "logistics cost %", "delivery cost %"], "definition": "Logistics cost as a share of net revenue.", "formula": "Shipping cost ÷ net revenue", "format": "percent", "direction": "lower", "tier": "supporting", "priority": 20, "group": "Profitability",
       "variants": [{ "id": "ratio", "label": "Shipping cost ÷ net revenue", "expr": { "op": "div", "args": [{ "agg": "sum", "of": { "field": "shipping_cost" } }, { "ref": "net_revenue" }] } }] },
-    { "id": "cogs_all", "name": "COGS (all orders)", "definition": "Cost of goods across all order lines.", "formula": "Sum of line cost", "format": "currency", "direction": "lower", "tier": "detail", "priority": 45, "group": "Profitability", "hidden": true,
+    { "id": "cogs_all", "name": "COGS (all orders)", "definition": "Cost of goods across all order lines.", "formula": "Sum of line cost", "format": "currency", "direction": "lower", "tier": "detail", "priority": 45, "group": "Profitability", "limits": { "min": 0 }, "hidden": true,
       "variants": [
         { "id": "cost_col", "label": "Line cost column", "expr": { "agg": "sum", "of": { "field": "cost" } } },
         { "id": "unit_cost", "label": "Quantity × unit cost", "expr": { "agg": "sum", "of": { "op": "mul", "args": [{ "field": "quantity" }, { "field": "unit_cost" }] } } }
       ] },
-    { "id": "cogs", "name": "Cost of goods sold", "short": "COGS", "definition": "Cost of the goods on realised orders.", "formula": "Line cost on orders not cancelled, returned or RTO", "format": "currency", "direction": "lower", "tier": "detail", "priority": 46, "group": "Profitability",
+    { "id": "cogs", "name": "Cost of goods sold", "short": "COGS", "definition": "Cost of the goods on realised orders.", "formula": "Line cost on orders not cancelled, returned or RTO", "format": "currency", "direction": "lower", "tier": "detail", "priority": 46, "group": "Profitability", "limits": { "min": 0 },
       "variants": [
         { "id": "status", "label": "Realised orders by status", "expr": { "calc": { "ref": "cogs_all" }, "where": { "and": [{ "field": "order_status", "notClass": "cancelled" }, { "field": "order_status", "notClass": "returned" }, { "field": "order_status", "notClass": "rto" }] } } },
         { "id": "return_flag", "label": "Excluding returned rows", "expr": { "calc": { "ref": "cogs_all" }, "where": { "not": { "field": "is_returned", "isTrue": true } } } },
@@ -190,7 +190,7 @@
         { "id": "units", "label": "Returned units ÷ units", "expr": { "op": "div", "args": [{ "agg": "sum", "of": { "field": "return_qty" } }, { "ref": "units" }] }, "caveat": "Measured in units, not orders." }
       ],
       "benchmark": { "low": 0.05, "high": 0.3, "note": "Fashion and footwear commonly see 15–30%; electronics and beauty are lower." } },
-    { "id": "refund_rate", "name": "Refund rate (value)", "aliases": ["refund %", "refunds % of GMV"], "definition": "Refunded value as a share of gross sales.", "formula": "Refund amount ÷ gross sales", "format": "percent", "direction": "lower", "tier": "supporting", "priority": 21, "group": "Fulfilment",
+    { "id": "refund_rate", "name": "Refund rate (value)", "aliases": ["refund %", "refunds % of GMV"], "definition": "Refunded value as a share of gross sales.", "formula": "Refund amount ÷ gross sales", "format": "percent", "direction": "lower", "tier": "supporting", "priority": 21, "group": "Fulfilment", "limits": { "min": 0, "max": 1 },
       "variants": [{ "id": "ratio", "label": "Refunds ÷ gross sales", "expr": { "op": "div", "args": [{ "agg": "sum", "of": { "field": "refund_amount" } }, { "ref": "gross_sales" }] } }] },
     { "id": "avg_delivery_days", "name": "Average delivery time", "aliases": ["delivery TAT", "average delivery days", "days to deliver"], "definition": "Calendar days from order to delivery, for delivered orders.", "formula": "Average of (delivery date − order date) in days", "format": "days", "direction": "lower", "tier": "supporting", "priority": 16, "group": "Fulfilment",
       "variants": [

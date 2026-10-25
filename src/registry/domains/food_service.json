@@ -91,7 +91,7 @@
         { "id": "per_bill", "label": "Covers once per bill", "expr": { "per": "bill_id", "inner": { "agg": "max", "of": { "field": "covers" } }, "reduce": "sum" } },
         { "id": "sum", "label": "Σ covers", "expr": { "agg": "sum", "of": { "field": "covers" } }, "caveat": "No bill number, so covers are summed row by row; check that they are not repeated on every item line." }
       ] },
-    { "id": "discount_all", "name": "Discounts (all bills)", "definition": "Discounts given on every bill, before removing cancelled and complimentary bills.", "formula": "Σ discount", "format": "currency", "direction": "lower", "tier": "detail", "priority": 93, "group": "Discounts", "hidden": true,
+    { "id": "discount_all", "name": "Discounts (all bills)", "definition": "Discounts given on every bill, before removing cancelled and complimentary bills.", "formula": "Σ discount", "format": "currency", "direction": "lower", "tier": "detail", "priority": 93, "group": "Discounts", "limits": { "min": 0 }, "hidden": true,
       "variants": [{ "id": "sum", "label": "Σ discount", "expr": { "agg": "sum", "of": { "field": "discount" } } }] },
     { "id": "gross_sales_all", "name": "Gross sales (all bills)", "definition": "Sales before discounts on every bill, before removing cancelled and complimentary bills.", "formula": "Σ gross sales (or net sales + discounts)", "format": "currency", "direction": "higher", "tier": "detail", "priority": 94, "group": "Sales", "hidden": true,
       "variants": [
@@ -136,7 +136,7 @@
       ] },
     { "id": "items_per_bill", "name": "Items per bill", "aliases": ["Items per check", "Average items per bill", "Dishes per bill"], "definition": "Menu items sold per settled bill.", "formula": "Items sold ÷ bills", "format": "decimal", "direction": "higher", "tier": "hero", "priority": 9, "group": "Menu", "subDomains": ["items"],
       "variants": [{ "id": "ratio", "label": "Items sold ÷ bills", "expr": { "op": "div", "args": [{ "ref": "items_sold" }, { "ref": "bills" }] } }] },
-    { "id": "discount_pct", "name": "Discount %", "aliases": ["Bill discount %", "Discount on F&B sales %"], "definition": "Discounts as a share of sales before discount, on bills that were not cancelled or complimentary.", "formula": "Σ discount ÷ gross sales, excluding cancelled and complimentary bills", "format": "percent", "direction": "lower", "tier": "hero", "priority": 10, "group": "Discounts",
+    { "id": "discount_pct", "name": "Discount %", "aliases": ["Bill discount %", "Discount on F&B sales %"], "definition": "Discounts as a share of sales before discount, on bills that were not cancelled or complimentary.", "formula": "Σ discount ÷ gross sales, excluding cancelled and complimentary bills", "format": "percent", "direction": "lower", "tier": "hero", "priority": 10, "group": "Discounts", "limits": { "min": 0, "max": 1 },
       "variants": [
         { "id": "status", "label": "Excludes cancelled and complimentary bills", "expr": { "calc": { "op": "div", "args": [{ "ref": "discount_all" }, { "ref": "gross_sales_all" }] }, "where": { "and": [{ "field": "bill_status", "notClass": "cancelled" }, { "field": "bill_status", "notClass": "complimentary" }] } } },
         { "id": "all", "label": "All bills", "expr": { "op": "div", "args": [{ "ref": "discount_all" }, { "ref": "gross_sales_all" }] }, "caveat": "No bill status, so discounts on any cancelled or complimentary bills are included." }
@@ -161,7 +161,7 @@
         { "id": "status", "label": "Excludes cancelled and complimentary bills", "expr": { "calc": { "ref": "gross_sales_all" }, "where": { "and": [{ "field": "bill_status", "notClass": "cancelled" }, { "field": "bill_status", "notClass": "complimentary" }] } } },
         { "id": "all", "label": "All bills", "expr": { "ref": "gross_sales_all" }, "caveat": "No bill status, so any cancelled or complimentary bills are included." }
       ] },
-    { "id": "discounts", "name": "Discounts", "aliases": ["Bill discounts", "Restaurant discounts"], "definition": "Discounts given on bills that were not cancelled or complimentary.", "formula": "Σ discount, excluding cancelled and complimentary bills", "format": "currency", "direction": "lower", "tier": "supporting", "priority": 21, "group": "Discounts",
+    { "id": "discounts", "name": "Discounts", "aliases": ["Bill discounts", "Restaurant discounts"], "definition": "Discounts given on bills that were not cancelled or complimentary.", "formula": "Σ discount, excluding cancelled and complimentary bills", "format": "currency", "direction": "lower", "tier": "supporting", "priority": 21, "group": "Discounts", "limits": { "min": 0 },
       "variants": [
         { "id": "status", "label": "Excludes cancelled and complimentary bills", "expr": { "calc": { "ref": "discount_all" }, "where": { "and": [{ "field": "bill_status", "notClass": "cancelled" }, { "field": "bill_status", "notClass": "complimentary" }] } } },
         { "id": "all", "label": "All bills", "expr": { "ref": "discount_all" }, "caveat": "No bill status, so discounts on any cancelled or complimentary bills are included." }

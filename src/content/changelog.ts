@@ -41,6 +41,35 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "51.4",
+    kind: "minor",
+    date: "2026-10-25T03:48:28Z",
+    title: "No impossible figures, and no figures your file doesn't hold (computation fixes, stage 4)",
+    summary:
+      "Some figures can never be negative or above 100%, and some came out as 0 or 100% only because of how they were worked out, not because of your data. Loupe now checks each one against your whole file. A figure that can't be right isn't shown, and it says why.",
+    changes: [
+      "Discounts can't be below zero: on a supermarket file whose Total includes tax, discounts were −15,379 and Discount % −5%. They now say the columns don't fit that formula.",
+      "Discounts written as negative numbers (−5 for a 5 discount) are counted as positive discounts.",
+      "A cost of sales that adds up to less than zero (a single refund in a spend list made it −600,000) is no longer shown as a cost.",
+      "No more made-up zeros: a till file whose Total is always price × quantity records no discounts, so it no longer shows “Discounts 0” and “Discount % 0%”.",
+      "No more made-up 100%: a ledger with no cost-of-sales lines no longer shows a gross margin of 100%; it says it needs cost of sales.",
+      "A figure that is held back says why under it, and the figures built on it follow, in the dashboard and in every export.",
+    ],
+    tags: ["Fix", "Data", "Tests"],
+    files: [
+      "src/engine/kpi/limits.ts",
+      "src/engine/kpi/resolve.ts",
+      "src/engine/session.ts",
+      "src/registry/schema.ts",
+      "src/registry/domains/sales.json",
+      "src/registry/domains/ecommerce.json",
+      "src/registry/domains/finance.json",
+      "src/registry/domains/food_service.json",
+      "src/registry/domains/pharma.json",
+      "tests/kpi-limits.test.ts",
+    ],
+  },
+  {
     version: "51.3",
     kind: "minor",
     date: "2026-10-24T17:43:31Z",

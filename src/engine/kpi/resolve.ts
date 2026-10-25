@@ -8,6 +8,16 @@
  * never blocks, since an empty class excludes nothing. Referenced KPIs are
  * resolved recursively and memoised; a reference cycle makes the KPI
  * unavailable instead of recursing forever.
+ *
+ * A variant that gives the same figure whatever the rows say is not used
+ * either (version 51.4): gross sales − net sales where gross sales were taken
+ * to equal net sales is always 0, and gross profit ÷ revenue where gross
+ * profit is revenue is always 100%. Such a variant needs what the referenced
+ * KPI's own first formula needs, and says so like any other.
+ *
+ * `refused` names variants ("kpi/variant") whose result the rows rule out
+ * (kpi/limits.ts): they are skipped, and a KPI left with no formula gives
+ * the refusal as its reason.
  */
 import { fieldsOf, refsOf, requiredClassesOf, type Expr } from "@/engine/query/expr";
 import type { Mapping } from "@/engine/detect/mapping";
@@ -41,6 +51,17 @@ export interface KpiResolution {
 
 export type KpiResolutionMap = Map<string, KpiResolution>;
 
+/** True when the expression subtracts or divides a figure by itself: a − a is 0 and a ÷ a is 100%, whatever the rows. */
+function constantByConstruction(e: Expr): boolean {
+  if ("op" in e) {
+    const [a, b] = e.args;
+    if ((e.op === "sub" || e.op === "div") && JSON.stringify(a) === JSON.stringify(b)) return true;
+    return constantByConstruction(a) || constantByConstruction(b);
+  }
+  if ("calc" in e) return constantByConstruction(e.calc);
+  return false;
+}
+
 /**
  * Resolves the domain's KPIs against the mapping. With `subDomain`, KPIs
  * tagged only for other sub-domains are left out of the result, unless an
@@ -54,6 +75,7 @@ export function resolveKpis(
   mapping: Mapping,
   subDomain?: string,
   hidden?: ReadonlyMap<string, string>,
+  refused?: ReadonlyMap<string, string>,
 ): KpiResolutionMap {
   const defs = new Map(domain.kpis.map((k) => [k.id, k]));
   const labels = new Map(domain.fields.map((f) => [f.id, f.label]));
@@ -62,6 +84,23 @@ export function resolveKpis(
     for (const c of list) classLabels.set(`${field}.${c.id}`, `${labels.get(field) ?? field} = ${c.label}`);
   const out: KpiResolutionMap = new Map();
   const visiting = new Set<string>();
+
+  /** What a variant lacks: unmapped fields, empty positive classes and unavailable refs. */
+  const missingOf = (variant: KpiVariant) => ({
+    missingFields: [...fieldsOf(variant.expr)].filter((f) => !mapping.fields[f]),
+    missingClasses: [...requiredClassesOf(variant.expr)].filter((c) => !mapping.classes[c]?.length),
+    missingKpis: [...refsOf(variant.expr)].filter((r) => !resolve(r).available),
+  });
+  /** The expression with each resolved ref replaced by its chosen formula, so two refs to one figure compare equal. */
+  const inline = (e: Expr): Expr => {
+    if ("ref" in e) {
+      const r = out.get(e.ref);
+      return r?.variant ? inline(r.variant.expr) : e;
+    }
+    if ("op" in e) return { op: e.op, args: [inline(e.args[0]), inline(e.args[1])] };
+    if ("calc" in e) return { calc: inline(e.calc), where: e.where };
+    return e;
+  };
 
   const resolve = (id: string): KpiResolution => {
     const hit = out.get(id);
@@ -89,15 +128,34 @@ export function resolveKpis(
       variant: KpiVariant;
     } | null = null;
     let chosen: KpiResolution | null = null;
+    /** Why the first complete variant was ruled out by the rows, when one was. */
+    let refusal: string | undefined;
     // Registry order is preference order: the first variant with nothing
     // missing wins. Otherwise the variant missing the fewest items (earliest
     // on ties) is kept to explain what the KPI needs.
     for (const variant of def.variants) {
-      const missingFields = [...fieldsOf(variant.expr)].filter((f) => !mapping.fields[f]);
-      const missingClasses = [...requiredClassesOf(variant.expr)].filter((c) => !mapping.classes[c]?.length);
+      const { missingFields, missingClasses, missingKpis } = missingOf(variant);
       const refs = [...refsOf(variant.expr)];
-      const missingKpis = refs.filter((r) => !resolve(r).available);
-      const cost = missingFields.length + missingClasses.length + missingKpis.length;
+      let cost = missingFields.length + missingClasses.length + missingKpis.length;
+      // The same figure whatever the rows say: it lacks what the referenced KPIs that fell back to a
+      // stand-in formula ("gross sales equal net sales") would need for their own first formula.
+      if (cost === 0 && constantByConstruction(inline(variant.expr))) {
+        for (const r of refs) {
+          const first = resolve(r).def.variants[0];
+          if (!first || resolve(r).variant === first) continue;
+          const lack = missingOf(first);
+          for (const f of lack.missingFields) if (!missingFields.includes(f)) missingFields.push(f);
+          for (const c of lack.missingClasses) if (!missingClasses.includes(c)) missingClasses.push(c);
+          for (const k of lack.missingKpis) if (!missingKpis.includes(k)) missingKpis.push(k);
+        }
+        cost = missingFields.length + missingClasses.length + missingKpis.length;
+      }
+      // Ruled out by the rows: never chosen. One that lacks something anyway still explains what it needs.
+      const ruledOut = refused?.get(`${id}/${variant.id}`);
+      if (ruledOut && cost === 0) {
+        refusal ??= ruledOut;
+        continue;
+      }
       if (cost === 0) {
         const fieldsUsed = new Set(fieldsOf(variant.expr));
         const classesUsed = new Set([...requiredClassesOf(variant.expr)]);
@@ -124,6 +182,18 @@ export function resolveKpis(
       if (cost < bestCost) best = { missingFields, missingClasses, missingKpis, variant };
     }
     visiting.delete(id);
+    if (!chosen && refusal && !best) {
+      chosen = {
+        def,
+        available: false,
+        fieldsUsed: [],
+        classesUsed: [],
+        missingFields: [],
+        missingClasses: [],
+        missingKpis: [],
+        unavailableReason: refusal,
+      };
+    }
     if (!chosen) {
       const b = best as NonNullable<typeof best>;
       const needs = [
@@ -155,7 +225,9 @@ export function resolveKpis(
         missingKpis: b.missingKpis,
         unavailableReason: hiddenColumns.length
           ? `Unavailable: it needs ${hiddenColumns.map((c) => `"${c}"`).join(" and ")}, which you hid in Check & map.`
-          : `Unavailable: needs ${needs.join(", ")}.`,
+          : refusal
+            ? `${refusal} It needs ${needs.join(", ")} instead.`
+            : `Unavailable: needs ${needs.join(", ")}.`,
         substitute: hiddenColumns.length
           ? "Show the column again in Check & map to use this KPI."
           : alternatives && alternatives.missing.length

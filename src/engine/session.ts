@@ -60,6 +60,7 @@ import { buildMapping, type Mapping } from "@/engine/detect/mapping";
 import { buildGenericDomain, GENERIC_ID, genericFill, type GenericFill } from "@/engine/detect/generic";
 import { withPercentScales } from "@/engine/kpi/percentScale";
 import { withLedgerConventions } from "@/engine/kpi/ledger";
+import { withKpiLimits } from "@/engine/kpi/limits";
 import { checkFieldBounds, type RejectedMapping } from "@/engine/detect/relations";
 import { withLearnedSynonyms, type LearnedSynonym } from "@/engine/detect/learned";
 import { grainLabel } from "@/engine/profile/structure";
@@ -1159,7 +1160,18 @@ export class Session {
     if (this.hidden.size && domain.id !== GENERIC_ID)
       for (const a of assignFields(domain, profile.columns))
         if (this.hidden.has(a.column) && !mapping.fields[a.fieldId]) hiddenFields.set(a.fieldId, a.column);
-    let res = resolveKpis(domain, mapping, subDomainId, hiddenFields);
+    // A formula whose result over the whole file a KPI can't take (discounts below zero, a rate above 100%)
+    // doesn't fit the columns: it is refused, so the KPI falls back or says why (kpi/limits.ts).
+    const limited = withKpiLimits(
+      domain,
+      mapping,
+      ds,
+      (d, r) => resolveKpis(d, mapping, subDomainId, hiddenFields, r),
+      { locale: req.numberLocale, currency: req.currency ?? profile.currency.code },
+    );
+    domain = limited.domain;
+    const refused = limited.refused;
+    let res = resolveKpis(domain, mapping, subDomainId, hiddenFields, refused);
 
     // Primary date: first mapped date field among the sub-domain's signals, then any mapped date field.
     const sub = domain.subDomains.find((s) => s.id === subDomainId);
@@ -1190,7 +1202,7 @@ export class Session {
         fields: { ...mapping.fields, ...mine.mapping },
         scores: { ...mapping.scores, ...Object.fromEntries(Object.keys(mine.mapping).map((f) => [f, 1])) },
       };
-      res = resolveKpis(domain, mapping, subDomainId, hiddenFields);
+      res = resolveKpis(domain, mapping, subDomainId, hiddenFields, refused);
     }
 
     // Measure columns that no KPI of this view reads get KPIs and charts of their own, computed
@@ -1214,7 +1226,7 @@ export class Session {
           ...Object.fromEntries(Object.keys(add.mapping).map((f) => [f, 1])),
         },
       };
-      return { domain: d, mapping: m, res: resolveKpis(d, m, subDomainId, hiddenFields) };
+      return { domain: d, mapping: m, res: resolveKpis(d, m, subDomainId, hiddenFields, refused) };
     };
     const template = { domain, mapping, res };
     const columnsOf = (base: typeof template) =>

@@ -256,6 +256,12 @@ export const kpiSchema = z
     hidden: z.boolean().optional(),
     /** Formula variants in preference order: the first whose fields, positive classes and refs are all available is used. */
     variants: z.array(kpiVariantSchema).min(1),
+    /**
+     * Values the KPI can't take when its columns are right, in its own units: discounts below 0, a share
+     * above 100% (max 1). A formula whose result over the whole file falls outside is not used, so the KPI
+     * falls back to its next formula or says why (kpi/limits.ts).
+     */
+    limits: z.object({ min: z.number().optional(), max: z.number().optional() }).strict().optional(),
     /** Typical range for context, in the KPI's own units; shown as a reference, never computed from the data. */
     benchmark: z
       .object({ low: z.number().optional(), high: z.number().optional(), note: z.string() })
