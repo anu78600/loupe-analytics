@@ -57,15 +57,35 @@ function shell(narrowed: boolean, interactive: boolean) {
 const TRIGGER =
   "inline-flex h-full min-w-0 items-center gap-1.5 rounded-full pr-2.5 pl-3 text-left outline-none focus-visible:focus-ring data-[state=open]:[&>svg:last-child]:rotate-180";
 
-/** "Label · value": the name in muted ink, the selection in the ink's medium weight. */
-function PillText({ label, value, narrowed }: { label: string; value: string; narrowed: boolean }) {
+/**
+ * "Label · value": the name in muted ink, the selection in the ink's medium weight. `whole` never cuts
+ * the value: the download's short selections ("All", "Last 12 months") were drawn as "A.." when the image
+ * measured the text a hair wider than the page did (version 52.3).
+ */
+function PillText({
+  label,
+  value,
+  narrowed,
+  whole = false,
+}: {
+  label: string;
+  value: string;
+  narrowed: boolean;
+  whole?: boolean;
+}) {
   return (
     <span className="flex min-w-0 items-center gap-1.5 whitespace-nowrap">
       <span className={narrowed ? "text-accent-text" : "text-fg-muted"}>{label}</span>
       <span aria-hidden className={narrowed ? "text-accent-text" : "text-fg-subtle"}>
         ·
       </span>
-      <span className={cn("max-w-48 truncate font-medium", narrowed ? "text-accent-text" : "text-fg")}>
+      <span
+        className={cn(
+          "font-medium",
+          whole ? "shrink-0" : "max-w-48 truncate",
+          narrowed ? "text-accent-text" : "text-fg",
+        )}
+      >
         {value}
       </span>
     </span>
@@ -87,7 +107,7 @@ function StaticPill({
   return (
     <span className={cn(shell(narrowed, false), "gap-1.5 px-3")}>
       {period ? <CalendarRange className="size-3.5 shrink-0 text-fg-subtle" aria-hidden /> : null}
-      <PillText label={label} value={value} narrowed={narrowed} />
+      <PillText label={label} value={value} narrowed={narrowed} whole={value.length <= 24} />
     </span>
   );
 }

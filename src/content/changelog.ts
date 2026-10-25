@@ -41,6 +41,25 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "52.3",
+    kind: "minor",
+    date: "2026-10-25T06:44:05Z",
+    title: "The downloaded one page shows every value",
+    summary:
+      "The one-page dashboard you download was drawn on a smaller page than the one on your screen, so its charts were squeezed: values piled up, bars were thin and the state map lost its labels. It is now drawn as roomy as the page on a laptop screen, still as a 4K image.",
+    changes: [
+      "Every chart in the download has about 50% more room: the line's values sit apart, the bars are full height and every state on the map keeps its label.",
+      "The filter pills in the download show their whole selection (“Channel · All”, not “Channel · A..”).",
+      "The image is still 3840 × 2160 (4K), and the PDF one landscape page.",
+    ],
+    tags: ["Fix", "Design"],
+    files: [
+      "src/ui/workspace/dashboard/page/OnePage.tsx",
+      "src/ui/workspace/dashboard/page/PageFilters.tsx",
+      "src/ui/workspace/export/gallery/PagePreview.tsx",
+    ],
+  },
+  {
     version: "52.2",
     kind: "minor",
     date: "2026-10-25T06:31:32Z",

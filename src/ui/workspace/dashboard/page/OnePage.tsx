@@ -19,14 +19,18 @@
  * tooltips and their actions on hover, the title can be renamed, and on a
  * large screen the page keeps a 16:9 shape that fits the window (it stacks
  * below lg: banner, filters, KPIs two to a row, charts, insights). The same
- * component renders off-screen at 1280 × 720 for the download
+ * component renders off-screen at 1600 × 900 for the download
  * (exportOnePage), so the image is the page on the screen, with the pills
  * as static selections and no hover controls. Every figure is the
  * dashboard's own: nothing here computes a number.
  *
- * At 1280 × 720 the KPI row takes about 160 px and each chart row about
- * 190 px. The insights column takes a fifth of the width, which is why the
- * page holds four charts rather than five (PAGE_CHARTS says more).
+ * At 1600 × 900 the KPI row takes about 160 px and each chart row about
+ * 300 px. Until version 52.3 the download was drawn at 1280 × 720, where each
+ * chart row had about 190 px: a line's value labels piled up, bars were
+ * squashed and the state map dropped its labels, while the page on screen
+ * (whose chart row never gets under 400 px) showed them all. The insights
+ * column takes a fifth of the width, which is why the page holds four charts
+ * rather than five (PAGE_CHARTS says more).
  *
  * The page is never a blank area: when the industry's own KPIs or charts give
  * it nothing, or the industry explains few of the file's columns
@@ -72,9 +76,13 @@ import {
   type PlacedChart,
 } from "./pagePlan";
 
-/** The page's size when drawn for a download (16:9); the image is three times this. */
-export const PAGE_W = 1280;
-export const PAGE_H = 720;
+/**
+ * The page's size when drawn for a download (16:9), as roomy as the page on a laptop screen, so every
+ * chart keeps its values and labels; the image is PAGE_SCALE times this, 3840 × 2160 (4K).
+ */
+export const PAGE_W = 1600;
+export const PAGE_H = 900;
+export const PAGE_SCALE = 3840 / PAGE_W;
 
 type State = ReturnType<typeof useWorkspace.getState>;
 
@@ -574,7 +582,7 @@ export async function downloadOnePage(format: "png" | "pdf", fmt: FormatOptions)
 
 /**
  * Draws the page once, off-screen in the light theme, and saves it: a 16:9
- * PNG at three times the page size (3840 × 2160), or one landscape PDF page.
+ * PNG at PAGE_SCALE times the page size (3840 × 2160), or one landscape PDF page.
  * `baseName` is the file name without its extension.
  */
 export async function exportOnePage(
@@ -590,14 +598,14 @@ export async function exportOnePage(
     // The light theme's page colour (the page's own background token), under anything transparent.
     const background = getComputedStyle(node).backgroundColor;
     if (format === "png") {
-      const blob = await toBlob(node, { pixelRatio: 3, backgroundColor: background });
+      const blob = await toBlob(node, { pixelRatio: PAGE_SCALE, backgroundColor: background });
       if (!blob) throw new Error("The page couldn't be drawn.");
       downloadBlob(blob, `${baseName}.png`);
     } else {
       const { jsPDF } = await import("jspdf");
       const pdf = new jsPDF({ unit: "pt", format: [960, 540], orientation: "landscape", compress: true });
       pdf.setProperties({ title: model.title, subject: model.subtitle, creator: "Loupe" });
-      const img = await toJpeg(node, { pixelRatio: 3, quality: 0.92, backgroundColor: background });
+      const img = await toJpeg(node, { pixelRatio: PAGE_SCALE, quality: 0.92, backgroundColor: background });
       pdf.addImage(img, "JPEG", 0, 0, 960, 540, undefined, "FAST");
       pdf.save(`${baseName}.pdf`);
     }

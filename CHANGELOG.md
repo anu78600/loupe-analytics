@@ -5,6 +5,18 @@ Every step of building Loupe, newest first. Generated from `src/content/changelo
 - **MAJOR** (`x.0`): a new capability, subsystem or page.
 - **MINOR** (`x.y`): a refinement, fix or follow-up to that major version.
 
+## 52.3 · The downloaded one page shows every value
+
+*Minor · 2026-10-25 06:44 UTC · Fix, Design*
+
+The one-page dashboard you download was drawn on a smaller page than the one on your screen, so its charts were squeezed: values piled up, bars were thin and the state map lost its labels. It is now drawn as roomy as the page on a laptop screen, still as a 4K image.
+
+- Every chart in the download has about 50% more room: the line's values sit apart, the bars are full height and every state on the map keeps its label.
+- The filter pills in the download show their whole selection (“Channel · All”, not “Channel · A..”).
+- The image is still 3840 × 2160 (4K), and the PDF one landscape page.
+
+Files: `src/ui/workspace/dashboard/page/OnePage.tsx`, `src/ui/workspace/dashboard/page/PageFilters.tsx`, `src/ui/workspace/export/gallery/PagePreview.tsx`
+
 ## 52.2 · Trust first: the right currency, industry, date and totals (roadmap stage 1)
 
 *Minor · 2026-10-25 06:31 UTC · Fix, Data, Tests*

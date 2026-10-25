@@ -3,7 +3,7 @@
 /**
  * The one-page dashboard's preview in the Export gallery (version 50.4): the
  * page exactly as it downloads. It is drawn the way the download is
- * (exportOnePage: OnePage rendered off-screen at 1280 × 720 in the light
+ * (exportOnePage: OnePage rendered off-screen at 1600 × 900 in the light
  * theme, then captured), only at one times the size and kept as a picture in
  * the card, so the preview is the file, with its own figures, charts and
  * insights.
@@ -25,7 +25,7 @@ import { OnePage, PAGE_W, type PageModel } from "../../dashboard/page/OnePage";
 /** How long the page must stay unchanged before it is drawn, so a burst of updates draws once. */
 const SETTLE_MS = 450;
 
-/** Draws the page as the download does, at 1280 × 720, as a JPEG data URL. */
+/** Draws the page as the download does, at PAGE_W × PAGE_H, as a JPEG data URL. */
 async function drawPage(model: PageModel): Promise<string> {
   const { host, cleanup } = await renderOffscreen(<OnePage model={model} live={false} />, PAGE_W);
   try {
