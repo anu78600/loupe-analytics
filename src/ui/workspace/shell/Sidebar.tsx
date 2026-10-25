@@ -207,7 +207,7 @@ export function Sidebar() {
           <FooterLink href="/glossary" label="Glossary" rail={rail}>
             <BookOpen aria-hidden className="size-4 shrink-0" />
           </FooterLink>
-          <FooterLink href="/changelog" label="Version log" rail={rail}>
+          <FooterLink href="/changelog" label="What's new" rail={rail}>
             <History aria-hidden className="size-4 shrink-0" />
           </FooterLink>
           <Tooltip content={rail ? "Expand the sidebar" : "Collapse the sidebar"} side="right">

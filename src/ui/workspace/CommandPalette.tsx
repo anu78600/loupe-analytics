@@ -172,14 +172,19 @@ function PaletteBody({ onClose, onOpenSettings }: { onClose: () => void; onOpenS
         <Command.Group heading={heading("Actions")} className={groupHeading}>
           {ws.context ? (
             <>
-              {(["executive", "analyst", "compact"] as const).map((m) => (
+              {(
+                [
+                  ["analyst", "Comfortable"],
+                  ["compact", "Compact"],
+                ] as const
+              ).map(([m, label]) => (
                 <Command.Item
                   key={m}
-                  value={`layout ${m}`}
+                  value={`layout density ${label}`}
                   className={itemClass}
                   onSelect={() => run(() => ws.setMode(m))}
                 >
-                  <LayoutGrid aria-hidden /> Layout: {m}
+                  <LayoutGrid aria-hidden /> Density: {label}
                 </Command.Item>
               ))}
               <Command.Item value="clear filters" className={itemClass} onSelect={() => run(ws.clearFilters)}>

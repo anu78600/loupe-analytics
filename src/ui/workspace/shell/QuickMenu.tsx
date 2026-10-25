@@ -7,8 +7,9 @@
  * field, opens a panel with:
  * - search and commands (the Ctrl/⌘+K palette);
  * - quick actions for where the user is: a demo or a file before any data;
- *   with data, checking the columns; with a dashboard, asking for a chart,
- *   showing or hiding charts, chart colours, questions, insights and export;
+ *   with a dashboard, asking for a chart and managing the charts. Steps are
+ *   the sidebar's job and chart colours the toolbar's and Settings', so none
+ *   is repeated here (version 52.4: each place in the app has one job);
  * - help: the glossary and what's new (each in a new tab, so the data loaded
  *   here stays), feedback, and the keyboard shortcuts;
  * - the theme and settings, the version, and that the data never leaves the
@@ -28,18 +29,13 @@ import {
   ExternalLink,
   Eye,
   FileUp,
-  Lightbulb,
   Megaphone,
   MessageSquareHeart,
   MessageSquarePlus,
-  MessagesSquare,
-  Palette,
   Search,
   Settings2,
-  Share2,
   ShieldCheck,
   Sparkles,
-  TableProperties,
 } from "lucide-react";
 import { useWorkspace, type Step } from "@/store/workspace";
 import { useSettings, type ThemePreference } from "@/store/settings";
@@ -50,7 +46,6 @@ import { Segmented } from "@/ui/primitives/segmented";
 import { Tooltip } from "@/ui/primitives/tooltip";
 import { Kbd } from "@/ui/primitives/misc";
 import { openFeedback } from "@/ui/common/feedback/store";
-import { useChartColoursPanel } from "../ChartColours";
 import { useAskChartPanel } from "../dashboard/AskChart";
 import { openDemo } from "../Shell";
 import { workspacePlace } from "../feedbackPlace";
@@ -82,11 +77,7 @@ function useActions(): Action[] {
       { label: "Upload a file", icon: FileUp, run: go("upload") },
       { label: "Try a demo", icon: Sparkles, run: () => void openDemo("ecommerce", "dashboard") },
     ];
-  if (!hasContext)
-    return [
-      { label: "Check & map columns", icon: TableProperties, run: go("map") },
-      { label: "Upload another file", icon: FileUp, run: go("upload") },
-    ];
+  if (!hasContext) return [];
   const toDashboard = (then: () => void) => () => {
     useWorkspace.getState().setStep("dashboard");
     then();
@@ -102,10 +93,6 @@ function useActions(): Action[] {
       icon: Eye,
       run: toDashboard(() => useAskChartPanel.getState().show("charts")),
     },
-    { label: "Chart colours", icon: Palette, run: () => useChartColoursPanel.getState().setOpen(true) },
-    { label: "Ask a question", icon: MessagesSquare, run: go("questions") },
-    { label: "Insights", icon: Lightbulb, run: go("insights") },
-    { label: "Export & share", icon: Share2, run: go("export") },
   ];
 }
 
@@ -216,26 +203,28 @@ export function QuickMenu({
             <Kbd>K</Kbd>
           </button>
 
-          <section aria-labelledby="quick-actions" className="grid gap-2">
-            <h2 id="quick-actions" className="eyebrow px-1 text-fg-subtle">
-              {hasData ? "Quick actions" : "Get started"}
-            </h2>
-            <div className="grid grid-cols-2 gap-1.5">
-              {actions.map((a) => (
-                <button
-                  key={a.label}
-                  type="button"
-                  onClick={run(a.run)}
-                  className="flex min-w-0 items-center gap-2.5 rounded-control border border-border px-2.5 py-2 text-left text-ui text-fg transition-colors duration-fast hover:border-border-hover hover:bg-surface-hover focus-visible:focus-ring"
-                >
-                  <span className="flex size-7 shrink-0 items-center justify-center rounded-control bg-accent-soft text-accent-text">
-                    <a.icon aria-hidden className="size-4" />
-                  </span>
-                  <span className="min-w-0 truncate">{a.label}</span>
-                </button>
-              ))}
-            </div>
-          </section>
+          {actions.length ? (
+            <section aria-labelledby="quick-actions" className="grid gap-2">
+              <h2 id="quick-actions" className="eyebrow px-1 text-fg-subtle">
+                {hasData ? "Quick actions" : "Get started"}
+              </h2>
+              <div className="grid grid-cols-2 gap-1.5">
+                {actions.map((a) => (
+                  <button
+                    key={a.label}
+                    type="button"
+                    onClick={run(a.run)}
+                    className="flex min-w-0 items-center gap-2.5 rounded-control border border-border px-2.5 py-2 text-left text-ui text-fg transition-colors duration-fast hover:border-border-hover hover:bg-surface-hover focus-visible:focus-ring"
+                  >
+                    <span className="flex size-7 shrink-0 items-center justify-center rounded-control bg-accent-soft text-accent-text">
+                      <a.icon aria-hidden className="size-4" />
+                    </span>
+                    <span className="min-w-0 truncate">{a.label}</span>
+                  </button>
+                ))}
+              </div>
+            </section>
+          ) : null}
 
           <section aria-labelledby="quick-help" className="grid gap-1">
             <h2 id="quick-help" className="eyebrow px-1 pb-1 text-fg-subtle">

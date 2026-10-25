@@ -88,20 +88,19 @@ export function ChartList({ onEdit, onCreate }: { onEdit: (spec: ChartSpec) => v
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-3">
           <Segmented<LayoutMode>
-            ariaLabel="Layout mode"
+            ariaLabel="Density"
             size="sm"
-            value={mode}
+            value={mode === "executive" ? "analyst" : mode}
             onChange={setMode}
             options={[
-              { value: "executive", label: "Executive" },
-              { value: "analyst", label: "Analyst" },
+              { value: "analyst", label: "Comfortable" },
               { value: "compact", label: "Compact" },
             ]}
           />
           <p className="text-xs text-fg-subtle">
             <Brief
               label="About this list"
-              full={`The charts of the ${mode} layout, in dashboard order. Switch a chart off to hide it; it can come back.`}
+              full={`The charts of the ${mode === "compact" ? "compact" : "comfortable"} layout, in dashboard order. Switch a chart off to hide it; it can come back.`}
             >
               Switch a chart off to hide it.
             </Brief>

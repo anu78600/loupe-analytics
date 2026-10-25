@@ -286,7 +286,7 @@ export function SettingsSheet({
               className="flex items-center justify-between gap-3 rounded-card border border-border px-4 py-3 text-ui transition-colors hover:border-border-hover hover:bg-surface-hover active:bg-surface-active"
             >
               <span className="flex items-center gap-2 text-fg">
-                <History className="size-4 text-fg-subtle" aria-hidden /> Version log
+                <History className="size-4 text-fg-subtle" aria-hidden /> What&apos;s new
               </span>
               <span className="font-figures text-fg-subtle">v{version}</span>
             </Link>

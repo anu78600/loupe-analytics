@@ -197,7 +197,7 @@ describe("reading the dates the other way", () => {
     await vi.waitFor(() => expect(useWorkspace.getState().context?.hiddenColumns).toEqual(["Units"]));
     const layout = kpiLayoutOf(useWorkspace.getState());
     useWorkspace.getState().setKpiLayout({ ...layout, hero: [...layout.hero].reverse() });
-    useWorkspace.getState().setMode("executive");
+    useWorkspace.getState().setMode("compact");
     useWorkspace.getState().setBusiness({ notes: "kept" });
     const ctx = useWorkspace.getState().context as AskContext;
     const q = readQuestion("Which region has the highest amount?", ctx);
@@ -221,7 +221,7 @@ describe("reading the dates the other way", () => {
     expect(s.hiddenColumns).toEqual(["Units"]);
     expect(s.context?.hiddenColumns).toEqual(["Units"]);
     expect(s.kpiLayout?.hero).toEqual([...layout.hero].reverse());
-    expect(s.mode).toBe("executive");
+    expect(s.mode).toBe("compact");
     expect(s.business.notes).toBe("kept");
     // The question is answered again on the new dates, not dropped.
     await vi.waitFor(() => expect(useWorkspace.getState().questionsLoading).toBe(false));
@@ -264,12 +264,12 @@ describe("the industry chosen on Detect", () => {
     const s = useWorkspace.getState();
     const hero = kpiLayoutOf(s).hero.slice(0, 2);
     s.setKpiLayout({ hero, supporting: [], columns: [] });
-    s.setMode("executive");
+    s.setMode("compact");
     s.setDimFilter("Channel", ["Website"]);
     await s.confirmDomain(s.domainId as string, s.subDomainId, { goTo: "map" });
     let now = useWorkspace.getState();
     expect(now.kpiLayout?.hero).toEqual(hero);
-    expect(now.mode).toBe("executive");
+    expect(now.mode).toBe("compact");
     expect(now.dimFilters).toHaveLength(1);
     await now.confirmDomain("sales", null, { goTo: "map" });
     now = useWorkspace.getState();

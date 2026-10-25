@@ -62,6 +62,7 @@ import { toast } from "sonner";
 import { engine } from "@/lib/engine-client";
 import type { PivotPlan } from "@/engine/parse/pivot";
 import { useWorkspace } from "@/store/workspace";
+import { isBetaDomain } from "@/registry/core";
 import { useSettings } from "@/store/settings";
 import { SUPPORTED_CURRENCIES, currencySymbol, formatCount } from "@/engine/core/format";
 import { grainLabel, listOf } from "@/engine/profile/structure";
@@ -477,7 +478,10 @@ function TopMatches() {
                     : "text-fg-muted hover:bg-surface-hover hover:text-fg",
                 )}
               >
-                <span className="truncate font-medium">{c.name}</span>
+                <span className="flex min-w-0 items-center gap-1.5">
+                  <span className="truncate font-medium">{c.name}</span>
+                  {isBetaDomain(c.domainId) ? <BetaTag /> : null}
+                </span>
                 <span aria-hidden className="h-1.5 overflow-hidden rounded-full bg-surface-3">
                   <motion.span
                     className="block h-full rounded-full bg-accent"
@@ -726,17 +730,35 @@ function IndustryForm() {
             <SelectValue placeholder="Choose an industry" />
           </SelectTrigger>
           <SelectContent>
+            {/* The core six first; the rest work too, as Beta (registry/core.ts). */}
             <SelectGroup>
               <SelectLabel>Industries</SelectLabel>
-              {domains.map((d) => (
-                <SelectItem
-                  key={d.id}
-                  value={d.id}
-                  hint={ranked.has(d.id) ? `${ranked.get(d.id)}%` : undefined}
-                >
-                  {d.name}
-                </SelectItem>
-              ))}
+              {domains
+                .filter((d) => !isBetaDomain(d.id))
+                .map((d) => (
+                  <SelectItem
+                    key={d.id}
+                    value={d.id}
+                    hint={ranked.has(d.id) ? `${ranked.get(d.id)}%` : undefined}
+                  >
+                    {d.name}
+                  </SelectItem>
+                ))}
+            </SelectGroup>
+            <SelectSeparator />
+            <SelectGroup>
+              <SelectLabel>Beta industries</SelectLabel>
+              {domains
+                .filter((d) => isBetaDomain(d.id))
+                .map((d) => (
+                  <SelectItem
+                    key={d.id}
+                    value={d.id}
+                    hint={ranked.has(d.id) ? `${ranked.get(d.id)}%` : undefined}
+                  >
+                    {d.name}
+                  </SelectItem>
+                ))}
             </SelectGroup>
             <SelectSeparator />
             <SelectItem value="generic">Generic (build from the data&apos;s structure)</SelectItem>
@@ -945,5 +967,20 @@ function LowFitWarning({
         <LayoutDashboard aria-hidden /> Use a general dashboard
       </Button>
     </div>
+  );
+}
+
+/**
+ * "Beta" beside an industry outside the core six (registry/core.ts): its template works, but has had less
+ * review, and the dashboard leans on the file's own columns when it fits weakly.
+ */
+function BetaTag() {
+  return (
+    <span
+      className="shrink-0 rounded-full border border-border px-1.5 text-2xs font-medium text-fg-subtle"
+      title="A Beta industry: its template works, with less review than the core six."
+    >
+      Beta
+    </span>
   );
 }

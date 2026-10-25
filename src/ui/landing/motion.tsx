@@ -180,13 +180,18 @@ export function useLive<T extends Element>(amount = 0.35) {
 }
 
 /** A counter that goes up by one every `ms` while `running`; loops key their replays on it. */
-export function useTicker(ms: number, running: boolean): number {
+/**
+ * A tick every `ms` while `running`, up to `limit` ticks (version 52.4): a decorative loop plays a few
+ * rounds while in view and then rests, so a visitor's tap never waits behind it on a slow phone.
+ */
+export function useTicker(ms: number, running: boolean, limit = Infinity): number {
   const [tick, setTick] = React.useState(0);
+  const done = tick >= limit;
   React.useEffect(() => {
-    if (!running) return;
-    const id = window.setInterval(() => setTick((t) => t + 1), ms);
+    if (!running || done) return;
+    const id = window.setInterval(() => setTick((t) => Math.min(limit, t + 1)), ms);
     return () => window.clearInterval(id);
-  }, [ms, running]);
+  }, [ms, running, done, limit]);
   return tick;
 }
 

@@ -78,6 +78,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Segmented } from "@/ui/primitives/segmented";
 import { Skeleton } from "@/ui/primitives/misc";
 import { ClampText, InfoTip } from "@/ui/primitives/reveal";
+import { chartGlossaryHref, GlossaryLink } from "@/ui/common/GlossaryLink";
 import { useAnimate, useChartThemeKey, useFmt } from "@/ui/common/hooks";
 import { EChart, type ChartClick, type EChartHandle } from "./EChart";
 import { DataTable } from "./DataTable";
@@ -479,6 +480,7 @@ function WhyThisChart({
     <>
       <p className="eyebrow text-fg-subtle">Why this chart</p>
       <p className="mt-1.5 text-sm leading-relaxed text-fg">{spec.reason}</p>
+      <GlossaryLink href={chartGlossaryHref(widget.kind ?? spec.kind)} className="mt-1.5" />
       {/* The slice this chart shows, kept here rather than under every chart's title. */}
       <p className="mt-2 text-xs text-fg-muted">Showing: {caption}</p>
       {spec.measures.length ? (

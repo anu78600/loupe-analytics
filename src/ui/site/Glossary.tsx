@@ -9,7 +9,10 @@
  * Everything shown comes from src/content/glossary.ts, which the server page
  * hands over: the hand-written terms, the chart catalogue's own words and the
  * registry's KPIs, so nothing here is made up. Each term has an anchor
- * ("#term-grain"), and an industry can be linked to ("#industry-hr"). "See
+ * ("#term-grain"), and an industry can be linked to ("#industry-hr"); since
+ * version 52.4 so can a chart type ("#chart-hbar") and one industry KPI
+ * ("#kpi-hr--attrition_rate" opens HR's tab and scrolls to it), which the
+ * workspace links to from a KPI's details and "Why this chart". "See
  * also" links clear the search and the level filter before jumping, so the
  * term they point to is always on the page. Press "/" to search.
  */
@@ -147,7 +150,10 @@ function TermCard({
 function ChartCard({ chart, group }: { chart: GlossaryChart; group?: string }) {
   const Icon = CHART_ICON[chart.kind as ChartKind];
   return (
-    <div className="flex gap-3 rounded-card border border-border bg-surface-1 p-4">
+    <div
+      id={`chart-${chart.kind}`}
+      className="flex scroll-mt-36 gap-3 rounded-card border border-border bg-surface-1 p-4"
+    >
       <span className="grid size-9 shrink-0 place-items-center rounded-control border border-border-accent bg-accent-soft text-accent">
         {Icon ? <Icon className="size-4" aria-hidden /> : null}
       </span>
@@ -177,7 +183,7 @@ const DIRECTION = {
 function KpiCard({ kpi, industry }: { kpi: GlossaryKpi; industry?: string }) {
   const d = DIRECTION[kpi.direction];
   return (
-    <article id={`kpi-${kpi.id}`} className="rounded-card border border-border bg-surface-1 p-4">
+    <article id={`kpi-${kpi.id}`} className="scroll-mt-36 rounded-card border border-border bg-surface-1 p-4">
       <header className="flex flex-wrap items-start justify-between gap-2">
         <h4 className="text-base font-semibold text-fg">
           {kpi.name}
@@ -356,12 +362,21 @@ export function Glossary({
     () => window.location.hash,
     () => "",
   );
-  const fromHash = /^#industry-(.+)$/.exec(hash)?.[1];
+  // "#industry-hr", or "#kpi-hr--attrition_rate" for one KPI of that industry.
+  const kpiLink = /^#kpi-(.+?)--(.+)$/.exec(hash);
+  const fromHash = kpiLink?.[1] ?? /^#industry-(.+)$/.exec(hash)?.[1];
   const industryId =
     picked ?? (industries.some((i) => i.id === fromHash) ? (fromHash as string) : industries[0]?.id);
   const industry = industries.find((i) => i.id === industryId) ?? industries[0];
   const kpiTotal = industries.reduce((a, i) => a + i.kpiCount, 0);
   const chartTotal = chartGroups.reduce((a, g) => a + g.charts.length, 0);
+
+  // A link to one KPI: once its industry's tab is open, its card is scrolled into view.
+  const kpiTarget = kpiLink?.[2];
+  React.useEffect(() => {
+    if (!kpiTarget) return;
+    document.getElementById(`kpi-${kpiTarget}`)?.scrollIntoView({ block: "start" });
+  }, [kpiTarget, industryId]);
 
   // "/" starts a search from anywhere on the page, as on most documentation sites.
   React.useEffect(() => {

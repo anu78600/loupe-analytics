@@ -18,6 +18,12 @@
  *   itself (cleaned CSV, data dictionary), and the dashboard's settings, saved
  *   and loaded again (no data rows).
  *
+ * Since version 52.3 the page offers four choices, not eight cards: the
+ * report (the one page, featured, with the full report and the insights PDF
+ * one click away under "More report formats"), the slides, the data, and
+ * one card "For analysts" that unfolds SQL & DAX, the Power BI package and
+ * the saved settings. Nothing was removed; the rarer formats are folded.
+ *
  * The page has one primary button, the featured download; every other
  * download is secondary. Each card carries a real fact about its file (pages,
  * slides, insights, views, rows), computed from the dashboard, never made up.
@@ -41,6 +47,7 @@ import {
   ArrowUpRight,
   BadgeCheck,
   CheckCircle2,
+  ChevronDown,
   Download,
   FileText,
   Loader2,
@@ -78,7 +85,7 @@ import { exportSlides } from "./export/slides";
 import { describeSlides, planSlides, type SlideDensity } from "./export/slidePlan";
 import { exportCharts, leftOutLabel, withShownTitle, type LeftOutChart } from "./export/exportCharts";
 import { exportInsightsPdf, exportSqlPdf } from "./export/documents";
-import { GalleryCard, GallerySection } from "./export/gallery/GalleryCard";
+import { FormatBadges, GalleryCard, GallerySection } from "./export/gallery/GalleryCard";
 import { PagePreview } from "./export/gallery/PagePreview";
 import {
   DataPreview,
@@ -300,27 +307,97 @@ export function ExportStep() {
         }
       />
 
-      <GallerySection id="export-share" title="Share">
-        <div className="grid gap-5">
+      <GallerySection id="export-report" title="Report">
+        <div className="grid gap-4">
           <OnePageCard />
-          <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+          <MoreFormats label="More report formats" count={2}>
             <ReportCard />
-            <SlidesCard />
-            <InsightsCard alone />
-          </div>
+            <InsightsCard />
+          </MoreFormats>
         </div>
       </GallerySection>
 
-      <GallerySection id="export-further" title="Take it further" className="mt-12">
-        <div className="grid gap-5">
-          <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
-            <PowerBiCard />
-            <SqlCard />
-            <DataCard alone />
-          </div>
-          <SettingsCard />
+      <GallerySection id="export-slides-data" title="Slides and data" className="mt-12">
+        <div className="grid gap-5 sm:grid-cols-2">
+          <SlidesCard />
+          <DataCard />
         </div>
       </GallerySection>
+
+      <GallerySection id="export-analysts" title="For analysts" className="mt-12">
+        <AnalystFormats />
+      </GallerySection>
+    </div>
+  );
+}
+
+/**
+ * Formats kept one click away (version 52.3): a quiet button that unfolds the cards it holds, so the page
+ * leads with the four choices most people need.
+ */
+function MoreFormats({
+  label,
+  count,
+  columns = "sm:grid-cols-2",
+  children,
+}: {
+  label: string;
+  count: number;
+  columns?: string;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const id = React.useId();
+  return (
+    <div className="grid gap-4">
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-controls={id}
+        onClick={() => setOpen((o) => !o)}
+        className="inline-flex w-fit items-center gap-1.5 rounded-control px-2 py-1 text-ui font-medium text-accent-text transition-colors duration-fast hover:bg-surface-hover focus-visible:focus-ring"
+      >
+        <ChevronDown
+          className={cn("size-4 transition-transform duration-fast", open && "rotate-180")}
+          aria-hidden
+        />
+        {open ? `Hide ${label.toLowerCase()}` : `${label} (${count})`}
+      </button>
+      {open ? (
+        <div id={id} className={cn("grid gap-5", columns)}>
+          {children}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * "For analysts": one card for the formats an analyst takes elsewhere: every KPI as SQL and DAX (and
+ * checked in DuckDB), the Power BI project package, and the dashboard's settings to reopen it later.
+ */
+function AnalystFormats() {
+  return (
+    <div className="grid gap-4 rounded-card border border-border bg-surface-1 p-5 shadow-card">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h3 className="text-md font-medium text-fg">SQL, DAX and Power BI</h3>
+          <p className="mt-1 text-ui text-fg-muted">
+            <Brief
+              label="About the analyst formats"
+              full="Every KPI written as SQL and as DAX, the same queries checked against your data, a Power BI project package (semantic model, measures, data and a build guide), and this dashboard's settings to load again later. All cover the whole file."
+            >
+              Every KPI as SQL and DAX, a Power BI project, and your settings.
+            </Brief>
+          </p>
+        </div>
+        <FormatBadges formats={["SQL", "DAX", "PBIP", "JSON"]} />
+      </div>
+      <MoreFormats label="Show the files" count={3} columns="sm:grid-cols-2 xl:grid-cols-3">
+        <SqlCard />
+        <PowerBiCard />
+        <SettingsCard />
+      </MoreFormats>
     </div>
   );
 }

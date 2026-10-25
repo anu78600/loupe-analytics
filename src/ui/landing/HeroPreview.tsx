@@ -65,13 +65,6 @@ import { currencySymbol, formatValue, type ValueFormat } from "@/engine/core/for
 import { MONTHS_SHORT } from "@/engine/core/dates";
 import { cn } from "@/lib/utils";
 import { LoupeMark } from "@/ui/brand/logo";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuTrigger,
-} from "@/ui/primitives/dropdown-menu";
 import { APP_PHASES, chipStyle, KPI_ICON, KPI_ICON_FALLBACK } from "./appShell";
 import { DrawOn, EASE, useCalm, useHydrated } from "./motion";
 import type {
@@ -1041,7 +1034,12 @@ function BottomBar() {
 /* The page                                                            */
 /* ------------------------------------------------------------------ */
 
-/** The period pill: live, it switches the whole preview between the three snapshots. */
+/**
+ * The period pill: live, it switches the whole preview between the three snapshots. A native select
+ * styled as the pill (version 52.4): the menu it replaced spent 110-200 ms of script on a mid-range
+ * phone just opening, past the 200 ms a tap may take to answer (INP); the phone's own picker opens at
+ * once, and the preview's redraw runs as a transition, so the tap paints first.
+ */
 function PeriodPill({
   states,
   state,
@@ -1051,45 +1049,42 @@ function PeriodPill({
   state: PreviewState;
   onChange: (index: number) => void;
 }) {
+  const [, startTransition] = React.useTransition();
+  const id = React.useId();
   return (
-    <DropdownMenu modal={false}>
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          className={cn(
-            PILL,
-            "group hover:border-border-hover focus-visible:focus-ring data-[state=open]:border-border-hover",
-          )}
-          aria-label={`Period: ${state.label}. Change the period`}
-        >
-          <CalendarRange className="size-3.5 shrink-0 text-fg-subtle" aria-hidden />
-          <span className="text-fg-muted">Period</span>
-          <span aria-hidden className="text-fg-subtle">
-            ·
-          </span>
-          <span className="font-medium text-fg">{state.label}</span>
-          <ChevronDown
-            className="size-3.5 shrink-0 text-fg-subtle transition-transform duration-fast group-data-[state=open]:rotate-180"
-            aria-hidden
-          />
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="min-w-48">
-        <DropdownMenuRadioGroup
-          value={state.id}
-          onValueChange={(id) => {
-            const i = states.findIndex((s) => s.id === id);
-            if (i >= 0) onChange(i);
-          }}
-        >
-          {states.map((s) => (
-            <DropdownMenuRadioItem key={s.id} value={s.id}>
-              {s.label}
-            </DropdownMenuRadioItem>
-          ))}
-        </DropdownMenuRadioGroup>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <span
+      className={cn(PILL, "group relative hover:border-border-hover has-[select:focus-visible]:focus-ring")}
+    >
+      <CalendarRange className="size-3.5 shrink-0 text-fg-subtle" aria-hidden />
+      <span className="text-fg-muted" aria-hidden>
+        Period
+      </span>
+      <span aria-hidden className="text-fg-subtle">
+        ·
+      </span>
+      <span className="font-medium text-fg" aria-hidden>
+        {state.label}
+      </span>
+      <ChevronDown className="size-3.5 shrink-0 text-fg-subtle" aria-hidden />
+      <label htmlFor={id} className="sr-only">
+        Period
+      </label>
+      <select
+        id={id}
+        value={state.id}
+        onChange={(e) => {
+          const i = states.findIndex((s) => s.id === e.target.value);
+          if (i >= 0) startTransition(() => onChange(i));
+        }}
+        className="absolute inset-0 size-full cursor-pointer appearance-none rounded-full opacity-0 outline-none"
+      >
+        {states.map((s) => (
+          <option key={s.id} value={s.id}>
+            {s.label}
+          </option>
+        ))}
+      </select>
+    </span>
   );
 }
 

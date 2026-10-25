@@ -5,6 +5,23 @@ Every step of building Loupe, newest first. Generated from `src/content/changelo
 - **MAJOR** (`x.0`): a new capability, subsystem or page.
 - **MINOR** (`x.y`): a refinement, fix or follow-up to that major version.
 
+## 52.4 · Less to wade through: focus, fewer choices, clearer places (roadmap stage 2)
+
+*Minor · 2026-10-25 07:00 UTC · Design, Performance*
+
+The second stage of the product roadmap trims what had grown too wide. Six industries lead and the rest are marked Beta, export offers four choices instead of eight cards, the dashboard has two views, every place in the app has one job, chart colours open on the presets, What's new shows the highlights, the landing page answers a tap faster, and terms link to the glossary where they are used.
+
+- Six core industries (E-commerce, B2B sales, Finance, Marketing, SaaS and HR) lead the industry list; the other twenty still work and are marked Beta.
+- Export offers four choices: the report (the one page, with the full report and the insights one click away), slides, data, and one card for analysts that opens SQL & DAX, Power BI and your saved settings. Nothing was removed.
+- Two dashboard views: the one page and All charts, which is Comfortable or Compact. The Executive layout became the one page; dashboards saved with it open Comfortable.
+- Each place has one job: the quick menu keeps help, search, theme and settings, with asking for a chart and managing charts; steps live in the sidebar and chart colours in the toolbar and Settings.
+- Chart colours open on the presets, every one of them readable; your own colours, “From one colour” and the readability report are under Advanced.
+- What's new (the version log) opens on the highlights: each month's new capabilities in a line each, with the full log of every step folded below.
+- The landing page answers a tap in under 140 ms on a mid-range phone (it took up to 340 ms): the preview's period is now the phone's own picker, and the decorative loops rest after a few rounds. It loads in under 2 seconds.
+- A KPI's details and “Why this chart” link to their entry in the glossary, opening in a new tab so your data stays loaded.
+
+Files: `src/registry/core.ts`, `src/ui/workspace/DetectStep.tsx`, `src/ui/workspace/ExportStep.tsx`, `src/ui/workspace/dashboard/DashboardStep.tsx`, `src/ui/workspace/customise/ChartList.tsx`, `src/ui/workspace/CommandPalette.tsx`, `src/store/workspace.ts`, `src/ui/workspace/shell/QuickMenu.tsx`, `src/ui/workspace/ChartColours.tsx`, `src/app/changelog/page.tsx`, `src/ui/site/WhatsNew.tsx`, `src/ui/landing/HeroPreview.tsx`, `src/ui/landing/Pipeline.tsx`, `src/ui/landing/motion.tsx`, `src/ui/landing/Bento.tsx`, `src/ui/common/GlossaryLink.tsx`, `src/ui/site/Glossary.tsx`, `src/ui/workspace/dashboard/KpiDetails.tsx`, `src/ui/charts/ChartCard.tsx`
+
 ## 52.3 · The downloaded one page shows every value
 
 *Minor · 2026-10-25 06:44 UTC · Fix, Design*

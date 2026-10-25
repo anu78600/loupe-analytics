@@ -137,7 +137,8 @@ function TypedCode({ code, lang, active }: { code: string; lang: CodeLanguage; a
 
 function CodeTile({ kpi }: { kpi: LandingData["showcase"]["kpi"] }) {
   const { ref, live } = useLive<HTMLDivElement>(0.4);
-  const tick = useTicker(9000, live);
+  // Each tile plays a few rounds in view, then rests on its last state (useTicker's limit).
+  const tick = useTicker(9000, live, 4);
   const [chosen, setChosen] = React.useState<"sql" | "dax" | null>(null);
   const lang = chosen ?? (tick % 2 === 0 ? "sql" : "dax");
   const code = lang === "sql" ? kpi.sql : kpi.dax;
@@ -382,7 +383,7 @@ const FORMS = ["Sorted bars", "Donut", "Treemap"] as const;
 
 function MorphTile({ state }: { state: PreviewState }) {
   const { ref, live } = useLive<HTMLDivElement>(0.45);
-  const tick = useTicker(3400, live);
+  const tick = useTicker(3400, live, FORMS.length * 2);
   const form = FORMS[tick % FORMS.length] ?? FORMS[0];
   const parts = partsOf(state);
   return (
@@ -552,7 +553,7 @@ const FORMATS = [
 
 function ExportTile() {
   const { ref, live } = useLive<HTMLDivElement>(0.45);
-  const tick = useTicker(6000, live);
+  const tick = useTicker(6000, live, 4);
   return (
     <div ref={ref} className="relative mt-auto grid h-[224px] place-items-center">
       <div
@@ -601,7 +602,7 @@ const REQUEST = "net revenue by category";
 
 function AskTile({ state }: { state: PreviewState }) {
   const { ref, live } = useLive<HTMLDivElement>(0.45);
-  const tick = useTicker(8000, live);
+  const tick = useTicker(8000, live, 4);
   const cats = state.categories.slice(0, 4);
   const top = Math.max(...cats.map((c) => c.share), 0.0001);
   const typed = REQUEST.length / 18;

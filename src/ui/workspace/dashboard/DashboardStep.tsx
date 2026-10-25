@@ -391,10 +391,12 @@ function DashboardHeader({ onBuild }: { onBuild: () => void }) {
   );
 }
 
-/** The layout modes, each with what it shows: the headline charts (Executive), every chart (Analyst), or shorter cards (Compact). */
+/**
+ * How "All charts" is laid out (version 52.4): comfortable (every chart and KPI, full size) or compact
+ * (the key charts in shorter cards). The quick read the executive layout gave is the one page now.
+ */
 const LAYOUTS: Array<{ value: LayoutMode; label: string; what: string }> = [
-  { value: "executive", label: "Executive", what: "The headline charts and main KPIs, for a quick read." },
-  { value: "analyst", label: "Analyst", what: "Every chart and KPI, at full size." },
+  { value: "analyst", label: "Comfortable", what: "Every chart and KPI, at full size." },
   { value: "compact", label: "Compact", what: "The key charts in shorter cards, so more fit on screen." },
 ];
 
@@ -419,7 +421,7 @@ function LayoutItems() {
   const counts = useModeCounts();
   return (
     <>
-      <DropdownMenuLabel>Layout</DropdownMenuLabel>
+      <DropdownMenuLabel>Density</DropdownMenuLabel>
       <DropdownMenuRadioGroup value={mode} onValueChange={(v) => setMode(v as LayoutMode)}>
         {LAYOUTS.map((l) => (
           <DropdownMenuRadioItem key={l.value} value={l.value} className="items-start">
@@ -444,11 +446,11 @@ function LayoutItems() {
 /** The layout as one button naming the mode in use, opening the modes with what each shows. */
 function LayoutMenu() {
   const mode = useWorkspace((s) => s.mode);
-  const label = LAYOUTS.find((l) => l.value === mode)?.label ?? "Analyst";
+  const label = LAYOUTS.find((l) => l.value === mode)?.label ?? "Comfortable";
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="secondary" size="sm" aria-label={`Layout: ${label}`}>
+        <Button variant="secondary" size="sm" aria-label={`Density: ${label}`}>
           <LayoutGrid aria-hidden />
           {label}
           <ChevronDown aria-hidden className="text-fg-subtle" />

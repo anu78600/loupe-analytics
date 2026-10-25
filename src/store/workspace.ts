@@ -1496,7 +1496,9 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
     },
 
     setMode: (mode) => {
-      set({ mode });
+      // Two views since version 52.4: the one page is the overview, and "All charts" is comfortable or
+      // compact. The executive layout it replaced reads as comfortable.
+      set({ mode: mode === "executive" ? "analyst" : mode });
       get().refresh();
     },
 
@@ -1948,7 +1950,8 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
           : null;
       set({
         widgets: ordered,
-        mode: cfg.dashboard.mode,
+        // A config saved with the old executive layout opens comfortable (version 52.4).
+        mode: cfg.dashboard.mode === "executive" ? "analyst" : cfg.dashboard.mode,
         // Configs saved before the one-page view have neither: keep the current view and the automatic title.
         ...(cfg.dashboard.view ? { dashView: cfg.dashboard.view } : {}),
         pageTitle: cfg.dashboard.pageTitle?.trim() || null,

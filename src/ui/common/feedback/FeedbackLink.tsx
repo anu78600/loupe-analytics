@@ -14,7 +14,7 @@ import { openFeedback } from "./store";
 function pageName(pathname: string): string {
   if (pathname === "/") return "Home";
   if (pathname.startsWith("/glossary")) return "Glossary";
-  if (pathname.startsWith("/changelog")) return "Version log";
+  if (pathname.startsWith("/changelog")) return "What's new";
   return pathname;
 }
 

@@ -36,6 +36,7 @@ import { Brief, ClampText, InfoTip } from "@/ui/primitives/reveal";
 import { useFmt } from "@/ui/common/hooks";
 import { CodeLegend, HighlightedCode, languageOf } from "@/ui/common/code";
 import { DeltaChip } from "./KpiCards";
+import { GlossaryLink, kpiGlossaryHref } from "@/ui/common/GlossaryLink";
 
 /**
  * How a KPI adds up, by the engine's reading of its definition
@@ -167,6 +168,8 @@ export function KpiDetails({ kpiId }: { kpiId: string }) {
     context.selection.hero.includes(kpiId) ||
     context.selection.supporting.includes(kpiId) ||
     context.selection.columns.includes(kpiId);
+  // Its entry on /glossary, for a template KPI (column and user KPIs have none).
+  const glossary = kpiGlossaryHref(context.domain.id, meta.id);
   return (
     <div className="grid gap-5">
       <div>
@@ -181,6 +184,7 @@ export function KpiDetails({ kpiId }: { kpiId: string }) {
         </div>
         <h2 className="mt-3 text-lg font-semibold text-fg">{meta.name}</h2>
         <p className="mt-1 text-sm leading-relaxed text-fg-muted">{meta.definition}</p>
+        {glossary ? <GlossaryLink href={glossary} className="mt-1.5" /> : null}
         {meta.available && value ? (
           <div className="mt-4 flex flex-wrap items-end gap-3">
             <p className="font-figures text-4xl leading-none font-semibold text-fg">

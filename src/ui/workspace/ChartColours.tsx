@@ -17,6 +17,10 @@
  * colours, never their hues, and leaves series 1 (the lead brand colour)
  * exactly as given. Nothing is saved until Apply.
  *
+ * Since version 52.4 the panel opens on the presets, every one of which
+ * passes the readability checks; "Advanced" holds the user's own colours and
+ * "From one colour", with the readability report.
+ *
  * Version 52.0 made it more useful:
  * - "Show on dashboard" (on by default) paints the draft on the page behind
  *   the panel as the user chooses, with the scrim left clear so the colours
@@ -180,6 +184,10 @@ function Editor({ onClose }: { onClose: () => void }) {
       : { colour: inUse.light.series[0] as string, style: "shades" },
   );
   const [mode, setMode] = React.useState<ThemeMode>(appMode);
+  // The Advanced choice last used, so switching back from the presets returns to it.
+  const [lastAdvanced, setLastAdvanced] = React.useState<Tab>(
+    current.kind === "single" ? "single" : "custom",
+  );
 
   const draft: ChartThemeChoice =
     tab === "presets"
@@ -219,18 +227,32 @@ function Editor({ onClose }: { onClose: () => void }) {
   return (
     <div className="flex min-h-full flex-col">
       <div className="grid gap-6 px-6 py-5">
-        <Segmented<Tab>
+        {/* Presets first; the user's own colours and "From one colour" one click away, under Advanced. */}
+        <Segmented<"presets" | "advanced">
           ariaLabel="How to choose colours"
-          value={tab}
-          onChange={setTab}
-          // Each tab grows from its own label's width, so "From one colour" stays on one line on a phone.
+          value={tab === "presets" ? "presets" : "advanced"}
+          onChange={(v) => setTab(v === "presets" ? "presets" : lastAdvanced)}
           className="w-full [&>*]:flex-auto [&>*]:whitespace-nowrap"
           options={[
             { value: "presets", label: "Presets" },
-            { value: "custom", label: "Your colours" },
-            { value: "single", label: "From one colour" },
+            { value: "advanced", label: "Advanced" },
           ]}
         />
+        {tab !== "presets" ? (
+          <Segmented<Tab>
+            ariaLabel="Your own colours"
+            size="sm"
+            value={tab}
+            onChange={(v) => {
+              setTab(v);
+              setLastAdvanced(v);
+            }}
+            options={[
+              { value: "custom", label: "Your colours" },
+              { value: "single", label: "From one colour" },
+            ]}
+          />
+        ) : null}
         {tab === "presets" ? (
           <PresetPicker value={presetId} onChange={setPresetId} mode={mode} inUse={current} />
         ) : tab === "custom" ? (
@@ -260,7 +282,10 @@ function Editor({ onClose }: { onClose: () => void }) {
           </div>
           <Preview colours={resolved[mode]} mode={mode} />
         </section>
-        <Readability reports={reports} mode={mode} shades={tab === "single" && single.style === "shades"} />
+        {/* Every preset passes the checks; the report matters for colours of one's own. */}
+        {tab !== "presets" ? (
+          <Readability reports={reports} mode={mode} shades={tab === "single" && single.style === "shades"} />
+        ) : null}
       </div>
       <div className="sticky bottom-0 mt-auto flex flex-wrap items-center justify-between gap-3 border-t border-border bg-surface-overlay px-6 py-4">
         <Button

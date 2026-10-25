@@ -38,7 +38,7 @@ const COLUMNS: Array<{ title: string; links: Array<{ href: string; label: string
     links: [
       { href: "/#privacy", label: "Privacy" },
       { href: "/#faq", label: "FAQ" },
-      { href: "/changelog", label: "Version log" },
+      { href: "/changelog", label: "What's new" },
     ],
   },
 ];

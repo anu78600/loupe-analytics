@@ -546,8 +546,10 @@ export function Pipeline({ data }: { data: PipelineData }) {
   const playing = auto && inView && !held && !paused;
   const phase = APP_PHASES[active] ?? (APP_PHASES[0] as AppPhase);
 
+  // The step's panel redraws as a transition, so a tap answers at once on a slow phone (INP, version 52.4).
+  const [, startTransition] = React.useTransition();
   const select = (i: number, focus = false) => {
-    setActive(i);
+    startTransition(() => setActive(i));
     if (focus) tabs.current[i]?.focus();
   };
   const onKey = (e: React.KeyboardEvent, i: number) => {

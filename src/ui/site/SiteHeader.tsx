@@ -36,7 +36,7 @@ const LINKS = [
   { href: "/#industries", label: "Industries" },
   { href: "/#privacy", label: "Privacy" },
   { href: "/#faq", label: "FAQ" },
-  { href: "/changelog", label: "Version log" },
+  { href: "/changelog", label: "What's new" },
 ];
 
 /** Home-page sections in page order; one without a link ("demo") clears the underline. */
