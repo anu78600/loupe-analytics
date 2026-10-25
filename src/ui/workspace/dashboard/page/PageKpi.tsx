@@ -9,7 +9,9 @@
  * foot. A roster has no sparkline: plotted by start date it would read as a
  * trend (as KpiCards decides). The same tile is drawn live and in the
  * download, so it holds no hover-only text: the full name and value are in
- * its tooltip and its accessible name.
+ * its tooltip and its accessible name. The name takes up to two lines, and
+ * every tile keeps room for two, so a long name ("Average cost per
+ * encounter") is read whole and the values still line up (version 54.1).
  *
  * Nothing here computes a figure: the value, the change and the trend are the
  * dashboard's own (KpiValue), written by the shared KPI rule (formatKpi).
@@ -127,21 +129,23 @@ export function PageKpiTile({
   return (
     <div
       data-card="kpi"
-      className="@container/kpi flex min-w-0 flex-col rounded-card border border-border bg-surface-1 p-4 shadow-card"
+      className="@container/kpi flex min-w-0 flex-col rounded-card border border-border bg-surface-1 p-3.5 shadow-card"
       title={`${meta.name}: ${full}${comparison}`}
     >
-      <div className="flex min-w-0 items-center gap-2">
+      <div className="flex min-w-0 items-start gap-2">
         <span
-          className="grid size-6 shrink-0 place-items-center rounded-sm"
+          className="grid size-5 shrink-0 place-items-center rounded-sm"
           style={{ background: tint(index, 14), color: `var(--chart-${(index % 8) + 1})` }}
         >
-          <Icon className="size-3.5" aria-hidden />
+          <Icon className="size-3" aria-hidden />
         </span>
-        <p className="min-w-0 truncate text-ui font-medium text-fg-muted">{kpiLabel(meta)}</p>
+        <p className="line-clamp-2 min-h-[2lh] min-w-0 text-ui leading-tight font-medium text-fg-muted">
+          {kpiLabel(meta)}
+        </p>
       </div>
-      {/* 30 px once the tile holds 8.5rem (the download's and a laptop's six across), a step down on the
+      {/* 24 px once the tile holds 8.5rem (the download's and a laptop's six across), a step down on the
           narrower tiles of a small laptop, where "₹3.13Cr" would otherwise be cut. */}
-      <p className="font-figures mt-2.5 truncate text-2xl leading-none font-semibold text-fg @[8.5rem]/kpi:text-3xl">
+      <p className="font-figures mt-1.5 truncate text-xl leading-none font-semibold text-fg @[8.5rem]/kpi:text-2xl">
         <span style={fit < 1 ? { fontSize: `${fit.toFixed(3)}em` } : undefined}>{shown}</span>
       </p>
       {value && !silent ? (
@@ -181,12 +185,12 @@ export function PageKpiTile({
       {spark ? (
         // Along the foot of the tile, full bleed within its padding; the sparkline's own colour is
         // the chart theme's spark token.
-        <div className="-mx-1 mt-auto pt-2.5">
+        <div className="-mx-1 mt-auto pt-2">
           <Sparkline
             values={spark}
             partialLast={value?.partialLast}
-            height={26}
-            className="h-6.5"
+            height={22}
+            className="h-5.5"
             label={`${meta.name} trend`}
           />
         </div>

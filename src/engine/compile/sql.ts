@@ -134,7 +134,14 @@ export function rowExprSql(e: RowExpr, ctx: SqlContext): string {
       ? `CASE ${c} WHEN ${quoteString(words.true)} THEN 1 WHEN ${quoteString(words.false)} THEN 0 END`
       : c;
   }
-  if ("daysBetween" in e) return dayDiff(ctx.col(e.daysBetween[0]), ctx.col(e.daysBetween[1]));
+  if ("daysBetween" in e) {
+    const a = ctx.col(e.daysBetween[0]);
+    const b = ctx.col(e.daysBetween[1]);
+    // In order only: NULL when the second date is the earlier day, as in the evaluator.
+    return e.inOrder
+      ? `CASE WHEN CAST(${b} AS DATE) >= CAST(${a} AS DATE) THEN ${dayDiff(a, b)} END`
+      : dayDiff(a, b);
+  }
   const a = rowExprSql(e.args[0], ctx);
   const b = rowExprSql(e.args[1], ctx);
   switch (e.op) {

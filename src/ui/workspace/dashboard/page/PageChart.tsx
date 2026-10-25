@@ -2,8 +2,9 @@
 
 /**
  * One chart on the one-page dashboard (version 50.3), in the dashboard's chart
- * card: the title, its one-sentence takeaway under it (headline.ts, clamped to
- * two lines, whole on hover, focus or a long press), and the chart.
+ * card: the title (up to two lines, never cut in one), its one-sentence
+ * takeaway under it (headline.ts, clamped to two lines, whole on hover, focus
+ * or a long press), and the chart.
  *
  * On the live page the card's actions appear on hover or keyboard focus, and
  * stay in view on a touch screen: the table view (every chart has one), a
@@ -175,10 +176,10 @@ export function PageChartCard({
       style={{ "--span": chart.span, "--rows": chart.tall ? 2 : 1 } as React.CSSProperties}
     >
       <header className="px-4 pt-3">
-        <div className="flex min-w-0 items-center gap-2">
+        <div className="flex min-w-0 items-start gap-2">
           <h3
             id={titleId}
-            className="min-w-0 flex-1 truncate text-md font-medium text-fg"
+            className="line-clamp-2 min-w-0 flex-1 text-sm leading-snug font-medium text-fg"
             title={chart.title}
           >
             {chart.title}
@@ -238,11 +239,11 @@ export function PageChartCard({
         {headline ? (
           live ? (
             // Keyed by the sentence, so a new one (after a filter) is measured afresh.
-            <ClampText key={headline} lines={2} className="mt-0.5 text-ui text-fg-muted">
+            <ClampText key={headline} lines={2} className="mt-0.5 text-xs text-fg-muted">
               {headline}
             </ClampText>
           ) : (
-            <PrintClamp text={headline} lines={2} className="mt-0.5 text-ui text-fg-muted" />
+            <PrintClamp text={headline} lines={2} className="mt-0.5 text-xs text-fg-muted" />
           )
         ) : null}
       </header>

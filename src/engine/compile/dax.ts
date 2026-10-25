@@ -153,7 +153,9 @@ export function rowExprDax(e: RowExpr, ctx: DaxContext): string {
     // Guard blanks explicitly: DATEDIFF would treat a BLANK date as day zero.
     const a = ctx.col(e.daysBetween[0]);
     const b = ctx.col(e.daysBetween[1]);
-    return `IF ( ISBLANK ( ${a} ) || ISBLANK ( ${b} ), BLANK (), DATEDIFF ( ${a}, ${b}, DAY ) )`;
+    // In order only: BLANK when the second date is the earlier day (INT drops the time of day).
+    const backwards = e.inOrder ? ` || INT ( ${b} ) < INT ( ${a} )` : "";
+    return `IF ( ISBLANK ( ${a} ) || ISBLANK ( ${b} )${backwards}, BLANK (), DATEDIFF ( ${a}, ${b}, DAY ) )`;
   }
   const a = rowExprDax(e.args[0], ctx);
   const b = rowExprDax(e.args[1], ctx);

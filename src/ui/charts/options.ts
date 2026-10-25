@@ -84,13 +84,22 @@ function fv(v: number | null | undefined, format: KpiFormat, fmt: FormatOptions,
 }
 
 /**
+ * Ticks in a format with set decimals (days, decimals, ratios): a whole tick
+ * drops them ("250 days", not "250.0 days"), as on any analyst's axis, while
+ * a step of 2.5 keeps its decimal (version 54.1).
+ */
+function wholeTicks(format: KpiFormat, fmt: FormatOptions): (v: number) => string {
+  return (v: number) => fv(v, format, Number.isInteger(v) ? { ...fmt, decimals: 0 } : fmt);
+}
+
+/**
  * Value-axis tick labels in one unit for the whole axis, the unit its largest
  * value needs: "₹0.9L, ₹1.2L, ₹1.5L", never "₹90K, ₹1.2L". Mirrors
  * formatValue's compact rule (money from 1,000; counts from 1,00,000);
- * below that, and for rates, ticks use the plain format.
+ * below that, and for rates, ticks use the plain format (wholeTicks).
  */
 function axisTicks(format: KpiFormat, fmt: FormatOptions, maxAbs: number): (v: number) => string {
-  const plain = (v: number) => fv(v, format, fmt);
+  const plain = wholeTicks(format, fmt);
   if (format !== "currency" && format !== "number" && format !== "integer") return plain;
   if (!(maxAbs >= (format === "currency" ? 1000 : 100000))) return plain;
   const units: Array<[number, string]> =
@@ -195,7 +204,7 @@ function valueAxis(
     format === "percent"
       ? (v: number) => fv(v, format, fmt).replace(/\.0%$/, "%")
       : maxAbs === undefined
-        ? (v: number) => fv(v, format, fmt)
+        ? wholeTicks(format, fmt)
         : axisTicks(format, fmt, maxAbs);
   return {
     type: "value",
@@ -278,7 +287,9 @@ export function wrapLabel(text: string, maxChars: number, lines = 2): string {
       break;
     }
     const cut = rest.lastIndexOf(" ", limit);
-    const at = cut > 0 ? cut : limit;
+    // A range ("100–150") breaks after its dash, so each number stays whole ("100–15" over "0" misreads).
+    const dash = Math.max(rest.lastIndexOf("–", limit - 1), rest.lastIndexOf("-", limit - 1));
+    const at = cut > 0 && cut >= dash ? cut : dash > 0 ? dash + 1 : limit;
     out.push(rest.slice(0, at).trim());
     rest = rest.slice(at).trim();
   }
@@ -505,12 +516,20 @@ function legend(ctx: OptionContext, names: string[]): Obj | undefined {
  * these are the only direct labels, so the extremes stay readable without a
  * number on every bar. Labels sit on a small surface-coloured plate, so they
  * stay legible where they cross a line or a neighbouring bar; on lines and
- * areas the low sits below its point, where the space is free.
+ * areas the low sits below its point where there is room, else beside it.
  */
 function markPoints(ctx: OptionContext, seriesIndex: number, isLine = false): Obj | undefined {
   if (seriesIndex !== 0 || !ctx.data.annotations.length) return undefined;
   const s = ctx.data.series[0];
   if (!s) return undefined;
+  // A low near the foot of the plot has no room below it: its label would sit on the axis labels, so it
+  // goes beside the point instead, on the side with more of the line (version 54.1). A percentage line
+  // starts at its lowest value (scale: true), so its low is always at the foot.
+  const top = Math.max(0, ...s.values.map((v) => v ?? 0));
+  const lowRoom = (v: number | null) =>
+    s.format !== "percent" && v !== null && top > 0 && v >= 0 ? v / top : 0;
+  const lowPosition = (index: number, v: number | null) =>
+    lowRoom(v) > 0.25 ? "bottom" : index > (s.values.length - 1) / 2 ? "left" : "right";
   return {
     symbol: "circle",
     symbolSize: 7,
@@ -535,7 +554,7 @@ function markPoints(ctx: OptionContext, seriesIndex: number, isLine = false): Ob
       return {
         name: v === null ? word : `${word} ${fv(v, s.format, ctx.fmt)}`,
         coord: [a.index, v],
-        ...(isLine && a.kind === "min" ? { label: { position: "bottom" } } : {}),
+        ...(isLine && a.kind === "min" ? { label: { position: lowPosition(a.index, v) } } : {}),
       };
     }),
   };

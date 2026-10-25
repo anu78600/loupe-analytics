@@ -859,6 +859,21 @@ function chartDataFor(input: ChartDataInput, out: { info?: HeadlineTraits["group
         );
       }
     }
+    if (x.kind === "time" && !data.matrix && data.series.length) {
+      // Periods at either end where every measure is blank (an average over no rows) are dropped
+      // (version 54.1): a trend by discharge month whose earliest months hold only rows left out of the
+      // measure would otherwise open with a run of empty axis. Gaps inside the line stay.
+      const has = (i: number) => data.series.some((s) => s.values[i] !== null && s.values[i] !== undefined);
+      let lo = 0;
+      let hi = data.categories.length;
+      while (lo < hi && !has(lo)) lo++;
+      while (hi > lo && !has(hi - 1)) hi--;
+      if (lo < hi && (lo > 0 || hi < data.categories.length)) {
+        data.categories = data.categories.slice(lo, hi);
+        data.series = data.series.map((s) => ({ ...s, values: s.values.slice(lo, hi) }));
+        if (data.rows.length) data.rows = data.rows.slice(lo, hi);
+      }
+    }
     if (x.kind === "time" && xk.grain) {
       // Same rule as the KPI sparklines: a bucket is incomplete when the data
       // (or the date filter) ends more than a day before its natural end, or

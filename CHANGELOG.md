@@ -5,6 +5,23 @@ Every step of building Loupe, newest first. Generated from `src/content/changelo
 - **MAJOR** (`x.0`): a new capability, subsystem or page.
 - **MINOR** (`x.y`): a refinement, fix or follow-up to that major version.
 
+## 54.1 · No negative hospital stays, and every name in full
+
+*Minor · 2026-10-25 16:49 UTC · Fix, Data, Design*
+
+A hospital file whose discharge dates fell before the admission showed an average stay of minus 57 days. Such stays are now left out, Data health names the rows (and says when day and month look swapped) and warns when the data thins out at its end; the one-page dashboard's KPI cards and charts are a little smaller and show their names and labels in full.
+
+- Length of stay leaves out any stay discharged before it was admitted, in the dashboard, the SQL and the Power BI measures alike, so it can never be negative.
+- Data health warns when an end date comes before its start date (discharge before admission, delivery before order, exit before hire and similar pairs), with the number of rows, and says when swapping day and month would put many of them right: a sign the source mixed DD/MM and MM/DD dates.
+- Data health also warns when the data thins out at its end (the last months hold a handful of rows against hundreds before), so a sudden fall in recent periods isn't taken as real without a look.
+- Trend charts drop empty periods at either end, so a trend no longer opens with years of blank axis.
+- KPI cards on the one-page dashboard are a little smaller and show the full name on up to two lines (“Average cost per encounter”), with the values still lined up.
+- Chart titles and insight titles wrap to a second line instead of being cut; the chart takeaways are a size smaller.
+- Range labels under a histogram break after the dash (“100–” over “150”), never inside a number.
+- A low point near the bottom of a line chart puts its label beside the point, not on the axis labels, and whole axis ticks drop a needless “.0” (“250 days”).
+
+Files: `src/engine/query/expr.ts`, `src/engine/query/evaluate.ts`, `src/engine/compile/sql.ts`, `src/engine/compile/dax.ts`, `src/registry/schema.ts`, `src/registry/domains/healthcare.json`, `src/engine/detect/generic.ts`, `src/engine/profile/quality.ts`, `src/ui/workspace/review/model.ts`, `src/engine/charts/data.ts`, `src/ui/charts/options.ts`, `src/ui/workspace/dashboard/page/PageKpi.tsx`, `src/ui/workspace/dashboard/page/PageChart.tsx`, `src/ui/workspace/dashboard/page/PageInsights.tsx`, `tests/date-order.test.ts`
+
 ## 54.0 · Insights anyone can read, with the chart on hover for analysts
 
 *Major · 2026-10-25 16:26 UTC · Feature, Design*

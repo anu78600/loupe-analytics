@@ -308,11 +308,13 @@ export function compileRowExpr(e: RowExpr, res: Resolver): RowGet {
   if ("daysBetween" in e) {
     const a = numericValues(res.column(e.daysBetween[0]), e.daysBetween[0]);
     const b = numericValues(res.column(e.daysBetween[1]), e.daysBetween[1]);
+    const inOrder = e.inOrder === true;
     return (r) => {
       const x = a[r] as number;
       const y = b[r] as number;
       if (x !== x || y !== y) return NaN;
-      return Math.floor(y / DAY_MS) - Math.floor(x / DAY_MS);
+      const d = Math.floor(y / DAY_MS) - Math.floor(x / DAY_MS);
+      return inOrder && d < 0 ? NaN : d;
     };
   }
   const fa = compileRowExpr(e.args[0], res);

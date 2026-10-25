@@ -2083,7 +2083,7 @@ export interface GenericFillInput {
 function renameRow(e: RowExpr, f: (id: string) => string): RowExpr {
   if ("field" in e) return { field: f(e.field) };
   if ("op" in e) return { op: e.op, args: [renameRow(e.args[0], f), renameRow(e.args[1], f)] };
-  if ("daysBetween" in e) return { daysBetween: [f(e.daysBetween[0]), f(e.daysBetween[1])] };
+  if ("daysBetween" in e) return { ...e, daysBetween: [f(e.daysBetween[0]), f(e.daysBetween[1])] };
   return e;
 }
 

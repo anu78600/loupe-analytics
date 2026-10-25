@@ -43,9 +43,12 @@ export type RowExpr =
   /**
    * Calendar days from the first date to the second (DATEDIFF ... DAY).
    * Counts midnights crossed (floor-day difference), so it is negative when
-   * the second date is earlier; blank if either date is blank.
+   * the second date is earlier; blank if either date is blank. With
+   * `inOrder`, a second date before the first is blank too: a duration that
+   * can't run backwards (a hospital stay, a delivery) leaves such rows out
+   * rather than averaging in a negative (version 54.1).
    */
-  | { daysBetween: [FieldRef, FieldRef] };
+  | { daysBetween: [FieldRef, FieldRef]; inOrder?: true };
 
 /**
  * Row filter: an aggregate's `where` or a `calc` condition. A blank cell never

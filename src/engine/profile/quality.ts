@@ -19,7 +19,7 @@
  * marks the exact cells, so its counts always match the issues here.
  */
 import type { Column, Dataset, ParseReport } from "@/engine/core/types";
-import { DAY_MS, formatDay, todayWallClock } from "@/engine/core/dates";
+import { addMonths, bucketLabel, DAY_MS, formatDay, startOfMonth, todayWallClock } from "@/engine/core/dates";
 import { formatPlain } from "@/engine/core/format";
 import type { ColumnProfile, DatasetProfile } from "./types";
 import { mixedScales, offScale, scaleFactor, valueText, type MixedScales } from "./scales";
@@ -376,6 +376,109 @@ function discountPricePair(cols: ColumnProfile[]): { disc: ColumnProfile; gross:
   return disc && gross ? { disc, gross } : null;
 }
 
+/**
+ * Pairs of dates where the second can't come before the first, by name
+ * (phrases matched against a column's tokens): a stay is discharged after
+ * admission, an order delivered after it is placed. A pair is checked only
+ * when exactly one date column matches each side, so a table with two
+ * candidate starts is left alone rather than paired by guesswork.
+ */
+const DATE_ORDER: { start: string[]; end: string[] }[] = [
+  { start: ["admission", "admit", "admitted"], end: ["discharge", "disch", "discharged"] },
+  { start: ["check in", "checkin", "arrival"], end: ["checkout", "check out", "departure"] },
+  { start: ["start", "started", "begin"], end: ["end", "ended", "finish", "finished"] },
+  { start: ["order", "ordered", "purchase"], end: ["shipping", "shipped", "dispatch", "dispatched"] },
+  { start: ["order", "ordered", "purchase"], end: ["delivery", "delivered"] },
+  { start: ["shipping", "shipped", "dispatch", "dispatched"], end: ["delivery", "delivered"] },
+  {
+    start: ["hire", "hired", "joined", "joining"],
+    end: ["exit", "termination", "terminated", "resignation"],
+  },
+  { start: ["created", "opened", "raised", "logged"], end: ["resolved", "closed", "solved"] },
+  { start: ["application", "applied"], end: ["decision", "approval", "approved", "award", "awarded"] },
+  { start: ["enrolment", "enrollment", "enrolled"], end: ["completion", "completed", "graduation"] },
+  { start: ["pickup", "pick up"], end: ["dropoff", "drop off"] },
+];
+
+/** Whether a column's name tokens hold one of the phrases, word for word. */
+const named = (p: ColumnProfile, phrases: string[]): boolean => {
+  const text = ` ${p.tokens.join(" ")} `;
+  return phrases.some((w) => text.includes(` ${w} `));
+};
+
+/** The date pairs found in a table (DATE_ORDER), start first. Time-of-day columns never pair. */
+function datePairs(cols: ColumnProfile[]): { start: ColumnProfile; end: ColumnProfile }[] {
+  const dates = cols.filter((c) => c.storage === "date" && c.role !== "time");
+  const out: { start: ColumnProfile; end: ColumnProfile }[] = [];
+  for (const rule of DATE_ORDER) {
+    const starts = dates.filter((c) => named(c, rule.start) && !named(c, rule.end));
+    const ends = dates.filter((c) => named(c, rule.end) && !named(c, rule.start));
+    const start = starts[0];
+    const end = ends[0];
+    if (starts.length === 1 && ends.length === 1 && start && end && !out.some((o) => o.end === end))
+      out.push({ start, end });
+  }
+  return out;
+}
+
+/** Whole calendar day of a wall-clock ms date, the way daysBetween counts. */
+const dayOf = (v: number) => Math.floor(v / DAY_MS);
+
+/** The date with its day and month swapped (3 Feb ↔ 2 Mar), or NaN when it can't be (day over 12, or the same). */
+function swapDayMonth(v: number): number {
+  const d = new Date(v);
+  const day = d.getUTCDate();
+  const month = d.getUTCMonth() + 1;
+  if (day > 12 || day === month) return NaN;
+  return Date.UTC(d.getUTCFullYear(), day - 1, month) + (v - Math.floor(v / DAY_MS) * DAY_MS);
+}
+
+/**
+ * A thin tail on the time axis (version 54.1): the last months each hold under
+ * a fifth of a usual month's rows, and together under 5% of the table. Such a
+ * tail is mostly a file that stops earlier, with a few late or mis-dated rows
+ * after it, and it makes the latest periods look like a collapse. Null when
+ * there is none, or under 6 months of data.
+ */
+function thinTail(
+  values: Float64Array,
+): { from: number; months: number; rows: number; usual: number } | null {
+  let min = Infinity;
+  let max = -Infinity;
+  for (const v of values) {
+    if (v !== v) continue;
+    if (v < min) min = v;
+    if (v > max) max = v;
+  }
+  if (min > max) return null;
+  const first = startOfMonth(min);
+  // Months since `first`, by calendar (wall-clock ms read as UTC).
+  const y0 = new Date(first).getUTCFullYear();
+  const m0 = new Date(first).getUTCMonth();
+  const monthOf = (v: number) => {
+    const d = new Date(v);
+    return (d.getUTCFullYear() - y0) * 12 + d.getUTCMonth() - m0;
+  };
+  const months = monthOf(max) + 1;
+  if (months < 6 || months > 1200) return null;
+  const counts = new Array<number>(months).fill(0);
+  let total = 0;
+  for (const v of values) {
+    if (v !== v) continue;
+    const k = monthOf(v);
+    counts[k] = (counts[k] ?? 0) + 1;
+    total++;
+  }
+  const sorted = [...counts].sort((a, b) => a - b);
+  const usual = sorted[Math.floor(sorted.length / 2)] ?? 0;
+  let k = months;
+  while (k > 0 && (counts[k - 1] ?? 0) < usual * 0.2) k--;
+  const tail = months - k;
+  const rows = counts.slice(k).reduce((s, c) => s + c, 0);
+  if (tail < 2 || k < 4 || rows === 0 || rows > total * 0.05) return null;
+  return { from: addMonths(first, k), months: tail, rows, usual };
+}
+
 /** Start of 2 Jan 1900: anything earlier is a placeholder date (01/01/1900, Excel's serials 0 and 1). */
 const PLACEHOLDER_END = Date.UTC(1900, 0, 2);
 
@@ -410,6 +513,17 @@ export function issueCellTest(
         return dv === dv && gv === gv && gv >= 0 && dv > gv + 1e-9;
       },
       note: () => `Larger than "${pair.gross.name}" on this row, which means a negative selling price.`,
+    };
+  }
+  if (prefix === "order-") {
+    const pair = datePairs(profile.columns).find((x) => x.end.name === issue.column);
+    const s = values(pair?.start);
+    const e = values(pair?.end);
+    if (!pair || !s || !e) return null;
+    return {
+      column: pair.end.name,
+      test: (r) => dayOf(e[r] as number) < dayOf(s[r] as number),
+      note: () => `Before "${pair.start.name}" on this row.`,
     };
   }
   const p = byName(issue.column);
@@ -785,6 +899,41 @@ export function assessHealth(ds: Dataset, profile: DatasetProfile, report?: Pars
     }
   }
 
+  // 6b. Dates out of order (version 54.1): an end before its start, such as a discharge before the
+  // admission, can't happen. Such rows make durations negative. When swapping the day and month of one
+  // date puts many of them right, the source probably mixed DD/MM and MM/DD dates, so say so.
+  for (const { start, end } of datePairs(cols)) {
+    const s = colOf(start);
+    const e = colOf(end);
+    if (s.kind !== "date" || e.kind !== "date") continue;
+    let c = 0;
+    let swapped = 0;
+    for (let i = 0; i < n; i++) {
+      const sv = s.values[i] as number;
+      const ev = e.values[i] as number;
+      if (sv !== sv || ev !== ev || dayOf(ev) >= dayOf(sv)) continue;
+      c++;
+      const s2 = swapDayMonth(sv);
+      const e2 = swapDayMonth(ev);
+      if ((s2 === s2 && dayOf(ev) >= dayOf(s2)) || (e2 === e2 && dayOf(e2) >= dayOf(sv))) swapped++;
+    }
+    if (c === 0) continue;
+    const share = c / Math.max(1, n);
+    const hint =
+      swapped >= Math.max(3, c * 0.2)
+        ? ` ${fmt(swapped)} of them come right with the day and month of one date swapped, so the source may mix DD/MM and MM/DD dates.`
+        : "";
+    issues.push({
+      id: `order-${end.name}`,
+      severity: "warning",
+      title: `"${end.name}" before "${start.name}"`,
+      detail: `${n_(c, "row has", "rows have")} "${end.name}" earlier than "${start.name}" (${pct(share)}), which can't happen and makes the time between them negative.${hint}`,
+      column: end.name,
+      count: c,
+      penalty: Math.min(10, 3 + share * 30),
+    });
+  }
+
   // 7. Gaps in the time axis: a warning above 5% empty periods (penalty 2 + 20 × share, max 6), else info.
   const ts = profile.timeSeries;
   if (ts && ts.missingPeriods > 0) {
@@ -797,6 +946,24 @@ export function assessHealth(ds: Dataset, profile: DatasetProfile, report?: Pars
       detail: `In "${ts.column}", ${pct(share)} of ${ts.granularity}s between ${formatDay(ts.from)} and ${formatDay(ts.to)} have no rows${g ? `; the longest gap is ${fmt(g.periods)} ${ts.granularity}s from ${formatDay(g.from)}` : ""}. Trends will show these as zero.`,
       count: ts.missingPeriods,
       penalty: share > 0.05 ? Math.min(6, 2 + share * 20) : 0.5,
+    });
+  }
+
+  // 7b. A thin tail at the end of the time axis (thinTail): flagged so a fall in the latest periods
+  // isn't read as real without a look.
+  const tsCol = ts ? cols.find((c) => c.name === ts.column) : undefined;
+  const tsValues = tsCol ? colOf(tsCol) : undefined;
+  const tail = tsCol && tsValues?.kind === "date" ? thinTail(tsValues.values) : null;
+  if (tsCol && tail) {
+    const last = bucketLabel(addMonths(tail.from, -1), "month");
+    issues.push({
+      id: `thin-tail-${tsCol.name}`,
+      severity: "warning",
+      title: `Data thins out after ${last}`,
+      detail: `In "${tsCol.name}", the last ${fmt(tail.months)} months (from ${bucketLabel(tail.from, "month")}) hold ${n_(tail.rows, "row", "rows")} in all, against about ${fmt(tail.usual)} in a usual month. Those months will look like a sharp fall: the data may really end in ${last}, with a few late or mis-dated rows after it.`,
+      column: tsCol.name,
+      count: tail.rows,
+      penalty: 3,
     });
   }
 
@@ -836,8 +1003,8 @@ export function assessHealth(ds: Dataset, profile: DatasetProfile, report?: Pars
     },
     {
       id: "dates",
-      label: "No future or placeholder dates",
-      passed: !issues.some((i) => /^(future|ancient)/.test(i.id)),
+      label: "No future, placeholder or out-of-order dates",
+      passed: !issues.some((i) => /^(future|ancient|order)-/.test(i.id)),
     },
     {
       id: "completeness",
@@ -852,7 +1019,9 @@ export function assessHealth(ds: Dataset, profile: DatasetProfile, report?: Pars
     {
       id: "continuity",
       label: "Continuous time axis",
-      passed: !issues.some((i) => i.id === "date-gaps" && i.severity === "warning"),
+      passed: !issues.some(
+        (i) => (i.id === "date-gaps" || i.id.startsWith("thin-tail-")) && i.severity === "warning",
+      ),
     },
   ];
   const warnings = issues.filter((i) => i.severity !== "info").length;

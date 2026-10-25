@@ -147,6 +147,8 @@ function issueLabel(issue: HealthIssue, c: ColumnProfile, n: (x: number) => stri
       return `${n(count)} in the future`;
     case "ancient":
       return `${n(count)} before 1900`;
+    case "order":
+      return `${n(count)} out of order`;
     case "empty":
       return "Empty";
     case "constant":

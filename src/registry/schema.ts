@@ -33,7 +33,9 @@ export const rowExprSchema: z.ZodType<RowExpr> = z.lazy(() =>
     z
       .object({ op: z.enum(["add", "sub", "mul", "div"]), args: z.tuple([rowExprSchema, rowExprSchema]) })
       .strict(),
-    z.object({ daysBetween: z.tuple([z.string(), z.string()]) }).strict(),
+    z
+      .object({ daysBetween: z.tuple([z.string(), z.string()]), inOrder: z.literal(true).optional() })
+      .strict(),
   ]),
 );
 
