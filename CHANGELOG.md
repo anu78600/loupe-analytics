@@ -5,6 +5,21 @@ Every step of building Loupe, newest first. Generated from `src/content/changelo
 - **MAJOR** (`x.0`): a new capability, subsystem or page.
 - **MINOR** (`x.y`): a refinement, fix or follow-up to that major version.
 
+## 57.0 · Slides you can edit in PowerPoint
+
+*Major · 2026-10-25 17:47 UTC · Feature*
+
+The presentation slides now download as a PowerPoint file in which every title, takeaway, KPI and figure is text you can edit, so the deck can be reworded before a meeting. Charts and tables come in as sharp pictures, exactly as on the dashboard.
+
+- Export › Presentation slides › PowerPoint: the same deck as the images and the PDF (the overview with the headline KPIs and key takeaways, then the charts section by section), as a .pptx.
+- Every word on a slide is a text box in its place, size and colour: titles, takeaways, KPI names and values, changes in green or red, notes and the source line.
+- Cards and number badges are PowerPoint shapes; charts, tables and trend lines are pictures, each with a description for screen readers.
+- The deck's theme colours are your chart colours, so anything you add in PowerPoint matches.
+- Opens in PowerPoint, Keynote and Google Slides; text uses Arial, which every one of them has.
+- The PDF and the 4K images are still there, beside it.
+
+Files: `src/engine/export/pptx.ts`, `src/ui/workspace/export/slidesPptx.ts`, `src/ui/workspace/export/slides.tsx`, `src/ui/workspace/ExportStep.tsx`, `docs/ROADMAP.md`, `tests/pptx-export.test.ts`
+
 ## 56.0 · Your dashboard as an Excel workbook
 
 *Major · 2026-10-25 17:30 UTC · Feature*

@@ -54,6 +54,7 @@ import {
   CheckCircle2,
   ChevronDown,
   Download,
+  FileImage,
   FileText,
   Loader2,
   ShieldCheck,
@@ -652,7 +653,7 @@ function SlidesCard() {
     [all, withColumns, density],
   );
   const deck = describeSlides(slides);
-  const run = async (format: "png" | "pdf") => {
+  const run = async (format: "png" | "pdf" | "pptx") => {
     setBusy("Preparing…");
     try {
       // The overview's takeaways are the insights: found first if they haven't been yet.
@@ -661,12 +662,14 @@ function SlidesCard() {
       if (!input) return;
       // Each density has its own name, so a presenting deck and a compact one can sit side by side.
       const artefact = `slides-${density}-per-slide`;
-      const base = exportFileName(summary?.name, artefact, format).replace(/\.(png|pdf)$/, "");
+      const base = exportFileName(summary?.name, artefact, format).replace(/\.(png|pdf|pptx)$/, "");
       await exportSlides(input, slides, format, base, setBusy);
       toast.success(
         format === "png"
           ? `${slides.length} slides downloaded as images`
-          : `${slides.length} slides downloaded as a PDF`,
+          : format === "pptx"
+            ? `${slides.length} slides downloaded for PowerPoint`
+            : `${slides.length} slides downloaded as a PDF`,
       );
     } catch (e) {
       toast.error(`The slides couldn't be made: ${(e as Error).message}`);
@@ -679,8 +682,8 @@ function SlidesCard() {
       stage="paper"
       title="Presentation slides"
       line="16:9 slides, a takeaway on every chart."
-      full="Landscape 16:9 slides with a takeaway on every chart, ready for PowerPoint, Keynote or a screen. Each image is 3840 × 2160 (4K), numbered in order, opening with the headline KPIs and key takeaways."
-      formats={["PNG", "PDF"]}
+      full="Landscape 16:9 slides with a takeaway on every chart, opening with the headline KPIs and key takeaways. In the PowerPoint file every title, takeaway and figure is text you can edit, and the charts are pictures. Also as a PDF, or as 3840 × 2160 (4K) images, numbered in order."
+      formats={["PPTX", "PDF", "PNG"]}
       preview={<SlidesPreview slides={slides} kpis={heroes} />}
       fact={
         <span className="flex min-w-0 items-baseline gap-1">
@@ -695,12 +698,12 @@ function SlidesCard() {
           <Button
             variant="secondary"
             className="min-w-0 flex-1 px-3"
-            onClick={() => void run("png")}
+            onClick={() => void run("pptx")}
             disabled={Boolean(busy)}
-            aria-label="Download slides as images"
+            aria-label=".pptx: Presentation slides for PowerPoint"
           >
             <DownloadIcon busy={Boolean(busy)} />
-            <span className="truncate">{busy ?? "Download slides"}</span>
+            <span className="truncate">{busy ?? "PowerPoint"}</span>
           </Button>
           <Button
             variant="secondary"
@@ -709,7 +712,16 @@ function SlidesCard() {
             disabled={Boolean(busy)}
             aria-label="As PDF: Presentation slides"
           >
-            <FileText aria-hidden /> As PDF
+            <FileText aria-hidden /> PDF
+          </Button>
+          <Button
+            variant="secondary"
+            className="px-3"
+            onClick={() => void run("png")}
+            disabled={Boolean(busy)}
+            aria-label="Download slides as images"
+          >
+            <FileImage aria-hidden /> Images
           </Button>
         </>
       }

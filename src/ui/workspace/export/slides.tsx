@@ -16,6 +16,10 @@
  *
  * planSlides() (slidePlan.ts) decides the slides before anything is drawn,
  * so the Export card can say exactly how many images the dashboard takes.
+ * Since version 57.0 the same layout also becomes an editable PowerPoint
+ * file: every word a text box, every card a shape, and what is marked
+ * data-pptx="image" (charts, tables, trend lines, the wordmark) a picture
+ * (slidesPptx.ts reads the slides, engine/export/pptx.ts writes the file).
  * Slides are laid out at 1920 × 1080 and drawn at 2× (3840 × 2160), then
  * saved as numbered PNGs in a zip, or as one landscape PDF. Charts and
  * tables are scaled up on a slide so their labels read from across a room.
@@ -39,6 +43,7 @@ import type { KpiValue } from "@/engine/kpi/compute";
 import type { KpiMeta } from "@/engine/session";
 import { chartSubtitle, GRAIN_WORD, rendersWithECharts } from "@/ui/charts/options";
 import { DataTable } from "@/ui/charts/DataTable";
+import { readChartTokens } from "@/ui/charts/tokens";
 import { Sparkline } from "@/ui/charts/Sparkline";
 import { Wordmark } from "@/ui/brand/logo";
 import { formatKpi } from "@/ui/common/kpiFormat";
@@ -125,7 +130,9 @@ function SlideFrame({
           </h2>
         </div>
         <div className="flex shrink-0 flex-col items-end gap-2">
-          <Wordmark size="sm" />
+          <span data-pptx="image" data-pptx-alt="Loupe">
+            <Wordmark size="sm" />
+          </span>
           <p className="text-[18px] text-fg-subtle">{input.title}</p>
         </div>
       </header>
@@ -197,7 +204,13 @@ function SlideChart({
       >
         {headline}
       </h3>
-      <div className={`relative min-h-0 flex-1 ${compact ? "mt-3.5" : "mt-5"}`}>
+      {/* The chart (or table) is one picture in the PowerPoint file, with the chart's own description. */}
+      <div
+        className={`relative min-h-0 flex-1 ${compact ? "mt-3.5" : "mt-5"}`}
+        {...(chart.data.empty
+          ? {}
+          : { "data-pptx": "image", "data-pptx-alt": chart.data.altText || chart.spec.title })}
+      >
         {chart.data.empty ? (
           <p className="text-[18px] text-fg-subtle">{chart.data.notes[0] ?? "No data for this selection."}</p>
         ) : (
@@ -286,13 +299,15 @@ function SlideKpi({
       {/* The KPI's own trend, as on the dashboard's card (a dashed end when the last period is still open). */}
       {spark.filter((v) => v !== null && Number.isFinite(v)).length > 1 ? (
         <div className="mt-auto pt-4">
-          <Sparkline
-            values={spark}
-            partialLast={value?.partialLast}
-            height={Math.round((120 * SPARK_H) / width)}
-            className="h-[104px]"
-            strokeWidth={2.5}
-          />
+          <div data-pptx="image" data-pptx-alt={`${meta.name} trend`}>
+            <Sparkline
+              values={spark}
+              partialLast={value?.partialLast}
+              height={Math.round((120 * SPARK_H) / width)}
+              className="h-[104px]"
+              strokeWidth={2.5}
+            />
+          </div>
           {grain ? (
             <p className="mt-2 text-[18px] text-fg-subtle">
               {grain.charAt(0).toUpperCase()}
@@ -444,13 +459,13 @@ export function SlideDeck({ input, slides }: { input: ReportInput; slides: Slide
 
 /**
  * Draws every slide and saves them: numbered PNGs (3840 × 2160) in a zip
- * whose folder is named like it, or one landscape PDF. `baseName` is the file
- * name without its extension.
+ * whose folder is named like it, one landscape PDF, or an editable PowerPoint
+ * file. `baseName` is the file name without its extension.
  */
 export async function exportSlides(
   input: ReportInput,
   slides: Slide[],
-  format: "png" | "pdf",
+  format: "png" | "pdf" | "pptx",
   baseName: string,
   onProgress?: (message: string) => void,
 ): Promise<void> {
@@ -461,7 +476,59 @@ export async function exportSlides(
     const { toBlob, toJpeg } = await import("html-to-image");
     // The light theme's page colour (the slides' own background token), under anything transparent.
     const background = nodes[0] ? getComputedStyle(nodes[0]).backgroundColor : undefined;
-    if (format === "png") {
+    if (format === "pptx") {
+      const [{ pptxDeck }, { readSlide, themeAccents }] = await Promise.all([
+        import("@/engine/export/pptx"),
+        import("./slidesPptx"),
+      ]);
+      const deck = [];
+      for (const [i, node] of nodes.entries()) {
+        onProgress?.(`Building slide ${i + 1} of ${nodes.length}…`);
+        // Each slide is drawn once, as the PNG slides are, and every picture on it is cut from that
+        // drawing: a chart drawn on its own loses what its scaling places at its edges.
+        const blob = await toBlob(node, { pixelRatio: 2, backgroundColor: background });
+        if (!blob) throw new Error(`Slide ${i + 1} couldn't be drawn.`);
+        const drawn = await createImageBitmap(blob);
+        const origin = node.getBoundingClientRect();
+        const picture = async (el: HTMLElement) => {
+          const r = el.getBoundingClientRect();
+          const canvas = document.createElement("canvas");
+          canvas.width = Math.max(1, Math.round(r.width * 2));
+          canvas.height = Math.max(1, Math.round(r.height * 2));
+          canvas
+            .getContext("2d")
+            ?.drawImage(
+              drawn,
+              (r.left - origin.left) * 2,
+              (r.top - origin.top) * 2,
+              canvas.width,
+              canvas.height,
+              0,
+              0,
+              canvas.width,
+              canvas.height,
+            );
+          const png = await new Promise<Blob | null>((done) => canvas.toBlob(done, "image/png"));
+          if (!png) throw new Error("A chart couldn't be drawn.");
+          return new Uint8Array(await png.arrayBuffer());
+        };
+        deck.push(await readSlide(node, picture));
+        drawn.close();
+      }
+      onProgress?.("Packing the slides…");
+      const bytes = pptxDeck(deck, {
+        title: `${input.title} · slides`,
+        width: SLIDE_W,
+        height: SLIDE_H,
+        accents: themeAccents(readChartTokens(host).palette),
+      });
+      downloadBlob(
+        new Blob([bytes as BlobPart], {
+          type: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        }),
+        `${baseName}.pptx`,
+      );
+    } else if (format === "png") {
       const files: Record<string, Uint8Array> = {};
       for (const [i, node] of nodes.entries()) {
         onProgress?.(`Drawing slide ${i + 1} of ${nodes.length}…`);
