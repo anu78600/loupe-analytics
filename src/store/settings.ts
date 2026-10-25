@@ -58,6 +58,11 @@ interface SettingsState {
    * detected currency. Not persisted; reset with each new file.
    */
   currencyOverride: string | null;
+  /**
+   * The currency the user chose for a file that showed none (version 52.2), used for every later file
+   * without one; null = no symbol. Persisted. A file whose values or headers name a currency keep it.
+   */
+  defaultCurrency: string | null;
   newColumns: NewColumnsPolicy;
   ai: AiSettings;
   setTheme: (theme: ThemePreference) => void;
@@ -69,11 +74,22 @@ interface SettingsState {
   /** In automatic mode, picks the format for a dataset's currency; does nothing otherwise. */
   applyAutoNumberLocale: (currency: string) => void;
   setCurrencyOverride: (code: string | null) => void;
+  setDefaultCurrency: (code: string | null) => void;
   setNewColumns: (policy: NewColumnsPolicy) => void;
   setAi: (patch: Partial<AiSettings>) => void;
 }
 
 export const THEME_STORAGE_KEY = "loupe-theme";
+
+/** Languages of India, whose users read numbers in lakh and crore. */
+const INDIAN_LANGUAGES = /^(hi|bn|ta|te|mr|gu|kn|ml|pa|or|as|ur)\b/i;
+
+/** The number format the browser's region implies: Indian for India ("en-IN", "hi"), else international. */
+export function browserNumberLocale(): NumberLocale {
+  if (typeof navigator === "undefined") return "INTL";
+  const lang = navigator.language || "";
+  return /-IN$/i.test(lang) || INDIAN_LANGUAGES.test(lang) ? "IN" : "INTL";
+}
 
 /**
  * Sets `data-theme` on <html> ("system" resolved against the OS setting at
@@ -105,6 +121,7 @@ export const useSettings = create<SettingsState>()(
       numberLocale: "IN",
       numberFormatAuto: true,
       currencyOverride: null,
+      defaultCurrency: null,
       newColumns: "ask",
       ai: { enabled: false, model: "claude-opus-5-5", apiKey: "" },
       setTheme: (theme) => {
@@ -116,10 +133,13 @@ export const useSettings = create<SettingsState>()(
       setNumberFormatAuto: (numberFormatAuto) => set({ numberFormatAuto }),
       applyAutoNumberLocale: (currency) => {
         if (!get().numberFormatAuto) return;
-        const want: NumberLocale = currency === "INR" ? "IN" : "INTL";
+        // Rupees read in lakh and crore, other currencies internationally; with no currency the browser's
+        // region decides (version 52.2), so an Indian user sees 12,34,567 and others 1,234,567.
+        const want: NumberLocale = currency === "INR" ? "IN" : currency ? "INTL" : browserNumberLocale();
         if (get().numberLocale !== want) set({ numberLocale: want });
       },
       setCurrencyOverride: (currencyOverride) => set({ currencyOverride }),
+      setDefaultCurrency: (defaultCurrency) => set({ defaultCurrency }),
       setNewColumns: (newColumns) => set({ newColumns }),
       setAi: (patch) => set((s) => ({ ai: { ...s.ai, ...patch } })),
     }),
@@ -134,6 +154,7 @@ export const useSettings = create<SettingsState>()(
         chartTheme: s.chartTheme,
         numberLocale: s.numberLocale,
         numberFormatAuto: s.numberFormatAuto,
+        defaultCurrency: s.defaultCurrency,
         newColumns: s.newColumns,
         ai: { enabled: false, model: s.ai.model, apiKey: "" },
       }),

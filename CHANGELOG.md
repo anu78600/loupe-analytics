@@ -5,6 +5,24 @@ Every step of building Loupe, newest first. Generated from `src/content/changelo
 - **MAJOR** (`x.0`): a new capability, subsystem or page.
 - **MINOR** (`x.y`): a refinement, fix or follow-up to that major version.
 
+## 52.2 · Trust first: the right currency, industry, date and totals (roadmap stage 1)
+
+*Minor · 2026-10-25 06:31 UTC · Fix, Data, Tests*
+
+The first stage of the product roadmap, nine corrections that make every figure safer to show a client. Loupe no longer guesses a currency, no longer leads with the KPIs of an industry that doesn't fit, checks that totals add up, reads dates by the right column and lets you change it, and keeps an audit of 125 public files that fails on any new error.
+
+- No guessed currency: a file that shows none has no symbol (a Myanmar supermarket showed ₹). The currency you pick for such a file is remembered for the next one, and can be forgotten in Settings.
+- Number format from your browser: when a file has no currency, an Indian browser shows 12,34,567 and others 1,234,567.
+- No KPIs from the wrong industry: when an industry fits a file weakly, or Loupe is less than 40% sure and it explains under half the columns, the KPIs from the file's own columns lead (a film survey showed “Work items”, a hospital list “Units produced”, bank loans “Subscribers”).
+- Totals that must add up are checked in Data health: gross sales − discounts = revenue, revenue − cost of sales = gross profit, revenue − expenses = net income. A file whose own columns disagree is flagged with the gap (one file's gross minus discounts came to 82.2M against revenue of 92.8M).
+- The right date: a loan's issue date leads, not its borrower's first credit line, and “Dates by” in the period filter switches every filter, KPI and chart to another date column.
+- Amounts in columns named by year (2024, 2025) are no longer shown as counts.
+- Columns read as what they are: a numbered till or register is a label (not a 1–5 rating), nights stayed and reorder levels are counts, and a “Department” of DE and Defra is not Delaware.
+- Data health says what lowered the score: the three largest deductions, each with its points.
+- A permanent accuracy check: npm run audit runs 125 public files through every KPI and chart and fails on any error not already known. It now finds 2, down from 76 before these fixes began.
+
+Files: `src/engine/profile/profile.ts`, `src/engine/core/format.ts`, `src/store/settings.ts`, `src/store/workspace.ts`, `src/engine/session.ts`, `src/engine/kpi/reconcile.ts`, `src/engine/profile/structure.ts`, `src/engine/profile/roles.ts`, `src/engine/kpi/columnKpis.ts`, `src/engine/detect/generic.ts`, `src/registry/domains/logistics.json`, `src/ui/workspace/HealthPanel.tsx`, `src/ui/workspace/dashboard/FilterBar.tsx`, `src/ui/workspace/DetectStep.tsx`, `src/ui/workspace/SettingsSheet.tsx`, `src/ui/charts/options.ts`, `scripts/audit.mjs`, `scripts/fetch-corpus.mjs`, `scripts/corpus-manifest.json`, `tests/audit.test.ts`, `tests/trust-corrections.test.ts`
+
 ## 52.1 · A quick menu in the corner, as professional apps have
 
 *Minor · 2026-10-25 05:33 UTC · Feature, Design*

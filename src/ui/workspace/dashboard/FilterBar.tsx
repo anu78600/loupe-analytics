@@ -65,6 +65,7 @@ import { Checkbox } from "@/ui/primitives/misc";
 import { Input, Label } from "@/ui/primitives/input";
 import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from "@/ui/primitives/popover";
 import { InfoTip } from "@/ui/primitives/reveal";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/ui/primitives/select";
 import { Tooltip } from "@/ui/primitives/tooltip";
 import { ComparisonNote, sharedComparison } from "./KpiCards";
 
@@ -534,7 +535,42 @@ function PeriodPanel({ context, onDone }: { context: Context; onDone: () => void
             onDone();
           }}
         />
+        <DatesBy current={context.dateColumn} />
       </div>
+    </div>
+  );
+}
+
+/**
+ * "Dates by" (version 52.2): the date column every period filter, KPI and time chart reads, offered when
+ * the file has more than one (an order date and a ship date; a loan's issue date and its borrower's first
+ * credit line). Choosing one reconfigures the dashboard on it (setDateColumn).
+ */
+function DatesBy({ current }: { current: string }) {
+  const profile = useWorkspace((s) => s.profile);
+  const hidden = useWorkspace((s) => s.hiddenColumns);
+  const setDateColumn = useWorkspace((s) => s.setDateColumn);
+  const options = (profile?.columns ?? [])
+    .filter((c) => c.role === "datetime" && c.nullPct < 0.999 && !hidden.includes(c.name))
+    .map((c) => c.name);
+  if (options.length < 2 || !options.includes(current)) return null;
+  return (
+    <div className="mt-3 grid gap-1.5 border-t border-border-subtle pt-3">
+      <Label htmlFor="dates-by" className="eyebrow text-fg-subtle">
+        Dates by
+      </Label>
+      <Select value={current} onValueChange={setDateColumn}>
+        <SelectTrigger id="dates-by">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map((c) => (
+            <SelectItem key={c} value={c}>
+              {friendly(c)}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </div>
   );
 }

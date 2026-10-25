@@ -1,8 +1,10 @@
 "use client";
 
 /**
- * Data health and parse details. HealthPanel shows the 0–100 score, passed
- * checks and fixable issues. ParseReportPanel shows encoding, delimiter, the
+ * Data health and parse details. HealthPanel shows the 0–100 score, what
+ * lowered it most (its three largest deductions, version 52.2), passed checks,
+ * the totals that must add up (kpi/reconcile.ts, once a dashboard is built)
+ * and fixable issues. ParseReportPanel shows encoding, delimiter, the
  * header's line (or sheet row) and how each date column was read (DD/MM or
  * MM/DD, with the evidence), plus DateOrderSwitch, which re-reads the file
  * with the other order: straight away when nothing proves the order (no date
@@ -21,6 +23,8 @@ import type { DateFormatDecision, ParseReport } from "@/engine/core/types";
 import { formatBytes, formatCount, type NumberLocale } from "@/engine/core/format";
 import { blanksIfSwitched } from "@/engine/parse/dateOrder";
 import { useWorkspace } from "@/store/workspace";
+import { formatValue } from "@/engine/core/format";
+import { useFmt } from "@/ui/common/hooks";
 import { useSettings } from "@/store/settings";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/ui/primitives/badge";
@@ -47,6 +51,7 @@ export function HealthPanel({ health, compact = false }: { health: HealthReport;
       </div>
       <div className="min-w-0">
         <p className="text-sm text-fg">{health.summary}</p>
+        <Deductions health={health} />
         <ul className="mt-3 grid gap-1.5 sm:grid-cols-2">
           {health.checks.map((c) => (
             <li key={c.id} className="flex items-center gap-2 text-ui">
@@ -60,6 +65,7 @@ export function HealthPanel({ health, compact = false }: { health: HealthReport;
             </li>
           ))}
         </ul>
+        <Reconciliations />
         {health.issues.length ? (
           <ul className="mt-4 divide-y divide-border-subtle rounded-control border border-border">
             {health.issues.slice(0, compact ? 4 : 30).map((i) => {
@@ -82,6 +88,70 @@ export function HealthPanel({ health, compact = false }: { health: HealthReport;
           </ul>
         ) : null}
       </div>
+    </div>
+  );
+}
+
+/** What lowered the score most: the three largest deductions, each with its points. */
+function Deductions({ health }: { health: HealthReport }) {
+  const top = [...health.issues]
+    .filter((i) => i.penalty > 0)
+    .sort((a, b) => b.penalty - a.penalty)
+    .slice(0, 3);
+  if (!top.length) return null;
+  return (
+    <div className="mt-3 grid gap-1">
+      <p className="eyebrow text-fg-subtle">What lowered the score</p>
+      <ul className="grid gap-0.5">
+        {top.map((i) => (
+          <li key={i.id} className="flex items-baseline gap-2 text-ui">
+            <span className="tabular w-9 shrink-0 text-right font-medium text-danger-text">
+              −{Math.round(i.penalty)}
+            </span>
+            <span className="min-w-0 truncate text-fg" title={i.detail}>
+              {i.title}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/**
+ * Totals that must add up (gross sales − discounts = revenue…), once a dashboard is built: each passed
+ * one ticked, each that doesn't with both sides, the gap and the columns read.
+ */
+function Reconciliations() {
+  const checks = useWorkspace((s) => s.context?.reconciliations);
+  const fmt = useFmt();
+  if (!checks?.length) return null;
+  const show = (v: number) => formatValue(v, "currency", { ...fmt, compact: true });
+  return (
+    <div className="mt-4 grid gap-1.5">
+      <p className="eyebrow text-fg-subtle">Totals that must add up</p>
+      <ul className="grid gap-1.5">
+        {checks.map((c) => (
+          <li key={c.id} className="flex gap-2 text-ui">
+            {c.ok ? (
+              <CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-success" aria-hidden />
+            ) : (
+              <AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-warning" aria-hidden />
+            )}
+            <div className="min-w-0">
+              <p className={c.ok ? "text-fg-muted" : "text-fg"}>
+                {c.left} − {c.right} {c.ok ? "=" : "≠"} {c.result}
+                <span className="sr-only">{c.ok ? ": adds up" : ": doesn't add up"}</span>
+              </p>
+              {c.ok ? null : (
+                <ClampText lines={2} className="mt-0.5 text-xs leading-relaxed text-fg-muted">
+                  {`${show(c.expected)} against ${show(c.actual)}, a gap of ${show(c.actual - c.expected)}. One of ${c.columns.join(", ")} may not mean what its name says (a price already net of discount, a total before it), so the margins built on them are in doubt.`}
+                </ClampText>
+              )}
+            </div>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

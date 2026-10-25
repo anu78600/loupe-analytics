@@ -1,0 +1,1017 @@
+[
+  {
+    "file": "sales/adventureworks_sales_multisheet.xlsx",
+    "url": "https://raw.githubusercontent.com/microsoft/powerbi-desktop-samples/main/AdventureWorks%20Sales%20Sample/AdventureWorks%20Sales.xlsx",
+    "area": "sales",
+    "rows": 121253,
+    "what": "Microsoft AdventureWorks star schema in 7 sheets (Sales_data 121k order lines, Sales Order_data, Product_data, Customer_data, Reseller_data, Date_data, Sales Territory_data). Needs joins on *Key columns; '[Not Applicable]' placeholder members; integer date keys.",
+    "licence": "MIT (microsoft/powerbi-desktop-samples)"
+  },
+  {
+    "file": "sales/amazon_sales_discount_whole_percent.csv",
+    "url": "https://raw.githubusercontent.com/PARTH160205/Amazon-Sales-Data-Analysis---EDA---Kaggle-2/HEAD/amazon_sales_dataset.csv",
+    "area": "sales",
+    "rows": 50000,
+    "what": "E-commerce order lines (synthetic Kaggle set). discount_percent is a WHOLE-NUMBER percent (10, 20), not a fraction; discounted_price and total_revenue precomputed so a discount-as-fraction assumption gives visibly wrong totals.",
+    "licence": "not stated"
+  },
+  {
+    "file": "sales/coffee_shop_sales.xlsx",
+    "url": "https://maven-datasets.s3.amazonaws.com/Coffee+Shop+Sales/Coffee+Shop+Sales.zip",
+    "area": "sales",
+    "rows": 149116,
+    "what": "Maven Coffee Shop transactions (single sheet 'Transactions'): transaction_date as an Excel date serial and transaction_time as an Excel TIME-ONLY fraction (0.2959...), unit_price x transaction_qty for revenue, 3 NYC stores. Extracted from zip.",
+    "licence": "Maven Analytics Data Playground (free download)"
+  },
+  {
+    "file": "sales/global_electronics_sales.csv",
+    "url": "https://maven-datasets.s3.amazonaws.com/Global+Electronics+Retailer/Global+Electronics+Retailer.zip",
+    "area": "sales",
+    "rows": 62884,
+    "what": "Order lines with no amount column (revenue = Quantity x product Unit Price USD from products file); M/D/YYYY dates; Delivery Date blank for in-store orders; Currency Code per order (USD, CAD, EUR, GBP, AUD). Extracted from zip.",
+    "licence": "Maven Analytics Data Playground (free download)"
+  },
+  {
+    "file": "sales/global_electronics_products.csv",
+    "url": "https://maven-datasets.s3.amazonaws.com/Global+Electronics+Retailer/Global+Electronics+Retailer.zip",
+    "area": "sales",
+    "rows": 2517,
+    "what": "Product dimension: Unit Cost USD and Unit Price USD written as '$6.62 ' (dollar sign AND trailing space); codes with leading zeros ('0101', '01'). Extracted from zip.",
+    "licence": "Maven Analytics Data Playground (free download)"
+  },
+  {
+    "file": "sales/global_electronics_exchange_rates.csv",
+    "url": "https://maven-datasets.s3.amazonaws.com/Global+Electronics+Retailer/Global+Electronics+Retailer.zip",
+    "area": "sales",
+    "rows": 11215,
+    "what": "Daily FX rates (Date M/D/YYYY, Currency, Exchange) in long format; joining to sales by date+currency is required for local-currency revenue. Extracted from zip.",
+    "licence": "Maven Analytics Data Playground (free download)"
+  },
+  {
+    "file": "sales/global_superstore_2016_orders.csv",
+    "url": "https://raw.githubusercontent.com/andrewmanueld/dataset_global_superstore_2016/HEAD/CSV/global_superstore_2016_orders.csv",
+    "area": "sales",
+    "rows": 51290,
+    "what": "Tableau Global Superstore 2016: every field quoted; Sales and Profit are text with currency and thousands separators ('$3,709.40', '$-288.77' - minus AFTER the dollar sign); Shipping Cost plain number; Discount fraction (0.1); M/D/YYYY dates; blank Postal Code outside US.",
+    "licence": "Tableau sample data (not stated)"
+  },
+  {
+    "file": "sales/global_superstore_2016_returns.csv",
+    "url": "https://raw.githubusercontent.com/andrewmanueld/dataset_global_superstore_2016/HEAD/CSV/global_superstore_2016_returns.csv",
+    "area": "sales",
+    "rows": 1079,
+    "what": "Returned orders lookup (Returned=Yes, Order ID, Region) to join with the orders file.",
+    "licence": "Tableau sample data (not stated)"
+  },
+  {
+    "file": "sales/grocery_transactions.csv",
+    "url": "https://maven-datasets.s3.amazonaws.com/Data+Drills/grocery_transactions.csv",
+    "area": "sales",
+    "rows": 87575,
+    "what": "Grocery basket lines (transaction_id repeats per line_item); UPC codes with leading zeros ('040000591512') must stay text; datetime 'YYYY-MM-DD HH:MM:SS'.",
+    "licence": "Maven Analytics Data Playground (free download)"
+  },
+  {
+    "file": "sales/northwind_orders.csv",
+    "url": "https://raw.githubusercontent.com/graphql-compose/graphql-compose-examples/master/examples/northwind/data/csv/orders.csv",
+    "area": "sales",
+    "rows": 830,
+    "what": "Northwind order headers: dates as '1996-07-04 00:00:00.000', literal 'NULL' strings for missing region/shippedDate, freight per order (not per line).",
+    "licence": "not stated (Microsoft Northwind sample)"
+  },
+  {
+    "file": "sales/northwind_order_details.csv",
+    "url": "https://raw.githubusercontent.com/graphql-compose/graphql-compose-examples/master/examples/northwind/data/csv/order_details.csv",
+    "area": "sales",
+    "rows": 2155,
+    "what": "Northwind order lines: unitPrice, quantity, discount as a FRACTION (0, 0.05, 0.25); revenue = unitPrice*quantity*(1-discount); joins to orders/products.",
+    "licence": "not stated (Microsoft Northwind sample)"
+  },
+  {
+    "file": "sales/northwind_products.csv",
+    "url": "https://raw.githubusercontent.com/graphql-compose/graphql-compose-examples/master/examples/northwind/data/csv/products.csv",
+    "area": "sales",
+    "rows": 77,
+    "what": "Northwind products with stock levels; quantityPerUnit is free text ('24 - 12 oz bottles'); discontinued 0/1.",
+    "licence": "not stated (Microsoft Northwind sample)"
+  },
+  {
+    "file": "sales/northwind_customers.csv",
+    "url": "https://raw.githubusercontent.com/graphql-compose/graphql-compose-examples/master/examples/northwind/data/csv/customers.csv",
+    "area": "sales",
+    "rows": 91,
+    "what": "Northwind customers: accented names, 'NULL' strings, postal codes with leading zeros ('05021').",
+    "licence": "not stated (Microsoft Northwind sample)"
+  },
+  {
+    "file": "sales/online_retail_2010-12-01.csv",
+    "url": "https://raw.githubusercontent.com/databricks/Spark-The-Definitive-Guide/master/data/retail-data/by-day/2010-12-01.csv",
+    "area": "sales",
+    "rows": 3108,
+    "what": "One day of UCI Online Retail as CSV: cancellations have InvoiceNo starting 'C' with NEGATIVE Quantity; non-product StockCodes ('D' Discount, 'POST'); CustomerID as float ('17850.0') and blank for ~1/3 of lines.",
+    "licence": "CC BY 4.0 (UCI Online Retail)"
+  },
+  {
+    "file": "sales/online_retail_uci_full.xlsx",
+    "url": "https://archive.ics.uci.edu/static/public/352/online+retail.zip",
+    "area": "sales",
+    "rows": 541909,
+    "what": "Full UCI Online Retail workbook (one sheet, 541k lines, 23 MB - larger than the preferred row range). Negative quantities for returns, 'C' invoices, blank CustomerID, Excel datetime cells, UnitPrice 0 and negative 'Adjust bad debt' rows. Extracted from zip.",
+    "licence": "CC BY 4.0 (UCI)"
+  },
+  {
+    "file": "sales/sample_superstore_13col.csv",
+    "url": "https://raw.githubusercontent.com/muskaanpirani/Analysis_of_retail_store/master/SampleSuperstore.csv",
+    "area": "sales",
+    "rows": 9994,
+    "what": "Tableau Sample Superstore, 13-column variant with no dates or IDs: Sales, Quantity, Discount as a FRACTION (0.2), Profit often negative; Postal Code numeric (leading zeros lost).",
+    "licence": "Tableau sample data (not stated)"
+  },
+  {
+    "file": "sales/sample_superstore_multisheet.xls",
+    "url": "https://raw.githubusercontent.com/HemilDev/Superstore/HEAD/Sample%20-%20Superstore.xls",
+    "area": "sales",
+    "rows": 9994,
+    "what": "Legacy BIFF .xls (not .xlsx) with three sheets: Orders (9,994 lines), Returns, People. Excel date cells; Discount fraction; negative Profit.",
+    "licence": "Tableau sample data (not stated)"
+  },
+  {
+    "file": "sales/supermarket_sales_myanmar.csv",
+    "url": "https://raw.githubusercontent.com/selva86/datasets/master/supermarket_sales.csv",
+    "area": "sales",
+    "rows": 1000,
+    "what": "Supermarket sales: 'Tax 5%' header, 'gross margin percentage' as a WHOLE-NUMBER percent (4.761904762) next to fraction-free amounts; M/D/YYYY dates; separate Time column (HH:MM); Rating 1-10. 1,000 rows; no newline after the last row.",
+    "licence": "not stated"
+  },
+  {
+    "file": "sales/superstore_sales_curran.csv",
+    "url": "https://raw.githubusercontent.com/curran/data/gh-pages/superstoreSales/superstoreSales.csv",
+    "area": "sales",
+    "rows": 8399,
+    "what": "Older Canadian Superstore Sales: CR-ONLY (classic Mac) line endings - looks like one line to naive readers; Windows-1252/Mac bytes in product names (invalid UTF-8); Discount fraction; Profit negative; M/D/YYYY dates; 'Product Base Margin' fraction with blanks.",
+    "licence": "MIT (curran/data repo)"
+  },
+  {
+    "file": "sales/superstore_us_orders.csv",
+    "url": "https://raw.githubusercontent.com/mikemooreviz/superstore/HEAD/superstore.csv",
+    "area": "sales",
+    "rows": 9994,
+    "what": "Full 21-column Tableau Sample Superstore (US): UTF-8 BOM, ISO dates, Discount FRACTION, negative Profit, Postal Code numeric, quoted product names with commas. The canonical 'Superstore' file.",
+    "licence": "Tableau sample data (not stated)"
+  },
+  {
+    "file": "sales/us_candy_distributor_sales.csv",
+    "url": "https://maven-datasets.s3.amazonaws.com/US+Candy+Distributor/US+Candy+Distributor.zip",
+    "area": "sales",
+    "rows": 10194,
+    "what": "Candy order lines with Sales, Units, Gross Profit, Cost. Quirk: Ship Date is 2026-2030 while Order Date is 2021-2024 (ship lag of years), so 'days to ship' metrics explode. Extracted from zip.",
+    "licence": "Maven Analytics Data Playground (free download)"
+  },
+
+  {
+    "file": "finance/financial_sample.xlsx",
+    "url": "https://go.microsoft.com/fwlink/?LinkID=521962",
+    "area": "finance",
+    "rows": 700,
+    "what": "Microsoft Power BI 'Financial Sample': Gross Sales, Discounts (an AMOUNT, not a rate), ' Sales' header with a LEADING SPACE, COGS, Profit (some negative), fractional Units Sold (1618.5), Date as Excel serial, Year and Month Name stored as TEXT.",
+    "licence": "Microsoft sample data (free to use)"
+  },
+  {
+    "file": "finance/iowa_city_budget_vs_actual_fy2022_2023.csv",
+    "url": "https://idh-be.iowa.gov/api/v1/datasets/925/rows.csv",
+    "area": "finance",
+    "rows": 18820,
+    "what": "Budget vs actual by Iowa city and function for FY2022-2023 (subset of the full 179k-row file, which downloads as an uncompressed ZIP despite the .csv name). Wide budget/actual pair; WKT POINT column; lat/long with 15+ decimals.",
+    "licence": "Public domain / CC0 (per data.gov listing)"
+  },
+  {
+    "file": "finance/melbourne_cash_flow_statement_2014_15.csv",
+    "url": "https://data.melbourne.vic.gov.au/api/v2/catalog/datasets/standard-statement-of-cash-flows-2014-15/exports/csv?delimiter=%2C",
+    "area": "finance",
+    "rows": 74,
+    "what": "City of Melbourne cash flow statement (actual/budget/plan by financial year '2013-14'): payments NEGATIVE, receipts positive, values in $'000; includes Opening/Closing BALANCE rows that must not be summed with flows.",
+    "licence": "not stated in file (City of Melbourne Open Data)"
+  },
+  {
+    "file": "finance/melbourne_income_statement_2014_15.csv",
+    "url": "https://data.melbourne.vic.gov.au/api/v2/catalog/datasets/standard-income-statement-2014-15/exports/csv?delimiter=%2C",
+    "area": "finance",
+    "rows": 128,
+    "what": "Council income statement (P&L) in long form: REVENUE and EXPENDITURE both POSITIVE (sign comes from category) but CAPITAL 'Capital Contributions' rows NEGATIVE, ACTUAL/BUDGET/PLAN rows mixed, financial-year labels '2013-14', values in thousands (value_000).",
+    "licence": "not stated in file (City of Melbourne Open Data)"
+  },
+  {
+    "file": "finance/nz_annual_enterprise_survey_2025.csv",
+    "url": "https://www.stats.govt.nz/assets/Uploads/Annual-enterprise-survey/Annual-enterprise-survey-2025-financial-year-provisional/Download-data/annual-enterprise-survey-2025-financial-year-provisional.csv",
+    "area": "finance",
+    "rows": 60255,
+    "what": "NZ industry income/expenditure/balance-sheet aggregates in long form: one Value column mixing 'Dollars (millions)', 'Dollars' and 'Percentage' units; 'C' = confidential suppression in the numeric column; 'All industries' and Level 1-4 totals mixed with detail (double counting).",
+    "licence": "CC BY 4.0 (Stats NZ)"
+  },
+  {
+    "file": "finance/oklahoma_general_ledger_fy26q2_first12mb.csv",
+    "url": "https://data.ok.gov/dataset/dd1ecf41-4abc-4886-ab0f-b84d7662d8d4/resource/0db2d793-ed24-4c77-adae-4992fc4e4e02/download/ledger_fy26_qtr2.csv",
+    "area": "finance",
+    "rows": 29119,
+    "what": "State of Oklahoma general ledger (first 12 MB of a much larger quarterly file, cut at a line boundary). Signed POSTED_TOTAL_AMT (debits +, credits -); numbers printed with ~50 decimal places ('2026.000...0'); single-space ' ' values in empty fields; trial-balance cash accounts mixed with P&L accounts.",
+    "licence": "CC BY (per data.gov listing)"
+  },
+  {
+    "file": "finance/personal_bank_transactions_signed.csv",
+    "url": "https://raw.githubusercontent.com/gerritnowald/budget_book/HEAD/src/transactions.csv",
+    "area": "finance",
+    "rows": 396,
+    "what": "Personal bank account export: expenses NEGATIVE, income positive, running balance column (not additive), category paths like 'flat/ancillary costs', 'nan' strings for missing.",
+    "licence": "MIT (gerritnowald/budget_book)"
+  },
+  {
+    "file": "finance/uk_defra_spend_over_25k_nov2024.csv",
+    "url": "https://assets.publishing.service.gov.uk/media/67851804f041702a11ca0ee6/Defra__25k_November_2024.csv",
+    "area": "finance",
+    "rows": 1195,
+    "what": "UK Defra payments over GBP 25k: expenses POSITIVE with some negative credits; DD/MM/YYYY dates (04/11/2024 = 4 Nov); ISO-8859-1 encoding; headers with TRAILING SPACES ('Supplier ', 'PO Catergory Description ').",
+    "licence": "Open Government Licence v3.0"
+  },
+  {
+    "file": "finance/uk_dhsc_spend_over_25k_nov2024.csv",
+    "url": "https://assets.publishing.service.gov.uk/media/687e6107791bb4d8c309a06c/dhsc-spending-over-25000-november-2024.csv",
+    "area": "finance",
+    "rows": 1106,
+    "what": "UK DHSC payments over GBP 25k: DD/MM/YYYY dates; reversals as negative amounts that cancel positives (36504 / -36503.99); Transaction Number mixes numbers and text ('SINV/00038333', '623000000000').",
+    "licence": "Open Government Licence v3.0"
+  },
+
+  {
+    "file": "marketing/advertising_islr.csv",
+    "url": "https://raw.githubusercontent.com/selva86/datasets/master/Advertising.csv",
+    "area": "marketing",
+    "rows": 200,
+    "what": "ISLR Advertising: TV/radio/newspaper spend vs sales (thousands); first column is an unnamed row index.",
+    "licence": "not stated (ISLR book data)"
+  },
+  {
+    "file": "marketing/cafe_rewards_offer_events_first120k.csv",
+    "url": "https://maven-datasets.s3.amazonaws.com/Cafe+Rewards+Offers/Cafe+Rewards+Offers.zip",
+    "area": "marketing",
+    "rows": 120000,
+    "what": "Offer funnel events (received/viewed/completed/transaction), first 120k of 306k rows. 'value' column holds Python-dict text (\"{'offer id': '...'}\" or \"{'amount': 0.83}\"); time is hours since test start, not a date. Extracted from zip.",
+    "licence": "Maven Analytics Data Playground (free download)"
+  },
+  {
+    "file": "marketing/facebook_ad_campaigns.csv",
+    "url": "https://raw.githubusercontent.com/Zayd1602/Facebook-Ad-Campaign-Analysis/HEAD/data.csv",
+    "area": "marketing",
+    "rows": 1142,
+    "what": "Facebook ad sets: impressions, clicks, spent, conversions; DD/MM/YYYY dates. TRAP: the last ~380 rows are SHIFTED LEFT (campaign_id/fb_campaign_id missing so age holds numbers and two empty trailing columns).",
+    "licence": "not stated (Kaggle 'Sales Conversion Optimization' copy)"
+  },
+  {
+    "file": "marketing/google_ads_uncleaned.csv",
+    "url": "https://raw.githubusercontent.com/ayushzxx/Google-Ads-Sales-Data-Analysis/HEAD/GoogleAds_DataAnalytics_Sales_Uncleaned.csv",
+    "area": "marketing",
+    "rows": 2600,
+    "what": "Deliberately dirty ad data: Cost and Sale_Amount as '$231.88' text, THREE date formats mixed in one column (2024-11-16, 20-11-2024, 2024/11/16), misspelled campaign names, lower-case cities, blanks, counts as floats ('104.0').",
+    "licence": "not stated"
+  },
+  {
+    "file": "marketing/marketing_campaign_customers.csv",
+    "url": "https://maven-datasets.s3.amazonaws.com/Marketing+Campaigns/Marketing+Data.zip",
+    "area": "marketing",
+    "rows": 2240,
+    "what": "Customer-level campaign responses (AcceptedCmp1-5, Response) and spend by category; header ' Income ' padded with spaces; BOM. Extracted from zip.",
+    "licence": "Maven Analytics Data Playground (free download)"
+  },
+  {
+    "file": "marketing/online_shoppers_web_sessions.csv",
+    "url": "https://archive.ics.uci.edu/static/public/468/online+shoppers+purchasing+intention+dataset.zip",
+    "area": "marketing",
+    "rows": 12330,
+    "what": "Web analytics sessions: page counts and durations, BounceRates/ExitRates as fractions, Month as text ('Feb', 'June' - inconsistent abbreviations), Weekend/Revenue as TRUE/FALSE. Extracted from zip.",
+    "licence": "CC BY 4.0 (UCI)"
+  },
+  {
+    "file": "marketing/web_clickstream_sessions.csv",
+    "url": "https://maven-datasets.s3.amazonaws.com/Data+Drills/web_clickstream.csv",
+    "area": "marketing",
+    "rows": 39207,
+    "what": "Raw clickstream events (event_id, user_id, timestamp, page path); sessions/funnels must be derived; timestamps dated 2026.",
+    "licence": "Maven Analytics Data Playground (free download)"
+  },
+  {
+    "file": "marketing/wikipedia_pageviews_nested.json",
+    "url": "https://wikimedia.org/api/rest_v1/metrics/pageviews/per-article/en.wikipedia/all-access/user/Microsoft_Excel/daily/20230101/20251231",
+    "area": "marketing",
+    "rows": 1096,
+    "what": "Daily page views as NESTED JSON ({\"items\": [...]}, not a top-level array); timestamp as 'YYYYMMDDHH' digits ('2023010100') that look like a number.",
+    "licence": "CC0 (Wikimedia pageview data)"
+  },
+
+  {
+    "file": "hr/hr_dataset_v14_huebner.csv",
+    "url": "https://raw.githubusercontent.com/LauraWantsToCode/SQL-sorting-Kaggle-HRDataset-v14/main/Kaggle_HRDataset_v14.csv",
+    "area": "hr",
+    "rows": 311,
+    "what": "HR roster (Huebner HRDataset v14): MM/DD/YYYY and M/D/YYYY dates, Zip as number (leading zeros lost: 1960), values with trailing spaces ('M ', 'Production       '), names 'Last, First' quoted, termination date blank for active staff.",
+    "licence": "not stated in mirror (Kaggle original by Huebner & Patalano)"
+  },
+  {
+    "file": "hr/ibm_hr_attrition.csv",
+    "url": "https://raw.githubusercontent.com/IBM/employee-attrition-aif360/master/data/emp_attrition.csv",
+    "area": "hr",
+    "rows": 1470,
+    "what": "IBM HR Analytics attrition: BOM, Attrition Yes/No, constant columns (EmployeeCount=1, StandardHours=80, Over18=Y), ordinal codes 1-4 for satisfaction, three unrelated 'rate' columns (Daily/Hourly/MonthlyRate).",
+    "licence": "Apache-2.0 (IBM repo)"
+  },
+  {
+    "file": "hr/nyc_citywide_payroll_fy2024_sample.csv",
+    "url": "https://data.cityofnewyork.us/resource/k397-673e.csv?$limit=50000&$where=fiscal_year=2024",
+    "area": "hr",
+    "rows": 50000,
+    "what": "NYC payroll (first 50k FY2024 rows via the open Socrata API): base_salary in MIXED UNITS by pay_basis ('per Annum', 'per Hour', 'per Day', 'Prorated Annual') so averaging it is wrong; some negative hours/pay adjustments; ISO datetimes with T and milliseconds; every value quoted.",
+    "licence": "NYC Open Data terms of use"
+  },
+  {
+    "file": "hr/parental_leave_policies.csv",
+    "url": "https://maven-datasets.s3.amazonaws.com/Parental+Leave/Parental+Leave.zip",
+    "area": "hr",
+    "rows": 1600,
+    "what": "Company parental leave weeks (paid/unpaid maternity/paternity); FOUR EMPTY trailing columns with blank headers; 'N/A' text in the numeric leave-week columns (~1.5k rows). Extracted from zip.",
+    "licence": "Maven Analytics Data Playground (free download)"
+  },
+
+  {
+    "file": "crm/airline_loyalty_customer_history.csv",
+    "url": "https://maven-datasets.s3.amazonaws.com/Airline+Loyalty+Program/Airline+Loyalty+Program.zip",
+    "area": "crm",
+    "rows": 16737,
+    "what": "Loyalty members: CLV, Salary (blank for ~4.2k rows, NEGATIVE for 20), enrollment and cancellation as separate Year/Month integer columns, Canadian postal codes. Extracted from zip.",
+    "licence": "Maven Analytics Data Playground (free download)"
+  },
+  {
+    "file": "crm/crm_accounts.csv",
+    "url": "https://maven-datasets.s3.amazonaws.com/CRM+Sales+Opportunities/CRM+Sales+Opportunities.zip",
+    "area": "crm",
+    "rows": 85,
+    "what": "CRM account dimension (sector, revenue in millions, employees, office location, subsidiary_of) for the sales pipeline file. Extracted from zip.",
+    "licence": "Maven Analytics Data Playground (free download)"
+  },
+  {
+    "file": "crm/crm_sales_pipeline.csv",
+    "url": "https://maven-datasets.s3.amazonaws.com/CRM+Sales+Opportunities/CRM+Sales+Opportunities.zip",
+    "area": "crm",
+    "rows": 8800,
+    "what": "B2B opportunities with deal_stage (Prospecting/Engaging/Won/Lost), engage/close dates (blank for open deals), close_value 0 for lost deals - win rate and average deal size depend on filtering stages. Extracted from zip.",
+    "licence": "Maven Analytics Data Playground (free download)"
+  },
+  {
+    "file": "crm/datablist_customers_10000.csv",
+    "url": "https://drive.google.com/uc?id=1x2IdSNcHGLmot9i1h90gwMJr5lULC2QV&export=download",
+    "area": "crm",
+    "rows": 10000,
+    "what": "Faker-generated customer list (datablist): mixed phone formats ('(209)172-7124x3651'), company names with commas (quoted), Subscription Date ISO, no numeric measures at all.",
+    "licence": "datablist sample files (free; Faker-generated)"
+  },
+
+  {
+    "file": "saas/aws_saas_sales.csv",
+    "url": "https://raw.githubusercontent.com/adamghozi/amazon-aws-saas-sales-dataset/HEAD/AWS%20SaaS-Sales.csv",
+    "area": "saas",
+    "rows": 9994,
+    "what": "AWS SaaS sales (Superstore-shaped): unnamed leading index column, M/D/YYYY Order Date plus an integer Date Key (20221109) plus an ISO datetime column - three encodings of one date; Discount fraction; negative Profit.",
+    "licence": "not stated"
+  },
+  {
+    "file": "saas/ibm_telco_churn.csv",
+    "url": "https://raw.githubusercontent.com/IBM/telco-customer-churn-on-icp4d/master/data/Telco-Customer-Churn.csv",
+    "area": "saas",
+    "rows": 7043,
+    "what": "IBM Telco churn: TotalCharges is TEXT with 11 single-space ' ' blanks (new customers), SeniorCitizen 0/1 but other flags Yes/No, 'No internet service' as a third value in yes/no columns, MonthlyCharges for MRR.",
+    "licence": "Apache-2.0 (IBM repo)"
+  },
+  {
+    "file": "saas/ravenstack_accounts.csv",
+    "url": "https://raw.githubusercontent.com/tivonio/sql-churn-analysis/HEAD/data/raw/ravenstack_accounts.csv",
+    "area": "saas",
+    "rows": 500,
+    "what": "Synthetic SaaS accounts (RavenStack): plan tier, seats, True/False flags (Python-style capitalised).",
+    "licence": "MIT (repo); synthetic data"
+  },
+  {
+    "file": "saas/ravenstack_churn_events.csv",
+    "url": "https://raw.githubusercontent.com/tivonio/sql-churn-analysis/HEAD/data/raw/ravenstack_churn_events.csv",
+    "area": "saas",
+    "rows": 600,
+    "what": "Synthetic churn events with reason_code, refund_amount_usd, reactivation flag (an account can churn more than once), free-text feedback.",
+    "licence": "MIT (repo); synthetic data"
+  },
+  {
+    "file": "saas/ravenstack_subscriptions.csv",
+    "url": "https://raw.githubusercontent.com/tivonio/sql-churn-analysis/HEAD/data/raw/ravenstack_subscriptions.csv",
+    "area": "saas",
+    "rows": 5000,
+    "what": "Synthetic subscriptions with mrr_amount and arr_amount (ARR = 12 x MRR), blank end_date for active, trials with MRR 0, monthly vs annual billing - MRR must not be summed across overlapping periods.",
+    "licence": "MIT (repo); synthetic data"
+  },
+  {
+    "file": "saas/streaming_subscriptions_cohort.csv",
+    "url": "https://maven-datasets.s3.amazonaws.com/Streaming+Video+Subscriptions/Streaming+Video+Subscriptions.zip",
+    "area": "saas",
+    "rows": 3069,
+    "what": "Subscription start/cancel dates for cohort and churn analysis; blank canceled_date = active; was_subscription_paid Yes/No; BOM. Extracted from zip.",
+    "licence": "Maven Analytics Data Playground (free download)"
+  },
+  {
+    "file": "saas/telecom_customer_churn_maven.csv",
+    "url": "https://maven-datasets.s3.amazonaws.com/Telecom+Customer+Churn/Telecom+Customer+Churn.zip",
+    "area": "saas",
+    "rows": 7043,
+    "what": "California telecom churn (38 columns): Customer Status Stayed/Churned/Joined, Churn Category/Reason blank for stayers, 120 NEGATIVE Monthly Charge values, Total Refunds, lat/long. Extracted from zip.",
+    "licence": "Maven Analytics Data Playground (free download)"
+  },
+
+  {
+    "file": "ops/airline_loyalty_flight_activity_first200k.csv",
+    "url": "https://maven-datasets.s3.amazonaws.com/Airline+Loyalty+Program/Airline+Loyalty+Program.zip",
+    "area": "ops",
+    "rows": 200000,
+    "what": "Monthly flight activity per loyalty member (first 200k of 393k rows): Year and Month as separate integers, many all-zero months, BOM. Extracted from zip.",
+    "licence": "Maven Analytics Data Playground (free download)"
+  },
+  {
+    "file": "ops/bike_sharing_hourly.csv",
+    "url": "https://archive.ics.uci.edu/static/public/275/bike+sharing+dataset.zip",
+    "area": "ops",
+    "rows": 17379,
+    "what": "Capital Bikeshare hourly rentals: casual + registered = cnt (do not add cnt again); temp/hum/windspeed NORMALISED 0-1 not real units; season/weathersit/yr as codes. Extracted from zip.",
+    "licence": "CC BY 4.0 (UCI)"
+  },
+  {
+    "file": "ops/datablist_products_10000.csv",
+    "url": "https://drive.google.com/uc?id=1BE-dfkrb6oyLKDuqXAq2fDYMkDz2f9hM&export=download",
+    "area": "ops",
+    "rows": 10000,
+    "what": "Faker product catalogue: Price, Stock, Currency column, EAN barcodes with LEADING ZEROS ('0191126950284') that must stay text, Availability codes.",
+    "licence": "datablist sample files (free; Faker-generated)"
+  },
+  {
+    "file": "ops/doe_electric_disturbance_events.xlsx",
+    "url": "https://maven-datasets.s3.amazonaws.com/Electric+Disturbance+Events/Electric+Disturbance+Events.zip",
+    "area": "ops",
+    "rows": 4492,
+    "what": "US DOE grid disturbances, ONE SHEET PER YEAR (22 sheets, 2002-2023) with a title block ('Table B.2. Major Disturbances...') above the header, columns changing between years, ranges like '500-600' and 'NA' in numeric MW/customer columns. Extracted from zip.",
+    "licence": "Maven Analytics Data Playground (US DOE source, public domain)"
+  },
+  {
+    "file": "ops/fashion_supply_chain_data.csv",
+    "url": "https://raw.githubusercontent.com/Nishan-k/Supply-chain-analysis-with-Python/HEAD/data/supply_chain_data.csv",
+    "area": "ops",
+    "rows": 100,
+    "what": "Small supply-chain table per SKU: price, stock, lead times, shipping costs, defect rates; floats with 15+ decimals; two similar 'Lead times'/'Lead time' columns.",
+    "licence": "not stated"
+  },
+  {
+    "file": "ops/flights_10k.json",
+    "url": "https://raw.githubusercontent.com/vega/vega-datasets/main/data/flights-10k.json",
+    "area": "ops",
+    "rows": 10000,
+    "what": "US flights as a top-level JSON array on one line: date 'YYYY/MM/DD HH:MM', delay minutes (negative = early), distance, origin/destination codes.",
+    "licence": "not stated (vega-datasets)"
+  },
+  {
+    "file": "ops/manufacturing_line_productivity_multisheet.xlsx",
+    "url": "https://maven-datasets.s3.amazonaws.com/Manufacturing+Downtime/Manufacturing+Downtime.zip",
+    "area": "ops",
+    "rows": 95,
+    "what": "Bottling line workbook with 4 sheets (Line productivity, Products, Downtime factors, Line downtime). Line downtime is WIDE (one column per downtime factor); start/end times as Excel time cells. Extracted from zip.",
+    "licence": "Maven Analytics Data Playground (free download)"
+  },
+  {
+    "file": "ops/maven_toys_inventory.csv",
+    "url": "https://maven-datasets.s3.amazonaws.com/Maven+Toys/Maven+Toys.zip",
+    "area": "ops",
+    "rows": 1593,
+    "what": "Inventory snapshot: Store_ID x Product_ID x Stock_On_Hand (many zeros). A stock snapshot - summing across dates would be wrong (only one date here). Extracted from zip.",
+    "licence": "Maven Analytics Data Playground (free download)"
+  },
+  {
+    "file": "ops/morocco_power_consumption_10min.csv",
+    "url": "https://maven-datasets.s3.amazonaws.com/Morocco+Electricity+Consumption/Electricity+Consumption.zip",
+    "area": "ops",
+    "rows": 52416,
+    "what": "Tetouan power consumption every 10 minutes for 2017, three zones plus temperature/humidity/wind; readings are levels per 10-minute interval, so daily totals vs averages must be chosen deliberately. Extracted from zip.",
+    "licence": "Maven Analytics Data Playground (UCI origin, CC BY 4.0)"
+  },
+  {
+    "file": "ops/nyc_taxis_sample.csv",
+    "url": "https://raw.githubusercontent.com/mwaskom/seaborn-data/master/taxis.csv",
+    "area": "ops",
+    "rows": 6433,
+    "what": "NYC taxi trips (March 2019): pickup/dropoff datetimes, fare/tip/tolls/total (total includes the others), payment cash/credit card, blank zones.",
+    "licence": "not stated (seaborn-data; NYC TLC source)"
+  },
+  {
+    "file": "ops/owid_energy_data_country_year.csv",
+    "url": "https://raw.githubusercontent.com/owid/energy-data/master/owid-energy-data.csv",
+    "area": "ops",
+    "rows": 23377,
+    "what": "Our World in Data energy (130 columns) by country-year: aggregates ('World', 'Africa', 'High-income countries') mixed with countries (blank iso_code), shares in percent, TWh, per-capita kWh; very sparse early years.",
+    "licence": "CC BY 4.0 (Our World in Data)"
+  },
+  {
+    "file": "ops/scms_delivery_history_usaid.csv",
+    "url": "https://raw.githubusercontent.com/suheb1231/SCMS-Delivery-History-Dataset/HEAD/SCMS_Delivery_History_Dataset%20(1).csv",
+    "area": "ops",
+    "rows": 10323,
+    "what": "USAID supply-chain shipments (original data.usaid.gov portal is offline; GitHub mirror). CR-ONLY line endings, BOM, dates '2-Jun-06', 'Date Not Captured' / 'Pre-PQ Process' text in date columns, Weight and Freight Cost columns holding text ('See DN-304 (ID#:10589)', 'Freight Included in Commodity Cost', 'Weight Captured Separately').",
+    "licence": "public domain (US government data)"
+  },
+  {
+    "file": "ops/steel_industry_energy_15min.csv",
+    "url": "https://archive.ics.uci.edu/static/public/851/steel+industry+energy+consumption.zip",
+    "area": "ops",
+    "rows": 35040,
+    "what": "Steel plant energy every 15 minutes: DD/MM/YYYY HH:MM dates (01/01/2018 00:15), the midnight reading is stamped on the WRONG day (31/12/2018 00:00 appears at the end), power factor as whole-number percent, NSM seconds-from-midnight, BOM. Extracted from zip.",
+    "licence": "CC BY 4.0 (UCI)"
+  },
+  {
+    "file": "ops/uk_train_rides.csv",
+    "url": "https://maven-datasets.s3.amazonaws.com/UK+Train+Rides/UK+Train+Rides.zip",
+    "area": "ops",
+    "rows": 31653,
+    "what": "UK rail ticket sales and journeys: Price in GBP (no symbol), separate date and time-only columns (purchase, departure, arrival, actual arrival), journey status and delay reasons, refund requests. Extracted from zip.",
+    "licence": "Maven Analytics Data Playground (free download)"
+  },
+
+  {
+    "file": "banking/bank_marketing_calls_semicolon.csv",
+    "url": "https://archive.ics.uci.edu/static/public/222/bank+marketing.zip",
+    "area": "banking",
+    "rows": 41188,
+    "what": "Portuguese bank telemarketing (bank-additional-full): SEMICOLON delimiter, quoted strings, 'unknown' as a category for missing, pdays=999 sentinel meaning 'never contacted', macro columns repeated per row, month/day_of_week as text. Extracted from nested zip.",
+    "licence": "CC BY 4.0 (UCI)"
+  },
+  {
+    "file": "banking/berka_czech_bank_transactions_first10mb.csv",
+    "url": "https://raw.githubusercontent.com/compfiggg-hu/berka-bank-cohort-analysis/HEAD/data/raw/trans.csv",
+    "area": "banking",
+    "rows": 156154,
+    "what": "Czech bank (PKDD'99 Berka) transactions, first 10 MB of 68 MB: SEMICOLON delimiter, dates as YYMMDD integers (930101), amounts always POSITIVE with direction in a Czech-language 'type' column (PRIJEM = credit, VYDAJ = withdrawal), running balance column.",
+    "licence": "PKDD'99 Discovery Challenge data (free for research)"
+  },
+  {
+    "file": "banking/berka_czech_loans.csv",
+    "url": "https://raw.githubusercontent.com/compfiggg-hu/berka-bank-cohort-analysis/HEAD/data/raw/loan.csv",
+    "area": "banking",
+    "rows": 682,
+    "what": "Berka loans: semicolon delimiter, YYMMDD integer dates, status codes A-D (A/C ok, B/D bad), monthly payment with 2 decimals.",
+    "licence": "PKDD'99 Discovery Challenge data (free for research)"
+  },
+  {
+    "file": "banking/credit_card_default_taiwan.xls",
+    "url": "https://archive.ics.uci.edu/static/public/350/default+of+credit+card+clients.zip",
+    "area": "banking",
+    "rows": 30000,
+    "what": "Legacy .xls with TWO HEADER ROWS (row 1 = X1..X23 codes, row 2 = LIMIT_BAL, SEX, PAY_0...); amounts in NT dollars; PAY_* status codes -2..8; undocumented EDUCATION codes 0/5/6. Extracted from zip.",
+    "licence": "CC BY 4.0 (UCI)"
+  },
+  {
+    "file": "banking/german_credit.csv",
+    "url": "https://raw.githubusercontent.com/stedy/Machine-Learning-with-R-datasets/master/credit.csv",
+    "area": "banking",
+    "rows": 1000,
+    "what": "German credit applications: balances as text bands ('< 0 DM', '1 - 200 DM', 'unknown'), default coded 1/2 (not 0/1), amount in Deutsche Mark.",
+    "licence": "not stated (UCI Statlog origin, CC BY 4.0)"
+  },
+  {
+    "file": "banking/insurance_charges.csv",
+    "url": "https://raw.githubusercontent.com/stedy/Machine-Learning-with-R-datasets/master/insurance.csv",
+    "area": "banking",
+    "rows": 1337,
+    "what": "US medical insurance charges by age/sex/BMI/smoker/region; heavily right-skewed charges; smoker yes/no lower-case.",
+    "licence": "not stated"
+  },
+  {
+    "file": "banking/lending_club_loans_2007_2011_preamble_footer.csv",
+    "url": "https://raw.githubusercontent.com/MakaravaPy/LoanStats3a.csv/HEAD/LoanStats3a.csv",
+    "area": "banking",
+    "rows": 17004,
+    "what": "Lending Club LoanStats3a subset (first ~17k loans + the last 400 lines of the 42 MB original): a PREAMBLE line before the header, int_rate and revol_util as '%' strings with leading spaces (' 10.65%'), term ' 36 months', emp_length '10+ years', dates 'Dec-2011', multi-line desc text, 'Does not meet the credit policy' statuses, blank lines and 'Total amount funded in policy code 1: ...' FOOTER rows.",
+    "licence": "not stated (Lending Club public loan data)"
+  },
+
+  {
+    "file": "healthcare/cms_hospital_general_information.csv",
+    "url": "https://data.cms.gov/provider-data/api/1/datastore/query/xubh-q36u/0/download?format=csv",
+    "area": "healthcare",
+    "rows": 5419,
+    "what": "CMS Hospital General Information: Facility ID and ZIP with LEADING ZEROS, 'Not Available' text in the overall rating and measure-count columns, footnote codes next to values.",
+    "licence": "public domain (US CMS)"
+  },
+  {
+    "file": "healthcare/cms_hospital_readmissions_hrrp.csv",
+    "url": "https://data.cms.gov/provider-data/api/1/datastore/query/9n3s-kdb3/0/download?format=csv",
+    "area": "healthcare",
+    "rows": 18330,
+    "what": "CMS Hospital Readmissions Reduction Program: 36k 'N/A' and 3.7k 'Too Few to Report' strings inside numeric columns, MM/DD/YYYY period dates, rates as whole-number percents (4.5734) beside ratios (0.9875).",
+    "licence": "public domain (US CMS)"
+  },
+  {
+    "file": "healthcare/hcahps_patient_survey_responses.csv",
+    "url": "https://maven-datasets.s3.amazonaws.com/HCAHPS+Patient+Survey/HCAHPS+Patient+Survey.zip",
+    "area": "healthcare",
+    "rows": 43219,
+    "what": "HCAHPS hospital survey participation: Release Period as 'MM_YYYY' ('07_2015'), Completed Surveys as text bands ('300 or more'), Response Rate (%) whole numbers, Facility ID with leading zero LOST (10001 vs CMS 010001). Extracted from zip.",
+    "licence": "Maven Analytics Data Playground (CMS source, public domain)"
+  },
+  {
+    "file": "healthcare/hospital_encounters.csv",
+    "url": "https://maven-datasets.s3.amazonaws.com/Hospital+Patient+Records/Hospital+Patient+Records.zip",
+    "area": "healthcare",
+    "rows": 27890,
+    "what": "Synthea synthetic hospital encounters: ISO-8601 UTC timestamps with 'Z' (2011-01-02T09:26:36Z), base cost, total claim cost and payer coverage (patient share = claim - coverage), UUID keys, BOM. Extracted from zip.",
+    "licence": "Maven Analytics Data Playground (Synthea synthetic data)"
+  },
+  {
+    "file": "healthcare/pima_diabetes_no_header.csv",
+    "url": "https://raw.githubusercontent.com/jbrownlee/Datasets/master/pima-indians-diabetes.data.csv",
+    "area": "healthcare",
+    "rows": 768,
+    "what": "Pima diabetes: NO HEADER ROW (first row is data), zeros used as missing values for glucose, blood pressure, skin thickness, insulin and BMI.",
+    "licence": "not stated (UCI/NIDDK origin)"
+  },
+
+  {
+    "file": "education/college_majors_recent_grads.csv",
+    "url": "https://raw.githubusercontent.com/fivethirtyeight/data/master/college-majors/recent-grads.csv",
+    "area": "education",
+    "rows": 173,
+    "what": "FiveThirtyEight college majors: ShareWomen and Unemployment_rate as FRACTIONS, Median/P25th/P75th earnings, Total = Men + Women (one blank row), Rank column.",
+    "licence": "CC BY 4.0 (FiveThirtyEight)"
+  },
+  {
+    "file": "education/nyc_sat_results_2012_suppressed.csv",
+    "url": "https://data.cityofnewyork.us/resource/f9bf-2cp4.csv?$limit=5000",
+    "area": "education",
+    "rows": 478,
+    "what": "NYC 2012 SAT results by school: every value quoted, 's' = suppressed in all numeric score columns (57 schools), school codes like '01M292'.",
+    "licence": "NYC Open Data terms of use"
+  },
+  {
+    "file": "education/student_performance_portuguese_semicolon.csv",
+    "url": "https://archive.ics.uci.edu/static/public/320/student+performance.zip",
+    "area": "education",
+    "rows": 649,
+    "what": "Portuguese secondary students: SEMICOLON delimiter, grades G1/G2 QUOTED as strings (\"11\") while G3 is unquoted, yes/no columns, 1-5 ordinal scales. Extracted from nested zip.",
+    "licence": "CC BY 4.0 (UCI)"
+  },
+
+  {
+    "file": "realestate/ames_housing_tab_separated.tsv",
+    "url": "http://jse.amstat.org/v19n3/decock/AmesHousing.txt",
+    "area": "realestate",
+    "rows": 2930,
+    "what": "Ames Iowa house sales (82 columns): TAB-separated with a .txt extension upstream, 'NA' meaning 'no alley/no basement' (a real category, not missing), headers with spaces and slashes ('Year Remod/Add').",
+    "licence": "not stated (De Cock 2011, Journal of Statistics Education)"
+  },
+  {
+    "file": "realestate/california_housing.csv",
+    "url": "https://raw.githubusercontent.com/ageron/handson-ml2/master/datasets/housing/housing.csv",
+    "area": "realestate",
+    "rows": 20640,
+    "what": "1990 California census block groups: median_income in tens of thousands of dollars, median_house_value capped at 500001, total_bedrooms blank for 207 rows, totals per block (not per house).",
+    "licence": "Apache-2.0 (repo); StatLib origin"
+  },
+  {
+    "file": "realestate/nyc_rolling_sales_manhattan_preamble.xlsx",
+    "url": "https://www.nyc.gov/assets/finance/downloads/pdf/rolling_sales/rollingsales_manhattan.xlsx",
+    "area": "realestate",
+    "rows": 19620,
+    "what": "NYC Dept of Finance rolling 12-month Manhattan sales: NOTE ROWS ABOVE THE HEADER (header not on row 1), SALE PRICE 0 or tiny for non-arm's-length transfers, condo/co-op units counted as one, addresses with unit suffixes. Server needs a browser user agent.",
+    "licence": "NYC Open Data terms of use"
+  },
+  {
+    "file": "realestate/uk_land_registry_price_paid_monthly_no_header.csv",
+    "url": "http://prod.publicdata.landregistry.gov.uk.s3-website-eu-west-1.amazonaws.com/pp-monthly-update-new-version.csv",
+    "area": "realestate",
+    "rows": 90866,
+    "what": "HM Land Registry Price Paid monthly update: NO HEADER ROW, price quoted as text, date as 'YYYY-MM-DD 00:00', GUID ids in braces, record status A/C/D where D = deletion (must be excluded), property type codes D/S/T/F/O.",
+    "licence": "Open Government Licence v3.0"
+  },
+
+  {
+    "file": "hospitality/airbnb_bristol_listings_detailed.csv",
+    "url": "https://data.insideairbnb.com/united-kingdom/england/bristol/2026-09-22/data/listings.csv.gz",
+    "area": "hospitality",
+    "rows": 2932,
+    "what": "Inside Airbnb detailed listings (~90 columns): price as '$52.33' text, host_response_rate '80%' strings and 'N/A', t/f booleans, multi-line HTML descriptions inside quoted fields (6.7k physical lines for 2.9k records), JSON-like amenities lists. Decompressed from .gz.",
+    "licence": "CC BY 4.0 (Inside Airbnb)"
+  },
+  {
+    "file": "hospitality/hotel_bookings.csv",
+    "url": "https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-02-11/hotels.csv",
+    "area": "hospitality",
+    "rows": 119390,
+    "what": "Hotel booking demand (Antonio et al.): arrival date split across year/month-NAME/day columns, literal 'NULL' strings in agent/company, children 'NA', adr with a negative value and a 5400 outlier, is_canceled 0/1 (revenue should exclude cancellations).",
+    "licence": "CC0-1.0 (tidytuesday repo); paper data CC BY 4.0"
+  },
+  {
+    "file": "hospitality/pizza_order_details.csv",
+    "url": "https://maven-datasets.s3.amazonaws.com/Pizza+Place+Sales/Pizza+Place+Sales.zip",
+    "area": "hospitality",
+    "rows": 48620,
+    "what": "Pizza order lines (order_id, pizza_id, quantity) with no price: revenue needs a join to pizza_prices.csv. Extracted from zip.",
+    "licence": "Maven Analytics Data Playground (free download)"
+  },
+  {
+    "file": "hospitality/pizza_orders.csv",
+    "url": "https://maven-datasets.s3.amazonaws.com/Pizza+Place+Sales/Pizza+Place+Sales.zip",
+    "area": "hospitality",
+    "rows": 21350,
+    "what": "Pizza order headers: date and a SEPARATE time-only column (11:38:36). Extracted from zip.",
+    "licence": "Maven Analytics Data Playground (free download)"
+  },
+  {
+    "file": "hospitality/pizza_prices.csv",
+    "url": "https://maven-datasets.s3.amazonaws.com/Pizza+Place+Sales/Pizza+Place+Sales.zip",
+    "area": "hospitality",
+    "rows": 96,
+    "what": "Pizza price list by pizza_id and size (S/M/L/XL/XXL) - the lookup needed to value the order lines. Extracted from zip.",
+    "licence": "Maven Analytics Data Playground (free download)"
+  },
+  {
+    "file": "hospitality/restaurant_tips.csv",
+    "url": "https://raw.githubusercontent.com/mwaskom/seaborn-data/master/tips.csv",
+    "area": "hospitality",
+    "rows": 244,
+    "what": "Restaurant tips: total_bill and tip (tip % must be a ratio of sums), day as 'Sun'/'Sat', party size.",
+    "licence": "not stated (seaborn-data)"
+  },
+
+  {
+    "file": "survey/ask_a_manager_salary_survey.csv",
+    "url": "https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2021/2021-05-18/survey.csv",
+    "area": "survey",
+    "rows": 26282,
+    "what": "Ask a Manager 2021 salary survey: annual_salary in MANY CURRENCIES (USD, CAD, GBP, EUR, AUD/NZD, 'Other' + free text) so summing/averaging without conversion is wrong; age and experience as bands ('25-34'); free-text country/city spellings; M/D/YYYY H:MM:SS timestamps; multi-line text fields.",
+    "licence": "CC0-1.0 (tidytuesday repo)"
+  },
+  {
+    "file": "survey/hr_employee_survey_responses.xlsx",
+    "url": "https://maven-datasets.s3.amazonaws.com/Employee+Survey+Responses/Employee+Survey+Responses.zip",
+    "area": "survey",
+    "rows": 14725,
+    "what": "Employee engagement survey in LONG form (one row per respondent x question): Likert TEXT ('Strongly Agree'...'Strongly Disagree', 'Not Applicable') with a numeric Response column; second sheet is a data dictionary. Extracted from zip.",
+    "licence": "Maven Analytics Data Playground (free download)"
+  },
+  {
+    "file": "survey/masculinity_survey_raw.csv",
+    "url": "https://raw.githubusercontent.com/fivethirtyeight/data/master/masculinity-survey/raw-responses.csv",
+    "area": "survey",
+    "rows": 1614,
+    "what": "FiveThirtyEight masculinity survey raw responses: blank first header, question CODES as headers (q0004_0001...), Likert text ('Somewhat masculine', 'Often'), 'Not selected' for multi-select, dates '5/10/18 4:01' (2-digit year), survey weight column.",
+    "licence": "CC BY 4.0 (FiveThirtyEight)"
+  },
+  {
+    "file": "survey/nsw_remote_working_survey_2021.csv",
+    "url": "https://maven-datasets.s3.amazonaws.com/Remote+Working+Survey/NSW+Remote+Working+Survey.zip",
+    "area": "survey",
+    "rows": 1512,
+    "what": "NSW Government remote working survey 2021: full question text as headers (very long, with embedded quotes and trailing double spaces), Windows-1252 encoding, answer bands containing percentages ('Rarely or never (less than 10% of my time)'), Likert agreement text. Extracted from zip.",
+    "licence": "Maven Analytics Data Playground (NSW Government open data, CC BY 4.0 origin)"
+  },
+  {
+    "file": "survey/star_wars_survey_two_header_rows.csv",
+    "url": "https://raw.githubusercontent.com/fivethirtyeight/data/master/star-wars-survey/StarWars.csv",
+    "area": "survey",
+    "rows": 1186,
+    "what": "FiveThirtyEight Star Wars survey: TWO HEADER ROWS (row 2 holds sub-answers like 'Response' and film names), blank header cells for multi-select groups, rankings 1-6, Likert favourability text, Windows-1252 bytes (not valid UTF-8).",
+    "licence": "CC BY 4.0 (FiveThirtyEight)"
+  },
+  {
+    "file": "survey/turkiye_student_evaluation_likert_1to5.csv",
+    "url": "https://archive.ics.uci.edu/static/public/262/turkiye+student+evaluation.zip",
+    "area": "survey",
+    "rows": 5820,
+    "what": "Course evaluation answers Q1-Q28 on a numeric 1-5 Likert scale (averages, not sums, are meaningful), instructor/class codes. Extracted from zip.",
+    "licence": "CC BY 4.0 (UCI)"
+  },
+
+  {
+    "file": "timeseries/airline_passengers_monthly.csv",
+    "url": "https://raw.githubusercontent.com/jbrownlee/Datasets/master/airline-passengers.csv",
+    "area": "timeseries",
+    "rows": 144,
+    "what": "Box-Jenkins airline passengers 1949-1960, Month as 'YYYY-MM' (no day), values in thousands.",
+    "licence": "not stated"
+  },
+  {
+    "file": "timeseries/apple_stock_daily.csv",
+    "url": "https://raw.githubusercontent.com/plotly/datasets/master/finance-charts-apple.csv",
+    "area": "timeseries",
+    "rows": 506,
+    "what": "AAPL daily OHLC and volume 2015-2017 with dotted headers ('AAPL.Open'); trading days only (gaps at weekends); Bollinger columns dn/mavg/up; prices must be averaged not summed.",
+    "licence": "MIT (plotly/datasets)"
+  },
+  {
+    "file": "timeseries/daily_min_temperatures.csv",
+    "url": "https://raw.githubusercontent.com/jbrownlee/Datasets/master/daily-min-temperatures.csv",
+    "area": "timeseries",
+    "rows": 3650,
+    "what": "Melbourne daily minimum temperature 1981-1990 (degrees C) - a level measure, summing is meaningless; missing 31 Dec in leap years.",
+    "licence": "not stated"
+  },
+  {
+    "file": "timeseries/flights_year_monthname.csv",
+    "url": "https://raw.githubusercontent.com/mwaskom/seaborn-data/master/flights.csv",
+    "area": "timeseries",
+    "rows": 144,
+    "what": "Same airline passenger series as above but with year and full MONTH NAME in separate columns ('1949','January'): date must be assembled.",
+    "licence": "not stated (seaborn-data)"
+  },
+  {
+    "file": "timeseries/fred_retail_sales_monthly.csv",
+    "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=RSXFS",
+    "area": "timeseries",
+    "rows": 417,
+    "what": "US advance retail sales excl. food services (millions of dollars, monthly, seasonally adjusted) - a monthly rate, so yearly totals are sums but 'average month' is the natural KPI. FRED blocks browser-like user agents.",
+    "licence": "public domain (US Census series via FRED)"
+  },
+  {
+    "file": "timeseries/fred_unemployment_rate_monthly.csv",
+    "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=UNRATE",
+    "area": "timeseries",
+    "rows": 945,
+    "what": "US unemployment rate 1948-2026 in PERCENT (3.4 = 3.4%), first-of-month dates; must never be summed.",
+    "licence": "public domain (BLS series via FRED)"
+  },
+  {
+    "file": "timeseries/mta_daily_ridership.csv",
+    "url": "https://maven-datasets.s3.amazonaws.com/MTA+Daily+Ridership/MTA+Daily+Ridership.zip",
+    "area": "timeseries",
+    "rows": 1706,
+    "what": "NYC MTA daily ridership by mode with paired '% of Comparable Pre-Pandemic Day' columns (whole-number percents, can exceed 100); long headers with colons. Extracted from zip.",
+    "licence": "Maven Analytics Data Playground (MTA open data)"
+  },
+  {
+    "file": "timeseries/nz_electronic_card_transactions_monthly.csv",
+    "url": "https://www.stats.govt.nz/assets/Uploads/Electronic-card-transactions/Electronic-card-transactions-September-2026/Download-data/electronic-card-transactions-september-2026.zip",
+    "area": "timeseries",
+    "rows": 22575,
+    "what": "Stats NZ card spending, many series stacked in long form: Period as decimal 'YYYY.MM' (2001.03), Magnitude column (6 = values in millions), STATUS F/R/C/P, actual vs seasonally adjusted series mixed. Extracted from zip.",
+    "licence": "CC BY 4.0 (Stats NZ)"
+  },
+  {
+    "file": "timeseries/nz_food_price_weighted_average_prices.csv",
+    "url": "https://www.stats.govt.nz/assets/Uploads/Food-price-index/Food-price-index-September-2023/Download-data/food-price-index-september-2023-weighted-average-prices.csv",
+    "area": "timeseries",
+    "rows": 29683,
+    "what": "NZ monthly food prices per item: Period as decimal 'YYYY.MM' where OCTOBER IS WRITTEN '2006.1' (trailing zero dropped) - a numeric parse turns Oct into Jan; prices in NZD per unit size ('Oranges, 1kg').",
+    "licence": "CC BY 4.0 (Stats NZ)"
+  },
+  {
+    "file": "timeseries/seattle_weather.csv",
+    "url": "https://raw.githubusercontent.com/vega/vega-datasets/main/data/seattle-weather.csv",
+    "area": "timeseries",
+    "rows": 1461,
+    "what": "Seattle daily weather 2012-2015: precipitation (summable) next to temperatures (not summable), weather category.",
+    "licence": "not stated (vega-datasets; NOAA source)"
+  },
+  {
+    "file": "timeseries/shampoo_sales.csv",
+    "url": "https://raw.githubusercontent.com/jbrownlee/Datasets/master/shampoo.csv",
+    "area": "timeseries",
+    "rows": 36,
+    "what": "Monthly shampoo sales over 3 years with dates written '1-01', '1-02' (year index - month, no real year); 36 rows, no newline after the last.",
+    "licence": "not stated"
+  },
+  {
+    "file": "timeseries/stocks_long.csv",
+    "url": "https://raw.githubusercontent.com/vega/vega-datasets/main/data/stocks.csv",
+    "area": "timeseries",
+    "rows": 559,
+    "what": "Five tickers' monthly prices in LONG form (symbol, date, price) with dates as 'Jan 1 2000' text; prices must not be summed across symbols.",
+    "licence": "not stated (vega-datasets)"
+  },
+
+  {
+    "file": "wide/eurostat_unemployment_rate_annual_flags.tsv",
+    "url": "https://ec.europa.eu/eurostat/api/dissemination/sdmx/2.1/data/une_rt_a?format=TSV&compressed=false",
+    "area": "wide",
+    "rows": 2394,
+    "what": "Eurostat unemployment, YEARS AS COLUMNS: TAB-separated but the first column packs 5 dimensions joined by commas ('A,Y15-24,PC_ACT,F,AT'), ':' for missing, FLAG LETTERS glued to values ('12.3 b', '7.1 u'), trailing spaces in headers and cells, units mixed (PC_ACT %, PC_POP %, THS_PER thousands).",
+    "licence": "CC BY 4.0 (Eurostat reuse policy)"
+  },
+  {
+    "file": "wide/us_census_state_population_nation_region_state.csv",
+    "url": "https://www2.census.gov/programs-surveys/popest/datasets/2020-2023/state/totals/NST-EST2023-ALLDATA.csv",
+    "area": "wide",
+    "rows": 66,
+    "what": "US Census population estimates 2020-2023, YEARS AS COLUMN SUFFIXES (POPESTIMATE2020...): nation (SUMLEV 010), 4 regions (020), 9 divisions (030) and 52 states (040, incl. DC and Puerto Rico) in ONE table - summing rows triple-counts; trailing comma.",
+    "licence": "public domain (US Census Bureau)"
+  },
+  {
+    "file": "wide/worldbank_gdp_per_capita_years_as_columns.csv",
+    "url": "https://api.worldbank.org/v2/en/indicator/NY.GDP.PCAP.CD?downloadformat=csv",
+    "area": "wide",
+    "rows": 266,
+    "what": "World Bank GDP per capita (current US$), 1960-2025 AS COLUMNS: 4 METADATA LINES before the header, BOM, trailing comma on every line, empty strings for missing, regional/income AGGREGATES ('World', 'High income') mixed with countries. Extracted from zip.",
+    "licence": "CC BY 4.0 (World Bank)"
+  },
+  {
+    "file": "wide/zillow_home_values_metro_wide.csv",
+    "url": "https://files.zillowstatic.com/research/public_csvs/zhvi/Metro_zhvi_uc_sfrcondo_tier_0.33_0.67_sm_sa_month.csv",
+    "area": "wide",
+    "rows": 895,
+    "what": "Zillow Home Value Index by US metro, ~320 MONTH-END DATE COLUMNS (2000-01-31...), blanks before a metro's series starts, 'United States' total row first (SizeRank 0); values are price levels (average, never sum).",
+    "licence": "Zillow Research data (free with attribution, Zillow terms)"
+  },
+
+  {
+    "file": "messy/air_quality_uci_semicolon_comma_decimal.csv",
+    "url": "https://archive.ics.uci.edu/static/public/360/air+quality.zip",
+    "area": "messy",
+    "rows": 9357,
+    "what": "Italian air-quality sensor log: SEMICOLON delimiter, COMMA DECIMALS ('2,6'), DD/MM/YYYY dates with time as '18.00.00', -200 sentinel for missing, two EMPTY trailing columns (';;') and ~114 BLANK ';;;;' rows at the end.",
+    "licence": "CC BY 4.0 (UCI)"
+  },
+  {
+    "file": "messy/austria_cpi_semicolon_comma_decimal_coded.csv",
+    "url": "https://data.statistik.gv.at/data/OGD_vpi15_VPI_2015_1.csv",
+    "area": "messy",
+    "rows": 1690,
+    "what": "Statistik Austria CPI (base 2015): SEMICOLON delimiter, COMMA DECIMALS with negatives ('-0,90000'), period encoded in a code ('VPIZR-201601' = Jan 2016), coded headers (F-VPIMZBM) needing the OGD dictionary, index levels and % changes side by side.",
+    "licence": "CC BY 4.0 (Statistik Austria OGD)"
+  },
+  {
+    "file": "messy/bank_churn_messy.xlsx",
+    "url": "https://maven-datasets.s3.amazonaws.com/Bank+Customer+Churn/Bank+Customer+Churn.zip",
+    "area": "messy",
+    "rows": 20003,
+    "what": "Deliberately messy 2-sheet churn workbook (Customer_Info, Account_Info, join on CustomerId): balances/salaries as EURO TEXT ('€101348.88'), inconsistent country spellings ('FRA', 'France', 'French'), Account_Info has one more row than Customer_Info (duplicate customer), Yes/No text flags. Extracted from zip.",
+    "licence": "Maven Analytics Data Playground (free download)"
+  },
+  {
+    "file": "messy/flights_missing_codes.json",
+    "url": "https://raw.githubusercontent.com/byuidatascience/data4missing/master/data-raw/flights_missing/flights_missing.json",
+    "area": "messy",
+    "rows": 924,
+    "what": "Airport delay summary as JSON with planted missing-value codes: -999 sentinels, '1500+' strings in numeric fields, empty strings, 'n/a', month names misspelt ('Febuary').",
+    "licence": "not stated (BYU-Idaho teaching data)"
+  },
+  {
+    "file": "messy/germany_ettlingen_budget_semicolon_subtotals.csv",
+    "url": "https://opendata.readi.de/dataset/5026aaa7-07cc-4b27-9d9a-468fa692978c/resource/a9ce9466-fde4-4451-818c-84ef531da634/download/ergebnisshaushalt-2024-2025.csv",
+    "area": "messy",
+    "rows": 6,
+    "what": "Tiny German municipal P&L (Ergebnishaushalt): SEMICOLON delimiter, BOM, CRLF, YEARS AS COLUMNS, expenses NEGATIVE, and SUBTOTAL rows ('1.3 ... Saldo aus 1.1 und 1.2') that double count if summed.",
+    "licence": "not checked (Ettlingen open data portal)"
+  },
+  {
+    "file": "messy/inc5000_companies_2019.csv",
+    "url": "https://maven-datasets.s3.amazonaws.com/INC+5000+Companies/INC+5000+Companies+2019.csv.zip",
+    "area": "messy",
+    "rows": 5012,
+    "what": "Inc. 5000 2019: revenue as TEXT with scale words ('36.9 Million', '1.1 Billion'), growth_% as a whole-number percent (36680.3882), BOM. Extracted from zip.",
+    "licence": "Maven Analytics Data Playground (free download)"
+  },
+  {
+    "file": "messy/indian_startup_funding_lakh_grouping.csv",
+    "url": "https://raw.githubusercontent.com/darpana-chauhan/Indian-Startup-Funding-Analysis/HEAD/startup_funding.csv",
+    "area": "messy",
+    "rows": 3043,
+    "what": "Indian startup funding: 'Amount in USD' written with INDIAN LAKH/CRORE GROUPING ('20,00,00,000', '80,48,394'), 'undisclosed'/'unknown' text, dd/mm/yyyy dates (header says so) with a few malformed dates, literal '\\\\xc2\\\\xa0' escape junk in names, BOM.",
+    "licence": "not stated (Kaggle 'Indian Startup Funding' copy)"
+  },
+  {
+    "file": "messy/pivot_export_opportunity_tracking.xlsx",
+    "url": "https://raw.githubusercontent.com/microsoft/powerbi-desktop-samples/main/powerbi-service-samples/Opportunity%20Tracking%20Sample%20no%20PV.xlsx",
+    "area": "messy",
+    "rows": 487,
+    "what": "A PIVOT-TABLE OUTPUT sheet ('Row Labels' ... 'Grand Total') plus an attribution 'Info' sheet; the underlying data sits only in the Power Pivot model, so the visible table is aggregated and includes a total row.",
+    "licence": "obviEnce sample (attribution required: 'obviEnce ©')"
+  },
+  {
+    "file": "messy/sales_orders_json_in_csv_cells.csv",
+    "url": "https://maven-datasets.s3.amazonaws.com/Data+Drills/sales_orders.csv",
+    "area": "messy",
+    "rows": 1810,
+    "what": "Orders where 'line_items' is a pretty-printed JSON ARRAY inside a quoted CSV cell spanning many physical lines (doubled quotes), BOM; line-level amounts exist only inside the JSON.",
+    "licence": "Maven Analytics Data Playground (free download)"
+  },
+  {
+    "file": "messy/spain_population_semicolon_thousands_percent.csv",
+    "url": "https://zenodo.org/records/4263211/files/Population_of_Spain_Historical.csv",
+    "area": "messy",
+    "rows": 23,
+    "what": "Spain population 1955-2050 (history and UN projections mixed): SEMICOLON delimiter but COMMA THOUSANDS separators and DOT decimals ('29,048,395', '28.6') - the opposite of what a semicolon usually implies; percentages as '0.69 %' strings with a space; negative migrants '-101,007'.",
+    "licence": "not checked (Zenodo record 4263211)"
+  },
+  {
+    "file": "messy/unicorn_companies_valuation_strings.csv",
+    "url": "https://maven-datasets.s3.amazonaws.com/Unicorn+Companies/Unicorn+Companies.zip",
+    "area": "messy",
+    "rows": 1074,
+    "what": "Unicorn companies: Valuation and Funding as text with currency and scale suffixes ('$180B', '$8B', '$500M', 'Unknown'), investor lists with commas inside quotes. Extracted from zip.",
+    "licence": "Maven Analytics Data Playground (free download)"
+  }
+]

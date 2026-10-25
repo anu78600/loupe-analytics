@@ -215,6 +215,8 @@ interface WorkspaceState {
   business: BusinessContext;
   // Overrides sent to the worker on every configure (see ContextRequest).
   mappingOverrides: Record<string, string | null>;
+  /** The date column chosen with "Dates by" (ContextRequest.primaryDate); null = Loupe's choice. */
+  primaryDate: string | null;
   classOverrides: Record<string, string[]>;
   /** Column → corrected role; a "Read as …" correction on Detect also carries the kind it stands for. */
   roleOverrides: Record<string, RoleOverride>;
@@ -397,6 +399,8 @@ interface WorkspaceState {
   setBusiness: (patch: Partial<BusinessContext>) => void;
   // setMappingOverride, setClassOverride, setRoleOverride, renameKpi and setSubDomain each trigger reconfigure().
   setMappingOverride: (fieldId: string, column: string | null) => void;
+  /** "Dates by": reads every date filter, KPI and time chart by this column, then reconfigures. */
+  setDateColumn: (column: string) => void;
   /** Replaces every mapping override at once (the "Undo" of a mapping change) and reconfigures. */
   setMappingOverrides: (overrides: Record<string, string | null>) => void;
   setClassOverride: (key: string, values: string[]) => void;
@@ -525,6 +529,7 @@ function initialData(): WorkspaceData {
     subDomainId: null,
     business: {},
     mappingOverrides: {},
+    primaryDate: null,
     classOverrides: {},
     roleOverrides: {},
     outcome: undefined,
@@ -808,7 +813,11 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
       return;
     }
     retireRequests();
-    if (!keepCurrency) useSettings.getState().setCurrencyOverride(null);
+    // A file with no currency of its own takes the one the user chose for such files (settings).
+    if (!keepCurrency)
+      useSettings
+        .getState()
+        .setCurrencyOverride(res.profile.currency.code ? null : useSettings.getState().defaultCurrency);
     // The automatic number format follows this file's currency from Detect on, not the last file's.
     useSettings
       .getState()
@@ -1082,6 +1091,7 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
         // "Auto" means the shape detection picked for this industry, so every path reads it the same way.
         subDomainId: shapeFor(s, domainId, subDomainId) ?? undefined,
         mappingOverrides: s.mappingOverrides,
+        primaryDate: s.primaryDate,
         classOverrides: s.classOverrides,
         roleOverrides: s.roleOverrides,
         kpiRenames: s.kpiRenames,
@@ -1310,6 +1320,22 @@ export const useWorkspace = create<WorkspaceState>()((set, get) => {
       const ctx = get().context;
       const label = ctx?.domain.fields.find((f) => f.id === fieldId)?.label;
       if (ctx && label) teach((r) => teachField(r, ctx.domain.id, fieldId, { column, label }));
+      void get().reconfigure();
+    },
+
+    setDateColumn: (column) => {
+      const ctx = get().context;
+      if (!ctx) return;
+      // The industry's own date field is re-mapped (as Check & map would), and the profile's primary date
+      // follows, so the data-led charts agree. A custom range belongs to the old dates, so it is dropped.
+      set((s) => ({
+        primaryDate: column,
+        mappingOverrides: ctx.dateField
+          ? { ...s.mappingOverrides, [ctx.dateField]: column }
+          : s.mappingOverrides,
+        customRange: null,
+        datePreset: s.datePreset === "custom" ? "all" : s.datePreset,
+      }));
       void get().reconfigure();
     },
 

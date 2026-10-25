@@ -1,0 +1,8 @@
+{
+  "timeseries/nz_food_price_weighted_average_prices.csv": [
+    "MAP account_type → Group: text"
+  ],
+  "wide/us_census_state_population_nation_region_state.csv": [
+    "MAP order_id → NAME: geo"
+  ]
+}

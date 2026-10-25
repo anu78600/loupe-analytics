@@ -378,6 +378,11 @@ const PRIMARY_DATE_HINTS = [
   "day",
   "timestamp",
   "datetime",
+  // A loan's issue or disbursement is its event (Lending Club's issue_d, version 52.2).
+  "issue",
+  "issued",
+  "disbursement",
+  "disbursed",
 ];
 const SECONDARY_DATE_HINTS = [
   "ship",
@@ -405,6 +410,17 @@ const SECONDARY_DATE_HINTS = [
   "discharge",
   "maturity",
   "signup",
+  // Dates that describe the row rather than record its event (Lending Club's earliest_cr_line, the
+  // borrower's first credit line, led its trend charts; version 52.2).
+  "earliest",
+  "first",
+  "last",
+  "next",
+  "pull",
+  "since",
+  "opened",
+  "established",
+  "founded",
 ];
 
 /**

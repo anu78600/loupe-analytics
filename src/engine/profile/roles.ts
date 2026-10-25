@@ -630,6 +630,10 @@ const isLeadTime = (t: readonly string[]): boolean => t.includes("lead") && t.in
 /** Countable things: safe to sum. Also vetoes rules that would make a count a time attribute, row ID or category code. */
 const QUANTITY_TOKENS = new Set([
   "quantity",
+  // Nights stayed and reorder points are counts and quantities, never calendar positions or codes (51.x
+  // corpus: "stays_in_week_nights", "reorderLevel"; version 52.2).
+  "night",
+  "reorder",
   "unit",
   "item",
   "count",
@@ -877,6 +881,43 @@ const headNoun = (t: readonly string[]): string =>
 /** Scale words: a count written in millions or lakhs ("Net Adds (Mn)") need not be whole. */
 const SCALE_TOKENS = new Set(["million", "billion", "thousand", "lakh", "crore"]);
 /** Names under which a few small whole numbers are category codes (tier 1–3, priority 1–5). */
+/**
+ * A numbered till, store or machine ("register" 1–5, "Store" 1–45): a label for where something happened,
+ * never a figure to add up or a 1–5 rating (version 52.2: a grocery file's register was averaged as a score).
+ */
+const NUMBERED_PLACE_TOKENS = new Set([
+  "register",
+  "till",
+  "counter",
+  "lane",
+  "terminal",
+  "kiosk",
+  "desk",
+  "machine",
+  "gate",
+  "store",
+  "outlet",
+  "branch",
+]);
+/**
+ * Names of an organisation, not a place: "Department" holding "DE" and "Defra" is not 67% Delaware
+ * (version 52.2). Such a column is geography only when nearly all its values are places.
+ */
+const ORGANISATION_TOKENS = new Set([
+  "department",
+  "dept",
+  "agency",
+  "ministry",
+  "directorate",
+  "division",
+  "organisation",
+  "organization",
+  "entity",
+  "team",
+  "supplier",
+  "vendor",
+  "company",
+]);
 const DIMENSION_CODE_TOKENS = new Set([
   "type",
   "category",
@@ -1341,7 +1382,10 @@ function numericRole(x: RoleInput): RoleDecision {
       return decide("dimension", 0.88, "Month numbers 1–12 are a time attribute.");
     if (t.includes("quarter") && min >= 1 && max <= 4)
       return decide("dimension", 0.88, "Quarter numbers 1–4 are a time attribute.");
-    const rateOrCount = t.some((x) => x === "per" || x === "count" || x === "total" || x === "quantity");
+    // Nights stayed are a count, not a week's position ("stays_in_week_nights", version 52.2).
+    const rateOrCount = t.some(
+      (x) => x === "per" || x === "count" || x === "total" || x === "quantity" || x === "night",
+    );
     if (
       min >= 0 &&
       !rateOrCount &&
@@ -1608,6 +1652,22 @@ function numericRole(x: RoleInput): RoleDecision {
   if (moneyNamed && !explicitCount && !pluralCount && !MEASURED_HEADS.has(headNoun(t)))
     return money("The name says it is money (amount, price, revenue…).", 0.85);
 
+  // A numbered register, till or store: a label, never a figure or a rating.
+  // In the plural ("Outlets Billed", "Stores") the name counts them instead.
+  const placesCounted =
+    /\b(registers|tills|counters|lanes|terminals|kiosks|desks|machines|gates|stores|outlets|branches)\b/i.test(
+      x.name,
+    );
+  if (
+    integer &&
+    has(t, NUMBERED_PLACE_TOKENS) &&
+    !has(t, QUANTITY_TOKENS) &&
+    !counted &&
+    !moneyNamed &&
+    !placesCounted
+  ) {
+    return decide("dimension", 0.75, "A numbered register, store or machine: a label, not a figure.");
+  }
   // At most 10 distinct whole numbers under a category-like name (tier, priority, rating) are codes.
   if (integer && x.distinct <= 10 && has(t, DIMENSION_CODE_TOKENS) && !has(t, QUANTITY_TOKENS) && !counted) {
     return decide("dimension", 0.7, "A small set of whole-number codes, treated as categories.");
@@ -1737,7 +1797,12 @@ function stringRole(x: RoleInput): RoleDecision {
   if (!condition) {
     // States and provinces: 60% recognised values, or 30% when the name agrees, named after their country.
     const stateShare = patternShare(p, "state");
-    if (stateShare >= 0.6 || (has(t, STATE_TOKENS) && stateShare >= 0.3)) {
+    // An organisation's name ("Department": "DE", "Defra") is a place only when nearly every value is one.
+    const organisation = has(t, ORGANISATION_TOKENS);
+    if (
+      (stateShare >= 0.6 || (has(t, STATE_TOKENS) && stateShare >= 0.3)) &&
+      (!organisation || stateShare >= 0.95)
+    ) {
       const region = x.stateRegion;
       return decide(
         "geo",
@@ -1753,7 +1818,10 @@ function stringRole(x: RoleInput): RoleDecision {
       patternShare(p, "country"),
       countryNamed ? patternShare(p, "countrycode") : 0,
     );
-    if (countryShare >= 0.6 || (countryNamed && countryShare >= 0.3)) {
+    if (
+      (countryShare >= 0.6 || (countryNamed && countryShare >= 0.3)) &&
+      (!organisation || countryShare >= 0.95)
+    ) {
       return decide("geo", 0.9, `${pct(countryShare)} of values are recognised countries.`, {
         geoLevel: "country",
         geoRegion: "WORLD",

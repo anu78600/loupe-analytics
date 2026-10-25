@@ -2388,7 +2388,9 @@ export function chartSubtitle(
   const f = [...formats][0];
   const unit =
     f === "currency"
-      ? `In ${currencySymbol(fmt.currency).trim()}`
+      ? currencySymbol(fmt.currency).trim()
+        ? `In ${currencySymbol(fmt.currency).trim()}`
+        : ""
       : f === "percent"
         ? "In %"
         : f === "integer"

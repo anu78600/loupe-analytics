@@ -274,9 +274,12 @@ function averageFormat(c: ColumnProfile): KpiDef["format"] {
   return c.role === "currency" ? "currency" : "decimal";
 }
 
-/** How a sum of a column is shown. */
+/**
+ * How a sum of a column is shown: a count only for whole numbers that never go below zero, so amounts
+ * written in whole euros ("2025": −8,839,720) read as amounts, not counts (version 52.2).
+ */
 const sumFormat = (c: ColumnProfile): KpiDef["format"] =>
-  c.role === "currency" ? "currency" : c.numeric?.integer ? "integer" : "number";
+  c.role === "currency" ? "currency" : c.numeric?.integer && (c.numeric.min ?? 0) >= 0 ? "integer" : "number";
 
 const capitalise = (s: string) => `${s.charAt(0).toUpperCase()}${s.slice(1)}`;
 /** "Average GDP" → "average GDP" inside a name; a leading acronym keeps its capitals. */

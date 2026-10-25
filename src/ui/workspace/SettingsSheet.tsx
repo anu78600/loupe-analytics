@@ -48,15 +48,24 @@ export function SettingsSheet({
   const setAuto = useSettings((s) => s.setNumberFormatAuto);
   const applyAuto = useSettings((s) => s.applyAutoNumberLocale);
   const currency = useSettings((s) => s.currencyOverride);
-  const setCurrency = useSettings((s) => s.setCurrencyOverride);
+  const setOverride = useSettings((s) => s.setCurrencyOverride);
+  const defaultCurrency = useSettings((s) => s.defaultCurrency);
+  const setDefaultCurrency = useSettings((s) => s.setDefaultCurrency);
+  const hasFile = useWorkspace((s) => Boolean(s.profile));
   const newColumns = useSettings((s) => s.newColumns);
   const setNewColumns = useSettings((s) => s.setNewColumns);
   const ai = useSettings((s) => s.ai);
   const setAi = useSettings((s) => s.setAi);
-  const detected = useWorkspace((s) => s.profile?.currency.code ?? "INR");
+  // "" when the file has no currency: amounts show with no symbol.
+  const detected = useWorkspace((s) => s.profile?.currency.code ?? "");
   // Below this confidence the code is the default, not something found in the file.
   const evidence = useWorkspace((s) => (s.profile?.currency.confidence ?? 0) >= 0.5);
   const sampleCurrency = currency ?? detected;
+  // A currency chosen for a file that shows none is remembered for the next such file.
+  const setCurrency = (code: string | null) => {
+    setOverride(code);
+    if (hasFile && !detected) setDefaultCurrency(code);
+  };
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" title="Settings" description="Preferences are stored in this browser only.">
@@ -115,7 +124,7 @@ export function SettingsSheet({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="auto">
-                    {evidence ? "Detected" : "Default"} ({detected})
+                    {evidence ? "Detected" : "Default"} ({detected || "no symbol"})
                   </SelectItem>
                   {SUPPORTED_CURRENCIES.map((c) => (
                     <SelectItem key={c} value={c} hint={currencySymbol(c).trim()}>
@@ -124,6 +133,18 @@ export function SettingsSheet({
                   ))}
                 </SelectContent>
               </Select>
+              {defaultCurrency ? (
+                <p className="flex flex-wrap items-center gap-x-2 text-xs text-fg-muted">
+                  Files without a currency use {defaultCurrency}.
+                  <button
+                    type="button"
+                    onClick={() => setDefaultCurrency(null)}
+                    className="rounded-sm text-accent-text underline-offset-2 hover:underline focus-visible:focus-ring"
+                  >
+                    Forget
+                  </button>
+                </p>
+              ) : null}
             </div>
           </section>
           <Separator />

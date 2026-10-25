@@ -61,6 +61,7 @@ import { buildGenericDomain, GENERIC_ID, genericFill, type GenericFill } from "@
 import { withPercentScales } from "@/engine/kpi/percentScale";
 import { withLedgerConventions } from "@/engine/kpi/ledger";
 import { withKpiLimits } from "@/engine/kpi/limits";
+import { reconcile, type Reconciliation } from "@/engine/kpi/reconcile";
 import { checkFieldBounds, type RejectedMapping } from "@/engine/detect/relations";
 import { withLearnedSynonyms, type LearnedSynonym } from "@/engine/detect/learned";
 import { grainLabel } from "@/engine/profile/structure";
@@ -239,6 +240,12 @@ export interface ContextRequest {
   numberLocale: NumberLocale;
   /** ISO 4217 code chosen by the user, or null to use the currency detected in the profile. */
   currency: string | null;
+  /**
+   * The date column chosen with "Dates by" on the period filter (version 52.2): the primary date of the
+   * profile the analysis reads, so the data-led dashboard and the column charts follow it; an industry's
+   * own date field follows through mappingOverrides. Ignored unless it is a calendar date column in use.
+   */
+  primaryDate?: string | null;
 }
 
 /** A KPI as the UI sees it: definition, availability and its compiled SQL/DAX. */
@@ -341,6 +348,10 @@ export interface ContextResult {
   charts: ChartSpec[];
   skippedCharts: SkippedChart[];
   /** Original name of the primary date column; null when there is none or it did not parse as dates. */
+  /** The industry field behind dateColumn, which "Dates by" re-maps; null for the data-led dashboard. */
+  /** Totals that must add up, tested over the whole file (kpi/reconcile.ts); shown in Data health. */
+  reconciliations: Reconciliation[];
+  dateField: string | null;
   dateColumn: string | null;
   /**
    * Min/max of dateColumn (wall-clock epoch ms), ignoring blanks, and how
@@ -404,6 +415,13 @@ export interface ContextFit {
 export const WEAK_FIT_SHARE = 0.25;
 /** An industry with fewer core fields mapped than this fits weakly, whatever else it fills. */
 export const WEAK_FIT_CORE = 2;
+/**
+ * Below this detection confidence (%), an industry that fills less than UNSURE_FIT_SHARE of the columns
+ * fits weakly too (version 52.2): Czech bank loans read as Telecom (38%, 3 of 7 columns), hospital
+ * readmissions as Banking, startup funding as Education, each with a passable share of columns.
+ */
+export const UNSURE_CONFIDENCE = 40;
+export const UNSURE_FIT_SHARE = 0.5;
 /** Below this detection confidence (%), an understanding names no industry unless one was chosen. */
 export const INDUSTRY_LABEL_MIN = 35;
 /** Id prefix of the "What moves …" fields, KPIs and charts added to a strong-fit industry (column extras). */
@@ -419,14 +437,57 @@ export const FILL_BELOW_CHARTS = 3;
  * user KPI fields join it): the distinct columns its fields fill among the
  * columns in use, and whether that is too little to build its dashboard on.
  */
-export function fitOf(domain: DomainDef, mapping: Mapping, profile: DatasetProfile): ContextFit {
+export function fitOf(
+  domain: DomainDef,
+  mapping: Mapping,
+  profile: DatasetProfile,
+  /** The industry's detection confidence (%), when detection scored it. */
+  confidence?: number,
+): ContextFit {
   const inUse = profile.columns.filter((c) => c.nullPct < 0.999);
   if (domain.id === GENERIC_ID) return { mapped: inUse.length, columns: inUse.length, weak: false };
   const names = new Set(inUse.map((c) => c.name));
   const mapped = new Set(Object.values(mapping.fields).filter((c) => names.has(c))).size;
   const core = domain.fields.filter((f) => f.core && names.has(mapping.fields[f.id] ?? "")).length;
-  const weak = inUse.length > 0 && (mapped < WEAK_FIT_SHARE * inUse.length || core < WEAK_FIT_CORE);
+  const unsure =
+    confidence !== undefined && confidence < UNSURE_CONFIDENCE && mapped < UNSURE_FIT_SHARE * inUse.length;
+  const weak = inUse.length > 0 && (mapped < WEAK_FIT_SHARE * inUse.length || core < WEAK_FIT_CORE || unsure);
   return { mapped, columns: inUse.length, weak };
+}
+
+/**
+ * The hero KPIs of an industry that fits the file weakly (version 52.2): the plan's highest-scored KPIs,
+ * so the data-led ones lead, not the template's ("Work items" on a film survey, "Units produced" on a
+ * list of hospitals). The template's KPIs that lose a hero slot head the supporting ones; the column
+ * KPIs that gain one leave their own section. Also used when the template has no hero it can compute.
+ */
+export function planLedHeroes(selection: KpiSelection, plan: readonly PlannedAnalysis[]): KpiSelection {
+  const shown = new Set([...selection.hero, ...selection.supporting, ...selection.columns]);
+  const ranked = plan
+    .filter((p) => p.type === "kpi" && shown.has(p.id))
+    .sort((a, b) => b.score - a.score)
+    .map((p) => p.id);
+  if (!ranked.length) return selection;
+  const hero = ranked.slice(0, Math.max(4, Math.min(6, selection.hero.length)));
+  const lead = new Set(hero);
+  const rest = [...selection.hero, ...selection.supporting].filter((id) => !lead.has(id));
+  return {
+    ...selection,
+    hero,
+    supporting: rest.slice(0, 12),
+    detail: [...rest.slice(12), ...selection.detail],
+    columns: selection.columns.filter((id) => !lead.has(id)),
+  };
+}
+
+/** The plan with its KPIs in the order the selection shows them (hero, supporting, other columns). */
+function planInSelectionOrder(plan: PlannedAnalysis[], selection: KpiSelection): PlannedAnalysis[] {
+  const kpis = new Map(plan.filter((p) => p.type === "kpi").map((p) => [p.id, p]));
+  const order = [...selection.hero, ...selection.supporting, ...selection.columns];
+  return [
+    ...plan.filter((p) => p.type !== "kpi"),
+    ...order.map((id) => kpis.get(id)).filter((p): p is PlannedAnalysis => Boolean(p)),
+  ];
 }
 
 /** One chart to compute. Optional fields carry per-widget overrides from the dashboard. */
@@ -933,7 +994,7 @@ export class Session {
     if (!fit) {
       const domain = withLearnedSynonyms([registered], this.learned)[0] as DomainDef;
       const mapping = buildMapping(domain, active, assignFields(domain, matchableColumns(active)), {});
-      fit = fitOf(domain, mapping, active);
+      fit = fitOf(domain, mapping, active, confidence);
     }
     // What one row is: the best sub-domain's grain when it is a plain noun ("order line", "employee"),
     // else the industry's entity.
@@ -1079,7 +1140,11 @@ export class Session {
     const profile = scoped.profile;
     this.profile = profile;
     this.hidden = scoped.hidden;
-    const active = scoped.active;
+    // "Dates by": the user's date column becomes the primary date of the profile the analysis reads.
+    const chosenDate = req.primaryDate
+      ? scoped.active.columns.find((c) => c.name === req.primaryDate && c.role === "datetime")
+      : undefined;
+    const active = chosenDate ? { ...scoped.active, primaryDate: chosenDate.name } : scoped.active;
     this.active = active;
     const generic = req.domainId === GENERIC_ID || !getDomain(req.domainId);
     // With the words the user taught, so a learned header fills its field here as on Detect.
@@ -1104,7 +1169,15 @@ export class Session {
     const ledger = industry && bounded ? withLedgerConventions(industry, bounded.mapping, ds) : null;
     const industryMapping = ledger?.mapping ?? bounded?.mapping ?? null;
     // How well the industry fits, read before the column and user KPIs add identity fields of their own.
-    const industryFit = industry && industryMapping ? fitOf(industry, industryMapping, active) : null;
+    const industryFit =
+      industry && industryMapping
+        ? fitOf(
+            industry,
+            industryMapping,
+            active,
+            this.detection?.candidates.find((c) => c.domainId === industry.id)?.confidence,
+          )
+        : null;
     // What the table is about, with the user's outcome and the chosen industry as its label: the
     // generic dashboard, the data-led charts and the plan are designed from it.
     const detail = understandDetailed(active, ds, {
@@ -1255,7 +1328,7 @@ export class Session {
       if (extra.charts.length) view = withExtras(view, extra);
     }
     ({ domain, mapping, res } = view);
-    const selection = selectKpis(res);
+    let selection = selectKpis(res);
     const recommended = recommendCharts({
       domain,
       mapping,
@@ -1294,6 +1367,13 @@ export class Session {
       kpiName: (id) => displayName(req.kpiRenames ?? {}, id, res.get(id)?.def.name ?? id),
     });
     const specs = planned.charts;
+    // A weakly fitting industry, or one with no hero it can compute, leads with the plan's KPIs; the
+    // plan then lists its KPIs in that order, as it does for every other dashboard.
+    let plan = planned.plan;
+    if (domain.id !== GENERIC_ID && (fit.weak || !selection.hero.length)) {
+      selection = planLedHeroes(selection, planned.plan);
+      plan = planInSelectionOrder(planned.plan, selection);
+    }
 
     const names = compileNames(ds, domain, req.kpiRenames);
     const resolver = makeResolver(ds, mapping, res);
@@ -1422,6 +1502,8 @@ export class Session {
       charts: specs,
       skippedCharts: skipped,
       dateColumn,
+      dateField: domain.id === GENERIC_ID ? null : (dateField ?? null),
+      reconciliations: reconcile(ds, res, resolver, mapping),
       dateBounds: dateBounds(ds, dateColumn),
       profile: active,
       hiddenColumns: ds.columns.filter((c) => this.hidden.has(c.name)).map((c) => c.name),
@@ -1433,7 +1515,7 @@ export class Session {
       dimensions,
       fit,
       understanding,
-      plan: planned.plan,
+      plan,
       rejectedMappings: bounded?.rejected ?? [],
     };
   }

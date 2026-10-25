@@ -422,7 +422,7 @@ export function columnExtras(input: ColumnExtrasInput): ColumnExtras {
           ? "currency"
           : how === "average"
             ? "decimal"
-            : c.numeric?.integer
+            : c.numeric?.integer && (c.numeric.min ?? 0) >= 0
               ? "integer"
               : "number";
     let expr: Expr;

@@ -48,6 +48,14 @@ Meanwhile the analyst basics are missing: Excel export, a pivot table, calculate
 
 ## Stage 1: Corrections (trust first, no backend)
 
+**Done in version 52.2.** What changed from the plan:
+
+- **1.1:** a currency chosen for a file without one is remembered for the next such file (Settings → Currency, with "Forget").
+- **1.6:** without a currency mark, amounts named by year read as amounts (not counts) but carry no symbol.
+- **1.9:** the audit is `npm run corpus` then `npm run audit`, against `tests/fixtures/audit-baseline.json`. The repo has no CI yet, so it runs locally.
+
+Left over: data-led KPIs on code-like number columns ("Total date" for a yymmdd column, "Total Footnote"), and the two baseline flags.
+
 | #   | Correction                                                                                                                                | Why it matters to an analyst                                                                                                                             | Done when                                                                                                                         |
 | --- | ----------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
 | 1.1 | **No ₹ by default.** A file with no currency shows plain numbers, not ₹. The Myanmar supermarket file showed ₹.                           | A wrong currency on a client deck is an instant credibility loss.                                                                                        | A file with no currency sign or code shows no symbol until the user picks one. Indian files (₹, Rs, INR, lakh/crore) still get ₹. |

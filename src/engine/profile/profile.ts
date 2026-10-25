@@ -373,10 +373,12 @@ export function profileColumn(col: Column, index: number, rowCount: number): Col
 /**
  * Dataset currency, by strength of evidence: symbols or codes in the values
  * (the code found in most columns), a currency word or symbol in a money
- * column's name, Indian vs US geography, and finally the caller's hint (INR
- * by default).
+ * column's name, Indian vs US geography, and finally the caller's hint.
+ * With no evidence at all the code is "" (version 52.2): amounts show with no
+ * symbol until the user picks a currency, since a guessed ₹ or $ on someone
+ * else's money is wrong in front of a client.
  */
-export function detectCurrency(cols: ColumnProfile[], hint = "INR"): CurrencyInfo {
+export function detectCurrency(cols: ColumnProfile[], hint = ""): CurrencyInfo {
   const tally = new Map<string, number>();
   for (const c of cols) if (c.currency) tally.set(c.currency, (tally.get(c.currency) ?? 0) + 1);
   if (tally.size) {
@@ -399,7 +401,9 @@ export function detectCurrency(cols: ColumnProfile[], hint = "INR"): CurrencyInf
   if (geoUS && !geoIN) return { code: "USD", source: "US states in the data", confidence: 0.65 };
   return {
     code: hint,
-    source: "No currency evidence; using your default. Change it in Settings.",
+    source: hint
+      ? "No currency evidence; using your default. Change it in Settings."
+      : "No currency in the file, so amounts show without a symbol. Pick one in Settings.",
     confidence: 0.3,
   };
 }

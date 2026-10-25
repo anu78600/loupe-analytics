@@ -804,8 +804,14 @@ function BusinessFields() {
   const business = useWorkspace((s) => s.business);
   const setBusiness = useWorkspace((s) => s.setBusiness);
   const currencyOverride = useSettings((s) => s.currencyOverride);
-  const setCurrency = useSettings((s) => s.setCurrencyOverride);
+  const setOverride = useSettings((s) => s.setCurrencyOverride);
+  const setDefaultCurrency = useSettings((s) => s.setDefaultCurrency);
   const profileCurrency = useWorkspace((s) => s.profile?.currency);
+  // A currency chosen for a file that shows none is remembered for the next such file.
+  const setCurrency = (code: string | null) => {
+    setOverride(code);
+    if (profileCurrency && !profileCurrency.code) setDefaultCurrency(code);
+  };
   return (
     <div className="grid gap-4">
       <div className="grid gap-1.5">
@@ -877,7 +883,7 @@ function BusinessFields() {
               {/* "Detected" only when the file showed a currency; otherwise it is the default. */}
               <SelectItem value="auto">
                 {(profileCurrency?.confidence ?? 0) >= 0.5 ? "Detected" : "Default"}:{" "}
-                {profileCurrency?.code ?? "INR"}
+                {profileCurrency?.code || "no symbol"}
               </SelectItem>
               {SUPPORTED_CURRENCIES.map((c) => (
                 <SelectItem key={c} value={c} hint={currencySymbol(c).trim()}>

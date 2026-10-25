@@ -52,7 +52,8 @@ const reading = (v: number) => {
     decimals: a >= 100 ? 0 : a >= 10 ? 1 : a >= 1 ? 2 : 3,
   });
 };
-const money = (v: number) => formatValue(v, "currency", { locale: "INTL", currency: "INR" });
+// The houses file names no currency, so amounts show with no symbol (version 52.2).
+const money = (v: number) => formatValue(v, "currency", { locale: "INTL", currency: "" });
 const rText = (r: number) => `r = ${r.toFixed(2).replace("-", "−")}`;
 const kindOf = (u: DataUnderstanding, column: string) => u.columns.find((c) => c.name === column)?.kind;
 

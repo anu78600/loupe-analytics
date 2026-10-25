@@ -368,8 +368,13 @@ describe("attainment, variance and growth", () => {
     expect(attain?.name).toBe("Payroll attainment vs budget");
     expect(variance?.name).toBe("Payroll variance vs budget");
     expect(attain?.definition).toMatch(/template doesn't compare/);
-    expect(ctx.selection.columns).toEqual(expect.arrayContaining([attain?.id, variance?.id]));
-    expect(ctx.selection.hero).not.toContain(attain?.id);
+    // HR fits a payroll budget weakly (no employee, hire date or status), so the comparison of its own
+    // columns leads the hero row (version 52.2) rather than the HR template's KPIs.
+    expect(ctx.fit.weak).toBe(true);
+    expect(ctx.selection.hero).toEqual(expect.arrayContaining([attain?.id]));
+    expect([...ctx.selection.hero, ...ctx.selection.columns]).toEqual(
+      expect.arrayContaining([attain?.id, variance?.id]),
+    );
     const ec = (s as unknown as { exportContext(): ExportContext }).exportContext();
     const bundle = s.verificationBundle();
     const conn = await loadIntoDuckDB(ec.ds, bundle.table, ec.names.columns);

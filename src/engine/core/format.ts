@@ -65,7 +65,9 @@ export const CURRENCY_SYMBOLS: Record<string, string> = {
 
 export const SUPPORTED_CURRENCIES = Object.keys(CURRENCY_SYMBOLS);
 
+/** The symbol shown before an amount; "" for no currency (a file with none), so amounts are plain numbers. */
 export function currencySymbol(code: string): string {
+  if (!code) return "";
   return CURRENCY_SYMBOLS[code] ?? `${code} `;
 }
 

@@ -21,3 +21,6 @@ next-env.d.ts
 
 # local scratch output
 /tmp
+
+# Public test files for npm run audit (downloaded by npm run corpus; never committed)
+.corpus/

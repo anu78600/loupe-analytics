@@ -161,7 +161,8 @@ describe("the insights say what moves the outcome, on the rows selected", async 
     const avg = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
     const yes = avg(kept.filter((r) => r[1] === 1).map((r) => Number(r[9])));
     const no = avg(kept.filter((r) => r[1] !== 1).map((r) => Number(r[9])));
-    const f = (v: number) => formatValue(v, "currency", { locale: "INTL", currency: "INR" });
+    // The Titanic file names no currency, so fares show with no symbol (version 52.2).
+    const f = (v: number) => formatValue(v, "currency", { locale: "INTL", currency: "" });
     return `average ${f(yes)} Fare, against ${f(no)} for the rest`;
   };
 
