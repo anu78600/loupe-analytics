@@ -25,9 +25,10 @@ const csp = [
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
-  // The development-only Next.js badge defaults to the bottom-left corner, where the workspace
-  // sidebar keeps its collapse button (version 50.1); production never shows it.
-  devIndicators: { position: "bottom-right" },
+  // No development-only Next.js badge: the bottom-left corner holds the sidebar's collapse button
+  // (version 50.1) and the bottom-right the workspace's own quick menu (ui/workspace/shell/QuickMenu.tsx,
+  // version 52.1). Build and runtime errors still open the framework's overlay.
+  devIndicators: false,
   experimental: {
     optimizePackageImports: ["lucide-react"],
   },

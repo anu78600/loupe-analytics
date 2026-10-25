@@ -41,6 +41,31 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "52.1",
+    kind: "minor",
+    date: "2026-10-25T05:33:21Z",
+    title: "A quick menu in the corner, as professional apps have",
+    summary:
+      "A round button in the bottom-right corner of the workspace opens a quick menu: search, the actions that fit where you are, help, the theme and settings. Press ? anywhere to open it.",
+    changes: [
+      "Search or run any command from the top of the menu, the same as Ctrl+K (⌘K on a Mac).",
+      "Quick actions follow where you are: before any data, upload a file or try a demo; with a dashboard, ask for a chart, manage charts, chart colours, ask a question, insights, and export & share, from any step.",
+      "Help in one place: the glossary and what's new open in a new tab, so your data stays loaded, and send feedback is one click away. The keyboard shortcuts are listed at the bottom.",
+      "Switch between light, dark and automatic themes, or open the settings, without leaving the page.",
+      "A dot on the button marks a new version you haven't seen yet.",
+      "The button rises above the next-step bar so it never covers its buttons, and messages appear above it.",
+    ],
+    tags: ["Feature", "Design"],
+    files: [
+      "src/ui/workspace/shell/QuickMenu.tsx",
+      "src/ui/workspace/Workspace.tsx",
+      "src/ui/workspace/dashboard/AskChart.tsx",
+      "src/ui/workspace/flow/FlowDock.tsx",
+      "src/ui/common/providers.tsx",
+      "next.config.ts",
+    ],
+  },
+  {
     version: "52.0",
     kind: "major",
     date: "2026-10-25T04:37:41Z",

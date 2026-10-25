@@ -9,7 +9,9 @@
  * toasts, asks before a reload or leaving the page would drop a loaded
  * dataset, hosts the confirmation dialog (askConfirm), and reconfigures the
  * session when the number format or currency changes (worker-side text such
- * as chart descriptions and exports depends on them).
+ * as chart descriptions and exports depends on them). Hosts the quick menu
+ * (shell/QuickMenu.tsx) and the one "Ask for a chart" dialog it and the
+ * dashboard open (AskChartHost).
  */
 import * as React from "react";
 import { AnimatePresence, motion } from "framer-motion";
@@ -34,6 +36,8 @@ import { SettingsSheet } from "./SettingsSheet";
 import { CustomiseStep } from "./customise/CustomiseStep";
 import { ChartColoursSheet } from "./ChartColours";
 import { ConfirmHost } from "./confirm";
+import { QuickMenu } from "./shell/QuickMenu";
+import { AskChartHost } from "./dashboard/AskChart";
 
 export function Workspace({ version }: { version: string }) {
   const step = useWorkspace((s) => s.step);
@@ -186,6 +190,12 @@ export function Workspace({ version }: { version: string }) {
       />
       <SettingsSheet open={settingsOpen} onOpenChange={setSettingsOpen} version={version} />
       <ChartColoursSheet />
+      <AskChartHost />
+      <QuickMenu
+        version={version}
+        onOpenCommand={() => setCommandOpen(true)}
+        onOpenSettings={() => setSettingsOpen(true)}
+      />
       <ConfirmHost />
     </div>
   );

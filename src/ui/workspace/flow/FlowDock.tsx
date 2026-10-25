@@ -43,6 +43,8 @@ export function FlowDock({
 }) {
   return (
     <div
+      // Marks the page as having a dock, so the quick menu in the corner rises above it (shell/QuickMenu.tsx).
+      data-flow-dock
       className={cn(
         "no-print sticky bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-30 mt-10 lg:bottom-5",
         className,

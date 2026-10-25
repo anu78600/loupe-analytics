@@ -27,11 +27,16 @@
  * clamped, with the full text behind hover, a long press or the ⓘ
  * (ui/primitives/reveal.tsx); warnings stay in view.
  *
+ * One dialog for the whole workspace (AskChartHost, mounted by Workspace),
+ * opened through useAskChartPanel: by the dashboard header's button and by
+ * the quick menu (shell/QuickMenu.tsx), on either tab.
+ *
  * The dialog opens on the question's field (with a mouse or trackpad; on
  * touch, on the dialog itself, so no keyboard springs up), never on the ⓘ in
  * its description (the Dialog primitive's `initialFocus`).
  */
 import * as React from "react";
+import { create } from "zustand";
 import { CornerDownLeft, MessageSquarePlus, Plus, Sparkles, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -166,16 +171,40 @@ export function AskChartDialog({
   );
 }
 
+type AskTab = "ask" | "charts";
+
+/** Open state of the dialog and the tab it opens on, shared by the dashboard header and the quick menu. */
+export const useAskChartPanel = create<{
+  open: boolean;
+  tab: AskTab;
+  show: (tab?: AskTab) => void;
+  setOpen: (open: boolean) => void;
+}>()((set) => ({
+  open: false,
+  tab: "ask",
+  show: (tab = "ask") => set({ open: true, tab }),
+  setOpen: (open) => set({ open }),
+}));
+
+/** The one dialog useAskChartPanel opens; mounted once by Workspace. */
+export function AskChartHost() {
+  const open = useAskChartPanel((s) => s.open);
+  const tab = useAskChartPanel((s) => s.tab);
+  const setOpen = useAskChartPanel((s) => s.setOpen);
+  return <AskChartDialog key={tab} open={open} onOpenChange={setOpen} initialTab={tab} />;
+}
+
 /** The dashboard-header button that opens the dialog. */
 export function AskChartButton({ className }: { className?: string }) {
-  const [open, setOpen] = React.useState(false);
   return (
-    <>
-      <Button variant="primary" size="sm" className={className} onClick={() => setOpen(true)}>
-        <MessageSquarePlus aria-hidden /> Ask for a chart
-      </Button>
-      <AskChartDialog open={open} onOpenChange={setOpen} />
-    </>
+    <Button
+      variant="primary"
+      size="sm"
+      className={className}
+      onClick={() => useAskChartPanel.getState().show("ask")}
+    >
+      <MessageSquarePlus aria-hidden /> Ask for a chart
+    </Button>
   );
 }
 
