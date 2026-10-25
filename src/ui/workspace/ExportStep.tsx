@@ -37,6 +37,11 @@
  * BI, SQL and the data files cover the whole file, so the SQL check compares
  * with Loupe's whole-file values and says so.
  *
+ * Since version 56.0 the data card leads with an Excel workbook: the
+ * dashboard's KPIs, a sheet per chart, the rows behind them (its period and
+ * filters) and the dictionary, in Excel's own formats (engine/export/
+ * workbook.ts); the CSV still holds every row.
+ *
  * The insights are looked for when the page opens, so their card and the
  * page's preview show them. Text is kept short: each card says what it is in
  * a few words, with the full description and notes behind it or an ⓘ
@@ -72,6 +77,7 @@ export { buildConfig };
 import { useSettings } from "@/store/settings";
 import { powerBiTheme, resolveTheme } from "@/ui/charts/palette/themes";
 import { engine } from "@/lib/engine-client";
+import { defaultPageTitle } from "./dashboard/page/pagePlan";
 import { cn, downloadBlob, exportFileName } from "@/lib/utils";
 import type { VerificationResult } from "@/lib/duckdb";
 import { Button } from "@/ui/primitives/button";
@@ -240,8 +246,8 @@ export function ExportStep() {
         step="export"
         className="mb-8"
         title="Take it anywhere"
-        lead="Slides show your view; data files, every row."
-        leadFull="The one page, the report, the slides and the insights show the dashboard as you see it, with its period and filters; Power BI, SQL and the data cover the whole file."
+        lead="Reports and Excel show your view; CSV and SQL, every row."
+        leadFull="The one page, the report, the slides, the insights and the Excel workbook show the dashboard as you see it, with its period and filters; Power BI, SQL and the CSV cover the whole file."
         aside={
           // Capped, so a long file or sheet name truncates (whole on hover or a long press) rather
           // than widening the page: the viewport less its gutters on a phone, 24rem beside the heading.
@@ -1213,7 +1219,11 @@ function SqlCard() {
 function DataCard({ alone }: { alone?: boolean }) {
   const summary = useWorkspace((s) => s.summary);
   const profile = useWorkspace((s) => s.profile);
+  const viewRows = useWorkspace((s) => s.lastCompute?.rows ?? null);
   const locale = useSettings((s) => s.numberLocale);
+  const reportInput = useReportInput();
+  const { charts } = useReportCharts();
+  const [making, setMaking] = React.useState(false);
   const [rows, setRows] = React.useState<Array<Array<string | null>> | null>(null);
   // The first rows of the data, as the data grid shows them, under the file's own headers.
   React.useEffect(() => {
@@ -1257,29 +1267,90 @@ function DataCard({ alone }: { alone?: boolean }) {
       toast.error((e as Error).message);
     }
   };
+  // The dashboard as a workbook: its KPIs and charts as shown, the rows behind them, the dictionary.
+  const excel = async () => {
+    const input = reportInput();
+    const s = useWorkspace.getState();
+    const ctx = s.context;
+    if (!input || !ctx) return;
+    setMaking(true);
+    try {
+      const roster = ctx.domain.subDomains.find((x) => x.id === ctx.subDomainId)?.timeModel === "roster";
+      const title =
+        s.pageTitle?.trim() ||
+        defaultPageTitle(ctx.domain.name, {
+          generic: ctx.domain.generic,
+          roster,
+          weak: ctx.fit.weak,
+          understood: ctx.understanding?.title,
+        });
+      const facts = [
+        { label: "Period", value: input.periodName ? `${input.periodName}: ${input.period}` : input.period },
+        ...(input.comparison ? [{ label: "Compared with", value: input.comparison }] : []),
+        { label: "Filters", value: input.filters },
+        ...(input.dataTo ? [{ label: "Data to", value: input.dataTo }] : []),
+        { label: "File", value: input.isDemo ? `${input.fileName} (demo data)` : input.fileName },
+        { label: "Made", value: input.generatedAt },
+      ];
+      const bytes = await engine().exportXlsx({
+        filters: s.filters(),
+        kpis: [...input.hero, ...input.supporting].map(({ meta }) => ({
+          id: meta.id,
+          name: meta.name,
+          format: meta.format,
+          definition: meta.definition,
+          ...(meta.unavailableReason ? { unavailableReason: meta.unavailableReason } : {}),
+        })),
+        charts: input.charts.map((c) => ({ id: c.spec.id, title: c.spec.title })),
+        title,
+        subtitle: input.subtitle,
+        facts,
+        numberLocale: locale,
+      });
+      downloadBlob(
+        new Blob([bytes as BlobPart], {
+          type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        }),
+        name("dashboard", "xlsx"),
+      );
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setMaking(false);
+    }
+  };
   if (!summary) return null;
   const headers = profile?.columns.map((c) => c.name) ?? [];
   return (
     <GalleryCard
       alone={alone}
-      title="Data and dictionary"
-      line="Your cleaned rows, and what each column means."
-      full="The cleaned data as a CSV, with your own headers and tidied values, and a data dictionary describing every column: its type, role, unit, range and examples."
-      formats={["CSV"]}
+      title="Excel and data"
+      line="Your dashboard in Excel, or every cleaned row."
+      full="An Excel workbook with the dashboard's KPIs, a sheet of values for each chart, the rows behind them (the dashboard's period and filters) and the data dictionary, in Excel's own number and date formats. Or the whole cleaned file as a CSV, with your own headers, and the dictionary on its own."
+      formats={["XLSX", "CSV"]}
       // Only when the headers and the rows line up (the same columns, in the same order).
       preview={
         <DataPreview headers={headers} rows={rows && rows[0]?.length === headers.length ? rows : null} />
       }
-      fact={`${formatCount(summary.rowCount, locale)} rows · ${summary.columnCount} columns described`}
+      fact={`Excel: ${charts.length} chart${charts.length === 1 ? "" : "s"}, ${formatCount(viewRows ?? summary.rowCount, locale)} rows · CSV: all ${formatCount(summary.rowCount, locale)}`}
       actions={
         <>
+          <Button
+            variant="secondary"
+            className="min-w-0 flex-1 px-3"
+            onClick={() => void excel()}
+            disabled={making}
+            aria-label=".xlsx: Excel workbook"
+          >
+            <DownloadIcon busy={making} /> Excel
+          </Button>
           <Button
             variant="secondary"
             className="min-w-0 flex-1 px-3"
             onClick={() => void data()}
             aria-label=".csv: Cleaned data"
           >
-            <Download aria-hidden /> Cleaned data
+            <Download aria-hidden /> CSV
           </Button>
           <Button
             variant="secondary"

@@ -41,6 +41,34 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "56.0",
+    kind: "major",
+    date: "2026-10-25T17:30:44Z",
+    title: "Your dashboard as an Excel workbook",
+    summary:
+      "Export › Excel and data now makes an Excel workbook of the dashboard: its KPIs, a sheet of values for each chart, the rows behind them and the data dictionary, with real numbers and dates in Excel's own formats, so you can carry on in Excel or Google Sheets.",
+    changes: [
+      "Summary: the dashboard's period, comparison and filters, then every KPI with its value, its change, the two figures the change runs from and to, what it compares and its definition.",
+      "One sheet per chart on the dashboard, with the values it draws; months are real dates, so they sort and filter as dates.",
+      "Data: the rows behind the dashboard (its period and filters) under your own headers, so a sum in Excel equals the dashboard's total. The CSV still has every row.",
+      "Dictionary: what each column is, its type, range and examples.",
+      "Amounts carry your currency symbol, rates show as percentages, changes are signed with a true minus (“−1.3%”, “+0.3 pp”), and dates are written as 2026-10-25. Excel groups digits the way your computer does (lakh and crore on an Indian setting).",
+      "Headers are bold and stay in view as you scroll, every table has filter buttons, and columns are wide enough for their figures.",
+      "Made in this tab like every export: nothing is uploaded.",
+    ],
+    tags: ["Feature"],
+    files: [
+      "src/engine/export/xlsx.ts",
+      "src/engine/export/workbook.ts",
+      "src/engine/export/chartTable.ts",
+      "src/engine/session.ts",
+      "src/workers/engine.worker.ts",
+      "src/ui/workspace/ExportStep.tsx",
+      "docs/ROADMAP.md",
+      "tests/xlsx-export.test.ts",
+    ],
+  },
+  {
     version: "55.0",
     kind: "major",
     date: "2026-10-25T17:10:47Z",

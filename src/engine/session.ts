@@ -82,7 +82,7 @@ import {
 import { kpiQuery, quoteIdent } from "@/engine/compile/sql";
 import { exprDax } from "@/engine/compile/dax";
 import type { Resolver } from "@/engine/query/evaluate";
-import { describeFilter, type Filter, selectRowsCached } from "@/engine/query/filter";
+import { describeFilter, type Filter, selectRows, selectRowsCached } from "@/engine/query/filter";
 import type { Expr } from "@/engine/query/expr";
 import { customSpec, recommendCharts, type SkippedChart } from "@/engine/charts/recommend";
 import { computeChartData, type DrillState } from "@/engine/charts/data";
@@ -100,8 +100,10 @@ import { dashboardCharts } from "@/engine/export/dashboardCharts";
 import { generateSqlFile } from "@/engine/export/sqlFile";
 import { dateRelColumn, generateDaxFile } from "@/engine/export/daxFile";
 import { newColumnsFor, type NewColumn } from "@/engine/export/readme";
-import { dictionaryCsv, dictionaryMarkdown } from "@/engine/export/dictionary";
-import { datasetToCsvChunks, roundAggregate, tableToCsv } from "@/engine/export/csv";
+import { dictionaryCsv, dictionaryMarkdown, dictionaryRows } from "@/engine/export/dictionary";
+import { dashboardWorkbook, type WorkbookKpi } from "@/engine/export/workbook";
+import { datasetToCsvChunks, tableToCsv } from "@/engine/export/csv";
+import { chartTable } from "@/engine/export/chartTable";
 import { unpivotDataset } from "@/engine/parse/unpivot";
 import { pivotDataset, pivotPlan, pivotSummary, type PivotPlan } from "@/engine/parse/pivot";
 import { DOMAINS, getDomain } from "@/registry";
@@ -203,6 +205,21 @@ export interface UnderstandRequest {
   numberLocale?: NumberLocale;
   /** ISO 4217 code for money in the sentences; null or absent for the detected currency. */
   currency?: string | null;
+}
+
+/**
+ * The dashboard as the Excel workbook shows it (version 56.0, export/workbook.ts): its filters, its
+ * KPIs (as named and formatted on the dashboard) and its charts, with what the figures cover.
+ */
+export interface XlsxRequest {
+  filters: Filter[];
+  kpis: Array<WorkbookKpi & { id: string }>;
+  /** The charts on the dashboard, under their shown titles, as last computed. */
+  charts: Array<{ id: string; title: string }>;
+  title: string;
+  subtitle: string;
+  facts: Array<{ label: string; value: string }>;
+  numberLocale: NumberLocale;
 }
 
 /** Everything configure() needs; the UI rebuilds it from the workspace store on every reconfigure. */
@@ -2379,6 +2396,40 @@ export class Session {
   }
 
   /**
+   * The dashboard as an Excel workbook (version 56.0): its KPIs computed for its filters, its charts
+   * as last computed (the dashboard's own figures), the rows behind them and the dictionary.
+   */
+  exportXlsx(req: XlsxRequest): Uint8Array {
+    const ds = this.requireDs();
+    // The workbook's KPI values without disturbing the batch insights() reads.
+    const { lastBatch, lastFilters } = this;
+    const batch = this.kpiBatch(
+      req.filters,
+      req.kpis.map((k) => k.id),
+      req.numberLocale,
+    );
+    this.lastBatch = lastBatch;
+    this.lastFilters = lastFilters;
+    const values = new Map(batch.values.map((v) => [v.id, v]));
+    const ec = this.exportContext();
+    return dashboardWorkbook({
+      title: req.title,
+      subtitle: req.subtitle,
+      facts: req.facts,
+      kpis: req.kpis.map((meta) => ({ meta, value: values.get(meta.id) })),
+      charts: req.charts.flatMap((c) => {
+        const data = this.lastCharts.get(c.id);
+        return data ? [{ title: c.title, headline: data.headline, data }] : [];
+      }),
+      ds,
+      columns: ec.profile.columns,
+      rows: selectRows(ds, this.usable(req.filters)),
+      dictionary: dictionaryRows(ec),
+      currency: ec.currency ?? "",
+    });
+  }
+
+  /**
    * The whole dataset as UTF-8 CSV bytes (unfiltered). Headers use the
    * export-safe names once a context exists, the original names before.
    * `guard` applies the formula-injection guard; verificationBundle() turns
@@ -2413,63 +2464,8 @@ export class Session {
   chartCsv(specId: string): string {
     const data = this.lastCharts.get(specId);
     if (!data) return "";
-    const csv = (header: readonly string[], rows: ReadonlyArray<ReadonlyArray<string | number | null>>) =>
-      tableToCsv(
-        header,
-        rows.map((r) => r.map((c) => (typeof c === "number" ? roundAggregate(c) : c))),
-      );
-    if (data.rfm)
-      return csv(
-        [
-          "Segment",
-          "Customers",
-          "Customer share",
-          "Revenue",
-          "Revenue share",
-          "Average recency (days)",
-          "Average frequency",
-          "Average monetary value",
-        ],
-        data.rfm.map((s) => [
-          s.segment,
-          s.customers,
-          s.customerShare,
-          s.revenue,
-          s.revenueShare,
-          s.avgRecency,
-          s.avgFrequency,
-          s.avgMonetary,
-        ]),
-      );
-    if (data.cohorts)
-      return csv(
-        ["Cohort", "Customers", ...(data.cohorts[0]?.retention.map((_, i) => `Month ${i}`) ?? [])],
-        data.cohorts.map((c) => [c.label, c.size, ...c.retention]),
-      );
-    if (data.basket)
-      return csv(
-        ["Item A", "Item B", "Orders together", "Support", "Confidence A→B", "Confidence B→A", "Lift"],
-        data.basket.pairs.map((p) => [p.a, p.b, p.orders, p.support, p.confidenceAB, p.confidenceBA, p.lift]),
-      );
-    if (data.matrix && data.seriesCategories) {
-      return csv(
-        ["", ...data.categories.map((c) => c.label)],
-        data.seriesCategories.map((s, i) => [s.label, ...(data.matrix?.[i] ?? [])]),
-      );
-    }
-    if (data.funnel)
-      return csv(
-        ["Stage", "Value", "From previous", "From first"],
-        data.funnel.map((f) => [f.label, f.value, f.fromPrev, f.fromFirst]),
-      );
-    return csv(
-      [data.axisLabel ?? "Category", ...data.series.map((s) => s.label), "Rows"],
-      data.categories.map((c, i) => [
-        c.label,
-        ...data.series.map((s) => s.values[i] ?? null),
-        data.rows[i] ?? null,
-      ]),
-    );
+    const t = chartTable(data);
+    return tableToCsv(t.header, t.rows);
   }
 
   /**

@@ -20,6 +20,7 @@ import {
   type DashboardRequest,
   type QuestionRequest,
   type UnderstandRequest,
+  type XlsxRequest,
 } from "@/engine/session";
 import type { IngestOptions } from "@/engine/core/types";
 import type { LearnedSynonym } from "@/engine/detect/learned";
@@ -147,6 +148,12 @@ const api = {
   },
 
   chartCsv: (specId: string) => session.chartCsv(specId),
+
+  /** The dashboard as an Excel workbook (version 56.0); its bytes are handed over, not copied. */
+  exportXlsx(req: XlsxRequest) {
+    const bytes = session.exportXlsx(req);
+    return Comlink.transfer(bytes, [bytes.buffer]);
+  },
 
   verificationBundle() {
     const b = session.verificationBundle();
